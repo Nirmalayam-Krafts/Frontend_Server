@@ -9,7 +9,7 @@ import Home from './website/pages/Home';
 import Products from './website/pages/Products';
 import About from './website/pages/About';
 import Contact from './website/pages/Contact';
-import AccountSpace from './website/pages/AccountSpace';
+import ProductCategory from './website/pages/ProductCategory';
 import DesignYourProduct from './website/pages/DesignYourProduct';
 import NotFound from './website/pages/NotFound';
 
@@ -42,9 +42,9 @@ function Layout() {
           {/* ── Website ── */}
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/products/:categoryId" element={<ProductCategory />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/account" element={<AccountSpace />} />
           <Route path="/design" element={<DesignYourProduct />} />
 
           {/* ── Policy stubs (redirect to about for now) ── */}

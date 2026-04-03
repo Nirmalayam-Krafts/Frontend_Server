@@ -19,7 +19,6 @@ const policyLinks = [
 const supportLinks = [
   { label: 'About Us', to: '/about' },
   { label: 'Contact Us', to: '/contact' },
-  { label: 'Account Space', to: '/account' },
   { label: 'Bulk Order Enquiry', to: '/contact' },
 ];
 

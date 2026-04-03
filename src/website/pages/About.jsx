@@ -1,16 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Leaf, TreePine, Droplets, Truck, Recycle, Heart, Globe, Users, Award, ArrowRight, Check } from 'lucide-react';
 
-/* ── Timeline ── */
-const timeline = [
-  { year: '2018', event: 'Founded in Bengaluru with a vision to eliminate plastic packaging from Indian retail.' },
-  { year: '2019', event: 'Launched first product line — Ecocraft Bags, serving 50+ local boutiques.' },
-  { year: '2021', event: 'Received FSC certification and expanded operations to a 20,000 sq ft manufacturing unit.' },
-  { year: '2022', event: 'Crossed 5,000 brand partners. Launched F&B Gourmet and Luxury Bag collections.' },
-  { year: '2024', event: 'Achieved carbon-neutral certification. Pan-India delivery to all 28 states.' },
-  { year: '2026', event: 'Serving 12,000+ brands across India with zero-plastic manufacturing.' },
-];
-
 /* ── Values ── */
 const values = [
   { icon: Leaf, title: 'Artisanal Craft', desc: 'Each fold and crease is meticulously inspected by our artisans, ensuring a flawless finish for high-end retail.' },
@@ -115,81 +105,6 @@ export default function About() {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ── Timeline ── */}
-      <section className="section-padding" id="history" style={{
-        background: 'linear-gradient(160deg, var(--kraft-950) 0%, var(--kraft-900) 100%)',
-      }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--eco-400)', marginBottom: 12 }}>Our Journey</div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 52px)', color: 'white', fontWeight: 600 }}>Milestones of Impact</h2>
-          </div>
-
-          <div style={{ maxWidth: 760, margin: '0 auto', position: 'relative' }}>
-            {/* Vertical line */}
-            <div style={{
-              position: 'absolute',
-              left: '50%',
-              top: 0,
-              bottom: 0,
-              width: 2,
-              background: 'linear-gradient(to bottom, var(--eco-500), var(--kraft-800))',
-              transform: 'translateX(-50%)',
-            }} />
-
-            {timeline.map((item, i) => (
-              <div key={item.year} style={{
-                display: 'flex',
-                gap: 32,
-                alignItems: 'center',
-                marginBottom: 48,
-                flexDirection: i % 2 === 0 ? 'row' : 'row-reverse',
-              }}>
-                {/* Card */}
-                <div style={{
-                  flex: 1,
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '24px 28px',
-                  backdropFilter: 'blur(8px)',
-                  textAlign: i % 2 === 0 ? 'right' : 'left',
-                }}>
-                  <div style={{ fontSize: 13, color: 'var(--kraft-400)', marginBottom: 8 }}>{item.event}</div>
-                </div>
-
-                {/* Year bubble */}
-                <div style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, var(--eco-700), var(--eco-500))',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: 14,
-                  color: 'white',
-                  flexShrink: 0,
-                  zIndex: 1,
-                  boxShadow: '0 0 0 6px rgba(22,163,74,0.2)',
-                }}>
-                  {item.year}
-                </div>
-
-                <div style={{ flex: 1 }} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <style>{`
-          @media (max-width: 640px) {
-            [data-timeline] { flex-direction: column !important; }
-          }
-        `}</style>
       </section>
 
       {/* ── Green Print (Sustainability) ── */}

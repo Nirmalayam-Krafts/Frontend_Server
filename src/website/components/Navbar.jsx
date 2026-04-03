@@ -8,9 +8,9 @@ const navLinks = [
     label: 'Products',
     to: '/products',
     children: [
-      { label: 'Ecocraft Bags', to: '/products#ecocraft' },
-      { label: 'F&B Gourmet Bags', to: '/products#fnb' },
-      { label: 'Luxury Bags', to: '/products#luxury' },
+      { label: 'Ecocraft Bags', to: '/products/ecocraft' },
+      { label: 'F&B Gourmet Bags', to: '/products/fnb' },
+      { label: 'Luxury Bags', to: '/products/luxury' },
     ],
   },
   { label: 'Design Your Product', to: '/design' },
@@ -187,28 +187,6 @@ export default function Navbar() {
 
           {/* Right Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Link
-              to="/account"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-full)',
-                fontFamily: "'Inter', sans-serif",
-                fontSize: '13px',
-                fontWeight: 600,
-                textDecoration: 'none',
-                color: scrolled || !isHome ? 'var(--kraft-800)' : 'rgba(255,255,255,0.9)',
-                border: `1.5px solid ${scrolled || !isHome ? 'var(--kraft-300)' : 'rgba(255,255,255,0.3)'}`,
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = scrolled || !isHome ? 'var(--kraft-100)' : 'rgba(255,255,255,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              <User size={15} />
-              Account
-            </Link>
 
             <Link to="/contact" className="btn-primary" style={{ padding: '9px 22px', fontSize: '13px' }}>
               <span>Get a Quote</span>
@@ -281,25 +259,6 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
-            <div style={{ marginTop: 16, borderTop: '1px solid var(--kraft-200)', paddingTop: 16 }}>
-              <NavLink
-                to="/account"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: '16px',
-                  fontWeight: 500,
-                  textDecoration: 'none',
-                  color: 'var(--kraft-800)',
-                }}
-              >
-                <User size={18} /> Account
-              </NavLink>
-            </div>
           </div>
         </div>
       )}
