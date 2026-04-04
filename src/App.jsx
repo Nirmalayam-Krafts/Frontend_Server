@@ -1,46 +1,113 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+/* Website */
+import Navbar from "./website/components/Navbar";
+import Footer from "./website/components/Footer";
+import Home from "./website/pages/Home";
+import Products from "./website/pages/Products";
+import About from "./website/pages/About";
+import Contact from "./website/pages/Contact";
+import ProductCategory from "./website/pages/ProductCategory";
+import DesignYourProduct from "./website/pages/DesignYourProduct";
+import NotFound from "./website/pages/NotFound";
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 text-white flex flex-col items-center justify-center p-4">
-      <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-12 shadow-2xl flex flex-col items-center gap-8 max-w-2xl w-full text-center">
-        <div className="flex gap-8 items-center justify-center animate-bounce">
-          <a href="https://vite.dev" target="_blank" rel="noreferrer">
-            <img src={viteLogo} className="w-24 h-24 hover:scale-110 transition-transform duration-300 drop-shadow-[0_0_2em_#646cffaa]" alt="Vite logo" />
-          </a>
-          <a href="https://react.dev" target="_blank" rel="noreferrer">
-            <img src={reactLogo} className="w-24 h-24 hover:scale-110 transition-transform duration-300 drop-shadow-[0_0_2em_#61dafbaa]" alt="React logo" />
-          </a>
-        </div>
-        
-        <h1 className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-          Vite + React + Tailwind CSS
-        </h1>
-        
-        <div className="flex flex-col items-center gap-6">
-          <button 
-            onClick={() => setCount((count) => count + 1)}
-            className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-full font-bold text-lg shadow-lg hover:shadow-indigo-500/30 active:scale-95 transition-all duration-200"
-          >
-            Count is {count}
-          </button>
-          
-          <p className="text-gray-300 text-lg">
-            Edit <code className="bg-black/30 px-2 py-1 rounded text-pink-400">src/App.jsx</code> and save to test HMR
-          </p>
-        </div>
-        
-        <p className="text-sm text-gray-400 mt-4 italic">
-          Powering the next generation of eco-friendly digital experiences for Nirmalyam Krafts.
-        </p>
-      </div>
-    </div>
-  )
+/* Dashboard */
+import Dashboard from "./Dashboard/pages/dashboard/Dashboard";
+import Leads from "./Dashboard/pages/leads/Leads";
+import Inventory from "./Dashboard/pages/inventory/Inventory";
+import Orders from "./Dashboard/pages/orders/Orders";
+import Finance from "./Dashboard/pages/finance/Finance";
+import Analytics from "./Dashboard/pages/analytics/Analytics";
+import Settings from "./Dashboard/pages/settings/Settings";
+
+/* Store + UI */
+import { useUIStore } from "./Dashboard/store";
+import { Toast } from "./Dashboard/components/ui";
+
+/* Scroll to top on route change */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pathname]);
+
+  return null;
 }
 
-export default App
+function AppLayout() {
+  const { pathname } = useLocation();
+  const notification = useUIStore((state) => state.notification);
+
+  /* Hide website navbar/footer on dashboard pages */
+  const dashboardRoutes = [
+    "/dashboard",
+    "/leads",
+    "/inventory",
+    "/orders",
+    "/finance",
+    "/analytics",
+    "/settings",
+  ];
+
+  const isDashboardRoute = dashboardRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  return (
+    <>
+      <ScrollToTop />
+
+      {!isDashboardRoute && <Navbar />}
+
+      <main>
+        <Routes>
+          {/* Website Routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/products/:categoryId" element={<ProductCategory />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/design" element={<DesignYourProduct />} />
+
+          {/* Policy / Extra Pages */}
+          <Route path="/privacy" element={<NotFound />} />
+          <Route path="/returns" element={<NotFound />} />
+          <Route path="/shipping" element={<NotFound />} />
+          <Route path="/terms" element={<NotFound />} />
+
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/leads" element={<Leads />} />
+          <Route path="/inventory" element={<Inventory />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/finance" element={<Finance />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/settings" element={<Settings />} />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+
+      {!isDashboardRoute && <Footer />}
+
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onClose={() => useUIStore.setState({ notification: null })}
+        />
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppLayout />
+    </Router>
+  );
+}
