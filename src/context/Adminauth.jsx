@@ -9,7 +9,7 @@ const axiosInstance  = axios.create({
 })
 export const AuthContextProvider = ({children})=>{
  return (
-    <AuthContext.Provider value={axiosInstance}>
+    <AuthContext.Provider value={{axiosInstance}}>
         {children}
     </AuthContext.Provider>
  )

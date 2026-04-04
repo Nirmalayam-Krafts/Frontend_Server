@@ -11,7 +11,7 @@ import Contact from "./website/pages/Contact";
 import ProductCategory from "./website/pages/ProductCategory";
 import DesignYourProduct from "./website/pages/DesignYourProduct";
 import NotFound from "./website/pages/NotFound";
-
+import { Toaster } from "react-hot-toast";
 /* Dashboard */
 import Dashboard from "./Dashboard/pages/dashboard/Dashboard";
 import Leads from "./Dashboard/pages/leads/Leads";
@@ -20,12 +20,13 @@ import Orders from "./Dashboard/pages/orders/Orders";
 import Finance from "./Dashboard/pages/finance/Finance";
 import Analytics from "./Dashboard/pages/analytics/Analytics";
 import Settings from "./Dashboard/pages/settings/Settings";
+import Login from "./Dashboard/auth/Login"
+import Signup from "./Dashboard/auth/Signup";
 
 /* Store + UI */
 import { useUIStore } from "./Dashboard/store";
 import { Toast } from "./Dashboard/components/ui";
 
-/* Scroll to top on route change */
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -40,9 +41,10 @@ function AppLayout() {
   const { pathname } = useLocation();
   const notification = useUIStore((state) => state.notification);
 
-  /* Hide website navbar/footer on dashboard pages */
   const dashboardRoutes = [
     "/dashboard",
+    "/dashboard/login",
+    "/dashboard/signup",
     "/leads",
     "/inventory",
     "/orders",
@@ -57,6 +59,7 @@ function AppLayout() {
 
   return (
     <>
+    <Toaster position="top-right" reverseOrder={false} />
       <ScrollToTop />
 
       {!isDashboardRoute && <Navbar />}
@@ -70,6 +73,10 @@ function AppLayout() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/design" element={<DesignYourProduct />} />
+
+          {/* Auth Routes */}
+          <Route path="/dashboard/login" element={<Login />} />
+          <Route path="/dashboard/signup" element={<Signup />} />
 
           {/* Policy / Extra Pages */}
           <Route path="/privacy" element={<NotFound />} />

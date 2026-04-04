@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { Mail, Phone, MapPin, MessageCircle, Clock, Send, Check, AlertCircle } from 'lucide-react';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3010';
+import { useAuthContext } from '../../context/Adminauth';
+import { useQueryClient } from '@tanstack/react-query';
 
 /* ── Quick info cards ── */
 const contacts = [
@@ -69,9 +69,9 @@ const faqs = [
 
 const PRODUCT_OPTIONS = [
   { value: '', label: 'Select a product...' },
-  { value: 'Ecocraft Bags',    label: 'Ecocraft Bags' },
+  { value: 'Ecocraft Bags', label: 'Ecocraft Bags' },
   { value: 'F&B Gourmet Bags', label: 'F&B Gourmet Bags' },
-  { value: 'Luxury Bags',      label: 'Luxury Kraft Bags' },
+  { value: 'Luxury Bags', label: 'Luxury Kraft Bags' },
 ];
 
 const INITIAL_FORM = {
@@ -80,12 +80,13 @@ const INITIAL_FORM = {
 };
 
 export default function Contact() {
-  const [form, setForm]           = useState(INITIAL_FORM);
+  const { axiosInstance } = useAuthContext()
+  const [form, setForm] = useState(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState('');
-  const [openFaq, setOpenFaq]     = useState(null);
-
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [openFaq, setOpenFaq] = useState(null);
+  const queryClient = useQueryClient()
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -96,29 +97,26 @@ export default function Contact() {
 
     try {
       const payload = {
-        name:             form.name.trim(),
-        email:            form.email.trim(),
-        phone:            form.phone.trim()            || undefined,
-        business_name:    form.business_name.trim()   || undefined,
-        product_category: form.product_category       || undefined,
-        quantity:         form.quantity.trim()         || undefined,
-        requirement:      form.requirement.trim()      || undefined,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || undefined,
+        business_name: form.business_name.trim() || undefined,
+        product_category: form.product_category || undefined,
+        quantity: form.quantity.trim() || undefined,
+        requirement: form.requirement.trim() || undefined,
       };
 
-      const res = await fetch(`${BACKEND_URL}/api/leads`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
+      const { data } = await axiosInstance.post(`/leads`, {
+        payload
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
+      if (data.success == false) {
         setError(data.message || 'Something went wrong. Please try again.');
         return;
       }
-
       setSubmitted(true);
+      queryClient.invalidateQueries({
+        queryKey: ['getAllLeadsData']
+      })
     } catch {
       setError('Unable to reach the server. Please try WhatsApp or email directly.');
     } finally {
@@ -173,14 +171,14 @@ export default function Contact() {
                   boxShadow: 'var(--shadow-sm)',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform     = 'translateY(-5px)';
-                  e.currentTarget.style.borderColor   = color;
-                  e.currentTarget.style.boxShadow     = 'var(--shadow-lg)';
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.borderColor = color;
+                  e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform     = 'none';
-                  e.currentTarget.style.borderColor   = 'var(--kraft-100)';
-                  e.currentTarget.style.boxShadow     = 'var(--shadow-sm)';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.borderColor = 'var(--kraft-100)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                 }}
               >
                 <div style={{
@@ -212,8 +210,8 @@ export default function Contact() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 36 }}>
               {[
                 { days: 'Monday – Friday', time: '9:00 AM – 7:00 PM IST' },
-                { days: 'Saturday',        time: '10:00 AM – 4:00 PM IST' },
-                { days: 'Sunday',          time: 'Closed (WhatsApp queries accepted)' },
+                { days: 'Saturday', time: '10:00 AM – 4:00 PM IST' },
+                { days: 'SRequest a Quoteunday', time: 'Closed (WhatsApp queries accepted)' },
               ].map(({ days, time }) => (
                 <div key={days} style={{
                   display: 'flex', justifyContent: 'space-between',
@@ -303,10 +301,10 @@ export default function Contact() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   {[
-                    { name: 'name',          label: 'Full Name *',            placeholder: 'Sarah Merchant', required: true },
-                    { name: 'email',         label: 'Email Address *',        placeholder: 'sarah@brand.com', type: 'email', required: true },
-                    { name: 'phone',         label: 'Phone Number',           placeholder: '+91 98765 43210' },
-                    { name: 'business_name', label: 'Company / Brand Name',   placeholder: 'My Brand Co.' },
+                    { name: 'name', label: 'Full Name *', placeholder: 'Sarah Merchant', required: true },
+                    { name: 'email', label: 'Email Address *', placeholder: 'sarah@brand.com', type: 'email', required: true },
+                    { name: 'phone', label: 'Phone Number', placeholder: '+91 98765 43210' },
+                    { name: 'business_name', label: 'Company / Brand Name', placeholder: 'My Brand Co.' },
                   ].map(({ name, label, placeholder, type = 'text', required }) => (
                     <div key={name}>
                       <label style={{

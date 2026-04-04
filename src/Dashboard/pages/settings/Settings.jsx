@@ -1,25 +1,54 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Input } from "../../components/ui";
 import { useAuthStore, useUIStore } from "../../store";
-
-import { Settings as SettingsIcon, Bell, Lock } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Settings as SettingsIcon,
+  Lock,
+  Bell,
+  User,
+  Phone,
+  Mail,
+  ShieldCheck,
+  Building2,
+  Sparkles,
+} from "lucide-react";
+import { useCurrentUser } from "../../../../hook/admin";
 
 const Settings = () => {
+  const { data, isLoading } = useCurrentUser();
   const user = useAuthStore((state) => state.user);
   const showNotification = useUIStore((state) => state.showNotification);
+
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: "+91-987654321",
+    name: "",
+    email: "",
+    phone: "",
+    role: "",
     businessName: "Nirmalyam Krafts",
   });
+
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
     pushNotifications: true,
     weeklyReports: true,
     orderUpdates: true,
   });
+
+  useEffect(() => {
+    const profile = data?.data || data || user;
+
+    if (profile) {
+      setFormData((prev) => ({
+        ...prev,
+        name: profile?.name || "",
+        email: profile?.email || "",
+        phone: profile?.phone || "",
+        role: profile?.role || "Admin",
+      }));
+    }
+  }, [data, user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -44,238 +73,362 @@ const Settings = () => {
     showNotification("Preferences saved successfully", "success");
   };
 
+  const ToggleRow = ({ title, description, checked, onChange }) => (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-4 transition hover:border-emerald-200 hover:shadow-sm">
+      <div>
+        <p className="text-sm font-semibold text-gray-900">{title}</p>
+        <p className="mt-1 text-xs text-gray-500">{description}</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onChange}
+        className={`relative h-7 w-12 rounded-full transition ${checked ? "bg-emerald-600" : "bg-gray-300"
+          }`}
+      >
+        <span
+          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "left-6" : "left-1"
+            }`}
+        />
+      </button>
+    </div>
+  );
+
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header */}
+      <div className="space-y-8">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-6 md:p-8 shadow-sm"
         >
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <SettingsIcon className="w-8 h-8" />
-            Settings
-          </h1>
-          <p className="text-gray-600">
-            Manage your profile, preferences, and account settings.
-          </p>
-        </motion.div>
-
-        {/* Profile Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Card>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Profile Settings
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Update your personal and business information
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Full Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Phone Number"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  label="Business Name"
-                  name="businessName"
-                  value={formData.businessName}
-                  onChange={handleInputChange}
-                />
+          <div className="absolute right-0 top-0 h-28 w-28 rounded-full bg-emerald-100 blur-3xl opacity-70" />
+          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700 shadow-sm border border-emerald-100">
+                <Sparkles className="h-3.5 w-3.5" />
+                Account Center
               </div>
 
-              <div className="pt-4 flex gap-2">
-                <Button onClick={handleSaveProfile}>Save Changes</Button>
-                <Button variant="secondary">Cancel</Button>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Preferences Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Notification Preferences
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Control how you receive updates and notifications
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {[
-                {
-                  key: "emailNotifications",
-                  label: "Email Notifications",
-                  description: "Receive updates via email",
-                },
-                {
-                  key: "pushNotifications",
-                  label: "Push Notifications",
-                  description: "Get push alerts on your device",
-                },
-                {
-                  key: "weeklyReports",
-                  label: "Weekly Reports",
-                  description: "Receive weekly business summary",
-                },
-                {
-                  key: "orderUpdates",
-                  label: "Order Updates",
-                  description: "Real-time order status updates",
-                },
-              ].map((pref) => (
-                <div
-                  key={pref.key}
-                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {pref.label}
-                    </p>
-                    <p className="text-xs text-gray-600">{pref.description}</p>
-                  </div>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={preferences[pref.key]}
-                      onChange={() => handlePreferenceChange(pref.key)}
-                      className="w-4 h-4 rounded border-gray-300"
-                    />
-                  </label>
+              <h1 className="flex items-center gap-3 text-3xl font-bold text-gray-900 md:text-4xl">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg">
+                  <SettingsIcon className="h-6 w-6" />
                 </div>
-              ))}
+                Settings
+              </h1>
 
-              <div className="pt-4 flex gap-2">
-                <Button onClick={handleSavePreferences}>
-                  Save Preferences
-                </Button>
-                <Button variant="secondary">Cancel</Button>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Theme Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Appearance
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Our dashboard uses a light, clean design for optimal readability
-                and consistency.
-              </p>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Security Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <Lock className="w-5 h-5" />
-                Security & Privacy
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Manage password and security settings
+              <p className="mt-3 max-w-2xl text-sm text-gray-600 md:text-base">
+                Manage your profile, notifications, business information, and
+                account security from one place.
               </p>
             </div>
 
-            <div className="space-y-4">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-900">
-                  <strong>Last login:</strong> Today at 10:30 AM from Chrome on
-                  Windows
-                </p>
+            <div className="grid grid-cols-2 gap-3 md:w-[300px]">
+              <div className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm">
+                <p className="text-xs text-gray-500">Account Type</p>
+                <p className="mt-1 font-semibold text-gray-900">Premium Admin</p>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button variant="secondary">Change Password</Button>
-                <Button variant="secondary">Enable Two-Factor Auth</Button>
-              </div>
-
-              <div className="pt-4 border-t border-gray-200">
-                <Button variant="danger" className="w-full md:w-auto">
-                  Delete Account
-                </Button>
-                <p className="text-xs text-gray-600 mt-2">
-                  Warning: This action cannot be undone.
-                </p>
+              <div className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm">
+                <p className="text-xs text-gray-500">Status</p>
+                <p className="mt-1 font-semibold text-emerald-600">Active</p>
               </div>
             </div>
-          </Card>
+          </div>
         </motion.div>
 
-        {/* Account Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Account Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-600 mb-1">Account Type</p>
-                <p className="font-medium text-gray-900">Premium Admin</p>
-              </div>
-              <div>
-                <p className="text-gray-600 mb-1">Member Since</p>
-                <p className="font-medium text-gray-900">January 2024</p>
-              </div>
-              <div>
-                <p className="text-gray-600 mb-1">Subscription Status</p>
-                <p className="font-medium text-green-600">Active</p>
-              </div>
-              <div>
-                <p className="text-gray-600 mb-1">Renewal Date</p>
-                <p className="font-medium text-gray-900">June 30, 2024</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
+          <div className="xl:col-span-2 space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="rounded-3xl border border-gray-200 shadow-sm">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Profile Settings
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Update your personal and business details
+                    </p>
+                  </div>
+
+                  <div className="hidden md:flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                    <User className="h-5 w-5" />
+                  </div>
+                </div>
+
+                {isLoading ? (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {[1, 2, 3, 4].map((item) => (
+                      <div
+                        key={item}
+                        className="h-20 animate-pulse rounded-2xl bg-gray-100"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="rounded-2xl border border-gray-200 p-3">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <User className="h-4 w-4" />
+                          Full Name
+                        </div>
+                        <Input
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          placeholder="Enter full name"
+                        />
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 p-3">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <Mail className="h-4 w-4" />
+                          Email Address
+                        </div>
+                        <Input
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          placeholder="Enter email"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="rounded-2xl border border-gray-200 p-3">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <Phone className="h-4 w-4" />
+                          Phone Number
+                        </div>
+                        <Input
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 p-3">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <ShieldCheck className="h-4 w-4" />
+                          Role
+                        </div>
+                        <Input
+                          name="role"
+                          value={formData.role}
+                          onChange={handleInputChange}
+                          placeholder="Role"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <Building2 className="h-4 w-4" />
+                        Business Name
+                      </div>
+                      <Input
+                        name="businessName"
+                        value={formData.businessName}
+                        onChange={handleInputChange}
+                        placeholder="Business name"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 pt-3">
+                      <Button
+                        onClick={handleSaveProfile}
+                        className="rounded-xl px-6"
+                      >
+                        Save Changes
+                      </Button>
+                      <Button variant="secondary" className="rounded-xl px-6">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+            >
+              <Card className="rounded-3xl border border-gray-200 shadow-sm">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900">
+                      <Bell className="h-5 w-5 text-emerald-600" />
+                      Notification Preferences
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Choose how you want to receive updates
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <ToggleRow
+                    title="Email Notifications"
+                    description="Receive updates and alerts directly in your email inbox."
+                    checked={preferences.emailNotifications}
+                    onChange={() => handlePreferenceChange("emailNotifications")}
+                  />
+
+                  <ToggleRow
+                    title="Push Notifications"
+                    description="Get important activity alerts on your device."
+                    checked={preferences.pushNotifications}
+                    onChange={() => handlePreferenceChange("pushNotifications")}
+                  />
+
+                  <ToggleRow
+                    title="Weekly Reports"
+                    description="Receive a weekly performance and business summary."
+                    checked={preferences.weeklyReports}
+                    onChange={() => handlePreferenceChange("weeklyReports")}
+                  />
+
+                  <ToggleRow
+                    title="Order Updates"
+                    description="Get real-time updates when orders are changed or completed."
+                    checked={preferences.orderUpdates}
+                    onChange={() => handlePreferenceChange("orderUpdates")}
+                  />
+
+                  <div className="flex flex-wrap gap-3 pt-3">
+                    <Button
+                      onClick={handleSavePreferences}
+                      className="rounded-xl px-6"
+                    >
+                      Save Preferences
+                    </Button>
+                    <Button variant="secondary" className="rounded-xl px-6">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+
+          <div className="space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 }}
+            >
+              <Card className="rounded-3xl border border-gray-200 shadow-sm">
+                <h2 className="mb-2 text-lg font-semibold text-gray-900">
+                  Appearance
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Your dashboard currently uses a clean light theme for better
+                  readability and consistency.
+                </p>
+
+                <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <p className="text-sm font-medium text-emerald-900">
+                    Clean, minimal, and focused UI
+                  </p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Optimized for admin workflow and daily operations.
+                  </p>
+                </div>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+            >
+              <Card className="rounded-3xl border border-gray-200 shadow-sm">
+                <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <Lock className="h-5 w-5 text-emerald-600" />
+                  Security & Privacy
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Keep your account secure and updated
+                </p>
+
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                    <p className="text-sm text-blue-900">
+                      <span className="font-semibold">Last login:</span> Today at
+                      10:30 AM from Chrome on Windows
+                    </p>
+                  </div>
+
+                  <Button variant="secondary" className="w-full rounded-xl">
+                    Change Password
+                  </Button>
+
+                  <Button variant="secondary" className="w-full rounded-xl">
+                    Enable Two-Factor Auth
+                  </Button>
+
+                  <div className="border-t border-gray-200 pt-4">
+                    <Button variant="danger" className="w-full rounded-xl">
+                      Delete Account
+                    </Button>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Warning: This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.24 }}
+            >
+              <Card className="rounded-3xl border border-gray-200 shadow-sm">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                  Account Information
+                </h2>
+
+                <div className="space-y-4 text-sm">
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                    <span className="text-gray-500">Account Type</span>
+                    <span className="font-semibold text-gray-900">
+                      {data.role}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                    <span className="text-gray-500">Member Since</span>
+                    <span className="font-semibold text-gray-900">
+                      {new Date(data.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                    <span className="text-gray-500">Subscription Status</span>
+                    <span className="font-semibold text-emerald-600">
+                      Active
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                    <span className="text-gray-500">Renewal Date</span>
+                    <span className="font-semibold text-gray-900">
+                      {new Date(data.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
       </div>
     </Layout>
   );

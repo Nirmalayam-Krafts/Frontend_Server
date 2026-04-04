@@ -11,6 +11,7 @@ import { useUIStore } from "../../store";
 import { dashboardAPI, analyticsAPI } from "../../services/api";
 import { TrendingUp, Users, Box, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { useCurrentUser } from "../../../../hook/admin";
 
 const Dashboard = () => {
   const [kpis, setKpis] = useState([]);
@@ -23,7 +24,6 @@ const Dashboard = () => {
     paperWeights: [],
   });
   const showNotification = useUIStore((state) => state.showNotification);
-
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -55,6 +55,7 @@ const Dashboard = () => {
             paperWeights: paperRes.data,
           });
         }
+      // eslint-disable-next-line no-unused-vars
       } catch (error) {
         showNotification("Failed to load dashboard", "error");
       } finally {
