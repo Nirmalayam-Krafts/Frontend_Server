@@ -9,10 +9,10 @@ export default function Signup() {
   const { axiosInstance } = useAuthContext();
   const navigate = useNavigate();
 
+  const queryClient = useQueryClient()
   const handleSignup = async (data) => {
     const loadingToast = toast.loading("Creating account...");
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const queryClient = useQueryClient()
     try {
       const payload = {
         name: data.name?.trim(),
