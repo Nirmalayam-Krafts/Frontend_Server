@@ -50,8 +50,10 @@ export default function About() {
       </div>
 
       {/* ── Mission ── */}
-      <section className="section-padding" style={{ background: 'var(--kraft-50)' }}>
-        <div className="container">
+      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 72, alignItems: 'center' }}>
             <div>
               <div className="section-label">Our Mission</div>
@@ -108,8 +110,10 @@ export default function About() {
       </section>
 
       {/* ── Green Print (Sustainability) ── */}
-      <section className="section-padding" id="sustainability" style={{ background: 'var(--kraft-50)' }}>
-        <div className="container">
+      <section className="section-padding nature-section" id="sustainability" style={{ background: 'var(--kraft-50)' }}>
+        <div className="nature-layer-wood" style={{ opacity: 0.05 }} />
+        <div className="nature-layer-leaf" style={{ opacity: 0.02 }} />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div className="section-label">Our Green Print</div>
             <h2 className="section-title">Transparency in Every Fiber</h2>
@@ -177,10 +181,12 @@ export default function About() {
       </section>
 
       {/* ── Quality ── */}
-      <section className="section-padding" style={{
+      <section className="section-padding nature-section" style={{
         background: 'linear-gradient(135deg, var(--kraft-100) 0%, var(--kraft-50) 100%)',
       }}>
-        <div className="container">
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div className="section-label">Standards</div>
             <h2 className="section-title">Consistent Quality</h2>
@@ -211,12 +217,22 @@ export default function About() {
       </section>
 
       {/* ── CTA ── */}
-      <section style={{
+      <section className="nature-section" style={{
         background: 'linear-gradient(135deg, var(--eco-800), var(--eco-700))',
         padding: '72px 24px',
         textAlign: 'center',
       }}>
-        <div className="container">
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/tree-texture.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.15,
+          mixBlendMode: 'overlay',
+          pointerEvents: 'none',
+        }} />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <Leaf size={40} color="white" style={{ marginBottom: 20, opacity: 0.7 }} />
           <h2 style={{
             fontFamily: "'Playfair Display', serif",
