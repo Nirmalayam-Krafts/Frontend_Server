@@ -154,8 +154,10 @@ export default function Contact() {
       </div>
 
       {/* ── Contact Cards ── */}
-      <section style={{ background: 'var(--kraft-50)', padding: '64px 24px' }}>
-        <div className="container">
+      <section className="nature-section" style={{ background: 'var(--kraft-50)', padding: '64px 24px' }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
             {contacts.map(({ icon: Icon, title, value, sub, href, color, bg }) => (
               <a
@@ -197,8 +199,9 @@ export default function Contact() {
       </section>
 
       {/* ── Main Form + Info ── */}
-      <section style={{ background: 'white', padding: '80px 24px', borderTop: '1px solid var(--kraft-100)' }}>
-        <div className="container" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 72, alignItems: 'start' }}>
+      <section className="nature-section" style={{ background: 'white', padding: '80px 24px', borderTop: '1px solid var(--kraft-100)' }}>
+        <div className="nature-layer-wood" style={{ opacity: 0.03 }} />
+        <div className="container" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 72, alignItems: 'start', position: 'relative', zIndex: 1 }}>
 
           {/* Left: Info */}
           <div>
@@ -409,8 +412,10 @@ export default function Contact() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="section-padding" style={{ background: 'var(--kraft-50)' }}>
-        <div className="container" style={{ maxWidth: 760, margin: '0 auto' }}>
+      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ maxWidth: 760, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <div className="section-label">Support</div>
             <h2 className="section-title">Frequently Asked Questions</h2>

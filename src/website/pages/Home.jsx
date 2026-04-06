@@ -72,6 +72,7 @@ const categories = [
     title: 'Ecocraft Bags',
     desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
     icon: Package,
+    image: '/collection-ecocraft.png',
     color: '#4ade80',
     bg: '#f0fdf4',
     to: '/products#ecocraft',
@@ -80,6 +81,7 @@ const categories = [
     title: 'F&B Gourmet Bags',
     desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
     icon: Zap,
+    image: '/collection-fnb.png',
     color: '#f59e0b',
     bg: '#fffbeb',
     to: '/products#fnb',
@@ -88,6 +90,7 @@ const categories = [
     title: 'Luxury Bags',
     desc: 'High-finish, elegant packaging for premium retail, jewelry, and exclusive gifting.',
     icon: Award,
+    image: '/collection-luxury.png',
     color: '#c09457',
     bg: '#fdf9f3',
     to: '/products#luxury',
@@ -162,6 +165,19 @@ export default function Home() {
             linear-gradient(to right, rgba(255,253,245,0.96) 0%, rgba(255,253,245,0.82) 42%, rgba(255,253,245,0.15) 70%, transparent 100%),
             linear-gradient(to top, rgba(246,242,235,1) 0%, transparent 25%)
           `,
+          zIndex: 1,
+        }} />
+
+        {/* Subtle tree background layer */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/tree-texture.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.1,
+          mixBlendMode: 'multiply',
+          pointerEvents: 'none',
         }} />
 
         {/* Content */}
@@ -449,8 +465,10 @@ export default function Home() {
       )}
 
       {/* ══════════════════ CATEGORIES ══════════════════ */}
-      <section className="section-padding" style={{ background: 'var(--kraft-50)' }}>
-        <div className="container">
+      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div className="section-label">Our Collections</div>
             <h2 className="section-title">Packaging That Speaks</h2>
@@ -461,29 +479,37 @@ export default function Home() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28 }}>
-            {categories.map(({ title, desc, icon: Icon, color, bg, to }) => (
+            {categories.map(({ title, desc, icon: Icon, image, color, bg, to }) => (
               <Link
                 key={title}
                 to={to}
                 style={{ textDecoration: 'none' }}
               >
-                <div className="product-card" style={{ padding: 36, cursor: 'pointer' }}
+                <div className="product-card" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = color}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--kraft-100)'}
                 >
-                  <div style={{
-                    width: 64, height: 64,
-                    borderRadius: 16,
-                    background: bg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: 24,
-                  }}>
-                    <Icon size={28} color={color} />
+                  <div style={{ height: 220, overflow: 'hidden', position: 'relative' }}>
+                    <img src={image} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{
+                      position: 'absolute',
+                      top: 16, left: 16,
+                      width: 44, height: 44,
+                      borderRadius: 12,
+                      background: bg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      backdropFilter: 'blur(4px)',
+                    }}>
+                      <Icon size={20} color={color} />
+                    </div>
                   </div>
-                  <h3 style={{ fontSize: 22, fontWeight: 600, marginBottom: 10, color: 'var(--kraft-900)' }}>{title}</h3>
-                  <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.6, marginBottom: 20 }}>{desc}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color, fontWeight: 600, fontSize: 14 }}>
-                    Explore <ArrowRight size={14} />
+                  <div style={{ padding: '24px 32px 32px' }}>
+                    <h3 style={{ fontSize: 22, fontWeight: 600, marginBottom: 10, color: 'var(--kraft-900)' }}>{title}</h3>
+                    <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.6, marginBottom: 20 }}>{desc}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color, fontWeight: 600, fontSize: 14 }}>
+                      Explore <ArrowRight size={14} />
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -493,10 +519,12 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ WHY NIRMALYAM ══════════════════ */}
-      <section className="section-padding" style={{
+      <section className="section-padding nature-section" style={{
         background: 'linear-gradient(135deg, var(--kraft-100) 0%, var(--kraft-50) 100%)',
       }}>
-        <div className="container">
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" style={{ opacity: 0.05 }} />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 72, alignItems: 'center' }}>
             {/* Left */}
             <div>
@@ -642,8 +670,10 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ PRODUCT PREVIEW GRID ══════════════════ */}
-      <section className="section-padding" style={{ background: 'var(--kraft-50)' }}>
-        <div className="container">
+      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div className="section-label">Our Products</div>
             <h2 className="section-title">Premium Paper Packaging</h2>
@@ -654,32 +684,33 @@ export default function Home() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 24 }}>
             {[
-              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: 'var(--gold-500)' },
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: 'var(--eco-500)' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: 'var(--kraft-500)' },
-              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: 'var(--eco-600)' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: 'var(--kraft-600)' },
-              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: 'var(--gold-400)' },
-            ].map(({ name, cat, desc, color }) => (
-              <div key={name} className="product-card" style={{ padding: 28 }}
+              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: 'var(--gold-500)', image: '/product-luxury-retail.png' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: 'var(--eco-500)', image: '/product-food-bakery.png' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: 'var(--kraft-500)', image: '/product-eco-pouches.png' },
+              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: 'var(--eco-600)', image: '/product-flat-handle.png' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: 'var(--kraft-600)', image: '/product-industrial-rolls.png' },
+              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: 'var(--gold-400)', image: '/product-custom-mailers.png' },
+            ].map(({ name, cat, desc, color, image }) => (
+              <div key={name} className="product-card" style={{ padding: 0, overflow: 'hidden' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
               >
                 <div style={{
-                  height: 140,
+                  height: 180,
                   background: `linear-gradient(135deg, ${color}18 0%, ${color}08 100%)`,
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: 20,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: `1px solid ${color}22`,
+                  overflow: 'hidden',
+                  borderBottom: `1px solid ${color}22`,
                 }}>
-                  <Package size={48} color={color} strokeWidth={1.5} />
+                  <img src={image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
-                <span className="tag-chip" style={{ marginBottom: 8 }}>{cat}</span>
-                <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--kraft-900)', margin: '8px 0 8px' }}>{name}</h3>
-                <p style={{ fontSize: 13, color: 'var(--kraft-500)', lineHeight: 1.55 }}>{desc}</p>
+                <div style={{ padding: '20px 24px 24px' }}>
+                  <span className="tag-chip" style={{ marginBottom: 8, background: `${color}15`, color: color }}>{cat}</span>
+                  <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--kraft-900)', margin: '8px 0 8px' }}>{name}</h3>
+                  <p style={{ fontSize: 13, color: 'var(--kraft-500)', lineHeight: 1.55 }}>{desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -694,10 +725,12 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
-      <section className="section-padding" style={{
+      <section className="section-padding nature-section" style={{
         background: 'linear-gradient(135deg, var(--kraft-100) 0%, var(--kraft-50) 100%)',
       }}>
-        <div className="container">
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" style={{ opacity: 0.06 }} />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <div className="section-label">Testimonials</div>
             <h2 className="section-title">What Our Clients Say</h2>

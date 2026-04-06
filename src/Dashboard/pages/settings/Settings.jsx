@@ -369,14 +369,14 @@ const handleSavePreferences = () => {
                   <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
                     <span className="text-gray-500">Account Type</span>
                     <span className="font-semibold text-gray-900">
-                      {data.role}
+                      {data?.role || "Admin"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
                     <span className="text-gray-500">Member Since</span>
                     <span className="font-semibold text-gray-900">
-                      {new Date(data.createdAt).toLocaleDateString()}
+                      {data?.createdAt ? new Date(data.createdAt).toLocaleDateString() : "---"}
                     </span>
                   </div>
 
@@ -390,7 +390,7 @@ const handleSavePreferences = () => {
                   <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
                     <span className="text-gray-500">Renewal Date</span>
                     <span className="font-semibold text-gray-900">
-                      {new Date(data.updatedAt).toLocaleDateString()}
+                      {data?.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : "---"}
                     </span>
                   </div>
                 </div>

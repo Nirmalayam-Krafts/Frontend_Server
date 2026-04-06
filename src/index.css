@@ -98,6 +98,7 @@ h6 {
     opacity: 0;
     transform: translateY(28px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -108,6 +109,7 @@ h6 {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -118,6 +120,7 @@ h6 {
     opacity: 0;
     transform: translateX(-32px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -128,16 +131,19 @@ h6 {
   0% {
     background-position: -200% center;
   }
+
   100% {
     background-position: 200% center;
   }
 }
 
 @keyframes float {
+
   0%,
   100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-8px);
   }
@@ -148,6 +154,7 @@ h6 {
     transform: scale(1);
     opacity: 0.8;
   }
+
   100% {
     transform: scale(1.5);
     opacity: 0;
@@ -205,23 +212,19 @@ h6 {
 }
 
 .text-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--kraft-700) 0%,
-    var(--kraft-500) 50%,
-    var(--eco-600) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--kraft-700) 0%,
+      var(--kraft-500) 50%,
+      var(--eco-600) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .text-gradient-gold {
-  background: linear-gradient(
-    135deg,
-    var(--gold-500) 0%,
-    var(--kraft-500) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--gold-500) 0%,
+      var(--kraft-500) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -259,11 +262,9 @@ h6 {
   align-items: center;
   gap: 8px;
   padding: 14px 32px;
-  background: linear-gradient(
-    135deg,
-    var(--kraft-700) 0%,
-    var(--kraft-900) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--kraft-700) 0%,
+      var(--kraft-900) 100%);
   color: var(--kraft-100);
   border: none;
   border-radius: var(--radius-full);
@@ -282,11 +283,9 @@ h6 {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    var(--eco-700) 0%,
-    var(--eco-600) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--eco-700) 0%,
+      var(--eco-600) 100%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -341,11 +340,9 @@ h6 {
   align-items: center;
   gap: 8px;
   padding: 14px 32px;
-  background: linear-gradient(
-    135deg,
-    var(--eco-600) 0%,
-    var(--eco-700) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--eco-600) 0%,
+      var(--eco-700) 100%);
   color: #fff;
   border: none;
   border-radius: var(--radius-full);
@@ -358,11 +355,9 @@ h6 {
 }
 
 .btn-eco:hover {
-  background: linear-gradient(
-    135deg,
-    var(--eco-500) 0%,
-    var(--eco-600) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--eco-500) 0%,
+      var(--eco-600) 100%);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(22, 163, 74, 0.35);
 }
@@ -413,12 +408,10 @@ h6 {
 /* Divider */
 .divider {
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--kraft-200),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      var(--kraft-200),
+      transparent);
   margin: 48px 0;
 }
 
@@ -447,12 +440,10 @@ h6 {
 
 /* Page hero */
 .page-hero {
-  background: linear-gradient(
-    160deg,
-    var(--kraft-950) 0%,
-    var(--kraft-800) 60%,
-    var(--kraft-700) 100%
-  );
+  background: linear-gradient(160deg,
+      var(--kraft-950) 0%,
+      var(--kraft-800) 60%,
+      var(--kraft-700) 100%);
   color: white;
   padding: 160px 24px 100px;
   position: relative;
@@ -476,4 +467,62 @@ h6 {
   border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 500;
+}
+
+
+/* ─── Nature Textures ─── */
+.bg-texture-wood {
+  background-image: url('/wood-texture.png');
+  background-repeat: repeat;
+  background-size: 500px;
+}
+
+.bg-texture-leaf {
+  position: relative;
+}
+
+.bg-texture-leaf-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/leaf-pattern.png');
+  background-repeat: repeat;
+  background-size: 250px;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-texture-tree {
+  position: relative;
+  background-image: linear-gradient(rgba(253, 249, 243, 0.85), rgba(253, 249, 243, 0.85)), url('/tree-texture.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.nature-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.nature-layer-wood {
+  position: absolute;
+  inset: 0;
+  background-image: url('/wood-texture.png');
+  background-size: 600px;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.nature-layer-leaf {
+  position: absolute;
+  inset: 0;
+  background-image: url('/leaf-pattern.png');
+  background-repeat: repeat;
+  background-size: 300px;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
 }

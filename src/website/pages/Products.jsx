@@ -35,8 +35,10 @@ export default function Products() {
   return (
     <div style={{ minHeight: '100vh', paddingTop: 40, background: 'var(--kraft-50)' }}>
       {/* ── Header Section ── */}
-      <section className="section-padding" style={{ paddingTop: 40, paddingBottom: 20 }}>
-        <div className="container">
+      <section className="section-padding nature-section" style={{ paddingTop: 40, paddingBottom: 20 }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ maxWidth: 800 }}>
             <div className="section-label">Our Collections</div>
             <h1 style={{ 
@@ -58,8 +60,10 @@ export default function Products() {
       </section>
 
       {/* ── Category Cards ── */}
-      <section className="section-padding" style={{ paddingTop: 20 }}>
-        <div className="container">
+      <section className="section-padding nature-section" style={{ paddingTop: 20 }}>
+        <div className="nature-layer-wood" />
+        <div className="nature-layer-leaf" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 64 }}>
             {categories.map((cat, i) => (
               <div key={cat.id} style={{
@@ -172,8 +176,18 @@ export default function Products() {
       </section>
 
       {/* ── Wholesale Section ── */}
-      <section className="section-padding" style={{ background: 'var(--kraft-950)', color: 'white' }}>
-        <div className="container">
+      <section className="section-padding nature-section" style={{ background: 'var(--kraft-950)', color: 'white' }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/tree-texture.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.1,
+          mixBlendMode: 'overlay',
+          pointerEvents: 'none',
+        }} />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 40 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 64, height: 64, background: 'rgba(255,255,255,0.05)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
