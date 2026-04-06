@@ -1,232 +1,565 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Modal } from "../../components/ui";
 import { InventoryForm } from "../../components/forms";
-import { useInventoryStore, useUIStore } from "../../store";
-import { inventoryAPI } from "../../services/api";
-import { Plus, Search, Edit2, Trash2, AlertTriangle } from "lucide-react";
+import { useInventoryStore } from "../../store";
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  AlertTriangle,
+  Package,
+  Boxes,
+  TrendingUp,
+  CirclePlus,
+  X,
+  Eye,
+} from "lucide-react";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
+import { useAuthContext } from "../../../context/Adminauth";
+import { useQueryClient } from "@tanstack/react-query";
+import { useGetInventory, useGetLowStockAlerts } from "../../../../hook/inventory";
 
 const Inventory = () => {
-  const items = useInventoryStore((state) => state.items);
-  const setItems = useInventoryStore((state) => state.setItems);
+  const audioRef = useRef(null);
+  const [hasPlayedAlert, setHasPlayedAlert] = useState(false);
   const addItem = useInventoryStore((state) => state.addItem);
   const updateItem = useInventoryStore((state) => state.updateItem);
   const deleteItem = useInventoryStore((state) => state.deleteItem);
 
-  const showNotification = useUIStore((state) => state.showNotification);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isLoading } = useGetInventory();
+  const { data: lowStockAlerts = [] } = useGetLowStockAlerts();
+
+  const queryClient = useQueryClient();
+  const { axiosInstance, notificationOn, setNotificationOn } = useAuthContext();
+
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
   const [showAlerts, setShowAlerts] = useState(false);
-  const [lowStockAlerts, setLowStockAlerts] = useState([]);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [selectedStockItem, setSelectedStockItem] = useState(null);
+  const [stockToAdd, setStockToAdd] = useState("");
+
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        setLoading(true);
-        const [inventoryRes, alertsRes] = await Promise.all([
-          inventoryAPI.getInventory(),
-          inventoryAPI.getLowStockAlerts(),
-        ]);
-
-        if (inventoryRes.success) {
-          setItems(inventoryRes.data);
-        }
-        if (alertsRes.success) {
-          setLowStockAlerts(alertsRes.data);
-        }
-      } catch (error) {
-        showNotification("Failed to load inventory", "error");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInventory();
-  }, []);
+    if (lowStockAlerts.length > 0) {
+      setShowAlerts(true);
+    }
+  }, [lowStockAlerts.length]);
 
   const handleAddItem = async (data) => {
+    const loadingToast = toast.loading("Creating item...");
+
     try {
-      const response = await inventoryAPI.createItem(data);
-      if (response.success) {
-        addItem(response.data);
-        setShowModal(false);
-        showNotification("Item added successfully", "success");
-      }
+      const response = await axiosInstance.post("/inventory/create", data);
+      const item = response?.data?.data;
+
+      toast.success("Item created successfully 🎉", {
+        id: loadingToast,
+      });
+
+      setShowModal(false);
+
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getLowStockAlertsData"],
+      });
+
+      if (item) addItem(item);
     } catch (error) {
-      showNotification("Failed to add item", "error");
+      toast.error(
+        error?.response?.data?.message || "Failed to create item",
+        { id: loadingToast }
+      );
     }
   };
 
   const handleUpdateItem = async (data) => {
+    const loadingToast = toast.loading("Updating item...");
+
     try {
-      const response = await inventoryAPI.updateItem(editingItem.id, data);
-      if (response.success) {
-        updateItem(editingItem.id, data);
-        setShowModal(false);
-        setEditingItem(null);
-        showNotification("Item updated successfully", "success");
+      const response = await axiosInstance.patch(
+        `/inventory/${editingItem.id || editingItem._id}/update`,
+        data
+      );
+
+      const updatedItem = response?.data?.data;
+
+      toast.success("Item updated successfully 🎉", {
+        id: loadingToast,
+      });
+
+      setShowModal(false);
+      setEditingItem(null);
+
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getLowStockAlertsData"],
+      });
+
+      if (updatedItem) {
+        updateItem(editingItem.id || editingItem._id, updatedItem);
+        if (selectedItem?.id === (editingItem.id || editingItem._id)) {
+          setSelectedItem(updatedItem);
+        }
       }
     } catch (error) {
-      showNotification("Failed to update item", "error");
+      toast.error(
+        error?.response?.data?.message || "Failed to update item",
+        { id: loadingToast }
+      );
     }
   };
 
   const handleDeleteItem = async (id) => {
+    const loadingToast = toast.loading("Deleting item...");
+
     try {
-      const response = await inventoryAPI.deleteItem(id);
-      if (response.success) {
-        deleteItem(id);
-        showNotification("Item deleted successfully", "success");
+      await axiosInstance.delete(`/inventory/${id}/delete`);
+
+      toast.success("Item deleted successfully", {
+        id: loadingToast,
+      });
+
+      deleteItem(id);
+
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getLowStockAlertsData"],
+      });
+
+      if (selectedItem?.id === id || selectedItem?._id === id) {
+        setShowDetailPanel(false);
+        setSelectedItem(null);
       }
     } catch (error) {
-      showNotification("Failed to delete item", "error");
+      toast.error(
+        error?.response?.data?.message || "Failed to delete item",
+        { id: loadingToast }
+      );
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.productName.toLowerCase().includes(search.toLowerCase()) ||
-      item.sku.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "All" || item.category === categoryFilter;
+  const openAddStockModal = (item) => {
+    setSelectedStockItem(item);
+    setStockToAdd("");
+    setShowStockModal(true);
+  };
 
-    return matchesSearch && matchesCategory;
-  });
+  const handleAddStock = async () => {
+    if (!selectedStockItem) return;
+
+    const qty = Number(stockToAdd);
+
+    if (!qty || qty <= 0) {
+      toast.error("Please enter a valid stock quantity");
+      return;
+    }
+
+    const loadingToast = toast.loading("Adding stock...");
+
+    try {
+      const response = await axiosInstance.patch(
+        `/inventory/${selectedStockItem.id || selectedStockItem._id}/add-stock`,
+        { quantity: qty }
+      );
+
+      const updatedItem = response?.data?.data;
+
+      toast.success("Stock added successfully 🎉", {
+        id: loadingToast,
+      });
+
+      setShowStockModal(false);
+      setSelectedStockItem(null);
+      setStockToAdd("");
+
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getLowStockAlertsData"],
+      });
+
+      if (updatedItem) {
+        updateItem(selectedStockItem.id || selectedStockItem._id, updatedItem);
+
+        if (
+          selectedItem?.id === (selectedStockItem.id || selectedStockItem._id) ||
+          selectedItem?._id === (selectedStockItem.id || selectedStockItem._id)
+        ) {
+          setSelectedItem(updatedItem);
+        }
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to add stock",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch =
+        item.productName?.toLowerCase().includes(search.toLowerCase()) ||
+        item.sku?.toLowerCase().includes(search.toLowerCase());
+
+      const matchesCategory =
+        categoryFilter === "All" || item.category === categoryFilter;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, search, categoryFilter]);
 
   const stockPercentage = (stockLevel, reorderPt) => {
+    if (!reorderPt || reorderPt <= 0) return 100;
     const percentage = (stockLevel / (reorderPt * 2)) * 100;
     return Math.min(percentage, 100);
   };
 
   const getStockStatus = (stockLevel, reorderPt) => {
-    if (stockLevel < reorderPt) return "low";
-    if (stockLevel < reorderPt * 1.5) return "medium";
+    if (stockLevel <= reorderPt * 0.5) return "critical";
+    if (stockLevel <= reorderPt) return "low";
+    if (stockLevel <= reorderPt * 1.5) return "medium";
     return "healthy";
   };
 
   const statusColors = {
-    healthy: "bg-green-400",
-    medium: "bg-yellow-400",
+    healthy: "bg-emerald-500",
+    medium: "bg-amber-400",
     low: "bg-red-400",
+    critical: "bg-red-600",
   };
 
+  const totalStockUnits = items.reduce(
+    (sum, item) => sum + Number(item.stockLevel || 0),
+    0
+  );
+
+  const reorderCount = items.filter(
+    (item) => Number(item.stockLevel) <= Number(item.reorderPt)
+  ).length;
+
+  const hasLowStock = lowStockAlerts.length > 0;
+
+  const getAlertSeverity = (stockLevel, threshold) => {
+    if (stockLevel <= Math.max(1, Math.floor(threshold * 0.5))) return "critical";
+    return "warning";
+  };
+
+  const lowStockSummaryText = hasLowStock
+    ? `${lowStockAlerts.length} item${lowStockAlerts.length > 1 ? "s are" : " is"} below reorder point`
+    : "All stock levels look healthy";
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => { });
+    }
+  }, []);
+  useEffect(() => {
+    if (lowStockAlerts.length > 0) {
+      setShowAlerts(true);
+
+      if (!notificationOn) return;
+
+      if (!hasPlayedAlert) {
+        toast.error("Low stock alert! Please review inventory items.", {
+          duration: 4000,
+        });
+
+        if (audioRef.current) {
+          audioRef.current.play().catch(() => { });
+        }
+
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Inventory Alert", {
+            body: `${lowStockAlerts.length} item(s) are below reorder point.`,
+          });
+        }
+
+        setHasPlayedAlert(true);
+      }
+    } else {
+      setHasPlayedAlert(false);
+    }
+  }, [lowStockAlerts, hasPlayedAlert, notificationOn]);
   return (
     <Layout>
+      <audio ref={audioRef} preload="auto">
+        <source src="/mixkit-software-interface-remove-2576.wav" type="audio/mpeg" />
+      </audio>
       <div className="space-y-6">
-        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 p-6 text-white shadow-lg"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Inventory Management
-              </h1>
-              <p className="text-gray-600">
-                Real-time stock monitoring and distribution controls.
+              <h1 className="text-3xl font-bold">Inventory Management</h1>
+              <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">
+                Monitor real inventory data, manage reorder points, and track stock
+                activity with a clear admin dashboard.
               </p>
             </div>
-            <Button
-              icon={Plus}
-              onClick={() => {
-                setEditingItem(null);
-                setShowModal(true);
-              }}
-            >
-              Add New Item
-            </Button>
+
+            <div className="flex flex-wrap gap-3">
+  <Button
+    variant={notificationOn ? "secondary" : "danger"}
+    onClick={() => setNotificationOn(!notificationOn)}
+    className="rounded-xl"
+  >
+    {notificationOn ? "Notifications On" : "Notifications Off"}
+  </Button>
+
+  <Button
+    icon={Plus}
+    onClick={() => {
+      setEditingItem(null);
+      setShowModal(true);
+    }}
+  >
+    Add New Item
+  </Button>
+</div>
           </div>
         </motion.div>
 
-        {/* Stats */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-4 gap-4"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <Card>
-            <p className="text-sm font-medium text-gray-600 mb-1">TOTAL SKUS</p>
-            <p className="text-3xl font-bold text-gray-900">{items.length}</p>
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Total SKUs
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {items.length}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                <Package className="h-6 w-6" />
+              </div>
+            </div>
           </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-600 mb-1">
-              LOW STOCK ALERTS
-            </p>
-            <p className="text-3xl font-bold text-red-600">
-              {lowStockAlerts.length}
-            </p>
-            <button
-              onClick={() => setShowAlerts(!showAlerts)}
-              className="text-xs text-red-600 font-medium mt-2 hover:underline"
-            >
-              View details →
-            </button>
+
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Total Units
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {totalStockUnits.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+                <Boxes className="h-6 w-6" />
+              </div>
+            </div>
           </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-600 mb-1">
-              PRODUCTION VOLUME
-            </p>
-            <p className="text-2xl font-bold text-green-600">+14%</p>
-            <p className="text-xs text-green-600 mt-1">this month</p>
+
+          <Card
+            className={`rounded-2xl border shadow-sm transition-all ${hasLowStock
+              ? "border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50 shadow-red-100"
+              : "border-gray-100 bg-white"
+              }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Low Stock Alerts
+                </p>
+
+                <div className="mt-2 flex items-center gap-3">
+                  <p
+                    className={`text-3xl font-bold ${hasLowStock ? "text-red-600" : "text-gray-900"
+                      }`}
+                  >
+                    {lowStockAlerts.length}
+                  </p>
+
+                  {hasLowStock && (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+                      Attention Needed
+                    </span>
+                  )}
+                </div>
+
+                <p
+                  className={`mt-2 text-xs ${hasLowStock ? "text-red-600" : "text-emerald-600"
+                    }`}
+                >
+                  {lowStockSummaryText}
+                </p>
+
+                <button
+                  onClick={() => setShowAlerts(!showAlerts)}
+                  className={`mt-3 text-xs font-semibold transition ${hasLowStock
+                    ? "text-red-700 hover:text-red-800"
+                    : "text-gray-500 hover:text-gray-700"
+                    }`}
+                >
+                  {showAlerts ? "Hide details ↑" : "View details →"}
+                </button>
+              </div>
+
+              <div
+                className={`relative rounded-2xl p-3 ${hasLowStock ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500"
+                  }`}
+              >
+                {hasLowStock && (
+                  <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
+                  </span>
+                )}
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+            </div>
           </Card>
-          <Card>
-            <p className="text-sm font-medium text-gray-600 mb-1">
-              REORDER POINTS
-            </p>
-            <p className="text-3xl font-bold text-gray-900">
-              {items.filter((i) => i.stockLevel < i.reorderPt).length}
-            </p>
+
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Reorder Points
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {reorderCount}
+                </p>
+                <p className="mt-2 text-xs text-emerald-600">
+                  Based on actual stock data
+                </p>
+              </div>
+              <div className="rounded-2xl bg-purple-50 p-3 text-purple-600">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+            </div>
           </Card>
         </motion.div>
 
-        {/* Alerts */}
         {showAlerts && lowStockAlerts.length > 0 && (
           <motion.div
-            className="bg-red-50 border border-red-200 rounded-lg p-4"
+            className="rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 via-white to-red-50 p-4 shadow-sm"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="relative mt-0.5">
+                <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
+                <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                </span>
+              </div>
+
               <div className="flex-1">
-                <h3 className="font-semibold text-red-900 mb-2">
-                  Low Stock Alerts
-                </h3>
-                <div className="space-y-1">
-                  {lowStockAlerts.slice(0, 5).map((alert) => (
-                    <p key={alert.id} className="text-sm text-red-800">
-                      {alert.productName} - Only {alert.stockLevel} units left
-                      (Threshold: {alert.threshold})
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-red-900">Low Stock Alerts</h3>
+                    <p className="text-sm text-red-700">
+                      These items are at or below their reorder point.
                     </p>
-                  ))}
+                  </div>
+
+                  <div className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                    Immediate attention
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {lowStockAlerts.slice(0, 6).map((alert, index) => {
+                    const severity = getAlertSeverity(alert.stockLevel, alert.threshold);
+
+                    return (
+                      <div
+                        key={alert.id || index}
+                        className="flex items-center justify-between rounded-xl border border-red-100 bg-white p-3"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {alert.productName}
+                            </p>
+
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${severity === "critical"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
+                                }`}
+                            >
+                              {severity}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 text-xs text-gray-600">
+                            Current stock:{" "}
+                            <span className="font-semibold text-red-600">
+                              {alert.stockLevel}
+                            </span>{" "}
+                            · Reorder point:{" "}
+                            <span className="font-semibold text-gray-800">
+                              {alert.threshold}
+                            </span>
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const matchedItem = items.find(
+                              (item) => item.id === alert.id || item._id === alert.id
+                            );
+                            if (matchedItem) {
+                              setSelectedItem(matchedItem);
+                              setShowDetailPanel(true);
+                            }
+                          }}
+                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+                        >
+                          View
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Filters */}
         <motion.div
-          className="flex gap-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto]"
         >
-          <div className="flex-1">
-            <Input
-              placeholder="Search by SKU or product name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <Input
+            placeholder="Search by SKU or product name..."
+            value={search}
+            icon={Search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600"
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none focus:border-emerald-500"
           >
             <option value="All">All Categories</option>
             <option value="STANDARD">Standard</option>
@@ -236,126 +569,198 @@ const Inventory = () => {
           </select>
         </motion.div>
 
-        {/* Table */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      SKU
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      PRODUCT NAME
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      CATEGORY
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      STOCK LEVEL
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      REORDER PT
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      STATUS
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600">
-                      ACTIONS
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => {
-                    const status = getStockStatus(
-                      item.stockLevel,
-                      item.reorderPt,
-                    );
-                    const percentage = stockPercentage(
-                      item.stockLevel,
-                      item.reorderPt,
-                    );
+          <Card className="rounded-3xl border border-gray-100 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Inventory Overview
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Showing {filteredItems.length} inventory items
+                </p>
+              </div>
+            </div>
 
-                    return (
-                      <tr
-                        key={item.id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="px-4 py-4 font-medium text-gray-900">
-                          {item.sku}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-900">
-                          {item.productName}
-                        </td>
-                        <td className="px-4 py-4">
-                          <Badge variant="secondary">
-                            {item.categoryLabel}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-900">
-                          {item.stockLevel.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-600">
-                          {item.reorderPt.toLocaleString()} units
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2 max-w-xs">
-                              <div
-                                className={`h-2 rounded-full transition-all ${statusColors[status]}`}
-                                style={{ width: `${percentage}%` }}
-                              />
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-16 animate-pulse rounded-2xl bg-gray-100"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1000px]">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        SKU
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Product Name
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Category
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Stock Level
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Reorder Pt
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Status
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredItems.map((item) => {
+                      const status = getStockStatus(
+                        Number(item.stockLevel),
+                        Number(item.reorderPt)
+                      );
+                      const percentage = stockPercentage(
+                        Number(item.stockLevel),
+                        Number(item.reorderPt)
+                      );
+
+                      return (
+                        <tr
+                          key={item.id || item._id}
+                          className="border-b border-gray-100 transition hover:bg-gray-50"
+                        >
+                          <td className="px-4 py-4 font-medium text-gray-900">
+                            {item.sku}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {item.productName}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {item.categoryLabel}
+                              </p>
                             </div>
-                            <Badge
-                              variant={
-                                status === "low"
-                                  ? "danger"
-                                  : status === "medium"
-                                    ? "warning"
-                                    : "success"
-                              }
-                            >
-                              {status === "healthy"
-                                ? "Healthy"
-                                : status === "medium"
-                                  ? "Medium"
-                                  : "Low"}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <Badge variant="secondary">
+                              {item.categoryLabel}
                             </Badge>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                setEditingItem(item);
-                                setShowModal(true);
-                              }}
-                              className="text-blue-600 hover:text-blue-700"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteItem(item.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          </td>
+
+                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                            {Number(item.stockLevel).toLocaleString()}
+                          </td>
+
+                          <td className="px-4 py-4 text-sm text-gray-600">
+                            {Number(item.reorderPt).toLocaleString()} units
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-2 w-full max-w-[140px] rounded-full bg-gray-200">
+                                <div
+                                  className={`h-2 rounded-full transition-all ${statusColors[status]}`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+
+                              <Badge
+                                variant={
+                                  status === "critical"
+                                    ? "danger"
+                                    : status === "low"
+                                      ? "danger"
+                                      : status === "medium"
+                                        ? "warning"
+                                        : "success"
+                                }
+                              >
+                                {status === "healthy"
+                                  ? "Healthy"
+                                  : status === "medium"
+                                    ? "Medium"
+                                    : status === "low"
+                                      ? "Low"
+                                      : "Critical"}
+                              </Badge>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setShowDetailPanel(true);
+                                }}
+                                className="rounded-lg p-2 text-gray-700 transition hover:bg-gray-100"
+                                title="View Item"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => openAddStockModal(item)}
+                                className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
+                                title="Add Stock"
+                              >
+                                <CirclePlus className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setShowModal(true);
+                                }}
+                                className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                title="Edit Item"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteItem(item.id || item._id)}
+                                className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                                title="Delete Item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {!filteredItems.length && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-12 text-center text-gray-500"
+                        >
+                          No inventory items found.
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         </motion.div>
 
-        {/* Modal */}
         <Modal
           isOpen={showModal}
           title={editingItem ? "Edit Item" : "Add New Item"}
@@ -369,6 +774,219 @@ const Inventory = () => {
             onSubmit={editingItem ? handleUpdateItem : handleAddItem}
           />
         </Modal>
+
+        <Modal
+          isOpen={showStockModal}
+          title="Add Stock"
+          onClose={() => {
+            setShowStockModal(false);
+            setSelectedStockItem(null);
+            setStockToAdd("");
+          }}
+        >
+          {selectedStockItem && (
+            <div className="space-y-5">
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="text-sm text-gray-500">Product</p>
+                <p className="font-semibold text-gray-900">
+                  {selectedStockItem.productName}
+                </p>
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white p-3">
+                    <p className="text-xs uppercase text-gray-500">
+                      Current Stock
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {Number(selectedStockItem.stockLevel).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-white p-3">
+                    <p className="text-xs uppercase text-gray-500">SKU</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {selectedStockItem.sku}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Add Stock Quantity
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={stockToAdd}
+                  onChange={(e) => setStockToAdd(e.target.value)}
+                  placeholder="Enter quantity to add"
+                />
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <p className="text-sm text-gray-600">
+                  New stock level:
+                  <span className="ml-2 font-semibold text-gray-900">
+                    {(
+                      Number(selectedStockItem.stockLevel || 0) +
+                      Number(stockToAdd || 0)
+                    ).toLocaleString()}
+                  </span>
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowStockModal(false);
+                    setSelectedStockItem(null);
+                    setStockToAdd("");
+                  }}
+                >
+                  Cancel
+                </Button>
+
+                <Button onClick={handleAddStock}>Add Stock</Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {showDetailPanel && selectedItem && (
+          <motion.div
+            className="fixed inset-0 z-40 flex items-center justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={() => setShowDetailPanel(false)}
+            />
+
+            <motion.div
+              className="relative h-screen w-full max-w-md overflow-y-auto bg-white shadow-2xl"
+              initial={{ x: 400 }}
+              animate={{ x: 0 }}
+              exit={{ x: 400 }}
+            >
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Inventory Detail
+                  </h2>
+                  <button
+                    onClick={() => setShowDetailPanel(false)}
+                    className="text-gray-500"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedItem.productName}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">{selectedItem.sku}</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Category
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {selectedItem.categoryLabel}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Stock Level
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {Number(selectedItem.stockLevel).toLocaleString()} units
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Reorder Point
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {Number(selectedItem.reorderPt).toLocaleString()} units
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Unit
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {selectedItem.unit || "units"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Description
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {selectedItem.description || "No description added"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Stock History
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {(selectedItem.stockHistory || []).length > 0 ? (
+                        selectedItem.stockHistory.slice().reverse().map((log, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl bg-gray-50 p-3 text-sm"
+                          >
+                            <p className="font-medium text-gray-900">
+                              {log.action} · {log.quantity} units
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {log.note || "Stock activity"}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          No stock history available
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowDetailPanel(false)}
+                  >
+                    Close
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      setEditingItem(selectedItem);
+                      setShowModal(true);
+                      setShowDetailPanel(false);
+                    }}
+                  >
+                    Edit Item
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </div>
     </Layout>
   );

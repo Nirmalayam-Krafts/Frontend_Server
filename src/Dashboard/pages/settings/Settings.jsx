@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useCurrentUser } from "../../../../hook/admin";
+import { useAuthContext } from "../../../context/Adminauth";
 
 const Settings = () => {
   const { data, isLoading } = useCurrentUser();
@@ -29,13 +30,7 @@ const Settings = () => {
     businessName: "Nirmalyam Krafts",
   });
 
-  const [preferences, setPreferences] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    weeklyReports: true,
-    orderUpdates: true,
-  });
-
+  const { notificationOn, setNotificationOn } = useAuthContext();
   useEffect(() => {
     const profile = data?.data || data || user;
 
@@ -58,19 +53,15 @@ const Settings = () => {
     }));
   };
 
-  const handlePreferenceChange = (key) => {
-    setPreferences((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
+const handleSavePreferences = () => {
+  showNotification(
+    `Notifications ${notificationOn ? "enabled" : "disabled"} successfully`,
+    "success"
+  );
+};
 
   const handleSaveProfile = () => {
     showNotification("Profile updated successfully", "success");
-  };
-
-  const handleSavePreferences = () => {
-    showNotification("Preferences saved successfully", "success");
   };
 
   const ToggleRow = ({ title, description, checked, onChange }) => (
@@ -239,10 +230,10 @@ const Settings = () => {
                       />
                     </div>
 
-                    <div className="flex flex-wrap gap-3 pt-3">
+                    <div className="flex flex-wrap gap-3 pt-3 ">
                       <Button
                         onClick={handleSaveProfile}
-                        className="rounded-xl px-6"
+                        className="rounded-xl px-6 bg-green-800"
                       >
                         Save Changes
                       </Button>
@@ -274,32 +265,12 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <ToggleRow
-                    title="Email Notifications"
-                    description="Receive updates and alerts directly in your email inbox."
-                    checked={preferences.emailNotifications}
-                    onChange={() => handlePreferenceChange("emailNotifications")}
-                  />
 
                   <ToggleRow
-                    title="Push Notifications"
-                    description="Get important activity alerts on your device."
-                    checked={preferences.pushNotifications}
-                    onChange={() => handlePreferenceChange("pushNotifications")}
-                  />
-
-                  <ToggleRow
-                    title="Weekly Reports"
-                    description="Receive a weekly performance and business summary."
-                    checked={preferences.weeklyReports}
-                    onChange={() => handlePreferenceChange("weeklyReports")}
-                  />
-
-                  <ToggleRow
-                    title="Order Updates"
-                    description="Get real-time updates when orders are changed or completed."
-                    checked={preferences.orderUpdates}
-                    onChange={() => handlePreferenceChange("orderUpdates")}
+                    title="Alert Notification"
+                    description="Get real-time low stock alerts, sound alerts, and browser notifications."
+                    checked={notificationOn}
+                    onChange={() => setNotificationOn(!notificationOn)}
                   />
 
                   <div className="flex flex-wrap gap-3 pt-3">
@@ -309,9 +280,7 @@ const Settings = () => {
                     >
                       Save Preferences
                     </Button>
-                    <Button variant="secondary" className="rounded-xl px-6">
-                      Cancel
-                    </Button>
+
                   </div>
                 </div>
               </Card>

@@ -220,32 +220,68 @@ export const Table = ({ columns, data, loading, onRowClick }) => (
   </div>
 );
 
-export const Modal = ({ isOpen, title, children, onClose, footer }) => {
+
+import { X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+const sizeClasses = {
+  sm: "max-w-md",
+  md: "max-w-2xl",
+  lg: "max-w-4xl",
+  xl: "max-w-6xl",
+  full: "max-w-[92vw]",
+};
+
+export  function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = "lg",
+}) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 flex items-center justify-between p-6 border-b border-gray-200 bg-white">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-        {footer && (
-          <div className="border-t border-gray-200 p-6 bg-gray-50">
-            {footer}
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6">
+        {/* Backdrop */}
+        <motion.div
+          className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        />
+
+        {/* Modal Panel */}
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 12, scale: 0.98 }}
+          transition={{ duration: 0.2 }}
+          className={`relative z-10 w-full ${sizeClasses[size]} overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6">
+            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+
+            <button
+              onClick={onClose}
+              className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-        )}
+
+          {/* Body */}
+          <div className="max-h-[85vh] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+            {children}
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
-};
+}
 
 export const Toast = ({ message, type = "success", onClose }) => {
   React.useEffect(() => {

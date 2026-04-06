@@ -12,6 +12,7 @@ import ProductCategory from "./website/pages/ProductCategory";
 import DesignYourProduct from "./website/pages/DesignYourProduct";
 import NotFound from "./website/pages/NotFound";
 import { Toaster } from "react-hot-toast";
+
 /* Dashboard */
 import Dashboard from "./Dashboard/pages/dashboard/Dashboard";
 import Leads from "./Dashboard/pages/leads/Leads";
@@ -20,12 +21,16 @@ import Orders from "./Dashboard/pages/orders/Orders";
 import Finance from "./Dashboard/pages/finance/Finance";
 import Analytics from "./Dashboard/pages/analytics/Analytics";
 import Settings from "./Dashboard/pages/settings/Settings";
-import Login from "./Dashboard/auth/Login"
+import Login from "./Dashboard/auth/Login";
 import Signup from "./Dashboard/auth/Signup";
 
 /* Store + UI */
 import { useUIStore } from "./Dashboard/store";
 import { Toast } from "./Dashboard/components/ui";
+
+/* Protected Route */
+import ProtectedRoute from "./ProtectedRoute";
+import RawMaterial from "./Dashboard/pages/inventory/RawMaterial";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -51,6 +56,7 @@ function AppLayout() {
     "/finance",
     "/analytics",
     "/settings",
+    "/rawmaterial"
   ];
 
   const isDashboardRoute = dashboardRoutes.some((route) =>
@@ -59,7 +65,7 @@ function AppLayout() {
 
   return (
     <>
-    <Toaster position="top-right" reverseOrder={false} />
+      <Toaster position="top-right" reverseOrder={false} />
       <ScrollToTop />
 
       {!isDashboardRoute && <Navbar />}
@@ -84,14 +90,71 @@ function AppLayout() {
           <Route path="/shipping" element={<NotFound />} />
           <Route path="/terms" element={<NotFound />} />
 
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/leads" element={<Leads />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<Settings />} />
+          {/* Protected Dashboard Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leads"
+            element={
+              <ProtectedRoute>
+                <Leads />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute>
+                <Inventory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rawmaterial"
+            element={
+              <ProtectedRoute>
+                <RawMaterial />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance"
+            element={
+              <ProtectedRoute>
+                <Finance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

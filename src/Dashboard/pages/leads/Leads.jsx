@@ -15,8 +15,6 @@ import {
   Plus,
   Download,
   X,
-  Edit2,
-  Trash2,
   Search,
   Building2,
   Package,
@@ -26,13 +24,47 @@ import {
   TrendingUp,
   Users,
   Filter,
+  StickyNote,
+  MessageCircle,
+  CheckCircle2,
+  Clock3,
+  ShoppingBag,
+  Ruler,
+  Palette,
+  Wallet,
+  FileText,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { usegetAllLeads } from "../../../../hook/leads";
+import { toast } from "react-hot-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuthContext } from "../../../context/Adminauth";
+
+const FOLLOWUP_FLOW = [
+  { key: "first_followup", label: "First Follow-up", order: 1 },
+  { key: "second_followup", label: "Second Follow-up", order: 2 },
+  { key: "third_followup", label: "Third Follow-up", order: 3 },
+];
+
+const initialOrderForm = {
+  bagSize: "",
+  color: "",
+  quantity: "",
+  length: "",
+  width: "",
+  height: "",
+  dimensionUnit: "inch",
+  paymentType: "partial",
+  partialPaidAmount: "",
+  fullPaidAmount: "",
+  notes: "",
+};
 
 const Leads = () => {
   const { data, isLoading, refetch } = usegetAllLeads();
   const showNotification = useUIStore((state) => state.showNotification);
+  const queryClient = useQueryClient();
+  const { axiosInstance } = useAuthContext();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -41,32 +73,45 @@ const Leads = () => {
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [noteInput, setNoteInput] = useState("");
+
+  // NEW STATES
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [leadToConvert, setLeadToConvert] = useState(null);
+  const [orderForm, setOrderForm] = useState(initialOrderForm);
 
   const itemsPerPage = 5;
-
   const rawLeads = data?.leads || [];
 
   const formattedLeads = useMemo(() => {
-    return rawLeads.map((lead) => ({
-      id: lead._id,
-      name: lead.name || "Unknown",
-      businessName: lead.business_name || "—",
-      phone: lead.phone || "—",
-      email: lead.email || "—",
-      productInterest: lead.product_category || "—",
-      quantity: lead.quantity || "—",
-      source: lead.source || "—",
-      status: (lead.status || "New").toUpperCase(),
-      statusLabel: lead.status || "New",
-      date: new Date(lead.createdAt).toLocaleDateString(),
-      fullDate: lead.createdAt,
-      avatar: (lead.name || "U")
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    }));
+    return rawLeads.map((lead) => {
+      const followupHistory = lead.followupHistory || [];
+      const completedFollowups = followupHistory.filter((item) => item.done).length;
+
+      return {
+        id: lead._id,
+        name: lead.name || "Unknown",
+        businessName: lead.business_name || "—",
+        phone: lead.phone || "—",
+        email: lead.email || "—",
+        productInterest: lead.product_category || "—",
+        quantity: lead.quantity || "—",
+        source: lead.source || "—",
+        status: (lead.status || "New").toUpperCase(),
+        statusLabel: lead.status || "New",
+        date: new Date(lead.createdAt).toLocaleDateString(),
+        fullDate: lead.createdAt,
+        notes: lead.notes || [],
+        followupHistory,
+        completedFollowups,
+        avatar: (lead.name || "U")
+          .split(" ")
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+      };
+    });
   }, [rawLeads]);
 
   const filteredLeads = useMemo(() => {
@@ -74,18 +119,18 @@ const Leads = () => {
       const matchesSearch =
         lead.name.toLowerCase().includes(search.toLowerCase()) ||
         lead.businessName.toLowerCase().includes(search.toLowerCase()) ||
-        lead.email.toLowerCase().includes(search.toLowerCase());
+        lead.email.toLowerCase().includes(search.toLowerCase()) ||
+        lead.phone.toLowerCase().includes(search.toLowerCase());
 
       const matchesStatus =
-        statusFilter === "All" ||
-        lead.status === statusFilter ||
-        lead.statusLabel === statusFilter;
+        statusFilter === "All" || lead.statusLabel === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
   }, [formattedLeads, search, statusFilter]);
 
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+
   const paginatedLeads = filteredLeads.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -94,18 +139,23 @@ const Leads = () => {
   const statusColors = {
     NEW: "success",
     CONTACTED: "warning",
-    IN_PROGRESS: "primary",
+    INTERESTED: "primary",
     CONVERTED: "secondary",
     LOST: "danger",
   };
 
-  const newLeadsCount = formattedLeads.filter((lead) => lead.status === "NEW").length;
   const contactedLeadsCount = formattedLeads.filter(
     (lead) => lead.status === "CONTACTED"
   ).length;
   const convertedLeadsCount = formattedLeads.filter(
     (lead) => lead.status === "CONVERTED"
   ).length;
+
+  const totalLeads = formattedLeads.length;
+
+  const conversionRate = totalLeads
+    ? ((convertedLeadsCount / totalLeads) * 100).toFixed(1)
+    : "0.0";
 
   const handleAddLead = async (formData) => {
     try {
@@ -133,22 +183,198 @@ const Leads = () => {
       showNotification("Failed to update lead", "error");
     }
   };
-  const totalLeads = formattedLeads.length;
 
-  const conversionRate = totalLeads
-    ? ((convertedLeadsCount / totalLeads) * 100).toFixed(1)
-    : "0.0";
+  const resetConvertModal = () => {
+    setShowConvertModal(false);
+    setLeadToConvert(null);
+    setOrderForm(initialOrderForm);
+  };
+
+  const openConvertModal = (lead) => {
+    setLeadToConvert(lead);
+    setOrderForm({
+      ...initialOrderForm,
+      quantity:
+        lead?.quantity && lead.quantity !== "—" ? String(lead.quantity) : "",
+    });
+    setShowConvertModal(true);
+  };
+
+  const handleOrderFormChange = (field, value) => {
+    setOrderForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleUpdateLeadStatus = async (id, status, leadData = null) => {
+    if (status === "Converted") {
+      const currentLead =
+        leadData || formattedLeads.find((item) => item.id === id) || null;
+      openConvertModal(currentLead);
+      return;
+    }
+
+    const loadingToast = toast.loading("Updating lead status...");
+
+    try {
+      const payload = { status };
+
+      await axiosInstance.patch(`/leads/${id}/status`, payload);
+
+      toast.success("Lead status updated successfully 🎉", {
+        id: loadingToast,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["getAllLeads"],
+      });
+
+      refetch();
+
+      if (selectedLead && selectedLead.id === id) {
+        setSelectedLead((prev) =>
+          prev ? { ...prev, statusLabel: status, status: status.toUpperCase() } : prev
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to update lead status",
+        {
+          id: loadingToast,
+        }
+      );
+    }
+  };
+
+  const handleConvertLeadToOrder = async (e) => {
+    e.preventDefault();
+
+    if (!leadToConvert) {
+      showNotification("Lead not found", "error");
+      return;
+    }
+
+    if (
+      !orderForm.bagSize ||
+      !orderForm.color ||
+      !orderForm.quantity ||
+      !orderForm.length ||
+      !orderForm.width ||
+      !orderForm.height
+    ) {
+      showNotification("Please fill all required order details", "error");
+      return;
+    }
+
+    if (
+      orderForm.paymentType === "partial" &&
+      !orderForm.partialPaidAmount
+    ) {
+      showNotification("Please enter partial paid amount", "error");
+      return;
+    }
+
+    if (orderForm.paymentType === "full" && !orderForm.fullPaidAmount) {
+      showNotification("Please enter full paid amount", "error");
+      return;
+    }
+
+    const loadingToast = toast.loading("Converting lead into order...");
+
+    try {
+      const orderPayload = {
+        leadId: leadToConvert.id,
+        customerName: leadToConvert.name,
+        businessName: leadToConvert.businessName,
+        phone: leadToConvert.phone,
+        email: leadToConvert.email,
+        productCategory: leadToConvert.productInterest,
+        source: leadToConvert.source,
+
+        orderDetails: {
+          bagSize: orderForm.bagSize,
+          color: orderForm.color,
+          quantity: Number(orderForm.quantity),
+          dimensions: {
+            length: Number(orderForm.length),
+            width: Number(orderForm.width),
+            height: Number(orderForm.height),
+            unit: orderForm.dimensionUnit,
+          },
+        },
+
+        payment: {
+          paymentType: orderForm.paymentType,
+          partialPaidAmount:
+            orderForm.paymentType === "partial"
+              ? Number(orderForm.partialPaidAmount || 0)
+              : 0,
+          fullPaidAmount:
+            orderForm.paymentType === "full"
+              ? Number(orderForm.fullPaidAmount || 0)
+              : 0,
+        },
+
+        notes: orderForm.notes,
+      };
+
+      const data = await axiosInstance.post(`/order/create`, orderPayload);
+     
+      await axiosInstance.patch(`/leads/${leadToConvert.id}/status`, {
+        status: "Converted",
+      });
+
+      toast.success("Lead converted to order successfully 🎉", {
+        id: loadingToast,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["getAllLeads"],
+      });
+
+      await refetch();
+
+      if (selectedLead && selectedLead.id === leadToConvert.id) {
+        setSelectedLead((prev) =>
+          prev
+            ? {
+              ...prev,
+              statusLabel: "Converted",
+              status: "CONVERTED",
+            }
+            : prev
+        );
+      }
+
+      resetConvertModal();
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to convert lead to order",
+        {
+          id: loadingToast,
+        }
+      );
+    }
+  };
+
   const handleDeleteLead = async (id) => {
     try {
       const response = await leadsAPI.deleteLead(id);
       if (response.success) {
         showNotification("Lead deleted successfully", "success");
         refetch();
+
+        if (selectedLead?.id === id) {
+          setSelectedLead(null);
+          setShowDetailPanel(false);
+        }
       }
     } catch (error) {
       showNotification("Failed to delete lead", "error");
     }
   };
+
   const handleExportCSV = () => {
     if (!formattedLeads.length) {
       showNotification("No leads available to export", "error");
@@ -164,6 +390,7 @@ const Leads = () => {
       "Quantity",
       "Source",
       "Status",
+      "Follow-ups Done",
       "Created At",
     ];
 
@@ -176,6 +403,7 @@ const Leads = () => {
       `"${lead.quantity || ""}"`,
       `"${lead.source || ""}"`,
       `"${lead.statusLabel || ""}"`,
+      `"${lead.completedFollowups || 0}/3"`,
       `"${lead.date || ""}"`,
     ]);
 
@@ -195,6 +423,107 @@ const Leads = () => {
 
     showNotification("CSV exported successfully", "success");
   };
+
+  const handleAddNote = async () => {
+    if (!selectedLead || !noteInput.trim()) {
+      showNotification("Please write a note first", "error");
+      return;
+    }
+
+    const loadingToast = toast.loading("Adding note...");
+
+    try {
+      const response = await axiosInstance.post(
+        `/leads/${selectedLead.id}/notes`,
+        {
+          text: noteInput.trim(),
+        }
+      );
+
+      const updatedLead = response?.data?.data;
+
+      toast.success("Note added successfully 🎉", {
+        id: loadingToast,
+      });
+
+      setNoteInput("");
+
+      queryClient.invalidateQueries({
+        queryKey: ["getAllLeads"],
+      });
+
+      await refetch();
+
+      if (updatedLead) {
+        setSelectedLead((prev) =>
+          prev
+            ? {
+              ...prev,
+              notes: updatedLead.notes || [],
+            }
+            : prev
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to add note",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const handleMarkFollowup = async (flowKey) => {
+    if (!selectedLead) return;
+
+    const loadingToast = toast.loading("Updating follow-up...");
+
+    try {
+      const response = await axiosInstance.patch(
+        `/leads/${selectedLead.id}/updateFloww`,
+        {
+          followupKey: flowKey,
+        }
+      );
+
+      const updatedLead = response?.data?.data;
+
+      toast.success("Follow-up updated successfully 🎉", {
+        id: loadingToast,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["getAllLeads"],
+      });
+
+      await refetch();
+
+      if (updatedLead) {
+        const updatedFollowupHistory = updatedLead.followupHistory || [];
+        const completedFollowups = updatedFollowupHistory.filter((item) => item.done).length;
+
+        setSelectedLead((prev) =>
+          prev
+            ? {
+              ...prev,
+              followupHistory: updatedFollowupHistory,
+              completedFollowups,
+            }
+            : prev
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to update follow-up",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const getFlowStatus = (lead, flowKey) => {
+    const item = (lead?.followupHistory || []).find((f) => f.key === flowKey);
+    return item || null;
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -206,9 +535,9 @@ const Leads = () => {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-3xl font-bold">Leads Management</h1>
-              <p className="mt-2 text-sm text-emerald-50/90 max-w-2xl">
+              <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">
                 Manage and track high-intent B2B enquiries for eco-friendly packaging
-                with a cleaner and more organized lead pipeline.
+                with cleaner lead pipeline, WhatsApp-ready contact access, and follow-up tracking.
               </p>
             </div>
 
@@ -242,7 +571,7 @@ const Leads = () => {
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
+                <p className="text-xs font-semibold uppercase text-gray-500">
                   Total Leads
                 </p>
                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -254,26 +583,11 @@ const Leads = () => {
               </div>
             </div>
           </Card>
-{/* 
+
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  New Leads
-                </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {newLeadsCount}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-                <TrendingUp className="h-6 w-6" />
-              </div>
-            </div>
-          </Card> */}
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
+                <p className="text-xs font-semibold uppercase text-gray-500">
                   Conversion Rate
                 </p>
                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -288,10 +602,11 @@ const Leads = () => {
               </div>
             </div>
           </Card>
+
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
+                <p className="text-xs font-semibold uppercase text-gray-500">
                   Contacted
                 </p>
                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -307,7 +622,7 @@ const Leads = () => {
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
+                <p className="text-xs font-semibold uppercase text-gray-500">
                   Converted
                 </p>
                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -327,7 +642,7 @@ const Leads = () => {
           className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto]"
         >
           <Input
-            placeholder="Search by lead name, business, or email..."
+            placeholder="Search by lead name, business, email, or phone..."
             icon={Search}
             value={search}
             onChange={(e) => {
@@ -337,7 +652,7 @@ const Leads = () => {
           />
 
           <div className="flex flex-wrap gap-2">
-            {["All", "NEW", "CONTACTED", "CONVERTED"].map((status) => (
+            {["All", "New", "Contacted", "Interested", "Converted", "Lost"].map((status) => (
               <button
                 key={status}
                 onClick={() => {
@@ -346,7 +661,7 @@ const Leads = () => {
                 }}
                 className={`rounded-xl px-4 py-2 text-sm font-medium transition ${statusFilter === status
                     ? "bg-emerald-600 text-white shadow"
-                    : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+                    : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                   }`}
               >
                 {status}
@@ -382,28 +697,31 @@ const Leads = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px]">
+                <table className="w-full min-w-[1100px]">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Lead
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Business
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Product
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Source
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Follow-up
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Status
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Date
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Actions
                       </th>
                     </tr>
@@ -424,10 +742,32 @@ const Leads = () => {
                               <p className="font-semibold text-gray-900">
                                 {lead.name}
                               </p>
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                <Mail className="h-3.5 w-3.5" />
-                                {lead.email}
-                              </p>
+
+                              <div className="mt-1 flex flex-col gap-1 text-xs text-gray-500">
+                                <p className="flex items-center gap-1">
+                                  <Mail className="h-3.5 w-3.5" />
+                                  {lead.email}
+                                </p>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="h-3.5 w-3.5" />
+                                    {lead.phone}
+                                  </span>
+
+                                  {lead.phone !== "—" && (
+                                    <a
+                                      href={`https://wa.me/${String(lead.phone).replace(/\D/g, "")}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center rounded-full bg-green-100 p-1.5 text-green-700 transition hover:bg-green-200"
+                                      title="Chat on WhatsApp"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -451,9 +791,25 @@ const Leads = () => {
                         </td>
 
                         <td className="px-4 py-4">
-                          <Badge variant={statusColors[lead.status] || "primary"}>
-                            {lead.statusLabel}
-                          </Badge>
+                          <div className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                            {lead.completedFollowups}/3 completed
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <select
+                            value={lead.statusLabel}
+                            onChange={(e) =>
+                              handleUpdateLeadStatus(lead.id, e.target.value, lead)
+                            }
+                            className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                          >
+                            <option value="New">New</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="Interested">Interested</option>
+                            <option value="Converted">Converted</option>
+                            <option value="Lost">Lost</option>
+                          </select>
                         </td>
 
                         <td className="px-4 py-4 text-sm text-gray-600">
@@ -467,29 +823,16 @@ const Leads = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => {
-                                setSelectedLead(lead);
+                                const fullLead = formattedLeads.find(
+                                  (item) => item.id === lead.id
+                                );
+                                setSelectedLead(fullLead || lead);
                                 setShowDetailPanel(true);
+                                setNoteInput("");
                               }}
                               className="rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
                             >
                               View
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setEditingLead(lead);
-                                setShowModal(true);
-                              }}
-                              className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-
-                            <button
-                              onClick={() => handleDeleteLead(lead.id)}
-                              className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
@@ -498,7 +841,7 @@ const Leads = () => {
 
                     {!paginatedLeads.length && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                           No leads found.
                         </td>
                       </tr>
@@ -534,6 +877,372 @@ const Leads = () => {
           />
         </Modal>
 
+        {/* NEW ORDER CONVERSION MODAL */}
+ <Modal
+  isOpen={showConvertModal}
+  title="Convert Lead to Order"
+  onClose={resetConvertModal}
+>
+  <div className="w-full max-w-5xl">
+    <form onSubmit={handleConvertLeadToOrder} className="space-y-6">
+      {/* Header / Lead Summary */}
+      <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 shadow-sm">
+        <div className="flex flex-col gap-5">
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 shadow-sm">
+              <ShoppingBag className="h-6 w-6" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">
+                Order Conversion Details
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-600">
+                Fill all bag specification, dimensions, and payment details to
+                convert this lead into an order in a clean and structured way.
+              </p>
+            </div>
+          </div>
+
+          {leadToConvert && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  Lead Name
+                </p>
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {leadToConvert.name}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  Business
+                </p>
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {leadToConvert.businessName}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  Source
+                </p>
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {leadToConvert.source || "—"}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 items-start">
+        {/* Left Form Area */}
+        <div className="space-y-6 xl:col-span-2">
+          {/* Bag Details */}
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-emerald-600" />
+              <h4 className="text-base font-bold text-gray-900">Bag Details</h4>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Bag Size <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={orderForm.bagSize}
+                    onChange={(e) =>
+                      handleOrderFormChange("bagSize", e.target.value)
+                    }
+                    placeholder="Small / Medium / Large"
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Bag Color <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Palette className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={orderForm.color}
+                    onChange={(e) =>
+                      handleOrderFormChange("color", e.target.value)
+                    }
+                    placeholder="Brown / White / Green"
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Quantity <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="number"
+                    min="1"
+                    value={orderForm.quantity}
+                    onChange={(e) =>
+                      handleOrderFormChange("quantity", e.target.value)
+                    }
+                    placeholder="Enter quantity"
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Dimension Unit
+                </label>
+                <select
+                  value={orderForm.dimensionUnit}
+                  onChange={(e) =>
+                    handleOrderFormChange("dimensionUnit", e.target.value)
+                  }
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                >
+                  <option value="inch">Inch</option>
+                  <option value="cm">CM</option>
+                  <option value="mm">MM</option>
+                  <option value="ft">Feet</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Dimensions */}
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-2">
+              <Ruler className="h-5 w-5 text-emerald-600" />
+              <h4 className="text-base font-bold text-gray-900">Bag Dimensions</h4>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Length <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={orderForm.length}
+                  onChange={(e) =>
+                    handleOrderFormChange("length", e.target.value)
+                  }
+                  placeholder="Length"
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Width <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={orderForm.width}
+                  onChange={(e) =>
+                    handleOrderFormChange("width", e.target.value)
+                  }
+                  placeholder="Width"
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Height <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={orderForm.height}
+                  onChange={(e) =>
+                    handleOrderFormChange("height", e.target.value)
+                  }
+                  placeholder="Height"
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <label className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900">
+              <FileText className="h-4 w-4 text-emerald-600" />
+              Extra Notes
+            </label>
+            <textarea
+              rows={5}
+              value={orderForm.notes}
+              onChange={(e) => handleOrderFormChange("notes", e.target.value)}
+              placeholder="Write order note, design details, customer requirements, delivery notes, etc."
+              className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+            />
+          </div>
+        </div>
+
+        {/* Right Side */}
+        <div className="space-y-6">
+          {/* Payment Details */}
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-emerald-600" />
+              <h4 className="text-base font-bold text-gray-900">
+                Payment Details
+              </h4>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Payment Type
+                </label>
+                <select
+                  value={orderForm.paymentType}
+                  onChange={(e) =>
+                    handleOrderFormChange("paymentType", e.target.value)
+                  }
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                >
+                  <option value="partial">Partial Paid</option>
+                  <option value="full">Full Paid</option>
+                </select>
+              </div>
+
+              {orderForm.paymentType === "partial" ? (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Partial Paid Amount <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={orderForm.partialPaidAmount}
+                    onChange={(e) =>
+                      handleOrderFormChange("partialPaidAmount", e.target.value)
+                    }
+                    placeholder="Enter partial amount"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Full Paid Amount <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={orderForm.fullPaidAmount}
+                    onChange={(e) =>
+                      handleOrderFormChange("fullPaidAmount", e.target.value)
+                    }
+                    placeholder="Enter full amount"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Order Preview */}
+          <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 shadow-sm">
+            <h4 className="text-base font-bold text-emerald-800">
+              Live Order Preview
+            </h4>
+
+            <div className="mt-5 space-y-4 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-600">Bag Size</span>
+                <span className="font-semibold text-gray-900">
+                  {orderForm.bagSize || "—"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-600">Color</span>
+                <span className="font-semibold text-gray-900">
+                  {orderForm.color || "—"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-600">Quantity</span>
+                <span className="font-semibold text-gray-900">
+                  {orderForm.quantity || "—"}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-gray-600">Dimensions</span>
+                <span className="text-right font-semibold text-gray-900">
+                  {orderForm.length || "0"} × {orderForm.width || "0"} ×{" "}
+                  {orderForm.height || "0"} {orderForm.dimensionUnit}
+                </span>
+              </div>
+
+              <div className="h-px bg-emerald-100" />
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-600">Payment Mode</span>
+                <span className="font-semibold capitalize text-gray-900">
+                  {orderForm.paymentType}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-600">Amount</span>
+                <span className="font-bold text-emerald-700">
+                  ₹
+                  {orderForm.paymentType === "partial"
+                    ? orderForm.partialPaidAmount || "0"
+                    : orderForm.fullPaidAmount || "0"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="sticky bottom-0 flex flex-col gap-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={resetConvertModal}
+          className="sm:min-w-[140px]"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="submit"
+          className="bg-emerald-600 px-6 hover:bg-emerald-700 sm:min-w-[200px]"
+        >
+          Convert & Create Order
+        </Button>
+      </div>
+    </form>
+  </div>
+</Modal>
+
         {showDetailPanel && selectedLead && (
           <motion.div
             className="fixed inset-0 z-40 flex items-center justify-end"
@@ -562,15 +1271,40 @@ const Leads = () => {
                   </button>
                 </div>
 
-                <div className="mb-6 flex items-center gap-4 rounded-2xl bg-emerald-50 p-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                    {selectedLead.avatar}
+                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+                      {selectedLead.avatar}
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {selectedLead.name}
+                      </p>
+                      <p className="text-sm text-gray-500">{selectedLead.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {selectedLead.name}
-                    </p>
-                    <p className="text-sm text-gray-500">{selectedLead.email}</p>
+
+                  <div className="mt-4 flex items-center justify-between rounded-xl border border-emerald-100 bg-white px-4 py-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        Phone / WhatsApp
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">
+                        {selectedLead.phone}
+                      </p>
+                    </div>
+
+                    {selectedLead.phone !== "—" && (
+                      <a
+                        href={`https://wa.me/${String(selectedLead.phone).replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-green-700"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        WhatsApp
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -587,13 +1321,6 @@ const Leads = () => {
                       Product Interest
                     </p>
                     <p className="mt-1 text-gray-900">{selectedLead.productInterest}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Phone
-                    </p>
-                    <p className="mt-1 text-gray-900">{selectedLead.phone}</p>
                   </div>
 
                   <div className="rounded-2xl border border-gray-100 p-4">
@@ -626,6 +1353,118 @@ const Leads = () => {
                       Created On
                     </p>
                     <p className="mt-1 text-gray-900">{selectedLead.date}</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-emerald-600" />
+                        <p className="text-xs font-semibold uppercase text-gray-500">
+                          Follow-up Check-ins
+                        </p>
+                      </div>
+
+                      <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        {selectedLead.completedFollowups || 0}/3 done
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {FOLLOWUP_FLOW.map((flow) => {
+                        const flowStatus = getFlowStatus(selectedLead, flow.key);
+                        const isDone = !!flowStatus?.done;
+
+                        return (
+                          <div
+                            key={flow.key}
+                            className={`rounded-2xl border p-4 transition ${isDone
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-gray-200 bg-white"
+                              }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  {isDone ? (
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                  ) : (
+                                    <Clock3 className="h-5 w-5 text-amber-500" />
+                                  )}
+                                  <p className="font-semibold text-gray-900">
+                                    {flow.label}
+                                  </p>
+                                </div>
+
+                                <p className="mt-1 text-sm text-gray-500">
+                                  {isDone
+                                    ? `Completed on ${new Date(flowStatus.updatedAt).toLocaleString()}`
+                                    : "Pending follow-up"}
+                                </p>
+                              </div>
+
+                              <Button
+                                onClick={() => handleMarkFollowup(flow.key)}
+                                disabled={isDone}
+                                className={`${isDone
+                                    ? "cursor-not-allowed bg-gray-300"
+                                    : "bg-emerald-600 hover:bg-emerald-700"
+                                  }`}
+                              >
+                                {isDone ? "Completed" : "Mark Done"}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <StickyNote className="h-4 w-4 text-emerald-600" />
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        Notes
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <textarea
+                        value={noteInput}
+                        onChange={(e) => setNoteInput(e.target.value)}
+                        rows={3}
+                        placeholder="Write a note for this lead..."
+                        className="w-full resize-none rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-700 outline-none focus:border-emerald-500"
+                      />
+
+                      <Button onClick={handleAddNote} className="w-full bg-green-700">
+                        Add Note
+                      </Button>
+
+                      <div className="space-y-2 pt-1">
+                        {(selectedLead?.notes || []).length > 0 ? (
+                          selectedLead.notes
+                            .slice()
+                            .reverse()
+                            .map((note) => (
+                              <div
+                                key={note._id}
+                                className="rounded-xl border border-gray-100 bg-gray-50 p-3"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm text-gray-800">{note.text}</p>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                      {new Date(note.at).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No notes added yet.</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

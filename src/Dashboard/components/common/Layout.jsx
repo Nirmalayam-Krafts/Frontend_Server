@@ -16,6 +16,8 @@ import {
   Search,
   ChevronRight,
   Leaf,
+   Package,
+  Boxes,
   PanelLeftClose,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,10 +29,23 @@ export const Sidebar = () => {
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
 
+  const [inventoryOpen, setInventoryOpen] = useState(
+    location.pathname === "/inventory" || location.pathname === "/rawmaterial"
+  );
+
   const menuItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: Users, label: "Leads", path: "/leads" },
-    { icon: Box, label: "Inventory", path: "/inventory" },
+    {
+      icon: Box,
+      label: "Inventory",
+      path: "/inventory",
+      children: [
+        // eslint-disable-next-line no-undef
+        { icon: Package, label: "Products", path: "/inventory" },
+        { icon: Box, label: "Raw Materials", path: "/rawmaterial" },
+      ],
+    },
     { icon: ShoppingCart, label: "Orders", path: "/orders" },
     { icon: FileText, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
@@ -38,6 +53,9 @@ export const Sidebar = () => {
   ];
 
   const isActive = (path) => location.pathname === path;
+
+  const isInventoryActive =
+    location.pathname === "/inventory" || location.pathname === "/rawmaterial";
 
   return (
     <AnimatePresence>
@@ -104,6 +122,89 @@ export const Sidebar = () => {
               <nav className="space-y-2">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
+
+                  if (item.children) {
+                    return (
+                      <div key={item.label} className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setInventoryOpen(!inventoryOpen)}
+                          className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
+                            isInventoryActive
+                              ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-200"
+                              : "text-gray-700 hover:bg-white hover:shadow-sm"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${
+                                isInventoryActive
+                                  ? "bg-white/15 text-white"
+                                  : "bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100"
+                              }`}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </div>
+
+                            <span className="text-sm font-semibold">
+                              {item.label}
+                            </span>
+                          </div>
+
+                          <ChevronRight
+                            className={`h-4 w-4 transition ${
+                              inventoryOpen ? "rotate-90" : ""
+                            } ${isInventoryActive ? "text-white" : "text-gray-400"}`}
+                          />
+                        </button>
+
+                        <AnimatePresence>
+                          {inventoryOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="ml-4 space-y-2 overflow-hidden border-l border-emerald-100 pl-4"
+                            >
+                              {item.children.map((child) => {
+                                const ChildIcon = child.icon;
+                                const childActive = isActive(child.path);
+
+                                return (
+                                  <Link
+                                    key={child.path}
+                                    to={child.path}
+                                    className={`group flex items-center justify-between rounded-xl px-3 py-2.5 transition-all ${
+                                      childActive
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "text-gray-600 hover:bg-white hover:text-gray-900"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div
+                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                          childActive
+                                            ? "bg-emerald-100 text-emerald-700"
+                                            : "bg-gray-100 text-gray-500 group-hover:bg-emerald-50 group-hover:text-emerald-700"
+                                        }`}
+                                      >
+                                        <ChildIcon className="h-4 w-4" />
+                                      </div>
+
+                                      <span className="text-sm font-medium">
+                                        {child.label}
+                                      </span>
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  }
+
                   const active = isActive(item.path);
 
                   return (

@@ -132,11 +132,12 @@ export const InventoryForm = ({ initialData, onSubmit, loading }) => {
         error={errors.reorderPt?.message}
         {...register("reorderPt")}
       />
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" loading={loading}>
-          {initialData ? "Update Item" : "Add Item"}
-        </Button>
-      </div>
+      <button
+    type="submit"
+    className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow hover:opacity-90 transition"
+  >
+    {initialData ? "Update Item" : "Add Item"}
+  </button>
     </form>
   );
 };
