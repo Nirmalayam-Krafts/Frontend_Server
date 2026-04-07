@@ -42,8 +42,9 @@ export const Sidebar = () => {
       path: "/inventory",
       children: [
         // eslint-disable-next-line no-undef
-        { icon: Package, label: "Products", path: "/inventory" },
+        { icon: Package, label: "Stock", path: "/inventory" },
         { icon: Box, label: "Raw Materials", path: "/rawmaterial" },
+        { icon: Box, label: "Products", path: "/Product" },
       ],
     },
     { icon: ShoppingCart, label: "Orders", path: "/orders" },

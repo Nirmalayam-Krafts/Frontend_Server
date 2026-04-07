@@ -31,7 +31,7 @@ const Inventory = () => {
 
   const { data: items = [], isLoading } = useGetInventory();
   const { data: lowStockAlerts = [] } = useGetLowStockAlerts();
-
+  console.log(items)
   const queryClient = useQueryClient();
   const { axiosInstance, notificationOn, setNotificationOn } = useAuthContext();
 
@@ -305,39 +305,42 @@ const Inventory = () => {
         <motion.div
           initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 p-6 text-white shadow-lg"
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-6 text-white shadow-xl ring-1 ring-white/10"
         >
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Inventory Management</h1>
-              <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">
+          <div className="pointer-events-none absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
+
+          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur-sm">
+                Inventory Control Panel
+              </div>
+
+              <h1 className="mt-4 text-3xl font-bold leading-tight md:text-4xl">
+                Inventory Management
+              </h1>
+
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/90 md:text-base">
                 Monitor real inventory data, manage reorder points, and track stock
                 activity with a clear admin dashboard.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-  <Button
-    variant={notificationOn ? "secondary" : "danger"}
-    onClick={() => setNotificationOn(!notificationOn)}
-    className="rounded-xl"
-  >
-    {notificationOn ? "Notifications On" : "Notifications Off"}
-  </Button>
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end xl:w-auto">
+              <Button
+                variant={notificationOn ? "secondary" : "danger"}
+                onClick={() => setNotificationOn(!notificationOn)}
+                className={`rounded-2xl px-5 py-3 font-semibold shadow-md transition-all duration-200 hover:-translate-y-0.5 ${notificationOn
+                    ? "border border-white/20 bg-white text-emerald-800 hover:bg-emerald-50"
+                    : "bg-red-500 text-white hover:bg-red-600"
+                  }`}
+              >
+                {notificationOn ? "Notifications On" : "Notifications Off"}
+              </Button>
 
-  <Button
-    icon={Plus}
-    onClick={() => {
-      setEditingItem(null);
-      setShowModal(true);
-    }}
-  >
-    Add New Item
-  </Button>
-</div>
+
+            </div>
           </div>
         </motion.div>
-
         <motion.div
           className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
           initial={{ opacity: 0 }}

@@ -31,6 +31,7 @@ import { Toast } from "./Dashboard/components/ui";
 /* Protected Route */
 import ProtectedRoute from "./ProtectedRoute";
 import RawMaterial from "./Dashboard/pages/inventory/RawMaterial";
+import Product from "./Dashboard/pages/inventory/product";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -56,7 +57,8 @@ function AppLayout() {
     "/finance",
     "/analytics",
     "/settings",
-    "/rawmaterial"
+    "/rawmaterial",
+    "/Product"
   ];
 
   const isDashboardRoute = dashboardRoutes.some((route) =>
@@ -120,6 +122,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <RawMaterial />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/Product"
+            element={
+              <ProtectedRoute>
+                <Product />
               </ProtectedRoute>
             }
           />

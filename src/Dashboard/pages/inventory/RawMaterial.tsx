@@ -1,466 +1,544 @@
 import React, { useMemo, useState } from "react";
 import { Layout } from "../../components/common/Layout";
-import { Card, Button, Input, Badge } from "../../components/ui";
+import { Card, Button, Input, Badge, Modal } from "../../components/ui";
 import {
-  Package,
   Boxes,
-  Factory,
   AlertTriangle,
   Search,
-  Calculator,
-  Palette,
-  Ruler,
-  Layers3,
-  PackageCheck,
-  ArrowRight,
-  TrendingUp,
   Plus,
+  Eye,
+  Edit2,
+  Trash2,
+  CirclePlus,
+  X,
+  Palette,
+  Package,
+  Layers3,
   ShoppingBag,
-  ClipboardList,
-  BrushCleaning,
-  Scale,
-  Sparkles,
+  Factory,
+  ArrowRightLeft,
+  Ruler,
+  Calculator,
+  CheckCircle2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
+import { useAuthContext } from "../../../context/Adminauth";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import {
+  useGetAllRawMaterials,
+  useGetLowStockRawMaterials,
+} from "../../../../hook/rawMaterial";
+import { useGetAllProducts } from "../../../../hook/product";
 
-const initialRawMaterials = [
-  {
-    id: "rm1",
-    name: "Kraft Paper Roll",
-    code: "RM-KRAFT-001",
-    unit: "kg",
-    available: 1200,
-    reorderPoint: 300,
-    color: "Brown",
-    category: "Paper",
+const initialForm = {
+  name: "",
+  code: "",
+  color: "",
+  type: "Paper",
+  unit: "kg",
+  availableStock: "",
+  reorderPoint: "",
+  minStock: "",
+  description: "",
+  isActive: true,
+};
+
+const initialProductionForm = {
+  productId: "",
+  quantity: "",
+  category: "STANDARD",
+  reorderPt: "10",
+  unitPrice: "",
+  note: "",
+  dimensionMode: "default",
+  customDimensions: {
+    length: "",
+    width: "",
+    height: "",
+    unit: "inch",
   },
-  {
-    id: "rm2",
-    name: "White Paper Sheet",
-    code: "RM-WHITE-002",
-    unit: "kg",
-    available: 650,
-    reorderPoint: 180,
-    color: "White",
-    category: "Paper",
-  },
-  {
-    id: "rm3",
-    name: "Cotton Rope Handle",
-    code: "RM-HANDLE-003",
-    unit: "pairs",
-    available: 4200,
-    reorderPoint: 900,
-    color: "Natural",
-    category: "Handle",
-  },
-  {
-    id: "rm4",
-    name: "Twisted Paper Handle",
-    code: "RM-HANDLE-004",
-    unit: "pairs",
-    available: 2800,
-    reorderPoint: 700,
-    color: "Brown",
-    category: "Handle",
-  },
-  {
-    id: "rm5",
-    name: "Water Based Ink",
-    code: "RM-INK-005",
-    unit: "litres",
-    available: 95,
-    reorderPoint: 20,
-    color: "Multi",
-    category: "Printing",
-  },
-  {
-    id: "rm6",
-    name: "Adhesive Glue",
-    code: "RM-GLUE-006",
-    unit: "litres",
-    available: 160,
-    reorderPoint: 40,
-    color: "Transparent",
-    category: "Adhesive",
-  },
+};
+
+const RAW_MATERIAL_TYPES = [
+  "Paper",
+  "Handle",
+  "Printing",
+  "Adhesive",
+  "Accessory",
+  "Other",
 ];
 
-const bagProducts = [
-  {
-    id: "bag1",
-    name: "Ecocraft Bags",
-    variant: "Small Retail Bag",
-    category: "Ecocraft Bags",
-    availableBags: 850,
-    color: "Brown",
-    printType: "Single Color Print",
-    handleType: "Cotton Rope",
-    gsm: 120,
-    dimensions: { width: 10, height: 14, gusset: 4, unit: "inch" },
-    recipe: [
-      { materialId: "rm1", materialName: "Kraft Paper Roll", qtyPerBag: 0.18, unit: "kg" },
-      { materialId: "rm3", materialName: "Cotton Rope Handle", qtyPerBag: 1, unit: "pairs" },
-      { materialId: "rm5", materialName: "Water Based Ink", qtyPerBag: 0.01, unit: "litres" },
-      { materialId: "rm6", materialName: "Adhesive Glue", qtyPerBag: 0.015, unit: "litres" },
-    ],
-  },
-  {
-    id: "bag2",
-    name: "F&B Gourmet Bags",
-    variant: "Medium Food Bag",
-    category: "F&B Gourmet Bags",
-    availableBags: 430,
-    color: "White",
-    printType: "Two Color Print",
-    handleType: "Twisted Paper",
-    gsm: 140,
-    dimensions: { width: 12, height: 16, gusset: 5, unit: "inch" },
-    recipe: [
-      { materialId: "rm2", materialName: "White Paper Sheet", qtyPerBag: 0.22, unit: "kg" },
-      { materialId: "rm4", materialName: "Twisted Paper Handle", qtyPerBag: 1, unit: "pairs" },
-      { materialId: "rm5", materialName: "Water Based Ink", qtyPerBag: 0.015, unit: "litres" },
-      { materialId: "rm6", materialName: "Adhesive Glue", qtyPerBag: 0.018, unit: "litres" },
-    ],
-  },
-  {
-    id: "bag3",
-    name: "Luxury Kraft Bags",
-    variant: "Premium Gift Bag",
-    category: "Luxury Kraft Bags",
-    availableBags: 210,
-    color: "Brown Matte",
-    printType: "Premium Print",
-    handleType: "Cotton Rope",
-    gsm: 180,
-    dimensions: { width: 14, height: 18, gusset: 5, unit: "inch" },
-    recipe: [
-      { materialId: "rm1", materialName: "Kraft Paper Roll", qtyPerBag: 0.3, unit: "kg" },
-      { materialId: "rm3", materialName: "Cotton Rope Handle", qtyPerBag: 1, unit: "pairs" },
-      { materialId: "rm5", materialName: "Water Based Ink", qtyPerBag: 0.02, unit: "litres" },
-      { materialId: "rm6", materialName: "Adhesive Glue", qtyPerBag: 0.02, unit: "litres" },
-    ],
-  },
+const RAW_MATERIAL_UNITS = [
+  "kg",
+  "gram",
+  "pairs",
+  "litres",
+  "pcs",
+  "rolls",
+  "meter",
+  "sqft",
+  "sqm",
 ];
 
-const ordersData = [
-  {
-    id: "ord1",
-    orderNo: "ORD-1001",
-    customer: "Retail Store Pune",
-    bagId: "bag1",
-    qty: 300,
-    status: "Pending",
-  },
-  {
-    id: "ord2",
-    orderNo: "ORD-1002",
-    customer: "Cafe Express",
-    bagId: "bag2",
-    qty: 180,
-    status: "Confirmed",
-  },
-  {
-    id: "ord3",
-    orderNo: "ORD-1003",
-    customer: "Gift House",
-    bagId: "bag3",
-    qty: 120,
-    status: "Pending",
-  },
-];
+const INVENTORY_CATEGORY_OPTIONS = ["STANDARD", "PREMIUM", "FOOD_GRADE"];
 
-const getMaterialStatus = (available, reorderPoint) => {
-  if (available <= reorderPoint * 0.5) return "critical";
-  if (available <= reorderPoint) return "low";
-  if (available <= reorderPoint * 1.5) return "medium";
+const DIMENSION_UNITS = ["inch", "cm", "mm", "ft"];
+
+const getStockStatus = (availableStock, reorderPoint) => {
+  const stock = Number(availableStock || 0);
+  const reorder = Number(reorderPoint || 0);
+
+  if (stock <= reorder * 0.5) return "critical";
+  if (stock <= reorder) return "low";
+  if (stock <= reorder * 1.5) return "medium";
   return "healthy";
 };
 
-const statusClasses = {
+const statusVariantMap = {
   healthy: "success",
   medium: "warning",
   low: "danger",
   critical: "danger",
 };
 
-const BagPreview = ({ bag }) => {
-  const bg =
-    bag.color.toLowerCase().includes("white")
-      ? "from-stone-100 to-white"
-      : bag.color.toLowerCase().includes("matte")
-      ? "from-stone-700 to-stone-500"
-      : "from-amber-700 to-yellow-700";
+const getFormFromItem = (item) => ({
+  name: item?.name || "",
+  code: item?.code || "",
+  color: item?.color || "",
+  type: item?.type || "Paper",
+  unit: item?.unit || "kg",
+  availableStock: item?.availableStock ?? "",
+  reorderPoint: item?.reorderPoint ?? "",
+  minStock: item?.minStock ?? "",
+  description: item?.description || "",
+  isActive: item?.isActive ?? true,
+});
 
-  return (
-    <div className="rounded-[28px] border border-emerald-100 bg-gradient-to-br from-white to-emerald-50 p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
-            Bag Preview
-          </p>
-          <h3 className="text-lg font-bold text-gray-900">{bag.name}</h3>
-          <p className="text-sm text-gray-500">{bag.variant}</p>
-        </div>
-        <Badge variant="secondary">{bag.availableBags} pcs ready</Badge>
-      </div>
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isNaN(n) ? 0 : n;
+};
 
-      <div className="flex justify-center py-4">
-        <div className="relative">
-          <div className={`h-44 w-36 rounded-t-[14px] rounded-b-[18px] bg-gradient-to-b ${bg} shadow-xl`} />
-          <div className="absolute left-5 top-[-12px] h-12 w-10 rounded-full border-[4px] border-stone-400 border-b-0" />
-          <div className="absolute right-5 top-[-12px] h-12 w-10 rounded-full border-[4px] border-stone-400 border-b-0" />
-          <div className="absolute inset-x-4 top-10 rounded-xl bg-white/20 px-3 py-2 text-center text-xs font-bold text-white backdrop-blur-sm">
-            {bag.category}
-          </div>
-          <div className="absolute bottom-3 left-0 right-0 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90">
-            Nirmalyam Krafts
-          </div>
-        </div>
-      </div>
+const roundTo = (value, digits = 4) => Number(Number(value || 0).toFixed(digits));
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-white p-3">
-          <p className="text-gray-500">Print</p>
-          <p className="font-semibold text-gray-900">{bag.printType}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-3">
-          <p className="text-gray-500">Handle</p>
-          <p className="font-semibold text-gray-900">{bag.handleType}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-3">
-          <p className="text-gray-500">GSM</p>
-          <p className="font-semibold text-gray-900">{bag.gsm}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-3">
-          <p className="text-gray-500">Size</p>
-          <p className="font-semibold text-gray-900">
-            {bag.dimensions.width} × {bag.dimensions.height} × {bag.dimensions.gusset} {bag.dimensions.unit}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+const convertToInch = (value, unit) => {
+  const v = Number(value || 0);
+  if (!v) return 0;
+
+  switch (unit) {
+    case "cm":
+      return v / 2.54;
+    case "mm":
+      return v / 25.4;
+    case "ft":
+      return v * 12;
+    default:
+      return v;
+  }
+};
+
+const getVolumeLikeFactor = (dimensions) => {
+  const length = convertToInch(dimensions?.length, dimensions?.unit);
+  const width = convertToInch(dimensions?.width, dimensions?.unit);
+  const height = convertToInch(dimensions?.height, dimensions?.unit);
+
+  if (!length || !width || !height) return 0;
+  return length * width * height;
+};
+
+const getAverageLinearFactor = (baseDimensions, customDimensions) => {
+  const baseLength = convertToInch(baseDimensions?.length, baseDimensions?.unit);
+  const baseWidth = convertToInch(baseDimensions?.width, baseDimensions?.unit);
+  const baseHeight = convertToInch(baseDimensions?.height, baseDimensions?.unit);
+
+  const customLength = convertToInch(customDimensions?.length, customDimensions?.unit);
+  const customWidth = convertToInch(customDimensions?.width, customDimensions?.unit);
+  const customHeight = convertToInch(customDimensions?.height, customDimensions?.unit);
+
+  if (!baseLength || !baseWidth || !baseHeight) return 1;
+  if (!customLength || !customWidth || !customHeight) return 1;
+
+  const lRatio = customLength / baseLength;
+  const wRatio = customWidth / baseWidth;
+  const hRatio = customHeight / baseHeight;
+
+  return (lRatio + wRatio + hRatio) / 3;
 };
 
 const RawMaterial = () => {
-  const [rawMaterials, setRawMaterials] = useState(initialRawMaterials);
+  const navigate = useNavigate();
+  const { axiosInstance } = useAuthContext();
+  const queryClient = useQueryClient();
+
   const [search, setSearch] = useState("");
-  const [selectedBagId, setSelectedBagId] = useState(bagProducts[0].id);
-  const [productionQty, setProductionQty] = useState(100);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [formData, setFormData] = useState(initialForm);
 
-  const [bagDimensions, setBagDimensions] = useState({
-    width: bagProducts[0].dimensions.width,
-    height: bagProducts[0].dimensions.height,
-    gusset: bagProducts[0].dimensions.gusset,
-    unit: bagProducts[0].dimensions.unit,
-  });
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  const [newMaterial, setNewMaterial] = useState({
-    name: "",
-    code: "",
-    category: "Paper",
-    unit: "kg",
-    available: "",
-    reorderPoint: "",
-    color: "",
-  });
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [selectedStockItem, setSelectedStockItem] = useState(null);
+  const [stockToAdd, setStockToAdd] = useState("");
+  const [stockNote, setStockNote] = useState("");
 
-  const [mixPlan, setMixPlan] = useState(
-    bagProducts.map((bag) => ({
-      bagId: bag.id,
-      qty: 0,
-    }))
-  );
+  const [showProductionModal, setShowProductionModal] = useState(false);
+  const [productionForm, setProductionForm] = useState(initialProductionForm);
 
-  const selectedBag = useMemo(
-    () => bagProducts.find((bag) => bag.id === selectedBagId) || bagProducts[0],
-    [selectedBagId]
-  );
+  const { data: rawMaterials = [], isLoading } = useGetAllRawMaterials({ search });
+  const { data: lowStockAlerts = [] } = useGetLowStockRawMaterials();
+  const { data: products = [] } = useGetAllProducts();
 
-  const filteredMaterials = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
+
     return rawMaterials.filter((item) => {
       return (
-        item.name.toLowerCase().includes(q) ||
-        item.code.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
+        item?.name?.toLowerCase().includes(q) ||
+        item?.code?.toLowerCase().includes(q) ||
+        item?.type?.toLowerCase().includes(q) ||
+        item?.color?.toLowerCase().includes(q)
       );
     });
-  }, [search, rawMaterials]);
+  }, [rawMaterials, search]);
 
-  const totalRawMaterials = rawMaterials.length;
+  const totalMaterials = rawMaterials.length;
+  const activeMaterials = rawMaterials.filter((item) => item.isActive).length;
+  const totalStockUnits = rawMaterials.reduce(
+    (sum, item) => sum + Number(item.availableStock || 0),
+    0
+  );
+  const lowStockCount = lowStockAlerts.length;
+  const differentBagTypes = products.length;
 
-  const totalMaterialUnits = useMemo(() => {
-    return rawMaterials.reduce((sum, item) => sum + Number(item.available || 0), 0);
-  }, [rawMaterials]);
-
-  const lowStockCount = useMemo(() => {
-    return rawMaterials.filter((item) => item.available <= item.reorderPoint).length;
-  }, [rawMaterials]);
-
-  const selectedBagPreview = useMemo(() => {
-    return {
-      ...selectedBag,
-      dimensions: bagDimensions,
-    };
-  }, [selectedBag, bagDimensions]);
-
-  const productionPreview = useMemo(() => {
-    if (!selectedBag || !productionQty || productionQty <= 0) return [];
-
-    return selectedBag.recipe.map((recipeItem) => {
-      const material = rawMaterials.find((m) => m.id === recipeItem.materialId);
-      const required = Number(recipeItem.qtyPerBag) * Number(productionQty);
-      const remaining = Number(material?.available || 0) - required;
-
-      return {
-        ...recipeItem,
-        available: Number(material?.available || 0),
-        required,
-        remaining,
-        canProduce: remaining >= 0,
-      };
-    });
-  }, [selectedBag, productionQty, rawMaterials]);
-
-  const canProduceAll = productionPreview.every((item) => item.canProduce);
-
-  const maxPossibleProduction = useMemo(() => {
-    if (!selectedBag) return 0;
-
-    const possibleCounts = selectedBag.recipe.map((recipeItem) => {
-      const material = rawMaterials.find((m) => m.id === recipeItem.materialId);
-      const available = Number(material?.available || 0);
-      const qtyPerBag = Number(recipeItem.qtyPerBag || 0);
-      if (qtyPerBag <= 0) return Infinity;
-      return Math.floor(available / qtyPerBag);
-    });
-
-    return Math.min(...possibleCounts);
-  }, [selectedBag, rawMaterials]);
-
-  const totalOrders = ordersData.length;
-  const pendingOrders = ordersData.filter((o) => o.status === "Pending").length;
-  const confirmedOrders = ordersData.filter((o) => o.status === "Confirmed").length;
-  const totalOrderedBags = ordersData.reduce((sum, item) => sum + item.qty, 0);
-
-  const orderMaterialSummary = useMemo(() => {
-    const summaryMap = {};
-
-    ordersData.forEach((order) => {
-      const bag = bagProducts.find((b) => b.id === order.bagId);
-      if (!bag) return;
-
-      bag.recipe.forEach((recipe) => {
-        if (!summaryMap[recipe.materialId]) {
-          summaryMap[recipe.materialId] = {
-            materialId: recipe.materialId,
-            materialName: recipe.materialName,
-            unit: recipe.unit,
-            required: 0,
-          };
-        }
-        summaryMap[recipe.materialId].required += recipe.qtyPerBag * order.qty;
-      });
-    });
-
-    return Object.values(summaryMap).map((item) => {
-      const stock = rawMaterials.find((m) => m.id === item.materialId);
-      const available = Number(stock?.available || 0);
-      return {
-        ...item,
-        available,
-        remainingAfterOrders: available - item.required,
-        sufficient: available >= item.required,
-      };
-    });
-  }, [rawMaterials]);
-
-  const mixMaterialUsage = useMemo(() => {
-    const usageMap = {};
-
-    mixPlan.forEach((planItem) => {
-      if (!planItem.qty || planItem.qty <= 0) return;
-      const bag = bagProducts.find((b) => b.id === planItem.bagId);
-      if (!bag) return;
-
-      bag.recipe.forEach((recipe) => {
-        if (!usageMap[recipe.materialId]) {
-          usageMap[recipe.materialId] = {
-            materialId: recipe.materialId,
-            materialName: recipe.materialName,
-            unit: recipe.unit,
-            required: 0,
-          };
-        }
-        usageMap[recipe.materialId].required += recipe.qtyPerBag * planItem.qty;
-      });
-    });
-
-    return Object.values(usageMap).map((item) => {
-      const stock = rawMaterials.find((m) => m.id === item.materialId);
-      const available = Number(stock?.available || 0);
-      return {
-        ...item,
-        available,
-        remaining: available - item.required,
-        canProduce: available >= item.required,
-      };
-    });
-  }, [mixPlan, rawMaterials]);
-
-  const totalMixBags = mixPlan.reduce((sum, item) => sum + Number(item.qty || 0), 0);
-  const canProduceMix = mixMaterialUsage.every((item) => item.canProduce);
-
-  const handleMixQtyChange = (bagId, value) => {
-    setMixPlan((prev) =>
-      prev.map((item) =>
-        item.bagId === bagId ? { ...item, qty: Number(value) || 0 } : item
-      )
+  const selectedProductionProduct = useMemo(() => {
+    return (
+      products.find(
+        (item) => String(item._id || item.id) === String(productionForm.productId)
+      ) || null
     );
+  }, [products, productionForm.productId]);
+
+  const baseProductDimensions = useMemo(() => {
+    return selectedProductionProduct?.dimensions || {
+      length: 0,
+      width: 0,
+      height: 0,
+      unit: "inch",
+    };
+  }, [selectedProductionProduct]);
+
+  const effectiveDimensions = useMemo(() => {
+    if (productionForm.dimensionMode === "custom") {
+      return {
+        length: toNumber(productionForm.customDimensions.length),
+        width: toNumber(productionForm.customDimensions.width),
+        height: toNumber(productionForm.customDimensions.height),
+        unit: productionForm.customDimensions.unit || "inch",
+      };
+    }
+
+    return {
+      length: toNumber(baseProductDimensions.length),
+      width: toNumber(baseProductDimensions.width),
+      height: toNumber(baseProductDimensions.height),
+      unit: baseProductDimensions.unit || "inch",
+    };
+  }, [productionForm.dimensionMode, productionForm.customDimensions, baseProductDimensions]);
+
+  const dimensionScaleFactor = useMemo(() => {
+    if (!selectedProductionProduct) return 1;
+    if (productionForm.dimensionMode !== "custom") return 1;
+
+    const baseVolume = getVolumeLikeFactor(baseProductDimensions);
+    const customVolume = getVolumeLikeFactor(effectiveDimensions);
+
+    if (baseVolume > 0 && customVolume > 0) {
+      return customVolume / baseVolume;
+    }
+
+    return getAverageLinearFactor(baseProductDimensions, effectiveDimensions);
+  }, [selectedProductionProduct, productionForm.dimensionMode, baseProductDimensions, effectiveDimensions]);
+
+  const rawMaterialCalculationPreview = useMemo(() => {
+    if (!selectedProductionProduct) return [];
+
+    const quantity = toNumber(productionForm.quantity);
+    const mappedMaterials = selectedProductionProduct?.rawMaterials || [];
+
+    return mappedMaterials.map((material, index) => {
+      const usageType = material?.usageType || "fixed";
+      const perBagQty = toNumber(material?.requiredQuantityPerBag || 0);
+
+      let perBagRequired = perBagQty;
+
+      if (usageType === "dimension_based") {
+        perBagRequired = perBagQty * (dimensionScaleFactor || 1);
+      }
+
+      const wastagePercent = toNumber(material?.wastagePercent || 0);
+      const baseTotal = perBagRequired * quantity;
+      const wastageAmount = baseTotal * (wastagePercent / 100);
+      const totalRequired = baseTotal + wastageAmount;
+
+      return {
+        id: material?.rawMaterialId || `${index}`,
+        rawMaterialName: material?.rawMaterialName || "Raw Material",
+        rawMaterialType: material?.rawMaterialType || "other",
+        usageType,
+        unit: material?.unit || "pcs",
+        perBagQty: roundTo(perBagQty),
+        adjustedPerBagQty: roundTo(perBagRequired),
+        wastagePercent,
+        totalRequired: roundTo(totalRequired),
+      };
+    });
+  }, [selectedProductionProduct, productionForm.quantity, dimensionScaleFactor]);
+
+  const resetForm = () => {
+    setFormData(initialForm);
+    setEditingItem(null);
+    setShowFormModal(false);
   };
 
-  const handleAddRawMaterial = () => {
-    if (!newMaterial.name || !newMaterial.code) return;
+  const invalidateAllQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["getAllRawMaterials"] });
+    queryClient.invalidateQueries({ queryKey: ["getLowStockRawMaterials"] });
+    queryClient.invalidateQueries({ queryKey: ["getAllProducts"] });
+    queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
+    queryClient.invalidateQueries({ queryKey: ["getLowStockAlertsData"] });
+  };
+
+  const openCreateModal = () => {
+    setEditingItem(null);
+    setFormData(initialForm);
+    setShowFormModal(true);
+  };
+
+  const openEditModal = (item) => {
+    setEditingItem(item);
+    setFormData(getFormFromItem(item));
+    setShowFormModal(true);
+  };
+
+  const handleFieldChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
     const payload = {
-      id: `rm-${Date.now()}`,
-      name: newMaterial.name,
-      code: newMaterial.code,
-      category: newMaterial.category,
-      unit: newMaterial.unit,
-      available: Number(newMaterial.available || 0),
-      reorderPoint: Number(newMaterial.reorderPoint || 0),
-      color: newMaterial.color || "Default",
+      name: formData.name.trim(),
+      code: formData.code.trim(),
+      color: formData.color.trim(),
+      type: formData.type,
+      unit: formData.unit,
+      availableStock: Number(formData.availableStock || 0),
+      reorderPoint: Number(formData.reorderPoint || 0),
+      minStock: Number(formData.minStock || 0),
+      description: formData.description.trim(),
+      isActive: formData.isActive,
     };
 
-    setRawMaterials((prev) => [payload, ...prev]);
+    const loadingToast = toast.loading(
+      editingItem ? "Updating raw material..." : "Creating raw material..."
+    );
 
-    setNewMaterial({
-      name: "",
-      code: "",
-      category: "Paper",
-      unit: "kg",
-      available: "",
-      reorderPoint: "",
-      color: "",
-    });
+    try {
+      const response = editingItem
+        ? await axiosInstance.patch(
+            `/raw-materials/${editingItem._id || editingItem.id}`,
+            payload
+          )
+        : await axiosInstance.post("/raw-materials", payload);
+
+      const savedItem = response?.data?.data;
+
+      toast.success(
+        editingItem
+          ? "Raw material updated successfully 🎉"
+          : "Raw material created successfully 🎉",
+        { id: loadingToast }
+      );
+
+      invalidateAllQueries();
+
+      if (
+        selectedItem &&
+        (selectedItem._id === (editingItem?._id || editingItem?.id) ||
+          selectedItem.id === (editingItem?._id || editingItem?.id))
+      ) {
+        setSelectedItem(savedItem);
+      }
+
+      resetForm();
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to save raw material",
+        { id: loadingToast }
+      );
+    }
   };
 
-  const handleCreateProduction = () => {
-    if (!canProduceAll) return;
+  const handleDeleteItem = async (id) => {
+    const loadingToast = toast.loading("Deleting raw material...");
 
-    setRawMaterials((prev) =>
-      prev.map((material) => {
-        const usage = productionPreview.find((item) => item.materialId === material.id);
-        if (!usage) return material;
-        return {
-          ...material,
-          available: Number((material.available - usage.required).toFixed(2)),
-        };
-      })
-    );
+    try {
+      await axiosInstance.delete(`/raw-materials/${id}`);
+
+      toast.success("Raw material deleted successfully", {
+        id: loadingToast,
+      });
+
+      invalidateAllQueries();
+
+      if (selectedItem?._id === id || selectedItem?.id === id) {
+        setSelectedItem(null);
+        setShowDetailPanel(false);
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to delete raw material",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const openAddStockModal = (item) => {
+    setSelectedStockItem(item);
+    setStockToAdd("");
+    setStockNote("");
+    setShowStockModal(true);
+  };
+
+  const handleAddStock = async () => {
+    if (!selectedStockItem) return;
+
+    const quantity = Number(stockToAdd || 0);
+
+    if (!quantity || quantity <= 0) {
+      toast.error("Please enter valid stock quantity");
+      return;
+    }
+
+    const loadingToast = toast.loading("Adding stock...");
+
+    try {
+      const response = await axiosInstance.patch(
+        `/raw-materials/${selectedStockItem._id || selectedStockItem.id}/add-stock`,
+        {
+          quantity,
+          note: stockNote || "Stock added manually",
+        }
+      );
+
+      const updatedItem = response?.data?.data;
+
+      toast.success("Stock added successfully 🎉", {
+        id: loadingToast,
+      });
+
+      invalidateAllQueries();
+
+      if (
+        selectedItem &&
+        (selectedItem._id === (selectedStockItem._id || selectedStockItem.id) ||
+          selectedItem.id === (selectedStockItem._id || selectedStockItem.id))
+      ) {
+        setSelectedItem(updatedItem);
+      }
+
+      setShowStockModal(false);
+      setSelectedStockItem(null);
+      setStockToAdd("");
+      setStockNote("");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to add stock",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const handleProductionField = (field, value) => {
+    setProductionForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCustomDimensionField = (field, value) => {
+    setProductionForm((prev) => ({
+      ...prev,
+      customDimensions: {
+        ...prev.customDimensions,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleCreateProductionStock = async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      productId: productionForm.productId,
+      quantity: Number(productionForm.quantity || 0),
+      category: productionForm.category,
+      reorderPt: Number(productionForm.reorderPt || 10),
+      note: productionForm.note,
+      unitPrice: Number(productionForm.unitPrice || 0),
+
+      dimensionMode: productionForm.dimensionMode,
+      productionDimensions: effectiveDimensions,
+      dimensionScaleFactor: roundTo(dimensionScaleFactor),
+      calculatedRawMaterials: rawMaterialCalculationPreview,
+    };
+
+    if (!payload.productId || !payload.quantity || payload.quantity <= 0) {
+      toast.error("Please select product and enter valid quantity");
+      return;
+    }
+
+    if (
+      productionForm.dimensionMode === "custom" &&
+      (!effectiveDimensions.length ||
+        !effectiveDimensions.width ||
+        !effectiveDimensions.height)
+    ) {
+      toast.error("Please enter valid custom dimensions");
+      return;
+    }
+
+    const loadingToast = toast.loading("Creating production stock...");
+
+    try {
+      const response = await axiosInstance.post("/inventory/create-production", payload);
+      const item = response?.data?.data;
+
+      toast.success("Inventory stock created successfully 🎉", {
+        id: loadingToast,
+      });
+
+      invalidateAllQueries();
+      setShowProductionModal(false);
+      setProductionForm(initialProductionForm);
+
+      if (item) {
+        // optional success handling
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to create production stock",
+        { id: loadingToast }
+      );
+    }
   };
 
   return (
@@ -469,34 +547,51 @@ const RawMaterial = () => {
         <motion.div
           initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[28px] bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 p-6 text-white shadow-lg"
+          className="overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-6 text-white shadow-xl ring-1 ring-white/10"
         >
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Raw Material & Production Dashboard</h1>
-              <p className="mt-2 max-w-3xl text-sm text-emerald-50/90">
-                Add raw materials, manage bag dimensions, preview bag designs, check order pressure,
-                calculate production, and see exactly how much raw material will remain after creating bags.
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-50 backdrop-blur-sm">
+                Inventory Control Panel
+              </div>
+
+              <h1 className="mt-4 text-3xl font-bold leading-tight md:text-4xl">
+                Raw Material Management
+              </h1>
+
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/90 md:text-base">
+                Manage raw materials, monitor alerts, create products, and generate
+                dimension-wise inventory stock directly from mapped product raw materials.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase text-white/75">Orders</p>
-                <p className="text-2xl font-bold">{totalOrders}</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase text-white/75">Pending</p>
-                <p className="text-2xl font-bold">{pendingOrders}</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase text-white/75">Confirmed</p>
-                <p className="text-2xl font-bold">{confirmedOrders}</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase text-white/75">Ordered Bags</p>
-                <p className="text-2xl font-bold">{totalOrderedBags}</p>
-              </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:min-w-[420px] xl:max-w-[460px]">
+              <button
+                type="button"
+                onClick={() => navigate("/Product")}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white px-5 py-3 text-sm font-semibold text-emerald-800 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg"
+              >
+                <ShoppingBag size={18} />
+                <span>Create Product</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowProductionModal(true)}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-emerald-900/40 px-5 py-3 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-900/55 hover:shadow-lg"
+              >
+                <Factory size={18} />
+                <span>Create Production Stock</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="sm:col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
+              >
+                <Plus size={18} />
+                <span>Create Raw Material</span>
+              </button>
             </div>
           </div>
         </motion.div>
@@ -509,8 +604,12 @@ const RawMaterial = () => {
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">Raw Materials</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{totalRawMaterials}</p>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Total Materials
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {totalMaterials}
+                </p>
               </div>
               <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
                 <Boxes className="h-6 w-6" />
@@ -521,13 +620,31 @@ const RawMaterial = () => {
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">Material Units</p>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Active Materials
+                </p>
                 <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {totalMaterialUnits.toLocaleString()}
+                  {activeMaterials}
                 </p>
               </div>
               <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-                <Factory className="h-6 w-6" />
+                <Package className="h-6 w-6" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Total Stock Units
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {Number(totalStockUnits).toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-purple-50 p-3 text-purple-600">
+                <Layers3 className="h-6 w-6" />
               </div>
             </div>
           </Card>
@@ -535,9 +652,13 @@ const RawMaterial = () => {
           <Card className="rounded-2xl border border-red-100 bg-red-50 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-red-500">Low Alerts</p>
-                <p className="mt-2 text-3xl font-bold text-red-600">{lowStockCount}</p>
-                <p className="mt-2 text-xs text-red-600">Need quick attention</p>
+                <p className="text-xs font-semibold uppercase text-red-500">
+                  Low Stock Alerts
+                </p>
+                <p className="mt-2 text-3xl font-bold text-red-600">
+                  {lowStockCount}
+                </p>
+                <p className="mt-2 text-xs text-red-600">Need attention</p>
               </div>
               <div className="rounded-2xl bg-white p-3 text-red-600">
                 <AlertTriangle className="h-6 w-6" />
@@ -548,535 +669,1006 @@ const RawMaterial = () => {
           <Card className="rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">Max Production</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{maxPossibleProduction}</p>
-                <p className="mt-2 text-xs text-emerald-600">{selectedBag.variant}</p>
-              </div>
-              <div className="rounded-2xl bg-purple-50 p-3 text-purple-600">
-                <TrendingUp className="h-6 w-6" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">Mixed Plan</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{totalMixBags}</p>
-                <p className="mt-2 text-xs text-gray-500">bags across variants</p>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Bag Types / Products
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {differentBagTypes}
+                </p>
               </div>
               <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
-                <Sparkles className="h-6 w-6" />
+                <ShoppingBag className="h-6 w-6" />
               </div>
             </div>
           </Card>
         </motion.div>
 
-        <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
-          <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-            <div className="mb-5 flex items-center justify-between">
+        {products.length > 0 && (
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-emerald-600" />
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Raw Material Stock</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Available Products for Stock Creation
+                </h2>
                 <p className="text-sm text-gray-500">
-                  Search, add, and monitor your production materials
+                  These products can create inventory by deducting mapped raw materials
                 </p>
               </div>
-              <Button icon={Plus}>Add New Material</Button>
             </div>
 
-            <div className="mb-5">
-              <Input
-                placeholder="Search raw materials by name, code, or category..."
-                icon={Search}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <Input
-                placeholder="Material name"
-                value={newMaterial.name}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, name: e.target.value }))}
-              />
-              <Input
-                placeholder="Code"
-                value={newMaterial.code}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, code: e.target.value }))}
-              />
-              <Input
-                placeholder="Color"
-                value={newMaterial.color}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, color: e.target.value }))}
-              />
-              <select
-                className="h-11 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500"
-                value={newMaterial.category}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, category: e.target.value }))}
-              >
-                <option>Paper</option>
-                <option>Handle</option>
-                <option>Printing</option>
-                <option>Adhesive</option>
-                <option>Accessory</option>
-              </select>
-
-              <select
-                className="h-11 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500"
-                value={newMaterial.unit}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, unit: e.target.value }))}
-              >
-                <option value="kg">kg</option>
-                <option value="pairs">pairs</option>
-                <option value="litres">litres</option>
-                <option value="pcs">pcs</option>
-                <option value="rolls">rolls</option>
-              </select>
-
-              <Input
-                type="number"
-                placeholder="Available stock"
-                value={newMaterial.available}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, available: e.target.value }))}
-              />
-              <Input
-                type="number"
-                placeholder="Reorder point"
-                value={newMaterial.reorderPoint}
-                onChange={(e) => setNewMaterial((p) => ({ ...p, reorderPoint: e.target.value }))}
-              />
-
-              <Button className="h-11 w-full bg-green-500" icon={Plus} onClick={handleAddRawMaterial}>
-                Save Material
-              </Button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px]">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Material</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Code</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Category</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Available</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Reorder</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMaterials.map((item) => {
-                    const status = getMaterialStatus(item.available, item.reorderPoint);
-
-                    return (
-                      <tr key={item.id} className="border-b border-gray-100 transition hover:bg-gray-50">
-                        <td className="px-4 py-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{item.name}</p>
-                            <p className="text-xs text-gray-500">{item.color}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-700">{item.code}</td>
-                        <td className="px-4 py-4">
-                          <Badge variant="secondary">{item.category}</Badge>
-                        </td>
-                        <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                          {item.available} {item.unit}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-600">
-                          {item.reorderPoint} {item.unit}
-                        </td>
-                        <td className="px-4 py-4">
-                          <Badge variant={statusClasses[status]}>
-                            {status === "critical"
-                              ? "Critical"
-                              : status === "low"
-                              ? "Low"
-                              : status === "medium"
-                              ? "Medium"
-                              : "Healthy"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="flex flex-wrap gap-3">
+              {products.map((product) => (
+                <div
+                  key={product._id || product.id}
+                  className="rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700"
+                >
+                  {product.name}
+                </div>
+              ))}
             </div>
           </Card>
+        )}
 
-          <div className="space-y-6">
-            <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-emerald-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Bag Catalog</h2>
-              </div>
+        {lowStockAlerts.length > 0 && (
+          <motion.div
+            className="rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 via-white to-red-50 p-4 shadow-sm"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-900">Low Stock Materials</h3>
+                <p className="mb-3 text-sm text-red-700">
+                  These raw materials are at or below reorder point.
+                </p>
 
-              <div className="space-y-3">
-                {bagProducts.map((bag) => (
-                  <button
-                    key={bag.id}
-                    onClick={() => {
-                      setSelectedBagId(bag.id);
-                      setBagDimensions({ ...bag.dimensions });
-                    }}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      selectedBagId === bag.id
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-gray-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2">
+                  {lowStockAlerts.slice(0, 4).map((item) => (
+                    <div
+                      key={item._id || item.id}
+                      className="flex items-center justify-between rounded-xl border border-red-100 bg-white p-3"
+                    >
                       <div>
-                        <p className="font-semibold text-gray-900">{bag.name}</p>
-                        <p className="text-sm text-gray-500">{bag.variant}</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Stock: {item.availableStock} {item.unit} · Reorder:{" "}
+                          {item.reorderPoint} {item.unit}
+                        </p>
                       </div>
-                      <Badge variant="secondary">{bag.availableBags} pcs</Badge>
+
+                      <button
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowDetailPanel(true);
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+                      >
+                        View
+                      </button>
                     </div>
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
-            </Card>
+            </div>
+          </motion.div>
+        )}
 
-        
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-1 gap-4"
+        >
+          <Input
+            placeholder="Search by material name, code, type, or color..."
+            icon={Search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </motion.div>
 
-            <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <Ruler className="h-5 w-5 text-emerald-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Bag Dimensions & Design</h2>
+        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="rounded-3xl border border-gray-100 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Raw Materials Overview
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Showing {filteredItems.length} raw materials
+                </p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  type="number"
-                  placeholder="Width"
-                  value={bagDimensions.width}
-                  onChange={(e) =>
-                    setBagDimensions((p) => ({ ...p, width: Number(e.target.value || 0) }))
-                  }
-                />
-                <Input
-                  type="number"
-                  placeholder="Height"
-                  value={bagDimensions.height}
-                  onChange={(e) =>
-                    setBagDimensions((p) => ({ ...p, height: Number(e.target.value || 0) }))
-                  }
-                />
-                <Input
-                  type="number"
-                  placeholder="Gusset"
-                  value={bagDimensions.gusset}
-                  onChange={(e) =>
-                    setBagDimensions((p) => ({ ...p, gusset: Number(e.target.value || 0) }))
-                  }
-                />
-                <select
-                  className="h-11 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500"
-                  value={bagDimensions.unit}
-                  onChange={(e) => setBagDimensions((p) => ({ ...p, unit: e.target.value }))}
-                >
-                  <option value="inch">inch</option>
-                  <option value="cm">cm</option>
-                </select>
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Calculator className="h-5 w-7 text-emerald-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Single Bag Production Calculator</h2>
             </div>
 
-            <div className="space-y-4">
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-16 animate-pulse rounded-2xl bg-gray-100"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1150px]">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Material
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Code
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Type
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Unit
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Available Stock
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Reorder Point
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Status
+                      </th>
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredItems.map((item) => {
+                      const status = getStockStatus(
+                        item.availableStock,
+                        item.reorderPoint
+                      );
+
+                      return (
+                        <tr
+                          key={item._id || item.id}
+                          className="border-b border-gray-100 transition hover:bg-gray-50"
+                        >
+                          <td className="px-4 py-4">
+                            <div>
+                              <p className="font-medium text-gray-900">{item.name}</p>
+                              <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                                <Palette className="h-3.5 w-3.5" />
+                                {item.color || "No color"}
+                              </p>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                            {item.code}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <Badge variant="secondary">{item.type}</Badge>
+                          </td>
+
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            {item.unit}
+                          </td>
+
+                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                            {Number(item.availableStock || 0).toLocaleString()} {item.unit}
+                          </td>
+
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            {Number(item.reorderPoint || 0).toLocaleString()} {item.unit}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <Badge variant={statusVariantMap[status]}>
+                              {status === "critical"
+                                ? "Critical"
+                                : status === "low"
+                                ? "Low"
+                                : status === "medium"
+                                ? "Medium"
+                                : "Healthy"}
+                            </Badge>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setShowDetailPanel(true);
+                                }}
+                                className="rounded-lg p-2 text-gray-700 transition hover:bg-gray-100"
+                                title="View"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => openAddStockModal(item)}
+                                className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
+                                title="Add Stock"
+                              >
+                                <CirclePlus className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => openEditModal(item)}
+                                className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteItem(item._id || item.id)}
+                                className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {!filteredItems.length && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                          No raw materials found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
+        <Modal
+          isOpen={showProductionModal}
+          title="Create Production Stock"
+          onClose={() => {
+            setShowProductionModal(false);
+            setProductionForm(initialProductionForm);
+          }}
+        >
+          <form onSubmit={handleCreateProductionStock} className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Product
+              </label>
+              <select
+                value={productionForm.productId}
+                onChange={(e) => handleProductionField("productId", e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                required
+              >
+                <option value="">Select product</option>
+                {products.map((product) => (
+                  <option key={product._id || product.id} value={product._id || product.id}>
+                    {product.name} ({product.sku})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedProductionProduct && (
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-sm font-semibold text-gray-900">
+                  Selected Product: {selectedProductionProduct.name}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  SKU: {selectedProductionProduct.sku} · Bag Type:{" "}
+                  {selectedProductionProduct.bagType}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Raw Materials Mapped: {selectedProductionProduct?.rawMaterials?.length || 0}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Number of Bags
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={productionForm.quantity}
+                  onChange={(e) => handleProductionField("quantity", e.target.value)}
+                  placeholder="100"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Inventory Category
+                </label>
+                <select
+                  value={productionForm.category}
+                  onChange={(e) => handleProductionField("category", e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                >
+                  {INVENTORY_CATEGORY_OPTIONS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Reorder Point
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={productionForm.reorderPt}
+                  onChange={(e) => handleProductionField("reorderPt", e.target.value)}
+                  placeholder="10"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Unit Price Override
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={productionForm.unitPrice}
+                  onChange={(e) => handleProductionField("unitPrice", e.target.value)}
+                  placeholder="Optional price override"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {selectedProductionProduct && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <Ruler className="h-4 w-4 text-emerald-600" />
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Dimension Wise Production
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Dimension Mode
+                    </label>
+                    <select
+                      value={productionForm.dimensionMode}
+                      onChange={(e) => handleProductionField("dimensionMode", e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                    >
+                      <option value="default">Use Product Default Dimensions</option>
+                      <option value="custom">Use Custom Dimensions</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        Base Product Dimensions
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-gray-900">
+                        {toNumber(baseProductDimensions.length)} × {toNumber(baseProductDimensions.width)} ×{" "}
+                        {toNumber(baseProductDimensions.height)} {baseProductDimensions.unit || "inch"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                        Effective Production Dimensions
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-gray-900">
+                        {toNumber(effectiveDimensions.length)} × {toNumber(effectiveDimensions.width)} ×{" "}
+                        {toNumber(effectiveDimensions.height)} {effectiveDimensions.unit || "inch"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {productionForm.dimensionMode === "custom" && (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Length
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={productionForm.customDimensions.length}
+                          onChange={(e) => handleCustomDimensionField("length", e.target.value)}
+                          placeholder="14"
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Width
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={productionForm.customDimensions.width}
+                          onChange={(e) => handleCustomDimensionField("width", e.target.value)}
+                          placeholder="10"
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Height
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={productionForm.customDimensions.height}
+                          onChange={(e) => handleCustomDimensionField("height", e.target.value)}
+                          placeholder="12"
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Unit
+                        </label>
+                        <select
+                          value={productionForm.customDimensions.unit}
+                          onChange={(e) => handleCustomDimensionField("unit", e.target.value)}
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        >
+                          {DIMENSION_UNITS.map((unit) => (
+                            <option key={unit} value={unit}>
+                              {unit}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="h-4 w-4 text-amber-700" />
+                      <p className="text-sm font-bold text-gray-900">Calculated Scale Factor</p>
+                    </div>
+                    <p className="mt-2 text-lg font-bold text-amber-800">
+                      {roundTo(dimensionScaleFactor, 4)}x
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600">
+                      For custom dimensions, dimension-based raw materials scale automatically.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedProductionProduct && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Raw Material Requirement Preview
+                  </h3>
+                </div>
+
+                {rawMaterialCalculationPreview.length > 0 ? (
+                  <div className="space-y-3">
+                    {rawMaterialCalculationPreview.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-2xl border border-gray-100 bg-gray-50 p-4"
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {item.rawMaterialName}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              Type: {item.rawMaterialType} · Usage: {item.usageType}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                            <div className="rounded-xl bg-white px-3 py-2">
+                              <p className="text-[11px] uppercase text-gray-500">Base / Bag</p>
+                              <p className="mt-1 text-sm font-bold text-gray-900">
+                                {item.perBagQty} {item.unit}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-white px-3 py-2">
+                              <p className="text-[11px] uppercase text-gray-500">Adj. / Bag</p>
+                              <p className="mt-1 text-sm font-bold text-gray-900">
+                                {item.adjustedPerBagQty} {item.unit}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-white px-3 py-2">
+                              <p className="text-[11px] uppercase text-gray-500">Wastage</p>
+                              <p className="mt-1 text-sm font-bold text-gray-900">
+                                {item.wastagePercent}%
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-emerald-50 px-3 py-2">
+                              <p className="text-[11px] uppercase text-emerald-700">Total Need</p>
+                              <p className="mt-1 text-sm font-bold text-emerald-800">
+                                {item.totalRequired} {item.unit}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No raw material mapping found for selected product.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Note
+              </label>
+              <textarea
+                rows={3}
+                value={productionForm.note}
+                onChange={(e) => handleProductionField("note", e.target.value)}
+                placeholder="Create stock from selected product and deduct raw materials automatically"
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setShowProductionModal(false);
+                  setProductionForm(initialProductionForm);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-green-700">
+                Create Stock
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          isOpen={showFormModal}
+          title={editingItem ? "Edit Raw Material" : "Create Raw Material"}
+          onClose={resetForm}
+        >
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Material Name
+                </label>
+                <input
+                  value={formData.name}
+                  onChange={(e) => handleFieldChange("name", e.target.value)}
+                  placeholder="Kraft Paper Roll"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Code
+                </label>
+                <input
+                  value={formData.code}
+                  onChange={(e) => handleFieldChange("code", e.target.value)}
+                  placeholder="RM-KRAFT-001"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Color
+                </label>
+                <input
+                  value={formData.color}
+                  onChange={(e) => handleFieldChange("color", e.target.value)}
+                  placeholder="Brown"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => handleFieldChange("type", e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                >
+                  {RAW_MATERIAL_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Unit
+                </label>
+                <select
+                  value={formData.unit}
+                  onChange={(e) => handleFieldChange("unit", e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                >
+                  {RAW_MATERIAL_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Available Stock
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.availableStock}
+                  onChange={(e) =>
+                    handleFieldChange("availableStock", e.target.value)
+                  }
+                  placeholder="1200"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Reorder Point
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.reorderPoint}
+                  onChange={(e) =>
+                    handleFieldChange("reorderPoint", e.target.value)
+                  }
+                  placeholder="300"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Minimum Stock
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.minStock}
+                  onChange={(e) => handleFieldChange("minStock", e.target.value)}
+                  placeholder="200"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) =>
+                    handleFieldChange("description", e.target.value)
+                  }
+                  placeholder="Primary kraft paper roll for shopping bags"
+                  className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) =>
+                      handleFieldChange("isActive", e.target.checked)
+                    }
+                  />
+                  Active Raw Material
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-green-700">
+                {editingItem ? "Update Material" : "Create Material"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          isOpen={showStockModal}
+          title="Add Stock"
+          onClose={() => {
+            setShowStockModal(false);
+            setSelectedStockItem(null);
+            setStockToAdd("");
+            setStockNote("");
+          }}
+        >
+          {selectedStockItem && (
+            <div className="space-y-5">
               <div className="rounded-2xl bg-emerald-50 p-4">
-                <p className="font-semibold text-gray-900">{selectedBag.name}</p>
-                <p className="text-sm text-gray-600">{selectedBag.variant}</p>
+                <p className="text-sm text-gray-500">Material</p>
+                <p className="font-semibold text-gray-900">{selectedStockItem.name}</p>
 
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="mt-3 grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-white p-3">
-                    <div className="mb-1 flex items-center gap-2 text-gray-500">
-                      <Palette className="h-4 w-4" />
-                      Color
-                    </div>
-                    <p className="font-medium text-gray-900">{selectedBag.color}</p>
-                  </div>
-
-                  <div className="rounded-xl bg-white p-3">
-                    <div className="mb-1 flex items-center gap-2 text-gray-500">
-                      <Layers3 className="h-4 w-4" />
-                      GSM
-                    </div>
-                    <p className="font-medium text-gray-900">{selectedBag.gsm}</p>
-                  </div>
-
-                  <div className="rounded-xl bg-white p-3">
-                    <div className="mb-1 flex items-center gap-2 text-gray-500">
-                      <Ruler className="h-4 w-4" />
-                      Dimensions
-                    </div>
-                    <p className="font-medium text-gray-900">
-                      {bagDimensions.width} × {bagDimensions.height} × {bagDimensions.gusset} {bagDimensions.unit}
+                    <p className="text-xs uppercase text-gray-500">Current Stock</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {Number(selectedStockItem.availableStock || 0).toLocaleString()}{" "}
+                      {selectedStockItem.unit}
                     </p>
                   </div>
 
                   <div className="rounded-xl bg-white p-3">
-                    <div className="mb-1 flex items-center gap-2 text-gray-500">
-                      <PackageCheck className="h-4 w-4" />
-                      Handle
-                    </div>
-                    <p className="font-medium text-gray-900">{selectedBag.handleType}</p>
+                    <p className="text-xs uppercase text-gray-500">Code</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {selectedStockItem.code}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Number of bags to create
+                  Add Stock Quantity
                 </label>
                 <Input
                   type="number"
                   min="1"
-                  value={productionQty}
-                  onChange={(e) => setProductionQty(Number(e.target.value))}
+                  value={stockToAdd}
+                  onChange={(e) => setStockToAdd(e.target.value)}
                   placeholder="Enter quantity"
                 />
               </div>
 
-              <div
-                className={`rounded-2xl border p-4 ${
-                  canProduceAll ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"
-                }`}
-              >
-                <p className="font-semibold text-gray-900">
-                  {canProduceAll
-                    ? `You can create ${productionQty} bags`
-                    : `Insufficient raw materials for ${productionQty} bags`}
-                </p>
-                <p className="mt-1 text-sm text-gray-600">
-                  Maximum possible production:
-                  <span className="ml-1 font-semibold text-gray-900">{maxPossibleProduction}</span>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Note
+                </label>
+                <textarea
+                  rows={3}
+                  value={stockNote}
+                  onChange={(e) => setStockNote(e.target.value)}
+                  placeholder="Stock received from supplier"
+                  className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <p className="text-sm text-gray-600">
+                  New stock level:
+                  <span className="ml-2 font-semibold text-gray-900">
+                    {(
+                      Number(selectedStockItem.availableStock || 0) +
+                      Number(stockToAdd || 0)
+                    ).toLocaleString()}{" "}
+                    {selectedStockItem.unit}
+                  </span>
                 </p>
               </div>
 
-              <Button icon={ArrowRight} className="w-full" onClick={handleCreateProduction}>
-                Create Production & Deduct Material
-              </Button>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowStockModal(false);
+                    setSelectedStockItem(null);
+                    setStockToAdd("");
+                    setStockNote("");
+                  }}
+                >
+                  Cancel
+                </Button>
+
+                <Button className="bg-green-900" onClick={handleAddStock}>
+                  Add Stock
+                </Button>
+              </div>
             </div>
-          </Card>
-   <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Single Production Material Usage Preview</h2>
-              <p className="text-sm text-gray-500">
-                Shows required raw material and remaining stock after creating the selected bags
-              </p>
-            </div>
+          )}
+        </Modal>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px]">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Raw Material</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Per Bag</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Available</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Required</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Remaining</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productionPreview.map((item, index) => (
-                    <tr key={`${item.materialId}-${index}`} className="border-b border-gray-100 transition hover:bg-gray-50">
-                      <td className="px-4 py-4 font-medium text-gray-900">{item.materialName}</td>
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {item.qtyPerBag} {item.unit}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {item.available} {item.unit}
-                      </td>
-                      <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                        {item.required.toFixed(item.unit === "pairs" ? 0 : 2)} {item.unit}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {item.remaining.toFixed(item.unit === "pairs" ? 0 : 2)} {item.unit}
-                      </td>
-                      <td className="px-4 py-4">
-                        <Badge variant={item.canProduce ? "success" : "danger"}>
-                          {item.canProduce ? "Available" : "Insufficient"}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        
-        </div>
+        {showDetailPanel && selectedItem && (
+          <motion.div
+            className="fixed inset-0 z-40 flex items-center justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={() => setShowDetailPanel(false)}
+            />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <BrushCleaning className="h-5 w-5 text-emerald-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Mixed Bag Production Planner</h2>
-            </div>
+            <motion.div
+              className="relative h-screen w-full max-w-md overflow-y-auto bg-white shadow-2xl"
+              initial={{ x: 400 }}
+              animate={{ x: 0 }}
+              exit={{ x: 400 }}
+            >
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Raw Material Detail
+                  </h2>
+                  <button
+                    onClick={() => setShowDetailPanel(false)}
+                    className="text-gray-500"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
 
-            <div className="space-y-4">
-              {bagProducts.map((bag) => {
-                const plan = mixPlan.find((p) => p.bagId === bag.id);
+                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedItem.name}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">{selectedItem.code}</p>
+                </div>
 
-                return (
-                  <div key={bag.id} className="rounded-2xl border border-gray-200 p-4">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-gray-900">{bag.name}</p>
-                        <p className="text-sm text-gray-500">{bag.variant}</p>
-                      </div>
-                      <Badge variant="secondary">{bag.handleType}</Badge>
-                    </div>
-
-                    <Input
-                      type="number"
-                      min="0"
-                      value={plan?.qty || 0}
-                      onChange={(e) => handleMixQtyChange(bag.id, e.target.value)}
-                      placeholder="Enter number of bags"
-                    />
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Type
+                    </p>
+                    <p className="mt-1 text-gray-900">{selectedItem.type}</p>
                   </div>
-                );
-              })}
 
-              <div
-                className={`rounded-2xl border p-4 ${
-                  canProduceMix ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"
-                }`}
-              >
-                <p className="font-semibold text-gray-900">
-                  {canProduceMix
-                    ? `Mixed production plan is possible for ${totalMixBags} bags`
-                    : `Mixed plan exceeds available raw materials`}
-                </p>
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Color
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {selectedItem.color || "No color"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Available Stock
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {Number(selectedItem.availableStock || 0).toLocaleString()}{" "}
+                      {selectedItem.unit}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Reorder Point
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {Number(selectedItem.reorderPoint || 0).toLocaleString()}{" "}
+                      {selectedItem.unit}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Minimum Stock
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {Number(selectedItem.minStock || 0).toLocaleString()}{" "}
+                      {selectedItem.unit}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Description
+                    </p>
+                    <p className="mt-1 text-gray-900">
+                      {selectedItem.description || "No description added"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase text-gray-500">
+                      Stock History
+                    </p>
+
+                    <div className="space-y-2">
+                      {(selectedItem.stockHistory || []).length > 0 ? (
+                        selectedItem.stockHistory
+                          .slice()
+                          .reverse()
+                          .map((log, idx) => (
+                            <div key={idx} className="rounded-xl bg-gray-50 p-3 text-sm">
+                              <p className="font-medium text-gray-900">
+                                {log.action} · {log.quantity} {selectedItem.unit}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {log.note || "Stock activity"}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Previous: {log.previousStock} → New: {log.newStock}
+                              </p>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          No stock history available
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowDetailPanel(false)}
+                  >
+                    Close
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      openEditModal(selectedItem);
+                      setShowDetailPanel(false);
+                    }}
+                  >
+                    Edit Material
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Scale className="h-5 w-5 text-emerald-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Mixed Plan Material Preview</h2>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px]">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Material</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Available</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Required</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Remaining</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mixMaterialUsage.length ? (
-                    mixMaterialUsage.map((item) => (
-                      <tr key={item.materialId} className="border-b border-gray-100">
-                        <td className="px-4 py-4 font-medium text-gray-900">{item.materialName}</td>
-                        <td className="px-4 py-4 text-sm text-gray-700">
-                          {item.available} {item.unit}
-                        </td>
-                        <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                          {item.required.toFixed(item.unit === "pairs" ? 0 : 2)} {item.unit}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-700">
-                          {item.remaining.toFixed(item.unit === "pairs" ? 0 : 2)} {item.unit}
-                        </td>
-                        <td className="px-4 py-4">
-                          <Badge variant={item.canProduce ? "success" : "danger"}>
-                            {item.canProduce ? "Available" : "Insufficient"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                        Enter quantities for different bags to preview mixed production.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
-       
-
-            <Card className="rounded-[28px] border border-gray-100 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-emerald-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Order Summary vs Material Load</h2>
-            </div>
-
-            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className="rounded-2xl bg-gray-50 p-4">
-                <p className="text-xs uppercase text-gray-500">Total Orders</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">{totalOrders}</p>
-              </div>
-              <div className="rounded-2xl bg-amber-50 p-4">
-                <p className="text-xs uppercase text-amber-600">Pending</p>
-                <p className="mt-2 text-2xl font-bold text-amber-700">{pendingOrders}</p>
-              </div>
-              <div className="rounded-2xl bg-blue-50 p-4">
-                <p className="text-xs uppercase text-blue-600">Confirmed</p>
-                <p className="mt-2 text-2xl font-bold text-blue-700">{confirmedOrders}</p>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 p-4">
-                <p className="text-xs uppercase text-emerald-600">Bags Needed</p>
-                <p className="mt-2 text-2xl font-bold text-emerald-700">{totalOrderedBags}</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px]">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Material</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Required for Orders</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Available</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Remaining</th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderMaterialSummary.map((item) => (
-                    <tr key={item.materialId} className="border-b border-gray-100">
-                      <td className="px-4 py-4 font-medium text-gray-900">{item.materialName}</td>
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {item.required.toFixed(item.unit === "pairs" ? 0 : 2)} {item.unit}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {item.available} {item.unit}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {item.remainingAfterOrders.toFixed(item.unit === "pairs" ? 0 : 2)} {item.unit}
-                      </td>
-                      <td className="px-4 py-4">
-                        <Badge variant={item.sufficient ? "success" : "danger"}>
-                          {item.sufficient ? "Enough" : "Short"}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
       </div>
     </Layout>
   );
