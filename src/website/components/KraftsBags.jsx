@@ -585,7 +585,7 @@ export function KraftBagSVG() {
           <div
             style={{
               fontSize: 14,
-              color: "#4b3a28",
+              color: "#ffffffff",
               letterSpacing: 1,
               textAlign: "center",
             }}

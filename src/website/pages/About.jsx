@@ -29,23 +29,79 @@ export default function About() {
     <div style={{ minHeight: '100vh', paddingTop: 80 }}>
 
       {/* ── Page Hero ── */}
-      <div className="page-hero">
+      <div className="page-hero" style={{ 
+        backgroundImage: 'url(/images/generated/about_hero_wood.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        position: 'relative',
+        minHeight: '500px',
+        display: 'flex',
+        alignItems: 'center'
+      }}>
+        {/* Dark overlay for readability */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to right, rgba(26, 18, 8, 0.9) 0%, rgba(26, 18, 8, 0.7) 45%, rgba(26, 18, 8, 0.4) 100%)',
+          zIndex: 0
+        }} />
+
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="section-label" style={{ color: 'var(--eco-400)' }}>About Nirmalyam Krafts</div>
-          <h1 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: 'clamp(36px, 6vw, 68px)',
-            color: 'white',
-            fontWeight: 600,
-            marginBottom: 18,
-            maxWidth: 700,
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', 
+            gap: 80, 
+            alignItems: 'center' 
           }}>
-            Rooted in Tradition, Driven by Innovation
-          </h1>
-          <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.72)', maxWidth: 580, lineHeight: 1.65 }}>
-            We are pioneers in crafting premium, sustainable packaging solutions.
-            We believe true luxury does not harm the environment.
-          </p>
+            <div className="anim-fade-up">
+              <div className="section-label" style={{ color: 'var(--eco-400)', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>About Nirmalyam Krafts</div>
+              <h1 style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: 'clamp(36px, 6vw, 64px)',
+                color: 'white',
+                fontWeight: 600,
+                marginBottom: 20,
+                lineHeight: 1.1,
+                textShadow: '0 4px 12px rgba(0,0,0,0.4)'
+              }}>
+                Rooted in Tradition,<br />
+                <span style={{ color: 'var(--kraft-300)' }}>Driven by Innovation</span>
+              </h1>
+              <p style={{ 
+                fontSize: 'clamp(16px, 2vw, 19px)', 
+                color: 'rgba(255,255,255,0.9)', 
+                maxWidth: 580, 
+                lineHeight: 1.7,
+                textShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+              }}>
+                We are pioneers in crafting premium, sustainable packaging solutions. 
+                We believe true luxury does not harm the environment, but preserves it for the next generation.
+              </p>
+            </div>
+
+            {/* Product Hero Image */}
+            <div className="hidden lg:block anim-float" style={{ position: 'relative', perspective: '1000px' }}>
+              <div style={{
+                position: 'absolute',
+                inset: '-10%',
+                background: 'radial-gradient(circle, rgba(192, 148, 87, 0.15) 0%, transparent 70%)',
+                filter: 'blur(30px)',
+                zIndex: -1
+              }} />
+              <img 
+                src="/images/generated/about_hero_bags.png" 
+                alt="Premium Sustainable Packaging"
+                className="mission-image-glow"
+                style={{
+                  width: '100%',
+                  borderRadius: 'var(--radius-xl)',
+                  boxShadow: '0 30px 60px rgba(0,0,0,0.5)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  transform: 'rotate(-1deg)'
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -54,23 +110,52 @@ export default function About() {
         <div className="nature-layer-wood" />
         <div className="nature-layer-leaf" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 72, alignItems: 'center' }}>
-            <div>
-              <div className="section-label">Our Mission</div>
-              <h2 className="section-title">Crafting a Plastic-Free Tomorrow</h2>
-              <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.75, marginBottom: 28 }}>
-                Nirmalyam Krafts began with a simple yet powerful mission: to prove that high-end commerce
-                doesn't need to cost the earth. We've spent years perfecting the balance between artisanal
-                quality and industrial scalability.
-              </p>
-              <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.75, marginBottom: 36 }}>
-                Today, we stand as a beacon for sustainable retail, helping thousands of brands transition
-                from plastic to premium paper packaging without compromising on their brand's visual identity.
-              </p>
-              <Link to="/contact" className="btn-primary">
-                <span>Partner With Us</span>
-                <ArrowRight size={16} />
-              </Link>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 72, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 48, alignItems: 'center' }}>
+              {/* Mission Image with Animation */}
+              <div className="animate-mission-float hidden lg:block" style={{ 
+                position: 'relative', 
+                width: 320,
+                borderRadius: 'var(--radius-xl)',
+                flexShrink: 0
+              }}>
+                <div className="mission-image-glow" />
+                <img 
+                  src="/images/generated/about_mission_bag_dynamic_1775488029249.png" 
+                  alt="Sustainable Kraft Bag"
+                  style={{ 
+                    width: '100%', 
+                    borderRadius: 'var(--radius-xl)', 
+                    boxShadow: '0 30px 60px -12px rgba(62, 57, 46, 0.2)',
+                    position: 'relative',
+                    zIndex: 1,
+                    border: '1px solid rgba(255,255,255,0.4)'
+                  }} 
+                />
+                <div className="animate-leaf-float" style={{ position: 'absolute', top: -30, right: -20, zIndex: 2, opacity: 0.8 }}>
+                  <div style={{ width: 60, height: 60, background: 'var(--eco-50)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', border: '1px solid var(--eco-100)' }}>
+                    <Leaf size={28} color="var(--eco-600)" fill="rgba(22,163,74,0.1)" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="section-label">Our Mission</div>
+                <h2 className="section-title">Crafting a Plastic-Free Tomorrow</h2>
+                <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.75, marginBottom: 28 }}>
+                  Nirmalyam Krafts began with a simple yet powerful mission: to prove that high-end commerce
+                  doesn't need to cost the earth. We've spent years perfecting the balance between artisanal
+                  quality and industrial scalability.
+                </p>
+                <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.75, marginBottom: 36 }}>
+                  Today, we stand as a beacon for sustainable retail, helping thousands of brands transition
+                  from plastic to premium paper packaging without compromising on their brand's visual identity.
+                </p>
+                <Link to="/contact" className="btn-primary">
+                  <span>Partner With Us</span>
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
             </div>
 
             {/* Values cards */}
@@ -219,7 +304,7 @@ export default function About() {
       {/* ── CTA ── */}
       <section className="nature-section" style={{
         background: 'linear-gradient(135deg, var(--eco-800), var(--eco-700))',
-        padding: '72px 24px',
+        padding: '72px 0px',
         textAlign: 'center',
       }}>
         <div style={{

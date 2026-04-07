@@ -40,17 +40,17 @@ const categoryData = {
       { 
         title: 'Natural Brown Kraft', 
         desc: 'The classic raw sustainable aesthetic',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/ecocraft_sample_1_1775161831795.png'
+        image: '/images/generated/natural_brown_kraft_gallery_1775487935111.png'
       },
       { 
         title: 'Bleached White Utility', 
         desc: 'Clean, crisp premium finish',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/ecocraft_sample_2_1775161853219.png'
+        image: '/images/generated/bleached_white_kraft_gallery_1775487963327.png'
       },
       { 
         title: 'Custom Brand Print', 
         desc: 'High-fidelity brand realization',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/ecocraft_sample_3_1775161870897.png'
+        image: '/images/generated/custom_printed_kraft_gallery_1775487996087.png'
       }
     ]
   },
@@ -78,17 +78,17 @@ const categoryData = {
       { 
         title: 'Pastry Sleeves', 
         desc: 'Grease-proof artisan solutions',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/fnb_sample_1_1775161903978.png'
+        image: '/images/generated/fnb_pastry_sleeves_1775488776952.png'
       },
       { 
         title: 'Wide-Base Takeaway', 
         desc: 'Engineered for restaurant delivery',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/fnb_sample_2_1775161927690.png'
+        image: '/images/generated/fnb_wide_base_takeaway_1775488815145.png'
       },
       { 
         title: 'Secure Delivery Pouch', 
         desc: 'Tamper-evident food security',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/fnb_sample_3_1775161946282.png'
+        image: '/images/generated/fnb_delivery_pouch_1775488853812.png'
       }
     ]
   },
@@ -116,17 +116,17 @@ const categoryData = {
       { 
         title: 'Matt Black & Gold', 
         desc: 'Signature high-fashion aesthetic',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/luxury_sample_1_1775161985888.png'
+        image: '/images/generated/luxury_matt_black_gold_1775488897962.png'
       },
       { 
         title: 'Textured Ivory Silk', 
         desc: 'Micro-textured premium unboxing',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/luxury_sample_2_1775162005183.png'
+        image: '/images/generated/luxury_textured_ivory_1775488944535.png'
       },
       { 
         title: 'Forest Green Satin', 
         desc: 'Satin-lined exquisite finishing',
-        image: 'file:///Users/shravani/.gemini/antigravity/brain/689ccaf1-8ec5-4215-b420-8f11f6f067f4/luxury_sample_3_1775162023145.png'
+        image: '/images/generated/luxury_forest_green_satin_1775488988571.png'
       }
     ]
   }
@@ -383,7 +383,7 @@ export default function ProductCategory() {
           <div style={{
             background: 'var(--kraft-950)',
             borderRadius: 'var(--radius-3xl)',
-            padding: '80px 40px',
+            padding: '80px 0px',
             textAlign: 'center',
             color: 'white',
             position: 'relative',

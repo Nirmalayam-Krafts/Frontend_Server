@@ -9,7 +9,7 @@ import Products from "./website/pages/Products";
 import About from "./website/pages/About";
 import Contact from "./website/pages/Contact";
 import ProductCategory from "./website/pages/ProductCategory";
-import DesignYourProduct from "./website/pages/DesignYourProduct";
+// import DesignYourProduct from "./website/pages/DesignYourProduct";
 import NotFound from "./website/pages/NotFound";
 import { Toaster } from "react-hot-toast";
 
@@ -78,7 +78,7 @@ function AppLayout() {
           <Route path="/products/:categoryId" element={<ProductCategory />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/design" element={<DesignYourProduct />} />
+          {/* <Route path="/design" element={<DesignYourProduct />} /> */}
 
           {/* Auth Routes */}
           <Route path="/dashboard/login" element={<Login />} />

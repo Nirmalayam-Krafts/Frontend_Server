@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Leaf, Recycle, Package, Zap,
   Star, ChevronLeft, ChevronRight, Award, Shield,
-  TrendingUp, Users, X, MessageCircle, Send
+  TrendingUp, Users, X, MessageCircle, Send, MapPin
 } from 'lucide-react';
 import { KraftBagSVG } from '../components/KraftsBags';
 
@@ -44,23 +45,28 @@ function Counter({ to, suffix = '', prefix = '' }) {
   return <span ref={ref}>{prefix}{count.toLocaleString('en-IN')}{suffix}</span>;
 }
 
-/* ── Testimonials ── */
 const testimonials = [
   {
     name: 'Sarah Merchant',
+    location: 'Mumbai, MH',
     role: 'Boutique Owner',
+    image: '/images/avatar_1.png',
     text: '"The print quality on our custom bags exceeded expectations. Our customers frequently compliment the premium feel, which perfectly aligns with our brand\'s eco-conscious values."',
     rating: 5,
   },
   {
     name: 'Rajesh Kumar',
+    location: 'Pune, MH',
     role: 'Bakery Founder',
+    image: '/images/avatar_2.png',
     text: '"Finally found a supplier that understands the needs of a small bakery. The low MOQ and fast turnaround helped us manage our inventory easily without large upfront costs."',
     rating: 5,
   },
   {
     name: 'Aditi Sharma',
+    location: 'Bangalore, KA',
     role: 'Corporate Manager',
+    image: '/images/avatar_3.png',
     text: '"Efficient delivery even to our Tier 2 city locations across India. Nirmalyam has become our primary packaging partner for all our wholesale and retail operations."',
     rating: 5,
   },
@@ -97,40 +103,93 @@ const categories = [
   },
 ];
 
-/* ── Why Nirmalyam features ── */
-const features = [
-  { icon: Recycle, title: '100% Recyclable', desc: 'Sustainable materials that don\'t compromise on durability or professional feel.' },
-  { icon: Package, title: 'Custom Printing', desc: 'High-precision offset and screen printing that brings your brand logo to life.' },
-  { icon: Shield, title: 'Low MOQ', desc: 'Empowering startups with flexible small batch orders starting from just 500 units.' },
-  { icon: Award, title: 'Quality Assured', desc: 'Rigorous multi-stage QC protocols ensuring every product meets our artisanal standards.' },
-];
-
-/* ── Stats ── */
-const stats = [
-  { value: 12000, suffix: '+', label: 'Brands Served', icon: Users },
-  { value: 500, prefix: '₹', suffix: ' Cr+', label: 'Revenue Generated', icon: TrendingUp },
-  { value: 99, suffix: '%', label: 'On-Time Delivery', icon: Shield },
-  { value: 100, suffix: '%', label: 'Plastic Free Process', icon: Leaf },
+/* ── Why Nirmalyam Redesign Data ── */
+const whyCards = [
+  { 
+    id: 1, 
+    title: '12,000+', 
+    label: 'Brands Served', 
+    image: '/images/why_quality.png', 
+    icon: Users,
+    accent: 'var(--kraft-500)'
+  },
+  { 
+    id: 2, 
+    title: '100%', 
+    label: 'Recyclable Process', 
+    image: '/images/why_recyclable.png', 
+    icon: Recycle,
+    accent: 'var(--eco-500)'
+  },
+  { 
+    id: 3, 
+    title: '99%', 
+    label: 'On-Time Delivery', 
+    image: '/images/why_printing.png', 
+    icon: Shield,
+    accent: 'var(--kraft-400)'
+  },
+  { 
+    id: 4, 
+    title: '500 Units', 
+    label: 'Small Batch MOQ', 
+    image: '/images/why_moq.png', 
+    icon: Package,
+    accent: 'var(--eco-600)'
+  },
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupName, setPopupName] = useState('');
   const [popupEmail, setPopupEmail] = useState('');
-  const [popupSent, setPopupSent] = useState(false);
 
-  /* ── 6-second popup timer ── */
+  /* ── 6-second popup timer + Reveal Observer ── */
   useEffect(() => {
-    const timer = setTimeout(() => setPopupOpen(true), 6000);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => setPopupOpen(true), 12000); // 12 seconds
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    const revealed = document.querySelectorAll('.anim-reveal');
+    revealed.forEach(el => observer.observe(el));
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, []);
+
+  // Auto-slide testimonials
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveTestimonial(prev => (prev + 1) % testimonials.length);
+    }, 6000);
+    return () => clearInterval(timer);
   }, []);
 
   const handlePopupSubmit = (e) => {
     e.preventDefault();
     if (!popupName || !popupEmail) return;
-    setPopupSent(true);
-    setTimeout(() => { setPopupOpen(false); setPopupSent(false); setPopupName(''); setPopupEmail(''); }, 2200);
+    
+    // Redirect to contact page with data
+    navigate('/contact', { 
+      state: { 
+        name: popupName, 
+        email: popupEmail 
+      } 
+    });
+    
+    setPopupOpen(false);
+    setPopupName('');
+    setPopupEmail('');
   };
 
   const prev = () => setActiveTestimonial(p => (p - 1 + testimonials.length) % testimonials.length);
@@ -162,8 +221,9 @@ export default function Home() {
           position: 'absolute',
           inset: 0,
           background: `
-            linear-gradient(to right, rgba(255,253,245,0.96) 0%, rgba(255,253,245,0.82) 42%, rgba(255,253,245,0.15) 70%, transparent 100%),
-            linear-gradient(to top, rgba(246,242,235,1) 0%, transparent 25%)
+            linear-gradient(to bottom, rgba(58, 38, 14, 0.45) 0%, transparent 35%),
+            linear-gradient(to right, rgba(255, 253, 245, 0.92) 0%, rgba(255, 253, 245, 0.75) 40%, rgba(88, 56, 25, 0.05) 75%, transparent 100%),
+            linear-gradient(to top, rgba(253, 249, 243, 1) 0%, transparent 25%)
           `,
           zIndex: 1,
         }} />
@@ -184,10 +244,10 @@ export default function Home() {
         <div className="container" style={{
           position: 'relative',
           zIndex: 1,
-          padding: '120px 40px 80px',
+          padding: '120px 0px 80px',
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 40,
+          gridTemplateColumns: '1.1fr 0.9fr',
+          gap: 24,
           alignItems: 'center',
         }}>
           {/* Left — text */}
@@ -288,20 +348,6 @@ export default function Home() {
                 Get a Quote
               </Link>
             </div>
-
-            {/* Mini stats row */}
-            <div style={{ display: 'flex', gap: 36, marginTop: 44, flexWrap: 'wrap' }}>
-              {[
-                { value: '12,000+', label: 'Brands Served' },
-                { value: '500 units', label: 'Min. Order' },
-                { value: 'Pan India', label: 'Delivery' },
-              ].map(s => (
-                <div key={s.label}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#2d1a06', fontFamily: "'Playfair Display', serif" }}>{s.value}</div>
-                  <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7a6a55', marginTop: 2 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Right — floating bag image */}
@@ -313,6 +359,225 @@ export default function Home() {
           <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 80L1440 80L1440 40C1200 0 960 80 720 40C480 0 240 80 0 40L0 80Z" fill="var(--kraft-50)" />
           </svg>
+        </div>
+      </section>
+
+      {/* ══════════════════ TAGLINE & LOGOS SECTION ══════════════════ */}
+      <section style={{ 
+        background: 'linear-gradient(to bottom, var(--kraft-50) 0%, #fff 100%)', 
+        padding: '60px 0', 
+        borderBottom: '1px solid var(--kraft-100)',
+        position: 'relative',
+        zIndex: 10,
+        overflow: 'hidden'
+      }}>
+        {/* Subtle background glow */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '60%',
+          height: '80%',
+          background: 'radial-gradient(circle, rgba(122, 74, 30, 0.03) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+
+        <div className="container">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={{
+              hidden: {},
+              visible: {
+                transition: {
+                  staggerChildren: 0.12
+                }
+              }
+            }}
+            style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              gap: 24, 
+              flexWrap: 'wrap' 
+            }}
+          >
+            {/* Make in India */}
+            <motion.div 
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+              }}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 16,
+                padding: '12px 28px',
+                background: 'rgba(255, 255, 255, 0.45)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: 24,
+                border: '1px solid rgba(255, 255, 255, 0.7)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                cursor: 'default'
+              }}
+              whileHover={{ 
+                scale: 1.05, 
+                y: -5, 
+                boxShadow: '0 15px 35px rgba(122, 74, 30, 0.08)',
+                borderColor: 'rgba(122, 74, 30, 0.2)'
+              }}
+            >
+              <motion.img 
+                src="/images/make_in_india_lion.png" 
+                alt="Make in India" 
+                style={{ height: 48, width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+                animate={{ 
+                  filter: ['drop-shadow(0 2px 4px rgba(0,0,0,0.1))', 'drop-shadow(0 4px 8px rgba(122, 74, 30, 0.2))', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'] 
+                }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ 
+                  fontSize: 10, 
+                  fontWeight: 800, 
+                  color: '#7a4a1e', 
+                  letterSpacing: '0.25em',
+                  textTransform: 'uppercase',
+                  marginBottom: 2
+                }}>AUTHENTIC</span>
+                <span style={{ 
+                  fontSize: 18, 
+                  fontWeight: 900, 
+                  color: '#1a1208', 
+                  letterSpacing: '0.05em',
+                  fontFamily: "'Playfair Display', serif"
+                }}>MAKE IN INDIA</span>
+              </div>
+            </motion.div>
+
+            {/* Recycle India */}
+            <motion.div 
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+              }}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 12,
+                padding: '12px 24px',
+                background: 'rgba(255, 255, 255, 0.45)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: 24,
+                border: '1px solid rgba(255, 255, 255, 0.7)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                cursor: 'default'
+              }}
+              whileHover={{ 
+                scale: 1.05, 
+                y: -5, 
+                boxShadow: '0 15px 35px rgba(22, 101, 52, 0.08)',
+                borderColor: 'rgba(22, 101, 52, 0.2)'
+              }}
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+              >
+                <img 
+                  src="https://upload.wikimedia.org/wikipedia/commons/4/44/Recycle001.svg" 
+                  alt="Recycle" 
+                  style={{ height: 28, width: 'auto', opacity: 0.9 }}
+                />
+              </motion.div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.12em' }}>RECYCLE INDIA</span>
+            </motion.div>
+
+            {/* Plastic Free */}
+            <motion.div 
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+              }}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 12,
+                padding: '12px 24px',
+                background: 'rgba(255, 255, 255, 0.45)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: 24,
+                border: '1px solid rgba(255, 255, 255, 0.7)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                cursor: 'default'
+              }}
+              whileHover={{ 
+                scale: 1.05, 
+                y: -5, 
+                boxShadow: '0 15px 35px rgba(22, 163, 74, 0.08)',
+                borderColor: 'rgba(22, 163, 74, 0.2)'
+              }}
+            >
+              <motion.div 
+                style={{ 
+                  width: 36, height: 36, 
+                  borderRadius: 12, 
+                  background: 'rgba(22,163,74,0.12)', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                }}
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Leaf size={20} color="#166534" />
+              </motion.div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.12em' }}>100% PLASTIC-FREE</span>
+            </motion.div>
+
+            {/* Pune Pride */}
+            <motion.div 
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+              }}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 12,
+                padding: '12px 24px',
+                background: 'rgba(255, 255, 255, 0.45)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: 24,
+                border: '1px solid rgba(255, 255, 255, 0.7)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                cursor: 'default'
+              }}
+              whileHover={{ 
+                scale: 1.05, 
+                y: -5, 
+                boxShadow: '0 15px 35px rgba(139, 94, 52, 0.08)',
+                borderColor: 'rgba(139, 94, 52, 0.2)'
+              }}
+            >
+              <motion.div 
+                style={{ 
+                  width: 36, height: 36, 
+                  borderRadius: 12, 
+                  background: 'rgba(139,94,52,0.1)', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                }}
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <MapPin size={20} color="#8b5e34" />
+              </motion.div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: '#8b5e34', letterSpacing: '0.1em' }}>BEST ECO-FRIENDLY</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.1em' }}>PRODUCTS IN PUNE</span>
+              </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
@@ -380,95 +645,93 @@ export default function Home() {
 
             {/* Content */}
             <div style={{ padding: '28px 32px 32px' }}>
-              {!popupSent ? (
-                <>
-                  <h2 style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: '#1a1208',
-                    marginBottom: 8,
-                  }}>
-                    Looking for a Quote?
-                  </h2>
-                  <p style={{ fontSize: 14, color: '#7a6a55', marginBottom: 22, lineHeight: 1.6 }}>
-                    Get custom pricing for your sustainable packaging needs.
-                    We usually reply within 2 hours!
-                  </p>
+              <>
+                <h2 style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: '#1a1208',
+                  marginBottom: 8,
+                }}>
+                  Looking for a Quote?
+                </h2>
+                <p style={{ fontSize: 14, color: '#7a6a55', marginBottom: 22, lineHeight: 1.6 }}>
+                  Get custom pricing for your sustainable packaging needs.
+                  We usually reply within 2 hours!
+                </p>
 
-                  <form onSubmit={handlePopupSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <input
-                      type="text"
-                      placeholder="Your Name"
-                      value={popupName}
-                      onChange={e => setPopupName(e.target.value)}
-                      className="input-field"
-                      style={{ fontSize: 14 }}
-                      required
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email Address"
-                      value={popupEmail}
-                      onChange={e => setPopupEmail(e.target.value)}
-                      className="input-field"
-                      style={{ fontSize: 14 }}
-                      required
-                    />
-                    <button
-                      type="submit"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        padding: '14px',
-                        background: '#1a4a2e',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 10,
-                        fontWeight: 700,
-                        fontSize: 15,
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                        marginTop: 4,
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#145c38'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#1a4a2e'}
-                    >
-                      <Send size={16} /> Get Custom Quote
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{
-                    width: 64, height: 64,
-                    borderRadius: '50%',
-                    background: 'rgba(22,163,74,0.12)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    margin: '0 auto 16px',
-                  }}>
-                    <Leaf size={28} color="#16a34a" />
-                  </div>
-                  <h3 style={{ fontWeight: 700, fontSize: 20, color: '#1a1208', marginBottom: 8 }}>
-                    Thank you, {popupName}! 🌿
-                  </h3>
-                  <p style={{ fontSize: 14, color: '#7a6a55' }}>
-                    We'll be in touch at <strong>{popupEmail}</strong> very soon.
-                  </p>
-                </div>
-              )}
+                <form onSubmit={handlePopupSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    value={popupName}
+                    onChange={e => setPopupName(e.target.value)}
+                    className="input-field"
+                    style={{ fontSize: 14 }}
+                    required
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email Address"
+                    value={popupEmail}
+                    onChange={e => setPopupEmail(e.target.value)}
+                    className="input-field"
+                    style={{ fontSize: 14 }}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      padding: '14px',
+                      background: '#1a4a2e',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      fontSize: 15,
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                      marginTop: 4,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#145c38'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#1a4a2e'}
+                  >
+                    <Send size={16} /> Get Custom Quote
+                  </button>
+                </form>
+              </>
             </div>
           </div>
         </div>
       )}
 
       {/* ══════════════════ CATEGORIES ══════════════════ */}
-      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
-        <div className="nature-layer-wood" />
-        <div className="nature-layer-leaf" />
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+      <section 
+        className="section-padding nature-section" 
+        style={{ 
+          backgroundImage: 'url(/images/collections-bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Readability Overlay */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(252, 250, 247, 0.88)', 
+          zIndex: 0
+        }} />
+
+        <div className="nature-layer-wood" style={{ zIndex: 1 }} />
+        <div className="nature-layer-leaf" style={{ zIndex: 1 }} />
+        <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div className="section-label">Our Collections</div>
             <h2 className="section-title">Packaging That Speaks</h2>
@@ -518,171 +781,248 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════════════ WHY NIRMALYAM ══════════════════ */}
-      <section className="section-padding nature-section" style={{
-        background: 'linear-gradient(135deg, var(--kraft-100) 0%, var(--kraft-50) 100%)',
-      }}>
-        <div className="nature-layer-wood" />
-        <div className="nature-layer-leaf" style={{ opacity: 0.05 }} />
+      {/* ══════════════════ WHY NIRMALYAM (REDESIGNED) ══════════════════ */}
+      <section 
+        className="why-nirmalyam-section anim-reveal" 
+        style={{
+          background: 'linear-gradient(rgba(58, 36, 16, 0.88), rgba(58, 36, 16, 0.92)), url("/images/why_factory_bg.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+          position: 'relative',
+          overflow: 'hidden',
+          padding: '140px 24px',
+          marginTop: -1 
+        }}
+      >
+        {/* Decorative backdrop glow */}
+        <div style={{
+          position: 'absolute',
+          top: '-10%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '80%',
+          height: '60%',
+          background: 'radial-gradient(circle at center, rgba(34,197,94,0.12) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 72, alignItems: 'center' }}>
-            {/* Left */}
-            <div>
-              <div className="section-label">Why Choose Us</div>
-              <h2 className="section-title">Why Nirmalyam?</h2>
-              <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.7, marginBottom: 36 }}>
-                Commitment to quality, sustainability, and your brand's growth. We've spent years
-                perfecting the balance between artisanal quality and industrial scalability.
-              </p>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                {features.map(({ icon: Icon, title, desc }) => (
-                  <div key={title} style={{
-                    background: 'white',
-                    borderRadius: 'var(--radius-md)',
-                    padding: 20,
-                    boxShadow: 'var(--shadow-sm)',
-                    border: '1px solid var(--kraft-100)',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    cursor: 'default',
-                  }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
-                  >
-                    <div style={{
-                      width: 40, height: 40,
-                      borderRadius: 10,
-                      background: 'rgba(22,163,74,0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 12,
-                    }}>
-                      <Icon size={18} color="var(--eco-600)" />
-                    </div>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--kraft-900)', marginBottom: 6 }}>{title}</div>
-                    <div style={{ fontSize: 12, color: 'var(--kraft-500)', lineHeight: 1.5 }}>{desc}</div>
-                  </div>
-                ))}
-              </div>
+          {/* Centered Header */}
+          <div style={{ textAlign: 'center', marginBottom: 64 }} className="anim-fade-up">
+            <div style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: 8, 
+              background: 'rgba(34,197,94,0.15)', 
+              padding: '10px 24px', 
+              borderRadius: 100,
+              marginBottom: 24,
+              border: '1px solid rgba(34,197,94,0.3)',
+              backdropFilter: 'blur(8px)'
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--eco-500)' }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--eco-400)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Why Choose Nirmalyam
+              </span>
             </div>
+            
+            <h2 style={{ 
+              fontFamily: "'Playfair Display', serif", 
+              fontSize: 'clamp(36px, 6vw, 56px)', 
+              color: 'white', 
+              marginBottom: 24,
+              fontWeight: 700,
+              lineHeight: 1.1
+            }}>
+              Why Nirmalyam?
+            </h2>
+            
+            <p style={{ 
+              fontSize: 18, 
+              color: 'rgba(255,255,255,0.6)', 
+              maxWidth: 750, 
+              margin: '0 auto',
+              lineHeight: 1.8 
+            }}>
+              Commitment to quality, sustainability, and your brand's growth. We've spent years
+              perfecting the balance between artisanal quality and industrial scalability.
+            </p>
+          </div>
 
-            {/* Right – decorative visual */}
-            <div style={{ position: 'relative' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, var(--kraft-800) 0%, var(--kraft-600) 100%)',
-                borderRadius: 'var(--radius-xl)',
-                padding: 48,
-                color: 'white',
-                position: 'relative',
-                overflow: 'hidden',
-              }}>
+          {/* 4-Card Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', 
+            gap: 28 
+          }}>
+            {whyCards.map((card, idx) => (
+              <div
+                key={card.id}
+                className="why-card"
+                style={{
+                  height: 460,
+                  borderRadius: 28,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  cursor: 'default',
+                  transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  animation: `fadeInUp 0.8s ease forwards ${idx * 0.15}s`,
+                  opacity: 0,
+                  transform: 'translateY(40px)',
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}
+              >
+                {/* Background Image with Hover Scale */}
+                <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+                  <img 
+                    src={card.image} 
+                    alt={card.label} 
+                    className="why-card-img"
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover',
+                      transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }} 
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+                    zIndex: 1
+                  }} />
+                </div>
+
+                {/* Glass Plate */}
                 <div style={{
                   position: 'absolute',
-                  top: -20, right: -20,
-                  width: 200, height: 200,
-                  borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.05)',
-                }} />
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <Leaf size={40} color="var(--eco-400)" style={{ marginBottom: 16 }} />
-                  <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, marginBottom: 12 }}>
-                    Crafting a Plastic-Free Tomorrow
-                  </h3>
-                  <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,0.75)', marginBottom: 28 }}>
-                    Nirmalyam Krafts began with a simple yet powerful mission: to prove that high-end commerce
-                    doesn't need to cost the earth.
-                  </p>
-                  <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-                    {[
-                      { val: '2018', label: 'Founded' },
-                      { val: '3+', label: 'States' },
-                      { val: '50+', label: 'Product SKUs' },
-                    ].map(s => (
-                      <div key={s.label}>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--kraft-300)' }}>{s.val}</div>
-                        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{s.label}</div>
-                      </div>
-                    ))}
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  padding: '24px',
+                  background: 'rgba(255,255,255,0.08)',
+                  backdropFilter: 'blur(25px) saturate(160%)',
+                  WebkitBackdropFilter: 'blur(25px) saturate(160%)',
+                  borderRadius: 20,
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-end',
+                  zIndex: 2,
+                  transition: 'background 0.3s, transform 0.3s'
+                }} className="glass-plate">
+                  <div>
+                    <div style={{ 
+                      fontSize: 34, 
+                      fontWeight: 700, 
+                      color: 'white', 
+                      marginBottom: 4,
+                      fontFamily: "'Playfair Display', serif",
+                      letterSpacing: '-0.02em'
+                    }}>
+                      {card.title}
+                    </div>
+                    <div style={{ 
+                      fontSize: 14, 
+                      color: 'rgba(255,255,255,0.7)', 
+                      fontWeight: 600,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase'
+                    }}>
+                      {card.label}
+                    </div>
+                  </div>
+
+                  {/* Circular Icon Badge */}
+                  <div style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    transition: 'transform 0.3s'
+                  }} className="icon-badge">
+                    <card.icon size={22} color={card.accent || "#0a0f0c"} />
                   </div>
                 </div>
-              </div>
-
-              {/* Eco tag floating */}
-              <div className="anim-float" style={{
-                position: 'absolute',
-                bottom: -20,
-                left: -20,
-                background: 'white',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px 20px',
-                boxShadow: 'var(--shadow-lg)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-              }}>
-                <div style={{
-                  width: 40, height: 40,
-                  borderRadius: 10,
-                  background: 'rgba(74,222,128,0.15)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Recycle size={18} color="var(--eco-600)" />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--kraft-900)' }}>Eco Impact</div>
-                  <div style={{ fontSize: 12, color: 'var(--eco-600)' }}>100% Plastic Free ✓</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <style>{`
-          @media (max-width: 768px) {
-            .why-grid { grid-template-columns: 1fr !important; }
-          }
-        `}</style>
-      </section>
-
-      {/* ══════════════════ STATS ══════════════════ */}
-      <section style={{
-        background: 'linear-gradient(160deg, var(--kraft-950) 0%, var(--kraft-900) 100%)',
-        padding: '72px 24px',
-      }}>
-        <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 40, textAlign: 'center' }}>
-            {stats.map(({ value, suffix, prefix, label, icon: Icon }) => (
-              <div key={label}>
-                <Icon size={28} color="var(--eco-500)" style={{ marginBottom: 12 }} />
-                <div style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 36,
-                  fontWeight: 700,
-                  color: 'var(--kraft-200)',
-                  marginBottom: 6,
-                }}>
-                  <Counter to={value} suffix={suffix} prefix={prefix || ''} />
-                </div>
-                <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>{label}</div>
               </div>
             ))}
           </div>
         </div>
+
+        <style>{`
+          .why-card:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 30px rgba(34,197,94,0.08);
+            border-color: rgba(255,255,255,0.2);
+          }
+          .why-card:hover .why-card-img {
+            transform: scale(1.1);
+          }
+          .why-card:hover .glass-plate {
+            background: rgba(255,255,255,0.18);
+            transform: translateY(-2px);
+          }
+          .why-card:hover .icon-badge {
+            transform: rotate(-10deg) scale(1.15);
+          }
+          
+          @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          .anim-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+          }
+          .anim-reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          @media (min-width: 1024px) {
+            .product-grid-3x3 {
+              grid-template-columns: repeat(3, 1fr) !important;
+            }
+          }
+
+          .wa-product-btn:hover {
+            transform: scale(1.1);
+            background: #128C7E !important;
+            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4) !important;
+          }
+
+          .product-card:hover .prod-img {
+            transform: scale(1.08);
+          }
+        `}</style>
       </section>
+
 
       {/* ══════════════════ PRODUCT PREVIEW GRID ══════════════════ */}
       <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
         <div className="nature-layer-wood" />
         <div className="nature-layer-leaf" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div className="section-label">Our Products</div>
+          <div style={{ textAlign: 'center', marginBottom: 64 }} className="anim-fade-up">
+            <div className="section-label" style={{ letterSpacing: '0.2em' }}>Our Products</div>
             <h2 className="section-title">Premium Paper Packaging</h2>
-            <p className="section-subtitle" style={{ margin: '0 auto' }}>
-              From everyday retail bags to luxury boutique packaging — crafted for brands that care.
+            <p className="section-subtitle" style={{ margin: '0 auto', opacity: 0.85 }}>
+              Precision-crafted sustainable solutions designed to elevate your brand's unboxing experience.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 24 }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+            gap: 32 
+          }} className="product-grid-3x3">
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: 'var(--gold-500)', image: '/product-luxury-retail.png' },
               { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: 'var(--eco-500)', image: '/product-food-bakery.png' },
@@ -690,26 +1030,62 @@ export default function Home() {
               { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: 'var(--eco-600)', image: '/product-flat-handle.png' },
               { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: 'var(--kraft-600)', image: '/product-industrial-rolls.png' },
               { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: 'var(--gold-400)', image: '/product-custom-mailers.png' },
-            ].map(({ name, cat, desc, color, image }) => (
-              <div key={name} className="product-card" style={{ padding: 0, overflow: 'hidden' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}
+            ].map(({ name, cat, desc, color, image }, idx) => (
+              <div key={name} className="product-card anim-reveal" 
+                style={{ 
+                  padding: 0, 
+                  overflow: 'hidden', 
+                  animationDelay: `${idx * 0.1}s`,
+                  position: 'relative'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-10px)'; e.currentTarget.style.boxShadow = 'var(--shadow-xl)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
               >
                 <div style={{
-                  height: 180,
-                  background: `linear-gradient(135deg, ${color}18 0%, ${color}08 100%)`,
+                  height: 220,
+                  background: `linear-gradient(135deg, ${color}12 0%, ${color}05 100%)`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   overflow: 'hidden',
-                  borderBottom: `1px solid ${color}22`,
+                  borderBottom: `1px solid ${color}15`,
+                  position: 'relative'
                 }}>
-                  <img src={image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }} className="prod-img" />
+                  
+                  {/* WhatsApp Floating Button */}
+                  <a 
+                    href={`https://wa.me/919876543210?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{
+                      position: 'absolute',
+                      right: 16,
+                      bottom: 16,
+                      width: 44,
+                      height: 44,
+                      background: '#25D366',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)',
+                      transition: 'all 0.3s ease',
+                      zIndex: 2
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="wa-product-btn"
+                  >
+                    <WhatsAppIcon size={22} />
+                  </a>
                 </div>
-                <div style={{ padding: '20px 24px 24px' }}>
-                  <span className="tag-chip" style={{ marginBottom: 8, background: `${color}15`, color: color }}>{cat}</span>
-                  <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--kraft-900)', margin: '8px 0 8px' }}>{name}</h3>
-                  <p style={{ fontSize: 13, color: 'var(--kraft-500)', lineHeight: 1.55 }}>{desc}</p>
+                <div style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <span className="tag-chip" style={{ background: `${color}12`, color: color }}>{cat}</span>
+                  </div>
+                  <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 10 }}>{name}</h3>
+                  <p style={{ fontSize: 14, color: 'var(--kraft-600)', lineHeight: 1.6 }}>{desc}</p>
                 </div>
               </div>
             ))}
@@ -725,145 +1101,341 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
-      <section className="section-padding nature-section" style={{
-        background: 'linear-gradient(135deg, var(--kraft-100) 0%, var(--kraft-50) 100%)',
+      <section id="testimonials" style={{
+        position: 'relative',
+        padding: '120px 24px',
+        overflow: 'hidden',
+        background: '#3a2410', 
       }}>
-        <div className="nature-layer-wood" />
-        <div className="nature-layer-leaf" style={{ opacity: 0.06 }} />
+        {/* Wood Texture Background */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url("/images/testimonials_bg_wood.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.9,
+          zIndex: 0
+        }} />
+        
+        {/* Overlay for readability */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to bottom, rgba(58, 36, 16, 0.4), rgba(58, 36, 16, 0.7))',
+          zIndex: 0
+        }} />
+
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div className="section-label">Testimonials</div>
-            <h2 className="section-title">What Our Clients Say</h2>
+          <div style={{ textAlign: 'center', marginBottom: 72 }}>
+            <div className="section-label" style={{ 
+              background: 'rgba(255,255,255,0.15)', 
+              color: 'white',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              fontSize: '12px'
+            }}>
+              Testimonials
+            </div>
+            <h2 className="section-title" style={{ 
+              color: 'white',
+              fontSize: 'clamp(32px, 5vw, 56px)',
+              fontWeight: 800,
+              letterSpacing: '-0.5px',
+              textShadow: '0 10px 30px rgba(0,0,0,0.3)',
+              marginBottom: 16
+            }}>
+              The Nirmalyam <span style={{ color: 'var(--eco-400)' }}>Legacy</span>
+            </h2>
+            <div style={{
+              width: 60,
+              height: 4,
+              background: 'var(--eco-500)',
+              margin: '0 auto 24px',
+              borderRadius: 2
+            }} />
+            <p style={{ 
+              color: 'rgba(255,255,255,0.8)', 
+              fontSize: 'clamp(16px, 1.2vw, 20px)', 
+              maxWidth: 700, 
+              margin: '0 auto',
+              lineHeight: 1.6,
+              fontStyle: 'italic',
+              fontWeight: 400
+            }}>
+              Rooted in Quality, Driven by Purpose — Discover why leading brands across India trust our eco-conscious kraft solutions.
+            </p>
           </div>
 
-          <div style={{ maxWidth: 680, margin: '0 auto', position: 'relative' }}>
-            <div className="glass-card" style={{ padding: 48, textAlign: 'center' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 24 }}>
-                {Array.from({ length: testimonials[activeTestimonial].rating }).map((_, i) => (
-                  <Star key={i} size={18} fill="var(--gold-500)" color="var(--gold-500)" />
-                ))}
-              </div>
-              <p style={{
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: 22,
-                lineHeight: 1.65,
-                color: 'var(--kraft-800)',
-                marginBottom: 32,
-                fontStyle: 'italic',
-              }}>
-                {testimonials[activeTestimonial].text}
-              </p>
-              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--kraft-900)' }}>
-                {testimonials[activeTestimonial].name}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--kraft-500)', marginTop: 4 }}>
-                {testimonials[activeTestimonial].role}
-              </div>
-            </div>
+          <div style={{ 
+            maxWidth: 1200, 
+            margin: '0 auto', 
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 520, // Increased to accommodate hanging avatar
+            paddingTop: 60  // Added room for the overlapping image
+          }}>
+            {/* Main Slider Area */}
+            {testimonials.map((t, idx) => {
+              const isActive = idx === activeTestimonial;
+              const isPrev = idx === (activeTestimonial - 1 + testimonials.length) % testimonials.length;
+              const isNext = idx === (activeTestimonial + 1) % testimonials.length;
+              
+              if (!isActive && !isPrev && !isNext) return null;
 
-            {/* Navigation */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 32 }}>
-              <button onClick={prev} style={{
-                width: 44, height: 44,
-                borderRadius: '50%',
-                border: '1.5px solid var(--kraft-300)',
-                background: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              let offset = '0';
+              let scale = 1;
+              let opacity = 1;
+              let zIndex = 2;
+              let blur = '0px';
+
+              if (isPrev) {
+                offset = '-105%';
+                scale = 0.85;
+                opacity = 0.4;
+                zIndex = 1;
+                blur = '2px';
+              } else if (isNext) {
+                offset = '105%';
+                scale = 0.85;
+                opacity = 0.4;
+                zIndex = 1;
+                blur = '2px';
+              }
+
+              return (
+                <div key={idx} style={{
+                  position: 'absolute',
+                  width: '100%',
+                  maxWidth: 580,
+                  transform: `translateX(${offset}) scale(${scale})`,
+                  opacity,
+                  zIndex,
+                  filter: `blur(${blur})`,
+                  transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
+                  pointerEvents: isActive ? 'auto' : 'none',
+                }}>
+                  <div className="glass-card" style={{ 
+                    padding: '64px 40px 48px', // Adjusted padding for balance
+                    textAlign: 'center',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    backdropFilter: 'blur(30px)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    borderRadius: 32,
+                    color: 'white',
+                    position: 'relative'
+                  }}>
+                    {/* Floating Profile Image */}
+                    <div style={{ 
+                      width: 90, 
+                      height: 90, 
+                      position: 'absolute',
+                      top: 0,
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      borderRadius: '50%',
+                      border: '4px solid rgba(255,255,255,0.2)',
+                      overflow: 'hidden',
+                      boxShadow: '0 10px 20px rgba(0,0,0,0.4)',
+                      background: 'var(--kraft-100)',
+                      zIndex: 10
+                    }}>
+                      <img src={t.image} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 20, fontWeight: 700 }}>{t.name}</div>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+                        {t.role} • {t.location}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 24 }}>
+                      {Array.from({ length: t.rating }).map((_, i) => (
+                        <Star key={i} size={16} fill="#fbbf24" color="#fbbf24" />
+                      ))}
+                    </div>
+
+                    <p style={{
+                      fontFamily: "'Cormorant Garamond', serif",
+                      fontSize: 21,
+                      lineHeight: 1.6,
+                      color: 'rgba(255,255,255,0.95)',
+                      fontStyle: 'italic',
+                    }}>
+                      {t.text}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Navigation Buttons */}
+            <button onClick={prev} style={{
+              position: 'absolute',
+              left: -60,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 56, height: 56,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'white',
+              transition: 'all 0.3s',
+              zIndex: 10
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-500)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+            >
+              <ChevronLeft size={24} />
+            </button>
+
+            <button onClick={next} style={{
+              position: 'absolute',
+              right: -60,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 56, height: 56,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'white',
+              transition: 'all 0.3s',
+              zIndex: 10
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-500)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+            >
+              <ChevronRight size={24} />
+            </button>
+          </div>
+
+          {/* Dots */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 48 }}>
+            {testimonials.map((_, i) => (
+              <button key={i} onClick={() => setActiveTestimonial(i)} style={{
+                width: i === activeTestimonial ? 24 : 8,
+                height: 8,
+                borderRadius: 4,
+                background: i === activeTestimonial ? 'var(--eco-500)' : 'rgba(255,255,255,0.3)',
+                border: 'none',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--kraft-600)'; e.currentTarget.style.background = 'var(--kraft-100)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--kraft-300)'; e.currentTarget.style.background = 'white'; }}
-              >
-                <ChevronLeft size={18} color="var(--kraft-700)" />
-              </button>
-              {testimonials.map((_, i) => (
-                <button key={i} onClick={() => setActiveTestimonial(i)} style={{
-                  width: i === activeTestimonial ? 32 : 10,
-                  height: 10,
-                  borderRadius: 5,
-                  background: i === activeTestimonial ? 'var(--kraft-700)' : 'var(--kraft-300)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                }} />
-              ))}
-              <button onClick={next} style={{
-                width: 44, height: 44,
-                borderRadius: '50%',
-                border: '1.5px solid var(--kraft-300)',
-                background: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--kraft-600)'; e.currentTarget.style.background = 'var(--kraft-100)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--kraft-300)'; e.currentTarget.style.background = 'white'; }}
-              >
-                <ChevronRight size={18} color="var(--kraft-700)" />
-              </button>
-            </div>
+                transition: 'all 0.3s',
+              }} />
+            ))}
           </div>
         </div>
       </section>
 
       {/* ══════════════════ CTA ══════════════════ */}
+      {/* ══════════════════ CTA ══════════════════ */}
       <section style={{
-        background: 'linear-gradient(135deg, var(--eco-800) 0%, var(--eco-700) 100%)',
-        padding: '80px 24px',
+        position: 'relative',
+        padding: '160px 24px',
         textAlign: 'center',
+        overflow: 'hidden',
+        background: '#153a15', // Fallback
       }}>
-        <div className="container">
-          <div className="eco-badge" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.3)', color: 'white', marginBottom: 20 }}>
-            <Leaf size={12} /> Start Your Eco Journey
+        {/* Tree Background */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url("/images/eco_cta_bg.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.65,
+          zIndex: 0
+        }} />
+
+        {/* Dark Overlay for contrast */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.6))',
+          zIndex: 0
+        }} />
+
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="eco-badge" style={{ 
+            background: 'rgba(255,255,255,0.2)', 
+            backdropFilter: 'blur(10px)',
+            borderColor: 'rgba(255,255,255,0.4)', 
+            color: 'white', 
+            marginBottom: 24,
+            padding: '8px 20px',
+            fontSize: 14
+          }}>
+            <Leaf size={14} /> Start Your Eco Journey
           </div>
           <h2 style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: 'clamp(28px, 4vw, 48px)',
-            fontWeight: 600,
+            fontSize: 'clamp(32px, 5vw, 64px)',
+            fontWeight: 700,
             color: 'white',
-            marginBottom: 16,
+            marginBottom: 24,
+            lineHeight: 1.1
           }}>
-            Looking for custom packaging for your business?
+            Looking for custom packaging <br /> for your business?
           </h2>
-          <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.8)', marginBottom: 36, maxWidth: 520, margin: '0 auto 36px' }}>
-            Get a free custom quote from our experts — usually within 2 business hours.
+          <p style={{ 
+            fontSize: 20, 
+            color: 'rgba(255,255,255,0.9)', 
+            marginBottom: 48, 
+            maxWidth: 600, 
+            margin: '0 auto 48px',
+            lineHeight: 1.6
+          }}>
+            Get a free custom quote from our experts — usually within 2 business hours. 
+            Sustainable choices made simple.
           </p>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/contact" style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '16px 40px',
-              background: 'white',
-              color: 'var(--eco-700)',
+              gap: 12,
+              padding: '20px 48px',
+              background: 'var(--kraft-600)',
+              color: 'white',
               borderRadius: 'var(--radius-full)',
               fontWeight: 700,
-              fontSize: 15,
+              fontSize: 16,
               textDecoration: 'none',
-              transition: 'all 0.3s',
+              transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05) translateY(-5px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.4)'; e.currentTarget.style.background = 'var(--kraft-700)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; e.currentTarget.style.background = 'var(--kraft-600)'; }}
             >
-              Request a Free Quote <ArrowRight size={16} />
+              Request a Free Quote <ArrowRight size={18} />
             </Link>
             <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '15px 32px',
-              background: 'transparent',
+              gap: 12,
+              padding: '18px 40px',
+              background: 'rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(10px)',
               color: 'white',
-              border: '2px solid rgba(255,255,255,0.4)',
+              border: '2px solid rgba(255,255,255,0.5)',
               borderRadius: 'var(--radius-full)',
               fontWeight: 600,
-              fontSize: 15,
+              fontSize: 16,
               textDecoration: 'none',
               transition: 'all 0.3s',
             }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'none'; }}
             >
               Chat on WhatsApp
             </a>

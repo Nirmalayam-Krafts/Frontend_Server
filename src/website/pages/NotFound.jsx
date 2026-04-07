@@ -9,7 +9,7 @@ export default function NotFound() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '80px 24px',
+      padding: '80px 0px',
       textAlign: 'center',
       fontFamily: "'Inter', sans-serif",
     }}>
