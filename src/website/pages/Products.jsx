@@ -227,7 +227,7 @@ export default function Products() {
             height: 350px !important;
           }
            .product-category-row > div:last-child {
-            padding: 40px 32px !important;
+            padding: 40px 0px !important;
           }
         }
       `}</style>

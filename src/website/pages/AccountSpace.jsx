@@ -75,7 +75,7 @@ export default function AccountSpace() {
       {/* ── Page hero ── */}
       <div style={{
         background: 'linear-gradient(160deg, var(--kraft-950) 0%, var(--kraft-800) 100%)',
-        padding: '64px 24px 48px',
+        padding: '64px 0px 48px',
       }}>
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -106,7 +106,7 @@ export default function AccountSpace() {
       </div>
 
       {/* ── Layout ── */}
-      <div className="container" style={{ padding: '40px 24px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 32, alignItems: 'start' }}>
+      <div className="container" style={{ padding: '40px 0px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 32, alignItems: 'start' }}>
 
         {/* ── Sidebar ── */}
         <aside style={{

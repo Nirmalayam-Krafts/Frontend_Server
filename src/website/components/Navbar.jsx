@@ -13,7 +13,7 @@ const navLinks = [
       { label: 'Luxury Bags', to: '/products/luxury' },
     ],
   },
-  { label: 'Design Your Product', to: '/design' },
+// { label: 'Design Your Product', to: '/design' },
   { label: 'About', to: '/about' },
   { label: 'Sustainability', to: '/about#sustainability' },
   { label: 'Contact', to: '/contact' },
@@ -59,7 +59,7 @@ export default function Navbar() {
           padding: scrolled ? '10px 0' : '18px 0',
         }}
       >
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0px' }}>
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             <div style={{
@@ -76,6 +76,7 @@ export default function Navbar() {
                 fontSize: '18px',
                 fontWeight: 700,
                 color: scrolled || !isHome ? 'var(--kraft-950)' : 'white',
+                textShadow: !scrolled && isHome ? '0 2px 10px rgba(26, 18, 8, 0.3)' : 'none',
                 lineHeight: 1,
               }}>
                 Nirmalyam
@@ -114,6 +115,7 @@ export default function Navbar() {
                       color: scrolled || !isHome
                         ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
                         : isActive ? 'var(--eco-400)' : 'rgba(255,255,255,0.9)',
+                      textShadow: !scrolled && isHome ? '0 1px 12px rgba(26, 18, 8, 0.4)' : 'none',
                       background: isActive
                         ? scrolled || !isHome ? 'rgba(22,163,74,0.08)' : 'rgba(255,255,255,0.1)'
                         : 'transparent',

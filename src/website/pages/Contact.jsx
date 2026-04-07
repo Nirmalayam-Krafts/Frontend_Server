@@ -1,4 +1,5 @@
-import { use, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Mail, Phone, MapPin, MessageCircle, Clock, Send, Check, AlertCircle } from 'lucide-react';
 import { useAuthContext } from '../../context/Adminauth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -86,7 +87,18 @@ export default function Contact() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState(null);
-  const queryClient = useQueryClient()
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  
+  useEffect(() => {
+    if (location.state?.name || location.state?.email) {
+      setForm(prev => ({
+        ...prev,
+        name: location.state.name || prev.name,
+        email: location.state.email || prev.email
+      }));
+    }
+  }, [location.state]);
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -154,7 +166,7 @@ export default function Contact() {
       </div>
 
       {/* ── Contact Cards ── */}
-      <section className="nature-section" style={{ background: 'var(--kraft-50)', padding: '64px 24px' }}>
+      <section className="nature-section" style={{ background: 'var(--kraft-50)', padding: '64px 0px' }}>
         <div className="nature-layer-wood" />
         <div className="nature-layer-leaf" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
@@ -199,7 +211,7 @@ export default function Contact() {
       </section>
 
       {/* ── Main Form + Info ── */}
-      <section className="nature-section" style={{ background: 'white', padding: '80px 24px', borderTop: '1px solid var(--kraft-100)' }}>
+      <section className="nature-section" style={{ background: 'white', padding: '80px 0px', borderTop: '1px solid var(--kraft-100)' }}>
         <div className="nature-layer-wood" style={{ opacity: 0.03 }} />
         <div className="container" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 72, alignItems: 'start', position: 'relative', zIndex: 1 }}>
 
@@ -278,7 +290,7 @@ export default function Contact() {
                 onSubmit={handleSubmit}
                 style={{
                   background: 'var(--kraft-50)', borderRadius: 'var(--radius-xl)',
-                  padding: '40px 44px', border: '1px solid var(--kraft-100)',
+                  padding: '40px 0px', border: '1px solid var(--kraft-100)',
                   boxShadow: 'var(--shadow-md)',
                 }}
               >

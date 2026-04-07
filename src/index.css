@@ -203,11 +203,11 @@ h6 {
 
 /* ─── Utilities ─── */
 .section-padding {
-  padding: 96px 24px;
+  padding: 96px 0px;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1536px;
   margin: 0 auto;
 }
 
@@ -445,7 +445,7 @@ h6 {
       var(--kraft-800) 60%,
       var(--kraft-700) 100%);
   color: white;
-  padding: 160px 24px 100px;
+  padding: 160px 0px 100px;
   position: relative;
   overflow: hidden;
 }
@@ -525,4 +525,34 @@ h6 {
   opacity: 0.03;
   pointer-events: none;
   z-index: 0;
+}
+
+/* ── Mission Animations ── */
+@keyframes missionFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(2deg); }
+}
+
+@keyframes leafFloat {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(10px, -15px) rotate(15deg); }
+}
+
+.animate-mission-float {
+  animation: missionFloat 6s ease-in-out infinite;
+}
+
+.animate-leaf-float {
+  animation: leafFloat 8s ease-in-out infinite;
+}
+
+.mission-image-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120%; height: 120%;
+  background: radial-gradient(circle, rgba(22,163,74,0.15) 0%, transparent 70%);
+  filter: blur(40px);
+  z-index: -1;
 }
