@@ -303,7 +303,7 @@ const Orders = () => {
     setCheckingOrderId(order.id || order._id);
 
     try {
-      // 🚀 REAL API CALL to the Smart Inventory Brain
+      //  REAL API CALL to the Smart Inventory Brain
       const resp = await axiosInstance.get(
         `/orders/${order.id || order._id}/availability`,
         { params: { mode: deductionMode } }
