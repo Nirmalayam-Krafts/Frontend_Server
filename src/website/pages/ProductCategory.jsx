@@ -153,6 +153,8 @@ export default function ProductCategory() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
+  const data = categoryData[categoryId];
+
   if (!data) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       Category Not Found
@@ -160,42 +162,48 @@ export default function ProductCategory() {
   );
 
   const whatsappMessage = `Hi Nirmalyam Krafts, I'm interested in the ${data.title} collection. Could you please share the price list and sample details?`;
-  const whatsappUrl = `https://wa.me/919900000000?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = `https://wa.me/919876543210?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
       {/* ── Fixed Quote Bar ── */}
       <div style={{
         position: 'fixed',
-        bottom: isMobile ? 12 : 24,
+        bottom: isMobile ? 12 : 32,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 1000,
         width: isMobile ? '94%' : '90%',
         maxWidth: 720,
-        background: '#F3F1ED',
-        borderRadius: isMobile ? 'var(--radius-2xl)' : 'var(--radius-3xl)',
-        padding: isMobile ? '8px 8px 8px 12px' : '10px 10px 10px 14px',
+        background: 'rgba(255, 255, 255, 0.8)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderRadius: isMobile ? '20px' : '28px',
+        padding: isMobile ? '8px 12px' : '10px 14px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
-        border: '1px solid rgba(0,0,0,0.05)',
-        animation: 'quoteFadeUp 0.5s ease-out'
+        boxShadow: '0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05)',
+        border: '1px solid rgba(255,255,255,0.4)',
+        animation: 'quoteFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 20 }}>
           <div style={{
-            width: 52, height: 52,
+            width: isMobile ? 44 : 56, 
+            height: isMobile ? 44 : 56,
             borderRadius: '50%',
             overflow: 'hidden',
-            background: '#FFD7C4',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
+            background: 'var(--kraft-100)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexShrink: 0
           }}>
-            <img src={data.image} alt="" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+            <img src={data.image} alt="" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
           </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--eco-700)', letterSpacing: '0.05em' }}>STARTING FROM {data.minOrder}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--kraft-950)' }}>{data.title}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: isMobile ? 9 : 11, fontWeight: 700, color: 'var(--eco-700)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Min Order: {data.minOrder}</div>
+            <div style={{ fontSize: isMobile ? 14 : 18, fontWeight: 700, color: 'var(--kraft-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.title}</div>
           </div>
         </div>
         <a 
@@ -205,61 +213,67 @@ export default function ProductCategory() {
           style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: 10,
             background: '#1F4013',
             color: 'white',
-            padding: '14px 28px',
-            borderRadius: 'var(--radius-full)',
+            padding: isMobile ? '12px 16px' : '14px 24px',
+            borderRadius: isMobile ? '14px' : '18px',
             fontWeight: 700,
-            fontSize: 15,
+            fontSize: isMobile ? 13 : 15,
             textDecoration: 'none',
-            transition: 'all 0.3s'
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            marginLeft: 12
           }}
           onMouseEnter={e => e.currentTarget.style.background = '#152b0d'}
           onMouseLeave={e => e.currentTarget.style.background = '#1F4013'}
         >
-          {isMobile ? <Phone size={20} fill="white" /> : <><Phone size={18} fill="white" /> Get Best Price on WhatsApp</>}
+          {isMobile ? <Phone size={18} fill="white" /> : <><Phone size={18} fill="white" /> Get Wholesale Price</>}
         </a>
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ paddingTop: 110, paddingBottom: 80 }}>
+      <div style={{ paddingTop: isMobile ? 40 : 120, paddingBottom: isMobile ? 60 : 100 }}>
         <div className="container">
           {/* Breadcrumbs */}
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
+            flexWrap: 'wrap',
             gap: 8, 
-            fontSize: 12, 
-            fontWeight: 600, 
+            fontSize: 11, 
+            fontWeight: 700, 
             color: 'var(--kraft-400)', 
-            marginBottom: 32,
+            marginBottom: isMobile ? 12 : 40,
             textTransform: 'uppercase',
-            letterSpacing: '0.1em'
+            letterSpacing: '0.12em'
           }}>
             <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
-            <ChevronRight size={14} />
+            <ChevronRight size={12} strokeWidth={3} />
             <Link to="/products" style={{ color: 'inherit', textDecoration: 'none' }}>Products</Link>
-            <ChevronRight size={14} />
+            <ChevronRight size={12} strokeWidth={3} />
             <span style={{ color: 'var(--eco-600)' }}>{data.title}</span>
           </div>
 
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: isMobile || isTablet ? '1fr' : '1.1fr 0.9fr', 
-            gap: isMobile ? 32 : 64, 
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : '1fr 0.8fr', 
+            gap: isMobile ? 20 : 80, 
             alignItems: 'start' 
           }} className="category-hero-grid">
             {/* Image Section */}
-            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 120 }}>
+            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 100 }}>
               <div style={{
-                borderRadius: isMobile ? 'var(--radius-2xl)' : 'var(--radius-3xl)',
+                borderRadius: isMobile ? '24px' : '40px',
                 overflow: 'hidden',
-                aspectRatio: '1',
-                boxShadow: 'var(--shadow-2xl)',
+                aspectRatio: isMobile ? '4/3' : '1',
+                boxShadow: 'var(--shadow-xl)',
                 background: 'white',
                 border: '1px solid var(--kraft-100)',
-                padding: isMobile ? 24 : 40
+                padding: isMobile ? 24 : 60,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}>
                 <img src={data.image} alt={data.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
@@ -267,20 +281,20 @@ export default function ProductCategory() {
 
             {/* Product Details Section */}
             <div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                <div style={{ background: '#CC9966', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
-                  ECO-FRIENDLY
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
+                <div style={{ background: '#CC9966', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' }}>
+                  PREMIUM QUALITY
                 </div>
-                <div style={{ background: '#996633', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
-                  100% RECYCLABLE
+                <div style={{ background: '#1F4013', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' }}>
+                  SUSTAINABLE CHOICE
                 </div>
               </div>
               
-              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(36px, 4vw, 48px)', color: 'var(--kraft-950)', marginBottom: 24, lineHeight: 1.1, fontWeight: 700 }}>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 56px)', color: 'var(--kraft-950)', marginBottom: isMobile ? 16 : 24, lineHeight: 1.25, fontWeight: 800 }}>
                 {data.title}
               </h1>
               
-              <p style={{ fontSize: 18, color: 'var(--kraft-600)', lineHeight: 1.6, marginBottom: 40 }}>
+              <p style={{ fontSize: isMobile ? 16 : 19, color: 'var(--kraft-600)', lineHeight: 1.7, marginBottom: 40 }}>
                 {data.description} {data.longDescription}
               </p>
 
@@ -333,39 +347,56 @@ export default function ProductCategory() {
               {/* Bullet Grid */}
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
-                gap: isMobile ? 16 : '24px 32px', 
-                marginBottom: isMobile ? 48 : 64 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: isMobile ? 12 : '20px 24px', 
+                marginBottom: isMobile ? 40 : 64 
               }}>
                 {data.bullets.map((bullet, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-lg)', background: 'rgba(45,90,39,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <bullet.icon size={20} color="#2D5A27" />
+                  <div key={i} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: isMobile ? 8 : 14,
+                    background: 'rgba(255,255,255,0.5)',
+                    padding: isMobile ? '10px 10px' : '12px 16px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ 
+                      width: 36, 
+                      height: 36, 
+                      borderRadius: '12px', 
+                      background: 'rgba(45,90,39,0.08)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <bullet.icon size={18} color="#2D5A27" />
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--kraft-800)' }}>{bullet.label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--kraft-800)', lineHeight: 1.2 }}>{bullet.label}</span>
                   </div>
                 ))}
               </div>
 
                {/* Premium 3x2 Technical Specifications Grid */}
                <div className="anim-fade-up" style={{ marginTop: 32 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
                   <span style={{ 
                     fontSize: 12, 
                     fontWeight: 800, 
                     color: '#CC9966', 
                     textTransform: 'uppercase', 
-                    letterSpacing: '0.2em' 
+                    letterSpacing: '0.24em' 
                   }}>
-                    Tech Specs
+                    Technical Specifications
                   </span>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, var(--kraft-100), transparent)' }} />
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, var(--kraft-200), transparent)' }} />
                 </div>
                 
                 <div style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : isTablet ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)', 
-                  gap: isMobile ? 10 : 12
+                  gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', 
+                  gap: isMobile ? 12 : 16
                 }}>
                   {data.specs.map((spec, i) => (
                     <div 
@@ -443,8 +474,8 @@ export default function ProductCategory() {
           </div>
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(3, 1fr)', 
-            gap: isMobile ? 24 : 32 
+            gridTemplateColumns: 'repeat(3, 1fr)', 
+            gap: isMobile ? 12 : 32 
           }} className="gallery-grid">
             {data.gallery.map((item, i) => (
               <div key={i}>
@@ -470,8 +501,8 @@ export default function ProductCategory() {
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                   />
                 </div>
-                <h4 style={{ fontSize: 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4 }}>{item.title}</h4>
-                <p style={{ fontSize: 15, color: 'var(--kraft-500)', lineHeight: 1.5 }}>{item.desc}</p>
+                <h4 style={{ fontSize: isMobile ? 12 : 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4, textAlign: 'center' }}>{item.title}</h4>
+                <p style={{ fontSize: isMobile ? 10 : 15, color: 'var(--kraft-500)', lineHeight: 1.5, textAlign: 'center', display: isMobile ? 'none' : 'block' }}>{item.desc}</p>
               </div>
             ))}
           </div>
@@ -479,28 +510,32 @@ export default function ProductCategory() {
       </section>
 
       {/* ── CTA Bottom ── */}
-      <section className="section-padding" style={{ background: 'var(--kraft-50)' }}>
+      <section className="section-padding" style={{ background: 'var(--kraft-50)', paddingTop: 0 }}>
         <div className="container">
           <div style={{
             background: 'var(--kraft-950)',
-            borderRadius: 'var(--radius-3xl)',
-            padding: isMobile ? '60px 24px' : '80px 0px',
+            borderRadius: isMobile ? '32px' : '48px',
+            padding: isMobile ? '64px 24px' : '100px 48px',
             textAlign: 'center',
             color: 'white',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: '0 30px 60px rgba(0,0,0,0.2)'
           }}>
             <div style={{
               position: 'absolute',
               top: 0, left: 0, right: 0, bottom: 0,
-              background: 'radial-gradient(circle at center, rgba(22,163,74,0.1) 0%, transparent 70%)',
+              background: 'radial-gradient(circle at center, rgba(34,197,94,0.15) 0%, transparent 70%)',
               pointerEvents: 'none'
             }} />
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 48px)', marginBottom: 24, position: 'relative' }}>
-              Elevate Your Brand Today
+            
+            <Leaf size={isMobile ? 48 : 64} color="var(--eco-500)" style={{ marginBottom: 32, opacity: 0.8 }} />
+
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 56px)', marginBottom: 24, position: 'relative', lineHeight: 1.1 }}>
+              Elevate Your Packaging<br/>Experience Today
             </h2>
-            <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', maxWidth: 600, margin: '0 auto 48px', position: 'relative' }}>
-              Join hundreds of premium brands that trust Nirmalyam Krafts for their sustainable packaging needs.
+            <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.6)', maxWidth: 700, margin: '0 auto 48px', position: 'relative', lineHeight: 1.6 }}>
+              Join hundreds of high-end brands that trust Nirmalyam Krafts for their premium, eco-luxury sustainable packaging soulutions.
             </p>
             <div style={{ 
               display: 'flex', 
@@ -508,37 +543,54 @@ export default function ProductCategory() {
               gap: 16, 
               justifyContent: 'center', 
               position: 'relative',
-              padding: isMobile ? '0 20px' : '0'
+              maxWidth: 500,
+              margin: '0 auto'
             }} className="cta-buttons">
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
-                background: 'var(--eco-500)',
+                background: 'var(--eco-600)',
                 color: 'white',
-                padding: '18px 40px',
-                borderRadius: 'var(--radius-full)',
+                padding: '18px 32px',
+                borderRadius: '20px',
                 textDecoration: 'none',
-                fontWeight: 700,
+                fontWeight: 800,
                 fontSize: 16,
-                transition: 'all 0.3s'
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                Inquire Wholesale Pricing
+                <Phone size={20} fill="white" /> Wholesale Inquiry
               </a>
               <Link to="/contact" style={{
-                padding: '18px 40px',
-                borderRadius: 'var(--radius-full)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                padding: '18px 32px',
+                borderRadius: '20px',
+                background: 'rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.15)',
                 color: 'white',
                 textDecoration: 'none',
-                fontWeight: 700,
+                fontWeight: 800,
                 fontSize: 16,
-                transition: 'all 0.3s'
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+                e.currentTarget.style.transform = 'translateY(-4px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
               >
-                Book Consultation
+                <Zap size={20} /> Request Custom Quote
               </Link>
             </div>
           </div>
@@ -552,7 +604,6 @@ export default function ProductCategory() {
         }
         @media (max-width: 991px) {
           .category-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
-          .gallery-grid { grid-template-columns: 1fr !important; }
           .cta-buttons { flex-direction: column !important; align-items: stretch !important; }
           .cta-buttons > * { text-align: center !important; }
         }

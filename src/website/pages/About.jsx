@@ -57,10 +57,10 @@ export default function About() {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
-        minHeight: isMobile ? '450px' : isTablet ? '500px' : '580px',
+        minHeight: isMobile ? '450px' : isTablet ? '480px' : '520px',
         display: 'flex',
         alignItems: 'center',
-        padding: isMobile ? '80px 0 40px' : isTablet ? '100px 0 60px' : '120px 0 0'
+        padding: isMobile ? '80px 0 40px' : isTablet ? '90px 0 50px' : '100px 0 40px'
       }}>
         <div style={{
           position: 'absolute',
@@ -89,11 +89,11 @@ export default function About() {
               </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: 'clamp(36px, 8vw, 76px)',
+                fontSize: 'clamp(36px, 6vw, 64px)',
                 color: 'white',
                 fontWeight: 600,
                 marginBottom: 24,
-                lineHeight: 1.1
+                lineHeight: 1.15
               }}>
                 Artisanal Spirit,<br />
                 <span style={{ color: 'var(--kraft-300)' }}>Future-Proof Purity</span>
@@ -113,7 +113,8 @@ export default function About() {
             <div className="anim-float" style={{ 
               position: 'relative',
               width: isMobile ? '90%' : isTablet ? '70%' : '100%',
-              margin: isMobile || isTablet ? '40px auto 0' : '0'
+              maxWidth: isMobile || isTablet ? 'none' : '520px',
+              margin: isMobile || isTablet ? '40px auto 0' : '0 auto 0 auto'
             }}>
               <img
                 src="/images/generated/about_hero_bags.png"
@@ -134,7 +135,7 @@ export default function About() {
       <section className="section-padding" style={{ 
         background: 'white', 
         position: 'relative',
-        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '120px 0'
+        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '100px 0'
       }}>
         <div className="container">
           <div style={{
@@ -145,7 +146,7 @@ export default function About() {
             textAlign: isMobile || isTablet ? 'center' : 'left'
           }}>
             <div className="anim-fade-up-slow" style={{ order: isMobile || isTablet ? 1 : 0 }}>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', maxWidth: isMobile || isTablet ? 'none' : '480px', margin: '0 auto' }}>
                 <div style={{
                   position: 'absolute',
                   inset: isMobile ? '-10px' : '-15px',
