@@ -142,52 +142,111 @@ export default function Contact() {
     setForm(INITIAL_FORM);
   };
 
+const LeafParticles = () => (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
+      {[...Array(8)].map((_, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            top: `${Math.random() * 100}%`,
+            left: `${-10 - Math.random() * 20}%`,
+            width: '20px',
+            height: '20px',
+            background: 'rgba(74, 222, 128, 0.2)',
+            borderRadius: '50% 0 50% 0',
+            animation: `drift ${15 + Math.random() * 15}s linear infinite`,
+            animationDelay: `${-Math.random() * 20}s`,
+            transform: `rotate(${Math.random() * 360}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 80 }}>
+    <div style={{ minHeight: '100vh', paddingTop: 80, overflowX: 'hidden' }}>
 
       {/* ── Page Hero ── */}
-      <div className="page-hero">
+      <div className="page-hero" style={{ 
+        backgroundImage: 'url(/images/generated/contact_hero_bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        position: 'relative',
+        minHeight: '500px',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '120px 0'
+      }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to right, rgba(26, 18, 8, 0.98) 0%, rgba(26, 18, 8, 0.85) 50%, rgba(26, 18, 8, 0.4) 100%)',
+          zIndex: 0
+        }} />
+
+        <LeafParticles />
+
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="section-label" style={{ color: 'var(--eco-400)' }}>Get In Touch</div>
-          <h1 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: 'clamp(36px, 6vw, 68px)',
-            color: 'white',
-            fontWeight: 600,
-            marginBottom: 18,
-          }}>
-            Let's Create Something<br />Extraordinary Together
-          </h1>
-          <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.72)', maxWidth: 540, lineHeight: 1.65 }}>
-            Connect with our manufacturing experts for custom paper packaging solutions
-            that honour the Earth and elevate your brand.
-          </p>
+          <div className="anim-fade-up">
+            <div className="section-label" style={{ color: 'var(--eco-400)' }}>Get In Touch</div>
+            <h1 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: 'clamp(36px, 8vw, 72px)',
+              color: 'white',
+              fontWeight: 600,
+              marginBottom: 20,
+              lineHeight: 1.1,
+              textShadow: '0 4px 12px rgba(0,0,0,0.5)'
+            }}>
+              Let's Create Something<br />
+              <span style={{ color: 'var(--kraft-300)' }}>Extraordinary Together</span>
+            </h1>
+            <p style={{ 
+              fontSize: 'clamp(16px, 2vw, 20px)', 
+              color: 'rgba(255,255,255,0.8)', 
+              maxWidth: 600, 
+              lineHeight: 1.7,
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+            }}>
+              Connect with our manufacturing experts for custom paper packaging solutions
+              that honour the Earth and elevate your brand's presence.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* ── Contact Cards ── */}
-      <section className="nature-section" style={{ background: 'var(--kraft-50)', padding: '64px 0px' }}>
+      <section className="nature-section" style={{ background: 'var(--kraft-50)', padding: '80px 0px' }}>
         <div className="nature-layer-wood" />
         <div className="nature-layer-leaf" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-            {contacts.map(({ icon: Icon, title, value, sub, href, color, bg }) => (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+            gap: 24 
+          }}>
+            {contacts.map(({ icon: Icon, title, value, sub, href, color, bg }, i) => (
               <a
                 key={title}
                 href={href}
                 target={href.startsWith('http') ? '_blank' : undefined}
                 rel="noreferrer"
+                className="anim-fade-up"
                 style={{
-                  display: 'flex', flexDirection: 'column', gap: 12,
-                  padding: '28px 24px', background: 'white',
-                  borderRadius: 'var(--radius-lg)', border: '1.5px solid var(--kraft-100)',
-                  textDecoration: 'none', transition: 'all 0.3s ease',
+                  animationDelay: `${i * 0.1}s`,
+                  display: 'flex', flexDirection: 'column', gap: 16,
+                  padding: '40px 32px', background: 'white',
+                  borderRadius: 'var(--radius-lg)', border: '1px solid var(--kraft-100)',
+                  textDecoration: 'none', transition: 'all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)',
                   boxShadow: 'var(--shadow-sm)',
+                  position: 'relative',
+                  overflow: 'hidden'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.transform = 'translateY(-8px)';
                   e.currentTarget.style.borderColor = color;
-                  e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-xl)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'none';
@@ -196,280 +255,323 @@ export default function Contact() {
                 }}
               >
                 <div style={{
-                  width: 48, height: 48, borderRadius: 12, background: bg,
+                  width: 56, height: 56, borderRadius: 16, background: bg,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform 0.4s ease'
                 }}>
-                  <Icon size={22} color={color} />
+                  <Icon size={26} color={color} />
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color }}>{title}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-900)', lineHeight: 1.4 }}>{value}</div>
-                <div style={{ fontSize: 12, color: 'var(--kraft-500)', lineHeight: 1.4 }}>{sub}</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color, marginBottom: 8 }}>{title}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4 }}>{value}</div>
+                  <div style={{ fontSize: 14, color: 'var(--kraft-500)', lineHeight: 1.5 }}>{sub}</div>
+                </div>
               </a>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Main Form + Info ── */}
-      <section className="nature-section" style={{ background: 'white', padding: '80px 0px', borderTop: '1px solid var(--kraft-100)' }}>
-        <div className="nature-layer-wood" style={{ opacity: 0.03 }} />
-        <div className="container" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 72, alignItems: 'start', position: 'relative', zIndex: 1 }}>
-
-          {/* Left: Info */}
-          <div>
-            <div className="section-label" style={{ marginBottom: 12 }}>Working Hours</div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--kraft-950)', marginBottom: 20 }}>
-              When to Reach Us
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 36 }}>
-              {[
-                { days: 'Monday – Friday', time: '9:00 AM – 7:00 PM IST' },
-                { days: 'Saturday', time: '10:00 AM – 4:00 PM IST' },
-                { days: 'SRequest a Quoteunday', time: 'Closed (WhatsApp queries accepted)' },
-              ].map(({ days, time }) => (
-                <div key={days} style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  padding: '14px 18px', background: 'var(--kraft-50)',
-                  borderRadius: 'var(--radius-md)', border: '1px solid var(--kraft-100)',
+      {/* ── Main Layout (Form + Working Hours) ── */}
+      <section style={{ background: 'white', padding: '100px 0', position: 'relative' }}>
+        <div className="container">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+            gap: 80, 
+            alignItems: 'start' 
+          }}>
+            
+            {/* Left Column: Form */}
+            <div className="anim-fade-up">
+              {submitted ? (
+                <div className="glass-card" style={{
+                  textAlign: 'center', padding: '80px 40px',
+                  borderRadius: 'var(--radius-xl)', border: '2px solid var(--eco-500)',
+                  background: 'var(--kraft-50)'
                 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-800)' }}>{days}</span>
-                  <span style={{ fontSize: 14, color: 'var(--kraft-500)' }}>{time}</span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{
-              background: 'linear-gradient(135deg, var(--kraft-800), var(--kraft-600))',
-              borderRadius: 'var(--radius-lg)', padding: '28px 32px', color: 'white',
-            }}>
-              <Clock size={24} color="var(--kraft-300)" style={{ marginBottom: 12 }} />
-              <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Quick Response Guarantee</h3>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.65 }}>
-                All quote requests are acknowledged within{' '}
-                <strong style={{ color: 'var(--kraft-200)' }}>1 business hour</strong>.
-                WhatsApp responses are typically under 5 minutes during working hours.
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Form */}
-          <div>
-            {submitted ? (
-              <div style={{
-                textAlign: 'center', padding: 64, background: 'var(--kraft-50)',
-                borderRadius: 'var(--radius-xl)', border: '1.5px solid var(--eco-500)',
-              }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: '50%',
-                  background: 'rgba(22,163,74,0.15)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 24px',
-                }}>
-                  <Check size={32} color="var(--eco-600)" />
-                </div>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, color: 'var(--kraft-900)', marginBottom: 10 }}>
-                  Quote Request Submitted!
-                </h3>
-                <p style={{ color: 'var(--kraft-600)', fontSize: 15 }}>
-                  Our team will contact you within 1 business hour.
-                </p>
-                <button
-                  onClick={handleReset}
-                  style={{
-                    marginTop: 28, padding: '12px 32px',
-                    borderRadius: 'var(--radius-full)', background: 'var(--eco-600)',
-                    color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 14,
-                  }}
-                >
-                  Submit Another
-                </button>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleSubmit}
-                style={{
-                  background: 'var(--kraft-50)', borderRadius: 'var(--radius-xl)',
-                  padding: '40px 0px', border: '1px solid var(--kraft-100)',
-                  boxShadow: 'var(--shadow-md)',
-                }}
-              >
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--kraft-900)', marginBottom: 8 }}>
-                  Request a Quote
-                </h3>
-                <p style={{ fontSize: 14, color: 'var(--kraft-500)', marginBottom: 28 }}>
-                  Fill in your details and we'll get back to you with a tailored solution.
-                </p>
-
-                {/* Error banner */}
-                {error && (
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '12px 16px', marginBottom: 20,
-                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-                    borderRadius: 'var(--radius-md)', color: '#dc2626', fontSize: 14,
+                    width: 80, height: 80, borderRadius: '50%',
+                    background: 'var(--eco-500)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 24px',
+                    boxShadow: '0 8px 24px rgba(34, 197, 94, 0.3)'
                   }}>
-                    <AlertCircle size={16} />
-                    {error}
+                    <Check size={40} color="white" />
                   </div>
-                )}
+                  <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--kraft-950)', marginBottom: 16 }}>
+                    Request Received!
+                  </h3>
+                  <p style={{ color: 'var(--kraft-600)', fontSize: 17, marginBottom: 32 }}>
+                    Our team will contact you within 1 business hour to discuss your tailored solution.
+                  </p>
+                  <button
+                    onClick={handleReset}
+                    className="btn-primary"
+                  >
+                    Send Another Message
+                  </button>
+                </div>
+              ) : (
+                <div className="glass-card" style={{
+                  padding: '48px 40px',
+                  borderRadius: 'var(--radius-xl)',
+                  background: 'var(--kraft-50)',
+                  border: '1px solid var(--kraft-100)',
+                  boxShadow: 'var(--shadow-lg)'
+                }}>
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--kraft-950)', marginBottom: 8 }}>
+                    Request a Quote
+                  </h2>
+                  <p style={{ fontSize: 16, color: 'var(--kraft-500)', marginBottom: 40 }}>
+                    Provide your requirements and our experts will build your custom roadmap.
+                  </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  {[
-                    { name: 'name', label: 'Full Name *', placeholder: 'Sarah Merchant', required: true },
-                    { name: 'email', label: 'Email Address *', placeholder: 'sarah@brand.com', type: 'email', required: true },
-                    { name: 'phone', label: 'Phone Number', placeholder: '+91 98765 43210' },
-                    { name: 'business_name', label: 'Company / Brand Name', placeholder: 'My Brand Co.' },
-                  ].map(({ name, label, placeholder, type = 'text', required }) => (
-                    <div key={name}>
-                      <label style={{
-                        display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                        marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                      }}>
-                        {label}
-                      </label>
-                      <input
+                  {error && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '16px 20px', marginBottom: 32,
+                      background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                      borderRadius: 'var(--radius-md)', color: '#dc2626', fontSize: 15,
+                    }}>
+                      <AlertCircle size={20} />
+                      {error}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    <div className="contact-form-grid">
+                      <div className="form-group">
+                        <label className="section-label" style={{ fontSize: 10 }}>Full Name *</label>
+                        <input
+                          className="input-field"
+                          name="name"
+                          placeholder="Sarah Merchant"
+                          value={form.name}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="section-label" style={{ fontSize: 10 }}>Email Address *</label>
+                        <input
+                          className="input-field"
+                          name="email"
+                          type="email"
+                          placeholder="sarah@brand.com"
+                          value={form.email}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="contact-form-grid">
+                      <div className="form-group">
+                        <label className="section-label" style={{ fontSize: 10 }}>Phone Number</label>
+                        <input
+                          className="input-field"
+                          name="phone"
+                          placeholder="+91 98765 43210"
+                          value={form.phone}
+                          onChange={handleChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="section-label" style={{ fontSize: 10 }}>Business Name</label>
+                        <input
+                          className="input-field"
+                          name="business_name"
+                          placeholder="My Brand Co."
+                          value={form.business_name}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="contact-form-grid">
+                      <div className="form-group">
+                        <label className="section-label" style={{ fontSize: 10 }}>Product Interest</label>
+                        <select
+                          className="input-field"
+                          name="product_category"
+                          value={form.product_category}
+                          onChange={handleChange}
+                        >
+                          {PRODUCT_OPTIONS.map(({ value, label }) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="section-label" style={{ fontSize: 10 }}>Est. Quantity</label>
+                        <input
+                          className="input-field"
+                          name="quantity"
+                          type="number"
+                          placeholder="Min 100"
+                          value={form.quantity}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="section-label" style={{ fontSize: 10 }}>Specific Requirements</label>
+                      <textarea
                         className="input-field"
-                        name={name}
-                        type={type}
-                        placeholder={placeholder}
-                        value={form[name]}
+                        name="requirement"
+                        placeholder="Size, print details, special finishes, timeline, etc."
+                        value={form.requirement}
                         onChange={handleChange}
-                        required={required}
+                        rows={4}
+                        style={{ minHeight: 120, resize: 'none' }}
                       />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={loading}
+                      style={{ 
+                        width: '100%', 
+                        padding: '18px', 
+                        fontSize: 16, 
+                        justifyContent: 'center',
+                        marginTop: 10
+                      }}
+                    >
+                      {loading ? 'Processing...' : (
+                        <>
+                          <span>Submit Request</span>
+                          <Send size={18} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Experience & Hours */}
+            <div className="anim-fade-up" style={{ animationDelay: '0.2s' }}>
+              <div className="section-label">Trust & Timing</div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 40, color: 'var(--kraft-950)', marginBottom: 24, lineHeight: 1.2 }}>
+                Manufacturing<br /> Excellence at Speed
+              </h2>
+              <p style={{ fontSize: 17, color: 'var(--kraft-600)', lineHeight: 1.7, marginBottom: 40 }}>
+                With a production capacity of over 50,000 bags per day, we balance artisanal precision with industrial speed. Our team is ready to scale your vision.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 56 }}>
+                {[
+                  { label: 'Standard Quote Time', value: '1 Business Hour', icon: Clock },
+                  { label: 'Sample Turnaround', value: '2-3 Business Days', icon: Check },
+                  { label: 'Production Timeline', value: '7-10 Days (Avg)', icon: Send },
+                ].map(({ label, value, icon: Icon }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--kraft-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon size={20} color="var(--kraft-600)" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--kraft-400)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--kraft-800)' }}>{value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="dark-glass" style={{
+                padding: '40px',
+                borderRadius: 'var(--radius-lg)',
+                color: 'white'
+              }}>
+                <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24, fontFamily: "'Playfair Display', serif" }}>Working Hours</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {[
+                    { days: 'Mon – Fri', time: '9:00 AM – 7:00 PM' },
+                    { days: 'Saturday', time: '10:00 AM – 4:00 PM' },
+                    { days: 'Sunday', time: 'Closed (Support via WhatsApp)' },
+                  ].map(({ days, time }) => (
+                    <div key={days} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 12 }}>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--kraft-200)' }}>{days}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{time}</span>
                     </div>
                   ))}
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-                  <div>
-                    <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                      marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    }}>
-                      Product Interest
-                    </label>
-                    <select
-                      className="input-field"
-                      name="product_category"
-                      value={form.product_category}
-                      onChange={handleChange}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {PRODUCT_OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                      marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    }}>
-                      Estimated Quantity (units)
-                    </label>
-                    <input
-                      className="input-field"
-                      name="quantity"
-                      type="number"
-                      placeholder="e.g. 500"
-                      value={form.quantity}
-                      onChange={handleChange}
-                      min="50"
-                    />
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 16 }}>
-                  <label style={{
-                    display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                    marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>
-                    Additional Requirements
-                  </label>
-                  <textarea
-                    className="input-field"
-                    name="requirement"
-                    placeholder="Describe size requirements, print colours, special finishes, timeline, etc."
-                    value={form.requirement}
-                    onChange={handleChange}
-                    rows={4}
-                    style={{ resize: 'vertical', minHeight: 100 }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  style={{ marginTop: 24, width: '100%', justifyContent: 'center', padding: '15px', fontSize: 15 }}
-                  disabled={loading}
-                >
-                  {loading ? 'Sending…' : (
-                    <>
-                      <span>Submit Quote Request</span>
-                      <Send size={16} />
-                    </>
-                  )}
-                </button>
-
-                <p style={{ fontSize: 12, color: 'var(--kraft-400)', textAlign: 'center', marginTop: 14 }}>
-                  By submitting, you agree to our{' '}
-                  <a href="/privacy" style={{ color: 'var(--kraft-600)' }}>Privacy Policy</a>.
-                </p>
-              </form>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── FAQ ── */}
-      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
-        <div className="nature-layer-wood" />
-        <div className="nature-layer-leaf" />
-        <div className="container" style={{ maxWidth: 760, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div className="section-label">Support</div>
+      {/* ── FAQ Section ── */}
+      <section className="section-padding nature-section" style={{ 
+        background: 'var(--kraft-50)',
+        backgroundImage: 'url(/images/generated/faq_backdrop.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        padding: '120px 0'
+      }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(253, 249, 243, 0.85)',
+          zIndex: 0
+        }} />
+        
+        <div className="container" style={{ maxWidth: 900, position: 'relative', zIndex: 1 }}>
+          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+            <div className="section-label">Common Queries</div>
             <h2 className="section-title">Frequently Asked Questions</h2>
           </div>
 
-          {faqs.map((faq, i) => (
-            <div
-              key={i}
-              style={{
-                background: 'white', borderRadius: 'var(--radius-lg)',
-                border: `1.5px solid ${openFaq === i ? 'var(--eco-500)' : 'var(--kraft-100)'}`,
-                marginBottom: 12, overflow: 'hidden', transition: 'border-color 0.25s',
-              }}
-            >
-              <button
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+          <div style={{ display: 'grid', gap: 16 }}>
+            {faqs.map((faq, i) => (
+              <div
+                key={i}
+                className="anim-fade-up"
                 style={{
-                  width: '100%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'space-between', padding: '20px 24px',
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600,
-                  color: 'var(--kraft-900)', textAlign: 'left', gap: 16,
+                  animationDelay: `${i * 0.1}s`,
+                  background: 'white', borderRadius: 'var(--radius-lg)',
+                  border: `1.5px solid ${openFaq === i ? 'var(--eco-500)' : 'var(--kraft-100)'}`,
+                  overflow: 'hidden', transition: 'all 0.4s ease',
+                  boxShadow: openFaq === i ? '0 10px 30px -10px rgba(58, 36, 16, 0.15)' : 'var(--shadow-sm)'
                 }}
               >
-                {faq.q}
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: openFaq === i ? 'var(--eco-600)' : 'var(--kraft-100)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, transition: 'background 0.25s', fontSize: 18,
-                  color: openFaq === i ? 'white' : 'var(--kraft-600)',
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '28px 32px',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 600,
+                    color: 'var(--kraft-900)', textAlign: 'left', gap: 20,
+                  }}
+                >
+                  {faq.q}
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: openFaq === i ? 'var(--eco-600)' : 'var(--kraft-100)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, transition: 'all 0.3s ease',
+                    color: openFaq === i ? 'white' : 'var(--kraft-600)',
+                  }}>
+                    {openFaq === i ? <AlertCircle size={18} style={{ transform: 'rotate(180deg)' }} /> : <Clock size={18} />}
+                  </div>
+                </button>
+                <div style={{ 
+                  maxHeight: openFaq === i ? '500px' : '0',
+                  transition: 'all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1)',
+                  overflow: 'hidden'
                 }}>
-                  {openFaq === i ? '−' : '+'}
+                  <div style={{ padding: '0 32px 32px', fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.8 }}>
+                    {faq.a}
+                  </div>
                 </div>
-              </button>
-              {openFaq === i && (
-                <div style={{ padding: '0 24px 20px', fontSize: 14, color: 'var(--kraft-600)', lineHeight: 1.7 }}>
-                  {faq.a}
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </div>

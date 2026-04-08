@@ -12,7 +12,14 @@ import {
   CheckCircle2,
   ChevronRight,
   Award,
-  Heart
+  Heart,
+  Scale,
+  Layers,
+  Printer,
+  Package,
+  Settings,
+  FileText,
+  Weight
 } from 'lucide-react';
 
 const categoryData = {
@@ -29,12 +36,12 @@ const categoryData = {
       { label: 'Soy-based Inks', icon: Droplets }
     ],
     specs: [
-      { label: 'Material', value: 'FSC-Certified Kraft Paper' },
-      { label: 'Weight Range', value: '100 GSM - 140 GSM' },
-      { label: 'Handle Types', value: 'Twisted Paper, Flat Tape, Die-cut' },
-      { label: 'Printing', value: 'Soy-based inks, up to 6 colors' },
-      { label: 'Load Capacity', value: '3kg to 12kg depending on size' },
-      { label: 'Minimum Order', value: '500 units' }
+      { label: 'Material', value: 'FSC Kraft Paper', icon: Layers },
+      { label: 'Weight Range', icon: Weight, value: '100 - 140 GSM' },
+      { label: 'Handle Types', icon: Settings, value: 'Twisted, Flat, Die-cut' },
+      { label: 'Printing', value: 'Soy Inks, 6 Colors', icon: Printer },
+      { label: 'Capacity', value: '3kg - 12kg', icon: Scale },
+      { label: 'Min Order', icon: Package, value: '500 units' }
     ],
     gallery: [
       { 
@@ -67,12 +74,12 @@ const categoryData = {
       { label: 'Compostable', icon: Leaf }
     ],
     specs: [
-      { label: 'Material', value: 'Oil-Resistant Food-Grade Paper' },
-      { label: 'Weight Range', value: '70 GSM - 110 GSM' },
-      { label: 'Features', value: 'Leak-proof base, V-bottom' },
-      { label: 'Certification', value: 'FDA Approved, BPI Compostable' },
-      { label: 'Safety', value: 'PFAS-Free, Chlorine-Free' },
-      { label: 'Minimum Order', value: '1,000 units' }
+      { label: 'Material', value: 'Oil-Resistant Paper', icon: Layers },
+      { label: 'Weight Range', value: '70 - 110 GSM', icon: Weight },
+      { label: 'Features', value: 'Leak-proof, V-base', icon: Settings },
+      { label: 'Certification', value: 'FDA, BPI Approved', icon: ShieldCheck },
+      { label: 'Safety', value: 'PFAS & Chlorine-Free', icon: CheckCircle2 },
+      { label: 'Min Order', value: '1,000 units', icon: Package }
     ],
     gallery: [
       { 
@@ -105,12 +112,12 @@ const categoryData = {
       { label: 'Hand Finished', icon: CheckCircle2 }
     ],
     specs: [
-      { label: 'Material', value: 'Premium Art Board / Double Kraft' },
-      { label: 'Weight Range', value: '200 GSM - 350 GSM' },
-      { label: 'Handles', value: 'Cotton Rope, Silk Ribbon, Satin' },
-      { label: 'Finishing', value: 'UV Spot, Foil Stamping, Embossing' },
-      { label: 'Luxury Detail', value: 'Eyelet reinforcement' },
-      { label: 'Minimum Order', value: '200 units' }
+      { label: 'Material', value: 'Art Board / Double Kraft', icon: Layers },
+      { label: 'Weight Range', value: '200 - 350 GSM', icon: Weight },
+      { label: 'Handles', value: 'Silk / Satin Ribbon', icon: Heart },
+      { label: 'Finishing', value: 'UV / Foil Stamping', icon: Award },
+      { label: 'Extra Detail', value: 'Eyelet reinforced', icon: Settings },
+      { label: 'Min Order', value: '200 units', icon: Package }
     ],
     gallery: [
       { 
@@ -164,7 +171,7 @@ export default function ProductCategory() {
         justifyContent: 'space-between',
         boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
         border: '1px solid rgba(0,0,0,0.05)',
-        animation: 'fadeInUp 0.5s ease-out'
+        animation: 'quoteFadeUp 0.5s ease-out'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
@@ -206,7 +213,7 @@ export default function ProductCategory() {
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ paddingTop: 60, paddingBottom: 80 }}>
+      <div style={{ paddingTop: 110, paddingBottom: 80 }}>
         <div className="container">
           {/* Breadcrumbs */}
           <div style={{ 
@@ -318,16 +325,84 @@ export default function ProductCategory() {
                 ))}
               </div>
 
-               {/* Specs Table */}
-               <div style={{ background: 'white', borderRadius: 'var(--radius-2xl)', padding: 32, border: '1px solid var(--kraft-100)' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Zap size={18} color="var(--eco-500)" /> Technical Specifications
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {data.specs.map(spec => (
-                    <div key={spec.label} style={{ display: 'flex', padding: '14px 0', borderBottom: '1px solid var(--kraft-50)' }}>
-                      <div style={{ width: 160, fontSize: 12, fontWeight: 700, color: 'var(--kraft-400)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{spec.label}</div>
-                      <div style={{ flex: 1, fontSize: 14, color: 'var(--kraft-800)', fontWeight: 600 }}>{spec.value}</div>
+               {/* Premium 3x2 Technical Specifications Grid */}
+               <div className="anim-fade-up" style={{ marginTop: 32 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                  <span style={{ 
+                    fontSize: 12, 
+                    fontWeight: 800, 
+                    color: '#CC9966', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.2em' 
+                  }}>
+                    Tech Specs
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, var(--kraft-100), transparent)' }} />
+                </div>
+                
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(3, 1fr)', 
+                  gap: 12
+                }}>
+                  {data.specs.map((spec, i) => (
+                    <div 
+                      key={spec.label} 
+                      style={{ 
+                        background: 'white', 
+                        padding: '16px 14px', 
+                        borderRadius: 'var(--radius-xl)', 
+                        border: '1px solid var(--kraft-100)',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.01)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        animationDelay: `${i * 0.1}s`
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                        e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.06)';
+                        e.currentTarget.style.borderColor = 'var(--kraft-200)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.01)';
+                        e.currentTarget.style.borderColor = 'var(--kraft-100)';
+                      }}
+                    >
+                      <div style={{ 
+                        width: 28, 
+                        height: 28, 
+                        borderRadius: '6px', 
+                        background: 'rgba(45,90,39,0.04)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        color: 'var(--eco-600)'
+                      }}>
+                        <spec.icon size={14} strokeWidth={2.5} />
+                      </div>
+                      
+                      <div style={{ 
+                        fontSize: 14, 
+                        fontWeight: 700, 
+                        color: 'var(--kraft-900)',
+                        lineHeight: 1.2,
+                        letterSpacing: '-0.01em'
+                      }}>
+                        {spec.value}
+                      </div>
+                      
+                      <div style={{ 
+                        fontSize: 9, 
+                        fontWeight: 800, 
+                        color: 'var(--kraft-400)', 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '0.08em' 
+                      }}>
+                        {spec.label}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -438,7 +513,7 @@ export default function ProductCategory() {
       </section>
 
       <style>{`
-        @keyframes fadeInUp {
+        @keyframes quoteFadeUp {
           from { opacity: 0; transform: translate(-50%, 20px); }
           to { opacity: 1; transform: translate(-50%, 0); }
         }
