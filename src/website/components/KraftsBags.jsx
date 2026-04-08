@@ -455,6 +455,79 @@ function Bag({ bag, index, show, brandName, isMobile }) {
   );
 }
 
+function RotatingCircularText({
+  radius = 240,
+  textColor = "white",
+  text = "• 100% GENUINE • PLASTIC FREE • MAKE IN INDIA • ECO FRIENDLY • SUSTAINABLE • 100% GENUINE • PLASTIC FREE • MAKE IN INDIA • ECO FRIENDLY • SUSTAINABLE ",
+  fontSize = 15,
+  color = "hsla(0, 0%, 100%, 1.00)"
+}) {
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '45%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: radius * 2.9,
+      height: radius * 2.5,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      pointerEvents: 'none',
+      zIndex: 5
+    }}>
+      <style>{`
+        @keyframes rotateText {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+      <svg
+        viewBox={`0 0 ${radius * 2.1} ${radius * 2.1}`}
+        style={{
+          width: '100%',
+          height: '100%',
+          animation: 'rotateText 35s linear infinite'
+        }}
+      >
+        <defs>
+          <path
+            id="circlePath"
+            d={`M ${radius * 1.05}, ${radius * 1.05}
+               m -${radius}, 0
+               a ${radius},${radius} 0 1,1 ${radius * 2},0
+               a ${radius},${radius} 0 1,1 -${radius * 2},0`}
+          />
+        </defs>
+
+        <circle
+          cx={radius * 1.05}
+          cy={radius * 1.05}
+          r={radius}
+          fill="none"
+          stroke="rgba(90, 70, 50, 0.25)"
+          strokeWidth="1.5"
+          strokeDasharray="5 5"
+        />
+
+        <text style={{
+          fontSize: fontSize,
+          fontWeight: 800,
+          letterSpacing: '0.25em',
+          textTransform: 'uppercase',
+          fill: textColor || "#5a3b1d",
+          fontFamily: "'Playfair Display', serif",
+          opacity: 0.8
+        }}>
+          <textPath xlinkHref="#circlePath">
+            {text}
+          </textPath>
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 export function KraftBagSVG() {
   const [show, setShow] = useState(false);
   const [brandName, setBrandName] = useState("NIRMALYAM");
@@ -509,14 +582,16 @@ export function KraftBagSVG() {
           style={{
             position: "relative",
             width: "100%",
-            minHeight: isMobile ? 180 : 380, // Reduced from 260
+            minHeight: isMobile ? 180 : 420, // Increased slightly for text
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            paddingTop: 20,
-            paddingBottom: 15,
+            paddingTop: 40,
+            paddingBottom: 25,
           }}
         >
+          {/* Rotating Text Background */}
+          <RotatingCircularText radius={isMobile ? 110 : 180} fontSize={isMobile ? 10 : 13} />
           <div
             style={{
               position: "absolute",
