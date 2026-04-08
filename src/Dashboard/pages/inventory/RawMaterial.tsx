@@ -32,20 +32,95 @@ import {
 } from "../../../../hook/rawMaterial";
 import { useGetAllProducts } from "../../../../hook/product";
 
-const initialForm = {
+// --- Types ---
+
+interface IStockHistory {
+  action: "ADD" | "REMOVE" | "SET" | "PRODUCTION_CREATE" | "RESERVE" | "COMMIT";
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  note?: string;
+  createdAt: string;
+}
+
+interface IRawMaterial {
+  _id?: string;
+  id?: string;
+  name: string;
+  code: string;
+  type: string;
+  availableStock: number;
+  reservedStock: number;
+  availableForSale: number;
+  unit: string;
+  reorderPoint: number;
+  minStock?: number;
+  description?: string;
+  color?: string;
+  stockHistory: IStockHistory[];
+  status?: string;
+  isActive?: boolean;
+}
+
+interface IBagProduct {
+  _id: string;
+  id?: string;
+  name: string;
+  sku: string;
+  bagType?: string;
+  dimensions?: {
+    length: number | string;
+    width: number | string;
+    height: number | string;
+    unit: string;
+  };
+  rawMaterials?: Array<{
+    rawMaterialId: string;
+    rawMaterialName: string;
+    rawMaterialType: string;
+    usageType: string;
+    unit: string;
+    requiredQuantityPerBag: number | string;
+    wastagePercent: number | string;
+  }>;
+}
+
+interface IProductionForm {
+  productId: string;
+  quantity: string | number;
+  category: "STANDARD" | "PREMIUM" | "FOOD_GRADE";
+  reorderPt: string | number;
+  unitPrice?: string | number;
+  note?: string;
+  dimensionMode: "default" | "custom";
+  customDimensions: {
+    length: string | number;
+    width: string | number;
+    height: string | number;
+    unit: string;
+  };
+}
+
+interface INotification {
+  message: string;
+  type: "success" | "error";
+}
+
+const initialForm: Omit<IRawMaterial, "stockHistory" | "availableForSale"> = {
   name: "",
   code: "",
   color: "",
   type: "Paper",
   unit: "kg",
-  availableStock: "",
-  reorderPoint: "",
-  minStock: "",
+  availableStock: 0,
+  reservedStock: 0,
+  reorderPoint: 0,
+  minStock: 0,
   description: "",
   isActive: true,
 };
 
-const initialProductionForm = {
+const initialProductionForm: IProductionForm = {
   productId: "",
   quantity: "",
   category: "STANDARD",
@@ -82,11 +157,11 @@ const RAW_MATERIAL_UNITS = [
   "sqm",
 ];
 
-const INVENTORY_CATEGORY_OPTIONS = ["STANDARD", "PREMIUM", "FOOD_GRADE"];
+const INVENTORY_CATEGORY_OPTIONS = ["STANDARD", "PREMIUM", "FOOD_GRADE"] as const;
 
 const DIMENSION_UNITS = ["inch", "cm", "mm", "ft"];
 
-const getStockStatus = (availableStock, reorderPoint) => {
+const getStockStatus = (availableStock: number | string, reorderPoint: number | string) => {
   const stock = Number(availableStock || 0);
   const reorder = Number(reorderPoint || 0);
 
@@ -96,34 +171,35 @@ const getStockStatus = (availableStock, reorderPoint) => {
   return "healthy";
 };
 
-const statusVariantMap = {
+const statusVariantMap: Record<string, string> = {
   healthy: "success",
   medium: "warning",
   low: "danger",
   critical: "danger",
 };
 
-const getFormFromItem = (item) => ({
+const getFormFromItem = (item: IRawMaterial): Omit<IRawMaterial, "stockHistory" | "availableForSale"> => ({
   name: item?.name || "",
   code: item?.code || "",
   color: item?.color || "",
   type: item?.type || "Paper",
   unit: item?.unit || "kg",
-  availableStock: item?.availableStock ?? "",
-  reorderPoint: item?.reorderPoint ?? "",
-  minStock: item?.minStock ?? "",
+  availableStock: item?.availableStock ?? 0,
+  reservedStock: item?.reservedStock ?? 0,
+  reorderPoint: item?.reorderPoint ?? 0,
+  minStock: item?.minStock ?? 0,
   description: item?.description || "",
   isActive: item?.isActive ?? true,
 });
 
-const toNumber = (value) => {
+const toNumber = (value: string | number) => {
   const n = Number(value);
   return Number.isNaN(n) ? 0 : n;
 };
 
-const roundTo = (value, digits = 4) => Number(Number(value || 0).toFixed(digits));
+const roundTo = (value: number | string, digits = 4) => Number(Number(value || 0).toFixed(digits));
 
-const convertToInch = (value, unit) => {
+const convertToInch = (value: number | string, unit: string) => {
   const v = Number(value || 0);
   if (!v) return 0;
 
@@ -139,23 +215,29 @@ const convertToInch = (value, unit) => {
   }
 };
 
-const getVolumeLikeFactor = (dimensions) => {
-  const length = convertToInch(dimensions?.length, dimensions?.unit);
-  const width = convertToInch(dimensions?.width, dimensions?.unit);
-  const height = convertToInch(dimensions?.height, dimensions?.unit);
+const getVolumeLikeFactor = (dimensions?: { length: number | string; width: number | string; height: number | string; unit: string }) => {
+  if (!dimensions) return 0;
+  const length = convertToInch(dimensions.length, dimensions.unit);
+  const width = convertToInch(dimensions.width, dimensions.unit);
+  const height = convertToInch(dimensions.height, dimensions.unit);
 
   if (!length || !width || !height) return 0;
   return length * width * height;
 };
 
-const getAverageLinearFactor = (baseDimensions, customDimensions) => {
-  const baseLength = convertToInch(baseDimensions?.length, baseDimensions?.unit);
-  const baseWidth = convertToInch(baseDimensions?.width, baseDimensions?.unit);
-  const baseHeight = convertToInch(baseDimensions?.height, baseDimensions?.unit);
+const getAverageLinearFactor = (
+  baseDimensions?: { length: number | string; width: number | string; height: number | string; unit: string },
+  customDimensions?: { length: number | string; width: number | string; height: number | string; unit: string }
+) => {
+  if (!baseDimensions || !customDimensions) return 1;
 
-  const customLength = convertToInch(customDimensions?.length, customDimensions?.unit);
-  const customWidth = convertToInch(customDimensions?.width, customDimensions?.unit);
-  const customHeight = convertToInch(customDimensions?.height, customDimensions?.unit);
+  const baseLength = convertToInch(baseDimensions.length, baseDimensions.unit);
+  const baseWidth = convertToInch(baseDimensions.width, baseDimensions.unit);
+  const baseHeight = convertToInch(baseDimensions.height, baseDimensions.unit);
+
+  const customLength = convertToInch(customDimensions.length, customDimensions.unit);
+  const customWidth = convertToInch(customDimensions.width, customDimensions.unit);
+  const customHeight = convertToInch(customDimensions.height, customDimensions.unit);
 
   if (!baseLength || !baseWidth || !baseHeight) return 1;
   if (!customLength || !customWidth || !customHeight) return 1;
@@ -174,19 +256,19 @@ const RawMaterial = () => {
 
   const [search, setSearch] = useState("");
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState(initialForm);
+  const [editingItem, setEditingItem] = useState<IRawMaterial | null>(null);
+  const [formData, setFormData] = useState<Omit<IRawMaterial, "stockHistory" | "availableForSale">>(initialForm);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState<IRawMaterial | null>(null);
 
   const [showStockModal, setShowStockModal] = useState(false);
-  const [selectedStockItem, setSelectedStockItem] = useState(null);
+  const [selectedStockItem, setSelectedStockItem] = useState<IRawMaterial | null>(null);
   const [stockToAdd, setStockToAdd] = useState("");
   const [stockNote, setStockNote] = useState("");
 
   const [showProductionModal, setShowProductionModal] = useState(false);
-  const [productionForm, setProductionForm] = useState(initialProductionForm);
+  const [productionForm, setProductionForm] = useState<IProductionForm>(initialProductionForm);
 
   const { data: rawMaterials = [], isLoading } = useGetAllRawMaterials({ search });
   const { data: lowStockAlerts = [] } = useGetLowStockRawMaterials();
@@ -195,7 +277,7 @@ const RawMaterial = () => {
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
 
-    return rawMaterials.filter((item) => {
+    return rawMaterials.filter((item: IRawMaterial) => {
       return (
         item?.name?.toLowerCase().includes(q) ||
         item?.code?.toLowerCase().includes(q) ||
@@ -206,9 +288,9 @@ const RawMaterial = () => {
   }, [rawMaterials, search]);
 
   const totalMaterials = rawMaterials.length;
-  const activeMaterials = rawMaterials.filter((item) => item.isActive).length;
+  const activeMaterials = rawMaterials.filter((item: IRawMaterial) => item.isActive).length;
   const totalStockUnits = rawMaterials.reduce(
-    (sum, item) => sum + Number(item.availableStock || 0),
+    (sum: number, item: IRawMaterial) => sum + Number(item.availableStock || 0),
     0
   );
   const lowStockCount = lowStockAlerts.length;
@@ -217,7 +299,7 @@ const RawMaterial = () => {
   const selectedProductionProduct = useMemo(() => {
     return (
       products.find(
-        (item) => String(item._id || item.id) === String(productionForm.productId)
+        (item: IBagProduct) => String(item._id || item.id) === String(productionForm.productId)
       ) || null
     );
   }, [products, productionForm.productId]);
@@ -269,7 +351,7 @@ const RawMaterial = () => {
     const quantity = toNumber(productionForm.quantity);
     const mappedMaterials = selectedProductionProduct?.rawMaterials || [];
 
-    return mappedMaterials.map((material, index) => {
+    return mappedMaterials.map((material: NonNullable<IBagProduct["rawMaterials"]>[number], index: number) => {
       const usageType = material?.usageType || "fixed";
       const perBagQty = toNumber(material?.requiredQuantityPerBag || 0);
 
@@ -318,32 +400,32 @@ const RawMaterial = () => {
     setShowFormModal(true);
   };
 
-  const openEditModal = (item) => {
+  const openEditModal = (item: IRawMaterial) => {
     setEditingItem(item);
     setFormData(getFormFromItem(item));
     setShowFormModal(true);
   };
 
-  const handleFieldChange = (field, value) => {
-    setFormData((prev) => ({
+  const handleFieldChange = (field: string, value: string | number | boolean) => {
+    setFormData((prev: Omit<IRawMaterial, "stockHistory" | "availableForSale">) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const payload = {
       name: formData.name.trim(),
       code: formData.code.trim(),
-      color: formData.color.trim(),
+      color: (formData.color || "").trim(),
       type: formData.type,
       unit: formData.unit,
       availableStock: Number(formData.availableStock || 0),
       reorderPoint: Number(formData.reorderPoint || 0),
       minStock: Number(formData.minStock || 0),
-      description: formData.description.trim(),
+      description: (formData.description || "").trim(),
       isActive: formData.isActive,
     };
 
@@ -379,7 +461,7 @@ const RawMaterial = () => {
       }
 
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to save raw material",
         { id: loadingToast }
@@ -387,7 +469,8 @@ const RawMaterial = () => {
     }
   };
 
-  const handleDeleteItem = async (id) => {
+  const handleDeleteItem = async (id?: string) => {
+    if (!id) return;
     const loadingToast = toast.loading("Deleting raw material...");
 
     try {
@@ -403,7 +486,7 @@ const RawMaterial = () => {
         setSelectedItem(null);
         setShowDetailPanel(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to delete raw material",
         { id: loadingToast }
@@ -411,7 +494,7 @@ const RawMaterial = () => {
     }
   };
 
-  const openAddStockModal = (item) => {
+  const openAddStockModal = (item: IRawMaterial) => {
     setSelectedStockItem(item);
     setStockToAdd("");
     setStockNote("");
@@ -459,7 +542,7 @@ const RawMaterial = () => {
       setSelectedStockItem(null);
       setStockToAdd("");
       setStockNote("");
-    } catch (error) {
+    } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to add stock",
         { id: loadingToast }
@@ -467,15 +550,18 @@ const RawMaterial = () => {
     }
   };
 
-  const handleProductionField = (field, value) => {
-    setProductionForm((prev) => ({
+  const handleProductionField = <K extends keyof IProductionForm>(field: K, value: IProductionForm[K]) => {
+    setProductionForm((prev: IProductionForm) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  const handleCustomDimensionField = (field, value) => {
-    setProductionForm((prev) => ({
+  const handleCustomDimensionField = <K extends keyof IProductionForm["customDimensions"]>(
+    field: K,
+    value: IProductionForm["customDimensions"][K]
+  ) => {
+    setProductionForm((prev: IProductionForm) => ({
       ...prev,
       customDimensions: {
         ...prev.customDimensions,
@@ -484,7 +570,7 @@ const RawMaterial = () => {
     }));
   };
 
-  const handleCreateProductionStock = async (e) => {
+  const handleCreateProductionStock = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const payload = {
@@ -529,11 +615,7 @@ const RawMaterial = () => {
       invalidateAllQueries();
       setShowProductionModal(false);
       setProductionForm(initialProductionForm);
-
-      if (item) {
-        // optional success handling
-      }
-    } catch (error) {
+    } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to create production stock",
         { id: loadingToast }
@@ -642,6 +724,16 @@ const RawMaterial = () => {
                 <p className="mt-2 text-3xl font-bold text-gray-900">
                   {Number(totalStockUnits).toLocaleString()}
                 </p>
+                <div className="mt-1 flex items-center gap-2 text-[10px] font-medium text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                    {rawMaterials.reduce((sum: number, i: IRawMaterial) => sum + (i.reservedStock || 0), 0).toLocaleString()} Manufacturing Hold
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {rawMaterials.reduce((sum: number, i: IRawMaterial) => sum + (i.availableForSale || 0), 0).toLocaleString()} Available to Use
+                  </span>
+                </div>
               </div>
               <div className="rounded-2xl bg-purple-50 p-3 text-purple-600">
                 <Layers3 className="h-6 w-6" />
@@ -698,7 +790,7 @@ const RawMaterial = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {products.map((product) => (
+              {products.map((product: IBagProduct) => (
                 <div
                   key={product._id || product.id}
                   className="rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700"
@@ -725,7 +817,7 @@ const RawMaterial = () => {
                 </p>
 
                 <div className="space-y-2">
-                  {lowStockAlerts.slice(0, 4).map((item) => (
+                  {lowStockAlerts.slice(0, 4).map((item: IRawMaterial) => (
                     <div
                       key={item._id || item.id}
                       className="flex items-center justify-between rounded-xl border border-red-100 bg-white p-3"
@@ -763,10 +855,11 @@ const RawMaterial = () => {
           className="grid grid-cols-1 gap-4"
         >
           <Input
+            label="Search Materials"
             placeholder="Search by material name, code, type, or color..."
             icon={Search}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           />
         </motion.div>
 
@@ -810,7 +903,7 @@ const RawMaterial = () => {
                         Unit
                       </th>
                       <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Available Stock
+                        Stock Status
                       </th>
                       <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Reorder Point
@@ -825,7 +918,7 @@ const RawMaterial = () => {
                   </thead>
 
                   <tbody>
-                    {filteredItems.map((item) => {
+                    {filteredItems.map((item: IRawMaterial) => {
                       const status = getStockStatus(
                         item.availableStock,
                         item.reorderPoint
@@ -858,8 +951,24 @@ const RawMaterial = () => {
                             {item.unit}
                           </td>
 
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                            {Number(item.availableStock || 0).toLocaleString()} {item.unit}
+                          <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                <span className="text-xs font-semibold text-blue-600">
+                                  {Number(item.reservedStock || 0).toLocaleString()} {item.unit} Reserved
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                <span className="text-xs font-bold text-emerald-600">
+                                  {Number(item.availableForSale || 0).toLocaleString()} {item.unit} Ready
+                                </span>
+                              </div>
+                              <div className="mt-1 border-t border-gray-50 pt-1 text-[10px] font-medium text-gray-400">
+                                Total: {Number(item.availableStock || 0).toLocaleString()} {item.unit}
+                              </div>
+                            </div>
                           </td>
 
                           <td className="px-4 py-4 text-sm text-gray-700">
@@ -867,14 +976,10 @@ const RawMaterial = () => {
                           </td>
 
                           <td className="px-4 py-4">
-                            <Badge variant={statusVariantMap[status]}>
-                              {status === "critical"
-                                ? "Critical"
-                                : status === "low"
-                                ? "Low"
-                                : status === "medium"
-                                ? "Medium"
-                                : "Healthy"}
+                            <Badge
+                              variant={statusVariantMap[status] || "primary"}
+                            >
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
                             </Badge>
                           </td>
 
@@ -949,12 +1054,12 @@ const RawMaterial = () => {
               </label>
               <select
                 value={productionForm.productId}
-                onChange={(e) => handleProductionField("productId", e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleProductionField("productId", e.target.value)}
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 required
               >
                 <option value="">Select product</option>
-                {products.map((product) => (
+                {products.map((product: IBagProduct) => (
                   <option key={product._id || product.id} value={product._id || product.id}>
                     {product.name} ({product.sku})
                   </option>
@@ -982,13 +1087,16 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Number of Bags
                 </label>
-                <input
+                <Input
+                  label="Number of Bags"
+                  className=""
+                  error={undefined}
+                  icon={undefined}
                   type="number"
                   min="1"
                   value={productionForm.quantity}
-                  onChange={(e) => handleProductionField("quantity", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductionField("quantity", e.target.value)}
                   placeholder="100"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -999,10 +1107,13 @@ const RawMaterial = () => {
                 </label>
                 <select
                   value={productionForm.category}
-                  onChange={(e) => handleProductionField("category", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const val = e.target.value as IProductionForm["category"];
+                    handleProductionField("category", val);
+                  }}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 >
-                  {INVENTORY_CATEGORY_OPTIONS.map((item) => (
+                  {INVENTORY_CATEGORY_OPTIONS.map((item: string) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
@@ -1014,13 +1125,16 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Reorder Point
                 </label>
-                <input
+                <Input
+                  label="Reorder Point"
+                  className=""
+                  error={undefined}
+                  icon={undefined}
                   type="number"
                   min="0"
                   value={productionForm.reorderPt}
-                  onChange={(e) => handleProductionField("reorderPt", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductionField("reorderPt", e.target.value)}
                   placeholder="10"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1028,13 +1142,16 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Unit Price Override
                 </label>
-                <input
+                <Input
+                  label="Unit Price Override"
+                  className=""
+                  error={undefined}
+                  icon={undefined}
                   type="number"
                   min="0"
                   value={productionForm.unitPrice}
-                  onChange={(e) => handleProductionField("unitPrice", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductionField("unitPrice", e.target.value)}
                   placeholder="Optional price override"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
@@ -1055,7 +1172,10 @@ const RawMaterial = () => {
                     </label>
                     <select
                       value={productionForm.dimensionMode}
-                      onChange={(e) => handleProductionField("dimensionMode", e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                        const val = e.target.value as IProductionForm["dimensionMode"];
+                        handleProductionField("dimensionMode", val);
+                      }}
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                     >
                       <option value="default">Use Product Default Dimensions</option>
@@ -1091,13 +1211,16 @@ const RawMaterial = () => {
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
                           Length
                         </label>
-                        <input
+                        <Input
+                          label="Length"
+                          className=""
+                          error={undefined}
+                          icon={undefined}
                           type="number"
                           min="0"
                           value={productionForm.customDimensions.length}
-                          onChange={(e) => handleCustomDimensionField("length", e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("length", e.target.value)}
                           placeholder="14"
-                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                         />
                       </div>
 
@@ -1105,13 +1228,16 @@ const RawMaterial = () => {
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
                           Width
                         </label>
-                        <input
+                        <Input
+                          label="Width"
+                          className=""
+                          error={undefined}
+                          icon={undefined}
                           type="number"
                           min="0"
                           value={productionForm.customDimensions.width}
-                          onChange={(e) => handleCustomDimensionField("width", e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("width", e.target.value)}
                           placeholder="10"
-                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                         />
                       </div>
 
@@ -1119,13 +1245,16 @@ const RawMaterial = () => {
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
                           Height
                         </label>
-                        <input
+                        <Input
+                          label="Height"
+                          className=""
+                          error={undefined}
+                          icon={undefined}
                           type="number"
                           min="0"
                           value={productionForm.customDimensions.height}
-                          onChange={(e) => handleCustomDimensionField("height", e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("height", e.target.value)}
                           placeholder="12"
-                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                         />
                       </div>
 
@@ -1135,10 +1264,10 @@ const RawMaterial = () => {
                         </label>
                         <select
                           value={productionForm.customDimensions.unit}
-                          onChange={(e) => handleCustomDimensionField("unit", e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCustomDimensionField("unit", e.target.value)}
                           className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                         >
-                          {DIMENSION_UNITS.map((unit) => (
+                          {DIMENSION_UNITS.map((unit: string) => (
                             <option key={unit} value={unit}>
                               {unit}
                             </option>
@@ -1175,7 +1304,17 @@ const RawMaterial = () => {
 
                 {rawMaterialCalculationPreview.length > 0 ? (
                   <div className="space-y-3">
-                    {rawMaterialCalculationPreview.map((item) => (
+                    {rawMaterialCalculationPreview.map((item: {
+                      id: string;
+                      rawMaterialName: string;
+                      rawMaterialType: string;
+                      usageType: string;
+                      unit: string;
+                      perBagQty: number;
+                      adjustedPerBagQty: number;
+                      wastagePercent: number;
+                      totalRequired: number;
+                    }) => (
                       <div
                         key={item.id}
                         className="rounded-2xl border border-gray-100 bg-gray-50 p-4"
@@ -1255,7 +1394,7 @@ const RawMaterial = () => {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-green-700">
+              <Button type="submit" className="bg-green-700" size="md" variant="primary">
                 Create Stock
               </Button>
             </div>
@@ -1273,11 +1412,11 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Material Name
                 </label>
-                <input
+                <Input
+                  label="Material Name"
                   value={formData.name}
-                  onChange={(e) => handleFieldChange("name", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("name", e.target.value)}
                   placeholder="Kraft Paper Roll"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -1286,11 +1425,11 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Code
                 </label>
-                <input
+                <Input
+                  label="Code"
                   value={formData.code}
-                  onChange={(e) => handleFieldChange("code", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("code", e.target.value)}
                   placeholder="RM-KRAFT-001"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -1299,11 +1438,11 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Color
                 </label>
-                <input
+                <Input
+                  label="Color"
                   value={formData.color}
-                  onChange={(e) => handleFieldChange("color", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("color", e.target.value)}
                   placeholder="Brown"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1313,10 +1452,10 @@ const RawMaterial = () => {
                 </label>
                 <select
                   value={formData.type}
-                  onChange={(e) => handleFieldChange("type", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange("type", e.target.value)}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 >
-                  {RAW_MATERIAL_TYPES.map((type) => (
+                  {RAW_MATERIAL_TYPES.map((type: string) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
@@ -1330,10 +1469,10 @@ const RawMaterial = () => {
                 </label>
                 <select
                   value={formData.unit}
-                  onChange={(e) => handleFieldChange("unit", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange("unit", e.target.value)}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 >
-                  {RAW_MATERIAL_UNITS.map((unit) => (
+                  {RAW_MATERIAL_UNITS.map((unit: string) => (
                     <option key={unit} value={unit}>
                       {unit}
                     </option>
@@ -1345,15 +1484,15 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Available Stock
                 </label>
-                <input
+                <Input
+                  label="Available Stock"
                   type="number"
                   min="0"
                   value={formData.availableStock}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     handleFieldChange("availableStock", e.target.value)
                   }
                   placeholder="1200"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -1362,15 +1501,15 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Reorder Point
                 </label>
-                <input
+                <Input
+                  label="Reorder Point"
                   type="number"
                   min="0"
                   value={formData.reorderPoint}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     handleFieldChange("reorderPoint", e.target.value)
                   }
                   placeholder="300"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -1379,13 +1518,16 @@ const RawMaterial = () => {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Minimum Stock
                 </label>
-                <input
+                <Input
+                  label="Minimum Stock"
+                  className=""
+                  error={undefined}
+                  icon={undefined}
                   type="number"
                   min="0"
                   value={formData.minStock}
-                  onChange={(e) => handleFieldChange("minStock", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("minStock", e.target.value)}
                   placeholder="200"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1409,7 +1551,7 @@ const RawMaterial = () => {
                   <input
                     type="checkbox"
                     checked={formData.isActive}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleFieldChange("isActive", e.target.checked)
                     }
                   />
@@ -1468,10 +1610,14 @@ const RawMaterial = () => {
                   Add Stock Quantity
                 </label>
                 <Input
+                  label="Add Stock Quantity"
+                  className=""
+                  error={undefined}
+                  icon={undefined}
                   type="number"
                   min="1"
                   value={stockToAdd}
-                  onChange={(e) => setStockToAdd(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
                   placeholder="Enter quantity"
                 />
               </div>
@@ -1626,7 +1772,7 @@ const RawMaterial = () => {
                         selectedItem.stockHistory
                           .slice()
                           .reverse()
-                          .map((log, idx) => (
+                          .map((log: IStockHistory, idx: number) => (
                             <div key={idx} className="rounded-xl bg-gray-50 p-3 text-sm">
                               <p className="font-medium text-gray-900">
                                 {log.action} · {log.quantity} {selectedItem.unit}
@@ -1673,5 +1819,4 @@ const RawMaterial = () => {
     </Layout>
   );
 };
-
 export default RawMaterial;

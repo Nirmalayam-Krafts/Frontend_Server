@@ -8,9 +8,11 @@ import { Button, Input, Select } from "../ui";
 const leadSchema = z
   .object({
     name: z.string().min(2, "Name is required"),
-    businessName: z.string().min(2, "Business name is required"),
-    productInterest: z.string().min(1, "Product interest is required"),
-    status: z.enum(["NEW", "CONTACTED", "IN_PROGRESS", "CONVERTED"]),
+    email: z.string().email("Invalid email address"),
+    phone: z.string().min(10, "Phone must be at least 10 digits"),
+    business_name: z.string().optional(),
+    product_category: z.enum(["Ecocraft Bags", "F&B Gourmet Bags", "Luxury Bags"]),
+    status: z.enum(["New", "Contacted", "Interested", "Converted", "Lost"]),
   })
   .strict();
 
@@ -52,24 +54,42 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
         {...register("name")}
       />
       <Input
-        label="Business Name"
-        placeholder="Enter business name"
-        error={errors.businessName?.message}
-        {...register("businessName")}
+        label="Email"
+        type="email"
+        placeholder="Enter email address"
+        error={errors.email?.message}
+        {...register("email")}
       />
       <Input
+        label="Phone"
+        placeholder="Enter phone number"
+        error={errors.phone?.message}
+        {...register("phone")}
+      />
+      <Input
+        label="Business Name"
+        placeholder="Enter business name"
+        error={errors.business_name?.message}
+        {...register("business_name")}
+      />
+      <Select
         label="Product Interest"
-        placeholder="e.g., Premium Kraft Pouches"
-        error={errors.productInterest?.message}
-        {...register("productInterest")}
+        options={[
+          { value: "Ecocraft Bags", label: "Ecocraft Bags" },
+          { value: "F&B Gourmet Bags", label: "F&B Gourmet Bags" },
+          { value: "Luxury Bags", label: "Luxury Bags" },
+        ]}
+        error={errors.product_category?.message}
+        {...register("product_category")}
       />
       <Select
         label="Status"
         options={[
-          { value: "NEW", label: "New" },
-          { value: "CONTACTED", label: "Contacted" },
-          { value: "IN_PROGRESS", label: "In Progress" },
-          { value: "CONVERTED", label: "Converted" },
+          { value: "New", label: "New" },
+          { value: "Contacted", label: "Contacted" },
+          { value: "Interested", label: "Interested" },
+          { value: "Converted", label: "Converted" },
+          { value: "Lost", label: "Lost" },
         ]}
         error={errors.status?.message}
         {...register("status")}

@@ -1,5 +1,7 @@
 import React from "react";
 import clsx from "clsx";
+import { X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export const Button = ({
   children,
@@ -220,9 +222,6 @@ export const Table = ({ columns, data, loading, onRowClick }) => (
   </div>
 );
 
-
-import { X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 const sizeClasses = {
   sm: "max-w-md",

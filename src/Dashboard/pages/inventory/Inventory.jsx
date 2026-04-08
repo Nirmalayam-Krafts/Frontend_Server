@@ -371,6 +371,16 @@ const Inventory = () => {
                 <p className="mt-2 text-3xl font-bold text-gray-900">
                   {totalStockUnits.toLocaleString()}
                 </p>
+                <div className="mt-1 flex items-center gap-2 text-[10px] font-medium text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                    {items.reduce((sum, i) => sum + (i.reservedQuantity || 0), 0).toLocaleString()} Reserved for Orders
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {items.reduce((sum, i) => sum + (i.availableForSale || 0), 0).toLocaleString()} Ready to Sell
+                  </span>
+                </div>
               </div>
               <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
                 <Boxes className="h-6 w-6" />
@@ -612,7 +622,7 @@ const Inventory = () => {
                         Category
                       </th>
                       <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Stock Level
+                        Stock Status
                       </th>
                       <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
                         Reorder Pt
@@ -663,12 +673,28 @@ const Inventory = () => {
                             </Badge>
                           </td>
 
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                            {Number(item.stockLevel).toLocaleString()}
+                          <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                <span className="text-xs font-semibold text-blue-600">
+                                  {Number(item.reservedQuantity || 0).toLocaleString()} {item.unit || "Units"} Reserved
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                <span className="text-xs font-bold text-emerald-600">
+                                  {Number(item.availableForSale || 0).toLocaleString()} {item.unit || "Units"} Ready
+                                </span>
+                              </div>
+                              <div className="mt-1 border-t border-gray-50 pt-1 text-[10px] font-medium text-gray-400">
+                                Total: {Number(item.stockLevel || 0).toLocaleString()} Units
+                              </div>
+                            </div>
                           </td>
 
                           <td className="px-4 py-4 text-sm text-gray-600">
-                            {Number(item.reorderPt).toLocaleString()} units
+                            {Number(item.reorderPt || 0).toLocaleString()} units
                           </td>
 
                           <td className="px-4 py-4">

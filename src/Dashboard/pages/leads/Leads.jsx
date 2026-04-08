@@ -54,9 +54,6 @@ const initialOrderForm = {
   width: "",
   height: "",
   dimensionUnit: "inch",
-  paymentType: "partial",
-  partialPaidAmount: "",
-  fullPaidAmount: "",
   notes: "",
 };
 
@@ -139,16 +136,16 @@ const Leads = () => {
   const statusColors = {
     NEW: "success",
     CONTACTED: "warning",
-    INTERESTED: "primary",
+    INTERESTED: "info",
     CONVERTED: "secondary",
-    LOST: "danger",
+    LOST: "error",
   };
 
   const contactedLeadsCount = formattedLeads.filter(
     (lead) => lead.status === "CONTACTED"
   ).length;
   const convertedLeadsCount = formattedLeads.filter(
-    (lead) => lead.status === "CONVERTED"
+    (l) => l.status === "CONVERTED"
   ).length;
 
   const totalLeads = formattedLeads.length;
@@ -159,27 +156,31 @@ const Leads = () => {
 
   const handleAddLead = async (formData) => {
     try {
-      const response = await leadsAPI.createLead(formData);
-      if (response.success) {
+      const response = await axiosInstance.post("/leads", { payload: formData });
+      if (response.data.success) {
         setShowModal(false);
         showNotification("Lead added successfully", "success");
         refetch();
       }
     } catch (error) {
+      console.error("Add Lead Error:", error);
       showNotification("Failed to add lead", "error");
     }
   };
 
   const handleUpdateLead = async (formData) => {
     try {
-      const response = await leadsAPI.updateLead(editingLead.id, formData);
-      if (response.success) {
+      // Backend LeadService typically expects updates via specific status endpoints or generic updates.
+      // Assuming a generic update endpoint exists or status update is sufficient.
+      const response = await axiosInstance.patch(`/leads/${editingLead.id}`, { payload: formData });
+      if (response.data.success) {
         setShowModal(false);
         setEditingLead(null);
         showNotification("Lead updated successfully", "success");
         refetch();
       }
     } catch (error) {
+       console.error("Update Lead Error:", error);
       showNotification("Failed to update lead", "error");
     }
   };
@@ -267,19 +268,6 @@ const Leads = () => {
       return;
     }
 
-    if (
-      orderForm.paymentType === "partial" &&
-      !orderForm.partialPaidAmount
-    ) {
-      showNotification("Please enter partial paid amount", "error");
-      return;
-    }
-
-    if (orderForm.paymentType === "full" && !orderForm.fullPaidAmount) {
-      showNotification("Please enter full paid amount", "error");
-      return;
-    }
-
     const loadingToast = toast.loading("Converting lead into order...");
 
     try {
@@ -304,17 +292,7 @@ const Leads = () => {
           },
         },
 
-        payment: {
-          paymentType: orderForm.paymentType,
-          partialPaidAmount:
-            orderForm.paymentType === "partial"
-              ? Number(orderForm.partialPaidAmount || 0)
-              : 0,
-          fullPaidAmount:
-            orderForm.paymentType === "full"
-              ? Number(orderForm.fullPaidAmount || 0)
-              : 0,
-        },
+        payment: { paymentType: "partial", partialPaidAmount: 0 },
 
         notes: orderForm.notes,
       };
@@ -359,10 +337,11 @@ const Leads = () => {
   };
 
   const handleDeleteLead = async (id) => {
+    const loadingToast = toast.loading("Deleting lead...");
     try {
-      const response = await leadsAPI.deleteLead(id);
-      if (response.success) {
-        showNotification("Lead deleted successfully", "success");
+      const response = await axiosInstance.delete(`/leads/${id}`);
+      if (response.data.success) {
+        toast.success("Lead deleted successfully", { id: loadingToast });
         refetch();
 
         if (selectedLead?.id === id) {
@@ -371,7 +350,7 @@ const Leads = () => {
         }
       }
     } catch (error) {
-      showNotification("Failed to delete lead", "error");
+       toast.error(error?.response?.data?.message || "Failed to delete lead", { id: loadingToast });
     }
   };
 
@@ -1100,67 +1079,8 @@ const Leads = () => {
 
         {/* Right Side */}
         <div className="space-y-6">
-          {/* Payment Details */}
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-emerald-600" />
-              <h4 className="text-base font-bold text-gray-900">
-                Payment Details
-              </h4>
-            </div>
-
-            <div className="space-y-5">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Payment Type
-                </label>
-                <select
-                  value={orderForm.paymentType}
-                  onChange={(e) =>
-                    handleOrderFormChange("paymentType", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                >
-                  <option value="partial">Partial Paid</option>
-                  <option value="full">Full Paid</option>
-                </select>
-              </div>
-
-              {orderForm.paymentType === "partial" ? (
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Partial Paid Amount <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={orderForm.partialPaidAmount}
-                    onChange={(e) =>
-                      handleOrderFormChange("partialPaidAmount", e.target.value)
-                    }
-                    placeholder="Enter partial amount"
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Full Paid Amount <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={orderForm.fullPaidAmount}
-                    onChange={(e) =>
-                      handleOrderFormChange("fullPaidAmount", e.target.value)
-                    }
-                    placeholder="Enter full amount"
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+        </div>
+      </div>
 
           {/* Order Preview */}
           <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 shadow-sm">
@@ -1198,26 +1118,14 @@ const Leads = () => {
                 </span>
               </div>
 
-              <div className="h-px bg-emerald-100" />
+            <div className="h-px bg-emerald-100" />
 
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-600">Payment Mode</span>
-                <span className="font-semibold capitalize text-gray-900">
-                  {orderForm.paymentType}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-600">Amount</span>
-                <span className="font-bold text-emerald-700">
-                  ₹
-                  {orderForm.paymentType === "partial"
-                    ? orderForm.partialPaidAmount || "0"
-                    : orderForm.fullPaidAmount || "0"}
-                </span>
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-600 font-bold">Total Quote Items</span>
+              <span className="font-bold text-emerald-700">
+                {orderForm.quantity || "—"} Units
+              </span>
             </div>
-          </div>
         </div>
       </div>
 

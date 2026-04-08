@@ -35,8 +35,9 @@ import {
   Download,
   Share2,
   MessageCircle,
-  FileSpreadsheet,
+  RefreshCw,
   ClipboardCheck,
+  FileSpreadsheet,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -60,13 +61,11 @@ const initialManualOrderForm = {
   width: "",
   height: "",
   dimensionUnit: "inch",
-  paymentType: "partial",
-  partialPaidAmount: "",
-  fullPaidAmount: "",
   notes: "",
 };
 
 const initialConfirmOrderForm = {
+  totalAmount: "",
   paidAmount: "",
   paymentMode: "cash",
   deliveryAddress: "",
@@ -100,6 +99,7 @@ const Orders = () => {
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [availabilityOrder, setAvailabilityOrder] = useState(null);
   const [availabilityResult, setAvailabilityResult] = useState(null);
+  const [deductionMode, setDeductionMode] = useState("AUTO");
   const [confirmOrderForm, setConfirmOrderForm] = useState(initialConfirmOrderForm);
 
   const limit = 10;
@@ -151,6 +151,8 @@ const Orders = () => {
         source: order?.source || "Manual",
         orderStatus: order?.orderStatus || "Pending",
         paymentStatus: order?.paymentStatus || "Unpaid",
+        totalAmount: order?.totalAmount || 0,
+        paidAmount: order?.paidAmount || 0,
         orderStatusKey: (order?.orderStatus || "Pending").toUpperCase(),
         paymentStatusKey: (order?.paymentStatus || "Unpaid").toUpperCase(),
         date: order?.createdAt
@@ -158,7 +160,6 @@ const Orders = () => {
           : "—",
         fullDate: order?.createdAt || "",
         notes: order?.notes || "",
-        amount,
         payment: order?.payment || {},
         orderDetails: order?.orderDetails || {},
         confirmedPayment: order?.confirmedPayment || {},
@@ -299,63 +300,42 @@ const Orders = () => {
     setAvailabilityResult(null);
     setConfirmOrderForm(initialConfirmOrderForm);
     setAvailabilityModalOpen(true);
+    setCheckingOrderId(order.id || order._id);
 
-    setTimeout(() => {
-      const matchedItems = inventoryItems.filter((item) => {
-        const inventoryName = normalizeText(getInventoryName(item));
-        const orderName = normalizeText(order?.productCategory);
+    try {
+      // 🚀 REAL API CALL to the Smart Inventory Brain
+      const resp = await axiosInstance.get(
+        `/orders/${order.id || order._id}/availability`,
+        { params: { mode: deductionMode } }
+      );
 
-        const sameProduct =
-          inventoryName === orderName ||
-          inventoryName.includes(orderName) ||
-          orderName.includes(inventoryName);
-
-        const sameDimensions = isSameDimension(item, order);
-
-        return sameProduct && sameDimensions;
-      });
-
-      const requiredQty = Number(order?.orderDetails?.quantity || 0);
-
-      const bestMatch =
-        matchedItems.find((item) => getInventoryQuantity(item) >= requiredQty) ||
-        matchedItems[0];
-
-      if (bestMatch) {
-        const availableQty = getInventoryQuantity(bestMatch);
-        const enoughStock = availableQty >= requiredQty;
-
+      if (resp.data.success) {
+        const resData = resp.data.data;
         setAvailabilityResult({
-          found: true,
-          enoughStock,
-          item: bestMatch,
-          availableQty,
-          requiredQty,
-          message: enoughStock
-            ? "Matching product found by name and dimensions."
-            : "Matching product found by name and dimensions, but stock is not enough.",
-        });
-      } else {
-        setAvailabilityResult({
-          found: false,
-          enoughStock: false,
-          item: null,
-          availableQty: 0,
-          requiredQty,
-          message:
-            "No matching product found using only product name and dimensions.",
+          enoughStock: resData.isAvailable,
+          canFulfillFromStock: resData.canFulfillFromStock,
+          requiredFromProduction: resData.requiredFromProduction,
+          materialRequirements: resData.materialRequirements,
+          missingMaterials: resData.missingMaterials,
+          requiredQty: Number(order?.orderDetails?.quantity || 0),
+          message: resData.isAvailable 
+            ? "Order can be fulfilled using current logic mode." 
+            : "Insufficient raw materials or stock for this mode."
         });
       }
-
+    } catch (err) {
+      console.error("Availability Check Failed:", err);
+      showNotification("Failed to check smart availability", "error");
+    } finally {
       setCheckingOrderId(null);
-    }, 900);
+    }
   };
 
   const handleConfirmExistingOrder = async () => {
     if (!availabilityOrder) return;
 
-    if (!availabilityResult?.found || !availabilityResult?.enoughStock) {
-      showNotification("Bags are not available for this order", "error");
+    if (!availabilityResult?.enoughStock) {
+      showNotification("Insufficient stock/materials for this order", "error");
       return;
     }
 
@@ -372,6 +352,7 @@ const Orders = () => {
 
     try {
       const payload = {
+        totalAmount: Number(confirmOrderForm.totalAmount || 0),
         paidAmount: Number(confirmOrderForm.paidAmount || 0),
         paymentMode: confirmOrderForm.paymentMode,
         receiverName: confirmOrderForm.receiverName,
@@ -380,6 +361,8 @@ const Orders = () => {
         deliveryDate: confirmOrderForm.deliveryDate,
         dispatchDate: confirmOrderForm.dispatchDate,
         deliveryNotes: confirmOrderForm.deliveryNotes,
+        productId: availabilityOrder.orderDetails?.productId || null,
+        deductionMode: deductionMode,
         inventoryMatchedItemId:
           availabilityResult?.item?._id || availabilityResult?.item?.id || null,
         matchedProductName:
@@ -387,11 +370,9 @@ const Orders = () => {
           availabilityResult?.item?.name ||
           availabilityOrder?.productCategory ||
           "",
-        availableQtyAtCheck: Number(availabilityResult?.availableQty || 0),
+        availableQtyAtCheck: Number(availabilityResult?.canFulfillFromStock || 0),
         requiredQtyAtCheck: Number(availabilityResult?.requiredQty || 0),
-        isAvailable: Boolean(
-          availabilityResult?.found && availabilityResult?.enoughStock
-        ),
+        isAvailable: Boolean(availabilityResult?.enoughStock),
       };
 
       await axiosInstance.patch(`/orders/${availabilityOrder.id}/confirm`, payload);
@@ -608,6 +589,30 @@ Delivery Address: ${report.deliveryAddress}
     window.open(url, "_blank");
   };
 
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    const loadingToast = toast.loading(`Updating order to ${newStatus}...`);
+    try {
+      const orderToUpdate = formattedOrders.find((o) => o.id === orderId);
+
+      const response = await axiosInstance.patch(`/orders/${orderId}/status`, {
+        newStatus,
+        productId: orderToUpdate?.orderDetails?.productId || null,
+        deductionMode: "AUTO",
+      });
+
+      if (response.data.success) {
+        toast.success(`Order moved to ${newStatus} 🏭`, { id: loadingToast });
+        queryClient.invalidateQueries({ queryKey: ["getOrdersData"] });
+        queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
+        refetch();
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update status", {
+        id: loadingToast,
+      });
+    }
+  };
+
   const handleCreateManualOrder = async (e) => {
     e.preventDefault();
 
@@ -663,17 +668,7 @@ Delivery Address: ${report.deliveryAddress}
             unit: manualOrderForm.dimensionUnit,
           },
         },
-        payment: {
-          paymentType: manualOrderForm.paymentType,
-          partialPaidAmount:
-            manualOrderForm.paymentType === "partial"
-              ? Number(manualOrderForm.partialPaidAmount || 0)
-              : 0,
-          fullPaidAmount:
-            manualOrderForm.paymentType === "full"
-              ? Number(manualOrderForm.fullPaidAmount || 0)
-              : 0,
-        },
+        payment: { paymentType: "partial", partialPaidAmount: 0 },
         notes: manualOrderForm.notes,
       };
 
@@ -1146,16 +1141,29 @@ Delivery Address: ${report.deliveryAddress}
                         </td>
 
                         <td className="px-4 py-4">
-                          <button
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setShowDetailPanel(true);
-                            }}
-                            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setShowDetailPanel(true);
+                              }}
+                              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+
+                            {order.orderStatusKey === "CONFIRMED" && (
+                              <button
+                                onClick={() => handleUpdateStatus(order.id, "Processing")}
+                                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50"
+                                title="Start Manufacturing"
+                              >
+                                <Factory className="h-4 w-4" />
+                                <span className="hidden xl:inline">Process</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1312,43 +1320,6 @@ Delivery Address: ${report.deliveryAddress}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-100 p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-emerald-600" />
-                <p className="text-sm font-bold text-gray-800">Payment Details</p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <select
-                  value={manualOrderForm.paymentType}
-                  onChange={(e) => handleFormChange("paymentType", e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                >
-                  <option value="partial">Partial Paid</option>
-                  <option value="full">Full Paid</option>
-                </select>
-
-                {manualOrderForm.paymentType === "partial" ? (
-                  <input
-                    type="number"
-                    min="0"
-                    value={manualOrderForm.partialPaidAmount}
-                    onChange={(e) => handleFormChange("partialPaidAmount", e.target.value)}
-                    placeholder="Partial Paid Amount"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                  />
-                ) : (
-                  <input
-                    type="number"
-                    min="0"
-                    value={manualOrderForm.fullPaidAmount}
-                    onChange={(e) => handleFormChange("fullPaidAmount", e.target.value)}
-                    placeholder="Full Paid Amount"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                  />
-                )}
-              </div>
-            </div>
 
             <textarea
               rows={4}
@@ -1376,359 +1347,421 @@ Delivery Address: ${report.deliveryAddress}
         >
           <div className="space-y-5">
             {availabilityOrder && (
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                    {availabilityOrder.avatar}
+              <>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+                      {availabilityOrder.avatar}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{availabilityOrder.customerName}</p>
+                      <p className="text-sm text-gray-500">{availabilityOrder.productCategory}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{availabilityOrder.customerName}</p>
-                    <p className="text-sm text-gray-500">{availabilityOrder.productCategory}</p>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500">Bag Size</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {availabilityOrder.orderDetails?.bagSize || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500">Color</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {availabilityOrder.orderDetails?.color || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500">Quantity</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {availabilityOrder.orderDetails?.quantity || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-xs font-semibold text-gray-500">Dimensions</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {availabilityOrder.orderDetails?.dimensions?.length || 0} ×{" "}
+                        {availabilityOrder.orderDetails?.dimensions?.width || 0} ×{" "}
+                        {availabilityOrder.orderDetails?.dimensions?.height || 0}{" "}
+                        {availabilityOrder.orderDetails?.dimensions?.unit || "inch"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs font-semibold text-gray-500">Bag Size</p>
-                    <p className="mt-1 font-semibold text-gray-900">
-                      {availabilityOrder.orderDetails?.bagSize || "—"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs font-semibold text-gray-500">Color</p>
-                    <p className="mt-1 font-semibold text-gray-900">
-                      {availabilityOrder.orderDetails?.color || "—"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs font-semibold text-gray-500">Quantity</p>
-                    <p className="mt-1 font-semibold text-gray-900">
-                      {availabilityOrder.orderDetails?.quantity || "—"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs font-semibold text-gray-500">Dimensions</p>
-                    <p className="mt-1 font-semibold text-gray-900">
-                      {availabilityOrder.orderDetails?.dimensions?.length || 0} ×{" "}
-                      {availabilityOrder.orderDetails?.dimensions?.width || 0} ×{" "}
-                      {availabilityOrder.orderDetails?.dimensions?.height || 0}{" "}
-                      {availabilityOrder.orderDetails?.dimensions?.unit || "inch"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {checkingOrderId ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-sm"
-              >
-                <div className="flex items-center gap-4 px-5 py-5">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
-                    <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-base font-bold text-emerald-900">
-                      Checking order availability...
-                    </p>
-                    <p className="mt-1 text-sm text-emerald-700">
-                      Matching this order with inventory data
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ) : availabilityResult ? (
-              availabilityResult.found && availabilityResult.enoughStock ? (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 shadow-sm"
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                  <label className="mb-2 block text-sm font-bold text-emerald-900">
+                    Choose Deduction Logic Mode
+                  </label>
+                  <select
+                    value={deductionMode}
+                    onChange={(e) => setDeductionMode(e.target.value)}
+                    className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
                   >
-                    <div className="p-5">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                            <CheckCircle2 className="h-6 w-6" />
+                    <option value="AUTO">AUTO (Search Finished Bags then Raw Materials)</option>
+                    <option value="RAW_ONLY">FORCE PRODUCTION (Raw Materials Only)</option>
+                    <option value="STOCK_ONLY">FORCE STOCK (Finished Bags Only)</option>
+                  </select>
+                  <button
+                    onClick={() => handleCheckOrderAvailability(availabilityOrder)}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${checkingOrderId ? "animate-spin" : ""}`} />
+                    Apply Mode & Re-Check
+                  </button>
+                </div>
+
+                {checkingOrderId ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-sm"
+                  >
+                    <div className="flex items-center gap-4 px-5 py-5">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
+                        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-emerald-900">
+                          Analyzing inventory with {deductionMode} mode...
+                        </p>
+                        <p className="mt-1 text-sm text-emerald-700">
+                          Calculating material scaling and checking reservations
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : availabilityResult ? (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`overflow-hidden rounded-3xl border shadow-sm ${
+                        availabilityResult.enoughStock
+                          ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50"
+                          : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50"
+                      }`}
+                    >
+                      <div className="p-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                                availabilityResult.enoughStock
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {availabilityResult.enoughStock ? (
+                                <CheckCircle2 className="h-6 w-6" />
+                              ) : (
+                                <AlertTriangle className="h-6 w-6" />
+                              )}
+                            </div>
+
+                            <div>
+                              <h3
+                                className={`text-base font-bold ${
+                                  availabilityResult.enoughStock ? "text-emerald-900" : "text-amber-900"
+                                }`}
+                              >
+                                {availabilityResult.enoughStock
+                                  ? "Smart Availability Passed"
+                                  : "Insufficient Stock/Materials"}
+                              </h3>
+                              <p
+                                className={`mt-1 text-sm ${
+                                  availabilityResult.enoughStock ? "text-emerald-800" : "text-amber-800"
+                                }`}
+                              >
+                                {availabilityResult.message}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div
+                            className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm ${
+                              availabilityResult.enoughStock ? "bg-emerald-600" : "bg-amber-600"
+                            }`}
+                          >
+                            {availabilityResult.enoughStock ? "Ready to Confirm" : "Action Required"}
+                          </div>
+                        </div>
+
+                        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              Bags from Finished Stock
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-gray-900">
+                              {availabilityResult.canFulfillFromStock}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              Production Material Cost
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-emerald-700">
+                              ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString() || 0}
+                            </p>
+                          </div>
+                        </div>
+
+                        {availabilityResult.materialRequirements?.length > 0 && (
+                          <div className="mt-5 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100">
+                              <h4 className="text-sm font-bold text-gray-900">Required Bills of Materials (BOM)</h4>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-50/30 text-xs font-semibold uppercase text-gray-500">
+                                  <tr>
+                                    <th className="px-4 py-3">Material</th>
+                                    <th className="px-4 py-3">Per Bag</th>
+                                    <th className="px-4 py-3">Total Qty</th>
+                                    <th className="px-4 py-3">Price</th>
+                                    <th className="px-4 py-3 text-right">Cost</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                  {availabilityResult.materialRequirements.map((mat, idx) => (
+                                    <tr key={idx} className={mat.isAvailable ? "" : "bg-red-50/30 text-red-700"}>
+                                      <td className="px-4 py-3 font-medium">
+                                        <div className="flex items-center gap-2">
+                                          {!mat.isAvailable && <AlertTriangle className="h-3 w-3" />}
+                                          {mat.name}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3">{mat.quantityPerBag} {mat.unit}</td>
+                                      <td className="px-4 py-3">{mat.totalQuantity} {mat.unit}</td>
+                                      <td className="px-4 py-3">₹{mat.unitPrice}</td>
+                                      <td className="px-4 py-3 text-right font-bold">₹{mat.totalPrice?.toLocaleString()}</td>
+                                    </tr>
+                                  ))}
+                                  <tr className="bg-emerald-50/30 border-t-2 border-emerald-100">
+                                    <td colSpan="4" className="px-4 py-3 text-right font-bold text-gray-900">Total Estimation:</td>
+                                    <td className="px-4 py-3 text-right font-extrabold text-emerald-800 text-lg">
+                                      ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {availabilityResult.missingMaterials?.length > 0 && (
+                          <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className="h-4 w-4" />
+                              <p className="font-bold uppercase tracking-tight">Warning: Insufficient Materials</p>
+                            </div>
+                            <ul className="list-inside list-disc opacity-90 space-y-1">
+                              {availabilityResult.missingMaterials.map((m, i) => (
+                                <li key={i}>{m}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {availabilityResult.enoughStock && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
+                      >
+                        <div className="mb-5 flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                            <ShieldCheck className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-gray-900">
+                              Confirm Order Details
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              Fill payment and delivery details for this order.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-semibold text-gray-700">
+                                Total Invoice Amount (₹)
+                              </label>
+                              <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                Suggested: ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
+                              </span>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              value={confirmOrderForm.totalAmount}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("totalAmount", e.target.value)
+                              }
+                              placeholder="Enter total bill amount"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
                           </div>
 
                           <div>
-                            <h3 className="text-base font-bold text-emerald-900">
-                              Bags Available in Inventory
-                            </h3>
-                            <p className="mt-1 text-sm text-emerald-800">
-                              This order can be confirmed now.
-                            </p>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Advance Paid (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={confirmOrderForm.paidAmount}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("paidAmount", e.target.value)
+                              }
+                              placeholder="Optional advance"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Payment Mode
+                            </label>
+                            <select
+                              value={confirmOrderForm.paymentMode}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("paymentMode", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            >
+                              <option value="cash">Cash</option>
+                              <option value="upi">UPI</option>
+                              <option value="bank_transfer">Bank Transfer</option>
+                              <option value="card">Card</option>
+                            </select>
+                          </div>
+
+                          <div className="sm:col-span-2 rounded-2xl bg-gray-50 p-4 border border-gray-100 flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-500">Remaining Balance:</span>
+                            <span className={`text-lg font-bold ${
+                              (Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)) <= 0 
+                                ? "text-emerald-600" 
+                                : "text-amber-600"
+                            }`}>
+                              ₹{(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Receiver Name
+                            </label>
+                            <input
+                              type="text"
+                              value={confirmOrderForm.receiverName}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("receiverName", e.target.value)
+                              }
+                              placeholder="Enter receiver name"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Receiver Phone
+                            </label>
+                            <input
+                              type="text"
+                              value={confirmOrderForm.receiverPhone}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("receiverPhone", e.target.value)
+                              }
+                              placeholder="Enter receiver phone"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Delivery Date
+                            </label>
+                            <input
+                              type="date"
+                              value={confirmOrderForm.deliveryDate}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("deliveryDate", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Dispatch Date
+                            </label>
+                            <input
+                              type="date"
+                              value={confirmOrderForm.dispatchDate}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("dispatchDate", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Delivery Address
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={confirmOrderForm.deliveryAddress}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("deliveryAddress", e.target.value)
+                              }
+                              placeholder="Enter full delivery address"
+                              className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Delivery Notes
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={confirmOrderForm.deliveryNotes}
+                              onChange={(e) =>
+                                handleConfirmOrderChange("deliveryNotes", e.target.value)
+                              }
+                              placeholder="Special delivery instructions"
+                              className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
                           </div>
                         </div>
 
-                        <div className="inline-flex items-center rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm">
-                          Ready to Confirm
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Available Stock
-                          </p>
-                          <p className="mt-2 text-2xl font-bold text-gray-900">
-                            {availabilityResult.availableQty}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Required Qty
-                          </p>
-                          <p className="mt-2 text-2xl font-bold text-gray-900">
-                            {availabilityResult.requiredQty}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Product Status
-                          </p>
-                          <p className="mt-2 text-lg font-bold text-emerald-700">
-                            Available
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
-                  >
-                    <div className="mb-5 flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                        <ShieldCheck className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-gray-900">
-                          Confirm Order Details
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          Fill payment and delivery details for this order.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Paid Money
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={confirmOrderForm.paidAmount}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("paidAmount", e.target.value)
-                          }
-                          placeholder="Enter paid amount"
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Payment Mode
-                        </label>
-                        <select
-                          value={confirmOrderForm.paymentMode}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("paymentMode", e.target.value)
-                          }
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        >
-                          <option value="cash">Cash</option>
-                          <option value="upi">UPI</option>
-                          <option value="bank_transfer">Bank Transfer</option>
-                          <option value="card">Card</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Receiver Name
-                        </label>
-                        <input
-                          type="text"
-                          value={confirmOrderForm.receiverName}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("receiverName", e.target.value)
-                          }
-                          placeholder="Enter receiver name"
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Receiver Phone
-                        </label>
-                        <input
-                          type="text"
-                          value={confirmOrderForm.receiverPhone}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("receiverPhone", e.target.value)
-                          }
-                          placeholder="Enter receiver phone"
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Delivery Date
-                        </label>
-                        <input
-                          type="date"
-                          value={confirmOrderForm.deliveryDate}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("deliveryDate", e.target.value)
-                          }
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Dispatch Date
-                        </label>
-                        <input
-                          type="date"
-                          value={confirmOrderForm.dispatchDate}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("dispatchDate", e.target.value)
-                          }
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Delivery Address
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={confirmOrderForm.deliveryAddress}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("deliveryAddress", e.target.value)
-                          }
-                          placeholder="Enter full delivery address"
-                          className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Delivery Notes
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={confirmOrderForm.deliveryNotes}
-                          onChange={(e) =>
-                            handleConfirmOrderChange("deliveryNotes", e.target.value)
-                          }
-                          placeholder="Special delivery instructions"
-                          className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="rounded-2xl"
-                        onClick={() =>
-                          showNotification("Order details filled", "success")
-                        }
-                      >
-                        Fill Order
-                      </Button>
-
-                      <Button
-                        type="button"
-                        className="rounded-2xl bg-green-900 px-6 hover:bg-emerald-700"
-                        onClick={handleConfirmExistingOrder}
-                      >
-                        Confirm Order
-                      </Button>
-                    </div>
-                  </motion.div>
-                </>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm"
-                >
-                  <div className="p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                        <AlertTriangle className="h-6 w-6" />
-                      </div>
-
-                      <div className="flex-1">
-                        <h3 className="text-base font-bold text-amber-900">
-                          {availabilityResult.found
-                            ? "Bags Not Enough in Inventory"
-                            : "No Bags Available"}
-                        </h3>
-
-                        <p className="mt-1 text-sm text-amber-800">
-                          {availabilityResult.found
-                            ? "Matching product found, but stock is not enough."
-                            : "This order bag is not available right now. Create bags first."}
-                        </p>
-
-                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <div className="rounded-2xl border border-amber-100 bg-white px-4 py-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Available Stock
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-gray-900">
-                              {availabilityResult.availableQty}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl border border-amber-100 bg-white px-4 py-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Required Qty
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-gray-900">
-                              {availabilityResult.requiredQty}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 flex flex-wrap gap-3">
+                        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
                           <Button
                             type="button"
-                            className="rounded-2xl bg-green-900 px-5 hover:bg-emerald-700"
-                            onClick={() => navigate("/rawmaterial")}
+                            className="rounded-2xl bg-green-900 px-6 hover:bg-emerald-700"
+                            onClick={handleConfirmExistingOrder}
                           >
-                            <Factory className="mr-2 h-4 w-4" />
-                            Create Bags
+                            Confirm order and RESERVE STOCK
                           </Button>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )
-            ) : null}
+                      </motion.div>
+                    )}
+                  </>
+                ) : null}
+              </>
+            )}
           </div>
         </Modal>
 
