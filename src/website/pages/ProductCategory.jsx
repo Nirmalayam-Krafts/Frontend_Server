@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -141,7 +142,16 @@ const categoryData = {
 
 export default function ProductCategory() {
   const { categoryId } = useParams();
-  const data = categoryData[categoryId];
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
   if (!data) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -157,15 +167,15 @@ export default function ProductCategory() {
       {/* ── Fixed Quote Bar ── */}
       <div style={{
         position: 'fixed',
-        bottom: 24,
+        bottom: isMobile ? 12 : 24,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 1000,
-        width: '90%',
+        width: isMobile ? '94%' : '90%',
         maxWidth: 720,
         background: '#F3F1ED',
-        borderRadius: 'var(--radius-3xl)',
-        padding: '10px 10px 10px 14px',
+        borderRadius: isMobile ? 'var(--radius-2xl)' : 'var(--radius-3xl)',
+        padding: isMobile ? '8px 8px 8px 12px' : '10px 10px 10px 14px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -208,7 +218,7 @@ export default function ProductCategory() {
           onMouseEnter={e => e.currentTarget.style.background = '#152b0d'}
           onMouseLeave={e => e.currentTarget.style.background = '#1F4013'}
         >
-          <Phone size={18} fill="white" /> Get Best Price on WhatsApp
+          {isMobile ? <Phone size={20} fill="white" /> : <><Phone size={18} fill="white" /> Get Best Price on WhatsApp</>}
         </a>
       </div>
 
@@ -234,17 +244,22 @@ export default function ProductCategory() {
             <span style={{ color: 'var(--eco-600)' }}>{data.title}</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 64, alignItems: 'start' }} className="category-hero-grid">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : '1.1fr 0.9fr', 
+            gap: isMobile ? 32 : 64, 
+            alignItems: 'start' 
+          }} className="category-hero-grid">
             {/* Image Section */}
-            <div style={{ position: 'sticky', top: 120 }}>
+            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 120 }}>
               <div style={{
-                borderRadius: 'var(--radius-3xl)',
+                borderRadius: isMobile ? 'var(--radius-2xl)' : 'var(--radius-3xl)',
                 overflow: 'hidden',
                 aspectRatio: '1',
                 boxShadow: 'var(--shadow-2xl)',
                 background: 'white',
                 border: '1px solid var(--kraft-100)',
-                padding: 40
+                padding: isMobile ? 24 : 40
               }}>
                 <img src={data.image} alt={data.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
@@ -270,10 +285,11 @@ export default function ProductCategory() {
               </p>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 48 }}>
+              <div style={{ display: 'flex', flexWrap: isMobile ? 'wrap' : 'nowrap', gap: 16, marginBottom: 48 }}>
                 <a href={whatsappUrl} style={{ 
                   flex: 1, 
-                  padding: '18px 24px', 
+                  minWidth: isMobile ? '100%' : 'auto',
+                  padding: isMobile ? '16px 20px' : '18px 24px', 
                   background: '#2D5A27', 
                   color: 'white',
                   borderRadius: 'var(--radius-lg)',
@@ -283,7 +299,7 @@ export default function ProductCategory() {
                   gap: 10,
                   textDecoration: 'none',
                   fontWeight: 700,
-                  fontSize: 16,
+                  fontSize: isMobile ? 15 : 16,
                   transition: 'background 0.3s'
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = '#1F4013'}
@@ -293,13 +309,14 @@ export default function ProductCategory() {
                 </a>
                 <Link to="/contact" style={{ 
                   flex: 1, 
-                  padding: '18px 24px', 
+                  minWidth: isMobile ? '100%' : 'auto',
+                  padding: isMobile ? '16px 20px' : '18px 24px', 
                   background: '#EAE5D8', 
                   color: '#1F4013', 
                   borderRadius: 'var(--radius-lg)', 
                   textDecoration: 'none', 
                   fontWeight: 700,
-                  fontSize: 16,
+                  fontSize: isMobile ? 15 : 16,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -314,7 +331,12 @@ export default function ProductCategory() {
               </div>
 
               {/* Bullet Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 32px', marginBottom: 64 }}>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
+                gap: isMobile ? 16 : '24px 32px', 
+                marginBottom: isMobile ? 48 : 64 
+              }}>
                 {data.bullets.map((bullet, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-lg)', background: 'rgba(45,90,39,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -342,8 +364,8 @@ export default function ProductCategory() {
                 
                 <div style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: 'repeat(3, 1fr)', 
-                  gap: 12
+                  gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : isTablet ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)', 
+                  gap: isMobile ? 10 : 12
                 }}>
                   {data.specs.map((spec, i) => (
                     <div 
@@ -419,7 +441,11 @@ export default function ProductCategory() {
             <div className="section-label">Gallery</div>
             <h2 className="section-title">The {data.title} Experience</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }} className="gallery-grid">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(3, 1fr)', 
+            gap: isMobile ? 24 : 32 
+          }} className="gallery-grid">
             {data.gallery.map((item, i) => (
               <div key={i}>
                 <div style={{ 
@@ -458,7 +484,7 @@ export default function ProductCategory() {
           <div style={{
             background: 'var(--kraft-950)',
             borderRadius: 'var(--radius-3xl)',
-            padding: '80px 0px',
+            padding: isMobile ? '60px 24px' : '80px 0px',
             textAlign: 'center',
             color: 'white',
             position: 'relative',
@@ -476,7 +502,14 @@ export default function ProductCategory() {
             <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', maxWidth: 600, margin: '0 auto 48px', position: 'relative' }}>
               Join hundreds of premium brands that trust Nirmalyam Krafts for their sustainable packaging needs.
             </p>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', position: 'relative' }} className="cta-buttons">
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 16, 
+              justifyContent: 'center', 
+              position: 'relative',
+              padding: isMobile ? '0 20px' : '0'
+            }} className="cta-buttons">
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
                 background: 'var(--eco-500)',
                 color: 'white',

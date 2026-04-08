@@ -12,7 +12,7 @@ import { KraftBagSVG } from '../components/KraftsBags';
 function WhatsAppIcon({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
     </svg>
   );
 }
@@ -105,35 +105,35 @@ const categories = [
 
 /* ── Why Nirmalyam Redesign Data ── */
 const whyCards = [
-  { 
-    id: 1, 
-    title: '12,000+', 
-    label: 'Brands Served', 
-    image: '/images/why_quality.png', 
+  {
+    id: 1,
+    title: '12,000+',
+    label: 'Brands Served',
+    image: '/images/why_quality.png',
     icon: Users,
     accent: 'var(--kraft-500)'
   },
-  { 
-    id: 2, 
-    title: '100%', 
-    label: 'Recyclable Process', 
-    image: '/images/why_recyclable.png', 
+  {
+    id: 2,
+    title: '100%',
+    label: 'Recyclable Process',
+    image: '/images/why_recyclable.png',
     icon: Recycle,
     accent: 'var(--eco-500)'
   },
-  { 
-    id: 3, 
-    title: '99%', 
-    label: 'On-Time Delivery', 
-    image: '/images/why_printing.png', 
+  {
+    id: 3,
+    title: '99%',
+    label: 'On-Time Delivery',
+    image: '/images/why_printing.png',
     icon: Shield,
     accent: 'var(--kraft-400)'
   },
-  { 
-    id: 4, 
-    title: '500 Units', 
-    label: 'Small Batch MOQ', 
-    image: '/images/why_moq.png', 
+  {
+    id: 4,
+    title: '500 Units',
+    label: 'Small Batch MOQ',
+    image: '/images/why_moq.png',
     icon: Package,
     accent: 'var(--eco-600)'
   },
@@ -145,11 +145,18 @@ export default function Home() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupName, setPopupName] = useState('');
   const [popupEmail, setPopupEmail] = useState('');
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   /* ── 6-second popup timer + Reveal Observer ── */
   useEffect(() => {
     const timer = setTimeout(() => setPopupOpen(true), 12000); // 12 seconds
-    
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -178,15 +185,15 @@ export default function Home() {
   const handlePopupSubmit = (e) => {
     e.preventDefault();
     if (!popupName || !popupEmail) return;
-    
+
     // Redirect to contact page with data
-    navigate('/contact', { 
-      state: { 
-        name: popupName, 
-        email: popupEmail 
-      } 
+    navigate('/contact', {
+      state: {
+        name: popupName,
+        email: popupEmail
+      }
     });
-    
+
     setPopupOpen(false);
     setPopupName('');
     setPopupEmail('');
@@ -200,7 +207,7 @@ export default function Home() {
 
       {/* ══════════════════ HERO ══════════════════ */}
       <section style={{
-        minHeight: '100vh',
+        minHeight: '80vh',
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
@@ -244,11 +251,12 @@ export default function Home() {
         <div className="container" style={{
           position: 'relative',
           zIndex: 1,
-          padding: '120px 0px 80px',
+          padding: isMobile ? '100px 0px 20px' : '80px 0px 30px',
           display: 'grid',
-          gridTemplateColumns: '1.1fr 0.9fr',
-          gap: 24,
+          gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr',
+          gap: isMobile ? 24 : 32,
           alignItems: 'center',
+          textAlign: isMobile ? 'center' : 'left'
         }}>
           {/* Left — text */}
           <div>
@@ -273,29 +281,37 @@ export default function Home() {
 
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: 'clamp(40px, 5.5vw, 72px)',
+              fontSize: 'clamp(32px, 5.5vw, 72px)',
               fontWeight: 800,
               color: '#1a1208',
               lineHeight: 1.1,
               marginBottom: 18,
+              textAlign: isMobile ? 'center' : 'left'
             }}>
               The Future of<br />
               <span style={{ color: '#7a4a1e' }}>Eco Packaging</span>
             </h1>
 
             <p style={{
-              fontSize: 16,
+              fontSize: isMobile ? 15 : 16,
               color: '#4a3c2a',
               lineHeight: 1.75,
               maxWidth: 440,
               marginBottom: 36,
+              margin: isMobile ? '0 auto 36px' : '0 0 36px',
+              textAlign: isMobile ? 'center' : 'left'
             }}>
               Transforming Indian retail with premium, custom-printed kraft paper solutions.
               Elevate your brand sustainably with Nirmalyam Krafts.
             </p>
 
             {/* CTA buttons */}
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{
+              display: 'flex',
+              gap: 14,
+              flexWrap: 'wrap',
+              justifyContent: isMobile ? 'center' : 'flex-start'
+            }}>
               {/* WhatsApp button */}
               <a
                 href="https://wa.me/919876543210"
@@ -321,7 +337,7 @@ export default function Home() {
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(37,211,102,0.35)'; }}
               >
                 <WhatsAppIcon size={19} />
-                Chat on WhatsApp
+                <span>Chat on WhatsApp</span>
               </a>
 
               {/* Get a Quote button */}
@@ -345,27 +361,27 @@ export default function Home() {
                 onMouseEnter={e => { e.currentTarget.style.background = '#fdf6ec'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.transform = 'none'; }}
               >
-                Get a Quote
+                <span>Get a Quote</span>
               </Link>
             </div>
           </div>
 
           {/* Right — floating bag image */}
-         <KraftBagSVG />
+          <KraftBagSVG />
         </div>
 
         {/* Wave divider */}
-        <div style={{ position: 'absolute', bottom: -2, left: 0, right: 0 }}>
-          <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 80L1440 80L1440 40C1200 0 960 80 720 40C480 0 240 80 0 40L0 80Z" fill="var(--kraft-50)" />
+        <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0 }}>
+          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 60L1440 60L1440 30C1200 -10 960 70 720 30C480 -10 240 70 0 30L0 60Z" fill="var(--kraft-50)" />
           </svg>
         </div>
       </section>
 
       {/* ══════════════════ TAGLINE & LOGOS SECTION ══════════════════ */}
-      <section style={{ 
-        background: 'linear-gradient(to bottom, var(--kraft-50) 0%, #fff 100%)', 
-        padding: '60px 0', 
+      <section style={{
+        background: 'linear-gradient(to bottom, var(--kraft-50) 0%, #fff 100%)',
+        padding: isMobile ? '20px 0 40px' : '24px 0 40px',
         borderBottom: '1px solid var(--kraft-100)',
         position: 'relative',
         zIndex: 10,
@@ -383,8 +399,8 @@ export default function Home() {
           pointerEvents: 'none'
         }} />
 
-        <div className="container">
-          <motion.div 
+        <div className="container" style={{ position: 'relative', zIndex: 10 }}>
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -396,61 +412,66 @@ export default function Home() {
                 }
               }
             }}
-            style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              gap: 24, 
-              flexWrap: 'wrap' 
+            style={{
+              display: isMobile ? 'grid' : 'flex',
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'none',
+              gridAutoRows: isMobile ? 'minmax(80px, 1fr)' : 'auto',
+              justifyContent: 'center',
+              alignItems: 'stretch',
+              gap: isMobile ? '10px' : 'clamp(12px, 2vw, 24px)',
+              flexWrap: isMobile ? 'nowrap' : 'wrap'
             }}
           >
             {/* Make in India */}
-            <motion.div 
+            <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
               }}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 16,
-                padding: '12px 28px',
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: isMobile ? 4 : 16,
+                padding: isMobile ? '10px' : '12px 28px',
                 background: 'rgba(255, 255, 255, 0.45)',
                 backdropFilter: 'blur(12px)',
-                borderRadius: 24,
+                borderRadius: isMobile ? 12 : 24,
                 border: '1px solid rgba(255, 255, 255, 0.7)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-                cursor: 'default'
+                cursor: 'default',
+                textAlign: 'center'
               }}
-              whileHover={{ 
-                scale: 1.05, 
-                y: -5, 
+              whileHover={{
+                scale: 1.05,
+                y: -5,
                 boxShadow: '0 15px 35px rgba(122, 74, 30, 0.08)',
                 borderColor: 'rgba(122, 74, 30, 0.2)'
               }}
             >
-              <motion.img 
-                src="/images/make_in_india_lion.png" 
-                alt="Make in India" 
-                style={{ height: 48, width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-                animate={{ 
-                  filter: ['drop-shadow(0 2px 4px rgba(0,0,0,0.1))', 'drop-shadow(0 4px 8px rgba(122, 74, 30, 0.2))', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'] 
+              <motion.img
+                src="/images/make_in_india_lion.png"
+                alt="Make in India"
+                style={{ height: isMobile ? 24 : 48, width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+                animate={{
+                  filter: ['drop-shadow(0 2px 4px rgba(0,0,0,0.1))', 'drop-shadow(0 4px 8px rgba(122, 74, 30, 0.2))', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))']
                 }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               />
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ 
-                  fontSize: 10, 
-                  fontWeight: 800, 
-                  color: '#7a4a1e', 
+                <span style={{
+                  fontSize: isMobile ? 8 : 10,
+                  fontWeight: 800,
+                  color: '#7a4a1e',
                   letterSpacing: '0.25em',
                   textTransform: 'uppercase',
                   marginBottom: 2
                 }}>AUTHENTIC</span>
-                <span style={{ 
-                  fontSize: 18, 
-                  fontWeight: 900, 
-                  color: '#1a1208', 
+                <span style={{
+                  fontSize: isMobile ? 13 : 18,
+                  fontWeight: 900,
+                  color: '#1a1208',
                   letterSpacing: '0.05em',
                   fontFamily: "'Playfair Display', serif"
                 }}>MAKE IN INDIA</span>
@@ -458,26 +479,27 @@ export default function Home() {
             </motion.div>
 
             {/* Recycle India */}
-            <motion.div 
+            <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
               }}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 12,
-                padding: '12px 24px',
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isMobile ? 'center' : 'flex-start',
+                gap: isMobile ? 8 : 12,
+                padding: isMobile ? '10px 12px' : '12px 24px',
                 background: 'rgba(255, 255, 255, 0.45)',
                 backdropFilter: 'blur(12px)',
-                borderRadius: 24,
+                borderRadius: isMobile ? 20 : 24,
                 border: '1px solid rgba(255, 255, 255, 0.7)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
                 cursor: 'default'
               }}
-              whileHover={{ 
-                scale: 1.05, 
-                y: -5, 
+              whileHover={{
+                scale: 1.05,
+                y: -5,
                 boxShadow: '0 15px 35px rgba(22, 101, 52, 0.08)',
                 borderColor: 'rgba(22, 101, 52, 0.2)'
               }}
@@ -486,95 +508,101 @@ export default function Home() {
                 animate={{ rotate: 360 }}
                 transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
               >
-                <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/4/44/Recycle001.svg" 
-                  alt="Recycle" 
-                  style={{ height: 28, width: 'auto', opacity: 0.9 }}
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/4/44/Recycle001.svg"
+                  alt="Recycle"
+                  style={{ height: isMobile ? 18 : 28, width: 'auto', opacity: 0.9 }}
                 />
               </motion.div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.12em' }}>RECYCLE INDIA</span>
+              <span style={{ fontSize: isMobile ? 9 : 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.12em' }}>RECYCLE INDIA</span>
             </motion.div>
 
             {/* Plastic Free */}
-            <motion.div 
+            <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
               }}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 12,
-                padding: '12px 24px',
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: isMobile ? 4 : 12,
+                padding: isMobile ? '10px' : '12px 24px',
                 background: 'rgba(255, 255, 255, 0.45)',
                 backdropFilter: 'blur(12px)',
-                borderRadius: 24,
+                borderRadius: isMobile ? 12 : 24,
                 border: '1px solid rgba(255, 255, 255, 0.7)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-                cursor: 'default'
+                cursor: 'default',
+                textAlign: 'center'
               }}
-              whileHover={{ 
-                scale: 1.05, 
-                y: -5, 
+              whileHover={{
+                scale: 1.05,
+                y: -5,
                 boxShadow: '0 15px 35px rgba(22, 163, 74, 0.08)',
                 borderColor: 'rgba(22, 163, 74, 0.2)'
               }}
             >
-              <motion.div 
-                style={{ 
-                  width: 36, height: 36, 
-                  borderRadius: 12, 
-                  background: 'rgba(22,163,74,0.12)', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+              <motion.div
+                style={{
+                  width: isMobile ? 28 : 36, height: isMobile ? 28 : 36,
+                  borderRadius: 10,
+                  background: 'rgba(22,163,74,0.12)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               >
-                <Leaf size={20} color="#166534" />
+                <Leaf size={isMobile ? 14 : 20} color="#166534" />
               </motion.div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.12em' }}>100% PLASTIC-FREE</span>
+              <span style={{ fontSize: isMobile ? 9 : 13, fontWeight: 700, color: '#166534', letterSpacing: '0.12em' }}>100% PLASTIC-FREE</span>
             </motion.div>
 
             {/* Pune Pride */}
-            <motion.div 
+            <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
               }}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 12,
-                padding: '12px 24px',
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: isMobile ? 4 : 12,
+                padding: isMobile ? '10px' : '12px 24px',
                 background: 'rgba(255, 255, 255, 0.45)',
                 backdropFilter: 'blur(12px)',
-                borderRadius: 24,
+                borderRadius: isMobile ? 12 : 24,
                 border: '1px solid rgba(255, 255, 255, 0.7)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-                cursor: 'default'
+                cursor: 'default',
+                textAlign: 'center'
               }}
-              whileHover={{ 
-                scale: 1.05, 
-                y: -5, 
+              whileHover={{
+                scale: 1.05,
+                y: -5,
                 boxShadow: '0 15px 35px rgba(139, 94, 52, 0.08)',
                 borderColor: 'rgba(139, 94, 52, 0.2)'
               }}
             >
-              <motion.div 
-                style={{ 
-                  width: 36, height: 36, 
-                  borderRadius: 12, 
-                  background: 'rgba(139,94,52,0.1)', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+              <motion.div
+                style={{
+                  width: isMobile ? 28 : 36, height: isMobile ? 28 : 36,
+                  borderRadius: 10,
+                  background: 'rgba(139,94,52,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
                 animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
               >
-                <MapPin size={20} color="#8b5e34" />
+                <MapPin size={isMobile ? 18 : 20} color="#8b5e34" />
               </motion.div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 9, fontWeight: 800, color: '#8b5e34', letterSpacing: '0.1em' }}>BEST ECO-FRIENDLY</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.1em' }}>PRODUCTS IN PUNE</span>
+                <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, color: '#8b5e34', letterSpacing: '0.1em' }}>BEST ECO-FRIENDLY</span>
+                <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.1em' }}>PRODUCTS IN PUNE</span>
               </div>
             </motion.div>
           </motion.div>
@@ -710,9 +738,9 @@ export default function Home() {
       )}
 
       {/* ══════════════════ CATEGORIES ══════════════════ */}
-      <section 
-        className="section-padding nature-section" 
-        style={{ 
+      <section
+        className="section-padding nature-section"
+        style={{
           backgroundImage: 'url(/images/collections-bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -725,14 +753,14 @@ export default function Home() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(252, 250, 247, 0.88)', 
+          background: 'rgba(252, 250, 247, 0.88)',
           zIndex: 0
         }} />
 
         <div className="nature-layer-wood" style={{ zIndex: 1 }} />
         <div className="nature-layer-leaf" style={{ zIndex: 1 }} />
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div className="section-label">Our Collections</div>
             <h2 className="section-title">Packaging That Speaks</h2>
             <p className="section-subtitle" style={{ margin: '0 auto' }}>
@@ -782,17 +810,16 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ WHY NIRMALYAM (REDESIGNED) ══════════════════ */}
-      <section 
-        className="why-nirmalyam-section anim-reveal" 
+      <section
+        className="why-nirmalyam-section anim-reveal"
         style={{
           background: 'linear-gradient(rgba(58, 36, 16, 0.88), rgba(58, 36, 16, 0.92)), url("/images/why_factory_bg.png")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
           position: 'relative',
           overflow: 'hidden',
-          padding: '140px 24px',
-          marginTop: -1 
+          padding: isMobile ? '80px 16px' : '140px 24px',
+          marginTop: -1
         }}
       >
         {/* Decorative backdrop glow */}
@@ -810,12 +837,12 @@ export default function Home() {
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           {/* Centered Header */}
           <div style={{ textAlign: 'center', marginBottom: 64 }} className="anim-fade-up">
-            <div style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: 8, 
-              background: 'rgba(34,197,94,0.15)', 
-              padding: '10px 24px', 
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(34,197,94,0.15)',
+              padding: '10px 24px',
               borderRadius: 100,
               marginBottom: 24,
               border: '1px solid rgba(34,197,94,0.3)',
@@ -826,24 +853,24 @@ export default function Home() {
                 Why Choose Nirmalyam
               </span>
             </div>
-            
-            <h2 style={{ 
-              fontFamily: "'Playfair Display', serif", 
-              fontSize: 'clamp(36px, 6vw, 56px)', 
-              color: 'white', 
+
+            <h2 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: 'clamp(36px, 6vw, 56px)',
+              color: 'white',
               marginBottom: 24,
               fontWeight: 700,
               lineHeight: 1.1
             }}>
               Why Nirmalyam?
             </h2>
-            
-            <p style={{ 
-              fontSize: 18, 
-              color: 'rgba(255,255,255,0.6)', 
-              maxWidth: 750, 
+
+            <p style={{
+              fontSize: 18,
+              color: 'rgba(255,255,255,0.6)',
+              maxWidth: 750,
               margin: '0 auto',
-              lineHeight: 1.8 
+              lineHeight: 1.8
             }}>
               Commitment to quality, sustainability, and your brand's growth. We've spent years
               perfecting the balance between artisanal quality and industrial scalability.
@@ -851,18 +878,18 @@ export default function Home() {
           </div>
 
           {/* 4-Card Grid */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', 
-            gap: 28 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(clamp(260px, 45%, 320px), 1fr))',
+            gap: isMobile ? 12 : 28
           }}>
             {whyCards.map((card, idx) => (
               <div
                 key={card.id}
                 className="why-card"
                 style={{
-                  height: 460,
-                  borderRadius: 28,
+                  height: isMobile ? 240 : 460,
+                  borderRadius: isMobile ? 16 : 28,
                   overflow: 'hidden',
                   position: 'relative',
                   cursor: 'default',
@@ -875,16 +902,16 @@ export default function Home() {
               >
                 {/* Background Image with Hover Scale */}
                 <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-                  <img 
-                    src={card.image} 
-                    alt={card.label} 
+                  <img
+                    src={card.image}
+                    alt={card.label}
                     className="why-card-img"
-                    style={{ 
-                      width: '100%', 
-                      height: '100%', 
+                    style={{
+                      width: '100%',
+                      height: '100%',
                       objectFit: 'cover',
                       transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }} 
+                    }}
                   />
                   <div style={{
                     position: 'absolute',
@@ -900,11 +927,11 @@ export default function Home() {
                   bottom: 20,
                   left: 20,
                   right: 20,
-                  padding: '24px',
+                  padding: isMobile ? '16px' : '24px',
                   background: 'rgba(255,255,255,0.08)',
                   backdropFilter: 'blur(25px) saturate(160%)',
                   WebkitBackdropFilter: 'blur(25px) saturate(160%)',
-                  borderRadius: 20,
+                  borderRadius: isMobile ? 12 : 20,
                   border: '1px solid rgba(255,255,255,0.1)',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -913,19 +940,19 @@ export default function Home() {
                   transition: 'background 0.3s, transform 0.3s'
                 }} className="glass-plate">
                   <div>
-                    <div style={{ 
-                      fontSize: 34, 
-                      fontWeight: 700, 
-                      color: 'white', 
+                    <div style={{
+                      fontSize: isMobile ? 20 : 34,
+                      fontWeight: 700,
+                      color: 'white',
                       marginBottom: 4,
                       fontFamily: "'Playfair Display', serif",
                       letterSpacing: '-0.02em'
                     }}>
                       {card.title}
                     </div>
-                    <div style={{ 
-                      fontSize: 14, 
-                      color: 'rgba(255,255,255,0.7)', 
+                    <div style={{
+                      fontSize: isMobile ? 10 : 14,
+                      color: 'rgba(255,255,255,0.7)',
                       fontWeight: 600,
                       letterSpacing: '0.04em',
                       textTransform: 'uppercase'
@@ -936,8 +963,8 @@ export default function Home() {
 
                   {/* Circular Icon Badge */}
                   <div style={{
-                    width: 48,
-                    height: 48,
+                    width: isMobile ? 32 : 48,
+                    height: isMobile ? 32 : 48,
                     borderRadius: '50%',
                     background: 'white',
                     display: 'flex',
@@ -946,7 +973,7 @@ export default function Home() {
                     boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
                     transition: 'transform 0.3s'
                   }} className="icon-badge">
-                    <card.icon size={22} color={card.accent || "#0a0f0c"} />
+                    <card.icon size={isMobile ? 16 : 22} color={card.accent || "#0a0f0c"} />
                   </div>
                 </div>
               </div>
@@ -1004,6 +1031,29 @@ export default function Home() {
         `}</style>
       </section>
 
+      {/* ── CTA: About Factory ── */}
+      <section style={{ 
+        background: '#fff9f2', 
+        padding: isMobile ? '60px 24px' : '80px 0', 
+        borderBottom: '1px solid var(--kraft-100)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Subtle noise texture or pattern could go here */}
+        <div className="container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 32 : 80, textAlign: isMobile ? 'center' : 'left' }}>
+          <div style={{ maxWidth: 640 }}>
+            <div className="section-label" style={{ marginBottom: 12, fontSize: 12 }}>Behind the Scenes</div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 28 : 36, color: 'var(--kraft-950)', marginBottom: 16, lineHeight: 1.2 }}>Craftsmanship at Scale</h3>
+            <p style={{ fontSize: isMobile ? 15 : 18, color: 'var(--kraft-600)', lineHeight: 1.7 }}>
+              Discover the precision and passion that goes into every Nirmalyam product at our state-of-the-art facility. From raw fiber to finished luxury.
+            </p>
+          </div>
+          <Link to="/about" className="btn-secondary" style={{ padding: '16px 40px', minWidth: 220, justifyContent: 'center', fontSize: 15, background: 'white', border: '1px solid var(--kraft-200)', boxShadow: 'var(--shadow-sm)' }}>
+            Know about us <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+
 
       {/* ══════════════════ PRODUCT PREVIEW GRID ══════════════════ */}
       <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
@@ -1018,10 +1068,10 @@ export default function Home() {
             </p>
           </div>
 
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-            gap: 32 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: isMobile ? 8 : 32
           }} className="product-grid-3x3">
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: 'var(--gold-500)', image: '/product-luxury-retail.png' },
@@ -1031,10 +1081,10 @@ export default function Home() {
               { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: 'var(--kraft-600)', image: '/product-industrial-rolls.png' },
               { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: 'var(--gold-400)', image: '/product-custom-mailers.png' },
             ].map(({ name, cat, desc, color, image }, idx) => (
-              <div key={name} className="product-card anim-reveal" 
-                style={{ 
-                  padding: 0, 
-                  overflow: 'hidden', 
+              <div key={name} className="product-card anim-reveal"
+                style={{
+                  padding: 0,
+                  overflow: 'hidden',
                   animationDelay: `${idx * 0.1}s`,
                   position: 'relative'
                 }}
@@ -1042,7 +1092,7 @@ export default function Home() {
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
               >
                 <div style={{
-                  height: 220,
+                  height: isMobile ? 100 : 220,
                   background: `linear-gradient(135deg, ${color}12 0%, ${color}05 100%)`,
                   display: 'flex',
                   alignItems: 'center',
@@ -1052,11 +1102,11 @@ export default function Home() {
                   position: 'relative'
                 }}>
                   <img src={image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }} className="prod-img" />
-                  
+
                   {/* WhatsApp Floating Button */}
-                  <a 
+                  <a
                     href={`https://wa.me/919876543210?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
-                    target="_blank" 
+                    target="_blank"
                     rel="noreferrer"
                     style={{
                       position: 'absolute',
@@ -1080,12 +1130,12 @@ export default function Home() {
                     <WhatsAppIcon size={22} />
                   </a>
                 </div>
-                <div style={{ padding: '24px' }}>
+                <div style={{ padding: isMobile ? '12px 8px' : '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <span className="tag-chip" style={{ background: `${color}12`, color: color }}>{cat}</span>
+                    <span className="tag-chip" style={{ background: `${color}12`, color: color, fontSize: isMobile ? 8 : 12, padding: isMobile ? '2px 6px' : '4px 10px' }}>{cat}</span>
                   </div>
-                  <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 10 }}>{name}</h3>
-                  <p style={{ fontSize: 14, color: 'var(--kraft-600)', lineHeight: 1.6 }}>{desc}</p>
+                  <h3 style={{ fontSize: isMobile ? 10 : 19, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: isMobile ? 2 : 10 }}>{name}</h3>
+                  <p style={{ fontSize: isMobile ? 8 : 14, color: 'var(--kraft-600)', lineHeight: 1.3, display: isMobile ? '-webkit-box' : 'block', WebkitLineClamp: isMobile ? 2 : 'none', WebkitBoxOrient: isMobile ? 'vertical' : 'none', overflow: isMobile ? 'hidden' : 'visible' }}>{desc}</p>
                 </div>
               </div>
             ))}
@@ -1100,12 +1150,34 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── CTA: Sustainability ── */}
+      <section style={{ 
+        background: 'var(--eco-50)', 
+        padding: isMobile ? '60px 24px' : '80px 0', 
+        borderBottom: '1px solid var(--eco-100)',
+        position: 'relative'
+      }}>
+        <div className="nature-layer-leaf" style={{ opacity: 0.03 }} />
+        <div className="container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 32 : 80, textAlign: isMobile ? 'center' : 'left', position: 'relative', zIndex: 1 }}>
+          <div style={{ maxWidth: 640 }}>
+            <div className="section-label" style={{ marginBottom: 12, fontSize: 12, color: 'var(--eco-600)' }}>Environmental Impact</div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 28 : 36, color: 'var(--eco-950)', marginBottom: 16, lineHeight: 1.2 }}>Pioneering a Circular Economy</h3>
+            <p style={{ fontSize: isMobile ? 15 : 18, color: 'var(--eco-700)', lineHeight: 1.7 }}>
+              Our commitment to the planet goes beyond products. Explore how we're leading the waste-free transformation across India.
+            </p>
+          </div>
+          <Link to="/sustainability" className="btn-secondary" style={{ padding: '16px 40px', minWidth: 220, justifyContent: 'center', fontSize: 15, borderColor: 'var(--eco-200)', color: 'var(--eco-800)', background: 'white', boxShadow: 'var(--shadow-sm)' }}>
+            Our Sustainability <Leaf size={18} />
+          </Link>
+        </div>
+      </section>
+
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
       <section id="testimonials" style={{
         position: 'relative',
-        padding: '120px 24px',
+        padding: '80px 24px',
         overflow: 'hidden',
-        background: '#3a2410', 
+        background: '#3a2410',
       }}>
         {/* Wood Texture Background */}
         <div style={{
@@ -1117,7 +1189,7 @@ export default function Home() {
           opacity: 0.9,
           zIndex: 0
         }} />
-        
+
         {/* Overlay for readability */}
         <div style={{
           position: 'absolute',
@@ -1127,25 +1199,22 @@ export default function Home() {
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 72 }}>
-            <div className="section-label" style={{ 
-              background: 'rgba(255,255,255,0.15)', 
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div className="section-label" style={{
               color: 'white',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)',
               letterSpacing: '2px',
               textTransform: 'uppercase',
               fontSize: '12px'
             }}>
               Testimonials
             </div>
-            <h2 className="section-title" style={{ 
+            <h2 className="section-title" style={{
               color: 'white',
-              fontSize: 'clamp(32px, 5vw, 56px)',
+              fontSize: 'clamp(28px, 4vw, 44px)',
               fontWeight: 800,
               letterSpacing: '-0.5px',
               textShadow: '0 10px 30px rgba(0,0,0,0.3)',
-              marginBottom: 16
+              marginBottom: 12
             }}>
               The Nirmalyam <span style={{ color: 'var(--eco-400)' }}>Legacy</span>
             </h2>
@@ -1156,35 +1225,35 @@ export default function Home() {
               margin: '0 auto 24px',
               borderRadius: 2
             }} />
-            <p style={{ 
-              color: 'rgba(255,255,255,0.8)', 
-              fontSize: 'clamp(16px, 1.2vw, 20px)', 
-              maxWidth: 700, 
+            <p style={{
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: 'clamp(15px, 1.1vw, 18px)',
+              maxWidth: 600,
               margin: '0 auto',
-              lineHeight: 1.6,
+              lineHeight: 1.5,
               fontStyle: 'italic',
               fontWeight: 400
             }}>
-              Rooted in Quality, Driven by Purpose — Discover why leading brands across India trust our eco-conscious kraft solutions.
+              Rooted in Quality, Driven by Purpose — Sustainable kraft solutions trusted by leading brands across India.
             </p>
           </div>
 
-          <div style={{ 
-            maxWidth: 1200, 
-            margin: '0 auto', 
+          <div style={{
+            maxWidth: 1200,
+            margin: '0 auto',
             position: 'relative',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 520, // Increased to accommodate hanging avatar
-            paddingTop: 60  // Added room for the overlapping image
+            minHeight: isMobile ? 380 : 420, // Reduced height
+            paddingTop: isMobile ? 30 : 40  // Reduced room
           }}>
             {/* Main Slider Area */}
             {testimonials.map((t, idx) => {
               const isActive = idx === activeTestimonial;
               const isPrev = idx === (activeTestimonial - 1 + testimonials.length) % testimonials.length;
               const isNext = idx === (activeTestimonial + 1) % testimonials.length;
-              
+
               if (!isActive && !isPrev && !isNext) return null;
 
               let offset = '0';
@@ -1211,7 +1280,7 @@ export default function Home() {
                 <div key={idx} style={{
                   position: 'absolute',
                   width: '100%',
-                  maxWidth: 580,
+                  maxWidth: isMobile ? 'calc(100% - 32px)' : 580,
                   transform: `translateX(${offset}) scale(${scale})`,
                   opacity,
                   zIndex,
@@ -1219,8 +1288,8 @@ export default function Home() {
                   transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
                   pointerEvents: isActive ? 'auto' : 'none',
                 }}>
-                  <div className="glass-card" style={{ 
-                    padding: '64px 40px 48px', // Adjusted padding for balance
+                  <div className="glass-card" style={{
+                    padding: '48px 32px 32px', // Compact padding
                     textAlign: 'center',
                     background: 'rgba(255, 255, 255, 0.08)',
                     backdropFilter: 'blur(30px)',
@@ -1231,15 +1300,15 @@ export default function Home() {
                     position: 'relative'
                   }}>
                     {/* Floating Profile Image */}
-                    <div style={{ 
-                      width: 90, 
-                      height: 90, 
+                    <div style={{
+                      width: 70,
+                      height: 70,
                       position: 'absolute',
                       top: 0,
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
                       borderRadius: '50%',
-                      border: '4px solid rgba(255,255,255,0.2)',
+                      border: '3px solid rgba(255,255,255,0.2)',
                       overflow: 'hidden',
                       boxShadow: '0 10px 20px rgba(0,0,0,0.4)',
                       background: 'var(--kraft-100)',
@@ -1263,8 +1332,8 @@ export default function Home() {
 
                     <p style={{
                       fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: 21,
-                      lineHeight: 1.6,
+                      fontSize: 18,
+                      lineHeight: 1.5,
                       color: 'rgba(255,255,255,0.95)',
                       fontStyle: 'italic',
                     }}>
@@ -1342,7 +1411,7 @@ export default function Home() {
       {/* ══════════════════ CTA ══════════════════ */}
       <section style={{
         position: 'relative',
-        padding: '160px 24px',
+        padding: '100px 24px',
         textAlign: 'center',
         overflow: 'hidden',
         background: '#153a15', // Fallback
@@ -1367,11 +1436,11 @@ export default function Home() {
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="eco-badge" style={{ 
-            background: 'rgba(255,255,255,0.2)', 
+          <div className="eco-badge" style={{
+            background: 'rgba(255,255,255,0.2)',
             backdropFilter: 'blur(10px)',
-            borderColor: 'rgba(255,255,255,0.4)', 
-            color: 'white', 
+            borderColor: 'rgba(255,255,255,0.4)',
+            color: 'white',
             marginBottom: 24,
             padding: '8px 20px',
             fontSize: 14
@@ -1388,56 +1457,43 @@ export default function Home() {
           }}>
             Looking for custom packaging <br /> for your business?
           </h2>
-          <p style={{ 
-            fontSize: 20, 
-            color: 'rgba(255,255,255,0.9)', 
-            marginBottom: 48, 
-            maxWidth: 600, 
-            margin: '0 auto 48px',
-            lineHeight: 1.6
+          <p style={{
+            fontSize: 18,
+            color: 'rgba(255,255,255,0.9)',
+            marginBottom: 32,
+            maxWidth: 600,
+            margin: '0 auto 32px',
+            lineHeight: 1.5
           }}>
-            Get a free custom quote from our experts — usually within 2 business hours. 
+            Get a free custom quote from our experts — usually within 2 business hours.
             Sustainable choices made simple.
           </p>
-          <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/contact" style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '20px 48px',
-              background: 'var(--kraft-600)',
-              color: 'white',
-              borderRadius: 'var(--radius-full)',
-              fontWeight: 700,
+          <div style={{ 
+            display: 'flex', 
+            gap: 20, 
+            justifyContent: 'center', 
+            flexWrap: 'wrap',
+            flexDirection: isMobile ? 'column' : 'row',
+            alignItems: 'center'
+          }}>
+            <Link to="/contact" className="btn-primary" style={{ 
+              minWidth: isMobile ? '100%' : 260,
+              padding: '18px 32px',
               fontSize: 16,
-              textDecoration: 'none',
-              transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05) translateY(-5px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.4)'; e.currentTarget.style.background = 'var(--kraft-700)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; e.currentTarget.style.background = 'var(--kraft-600)'; }}
-            >
+              background: 'var(--kraft-600)',
+              justifyContent: 'center'
+            }}>
               Request a Free Quote <ArrowRight size={18} />
             </Link>
-            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '18px 40px',
-              background: 'rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(10px)',
-              color: 'white',
-              border: '2px solid rgba(255,255,255,0.5)',
-              borderRadius: 'var(--radius-full)',
-              fontWeight: 600,
+            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="btn-secondary" style={{
+              minWidth: isMobile ? '100%' : 260,
+              padding: '17px 32px',
               fontSize: 16,
-              textDecoration: 'none',
-              transition: 'all 0.3s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'none'; }}
-            >
-              Chat on WhatsApp
+              color: 'white',
+              borderColor: 'rgba(255,255,255,0.4)',
+              justifyContent: 'center'
+            }}>
+              Chat on WhatsApp <WhatsAppIcon size={18} />
             </a>
           </div>
         </div>
