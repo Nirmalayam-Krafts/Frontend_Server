@@ -4,7 +4,7 @@ const bagConfigs = [
   {
     id: "left",
     label: "Small",
-    size: { w: 118, h: 178, d: 34 },
+    size: { w: 100, h: 150, d: 28 }, // Reduced from 118, 178, 34
     colors: {
       front: "linear-gradient(180deg, #caa56f 0%, #b48852 55%, #92663d 100%)",
       side: "linear-gradient(180deg, #9a6c43 0%, #744c2e 100%)",
@@ -17,14 +17,14 @@ const bagConfigs = [
     rotateY: 18,
     rotateZ: -4,
     floatY: 0,
-    scale: 0.95,
+    scale: 0.9, // Reduced from 0.95
     delay: 0,
     z: 2,
   },
   {
     id: "center",
     label: "Premium",
-    size: { w: 172, h: 250, d: 48 },
+    size: { w: 145, h: 215, d: 40 }, // Reduced from 172, 250, 48
     colors: {
       front: "linear-gradient(180deg, #d8b17a 0%, #c4945d 55%, #9d6a40 100%)",
       side: "linear-gradient(180deg, #aa7648 0%, #7c512f 100%)",
@@ -37,7 +37,7 @@ const bagConfigs = [
     rotateY: -6,
     rotateZ: 1,
     floatY: -12,
-    scale: 1.08,
+    scale: 1.0, // Reduced from 1.08
     delay: 140,
     featured: true,
     z: 4,
@@ -45,7 +45,7 @@ const bagConfigs = [
   {
     id: "right",
     label: "Large",
-    size: { w: 128, h: 192, d: 38 },
+    size: { w: 110, h: 165, d: 32 }, // Reduced from 128, 192, 38
     colors: {
       front: "linear-gradient(180deg, #cfaa73 0%, #b98954 55%, #93633c 100%)",
       side: "linear-gradient(180deg, #9b6f44 0%, #71492c 100%)",
@@ -58,7 +58,7 @@ const bagConfigs = [
     rotateY: -20,
     rotateZ: 5,
     floatY: 2,
-    scale: 0.97,
+    scale: 0.92, // Reduced from 0.97
     delay: 280,
     z: 3,
   },
@@ -121,7 +121,7 @@ function RopeHandle({ w, h, colors, index }) {
   );
 }
 
-function Bag({ bag, index, show, brandName }) {
+function Bag({ bag, index, show, brandName, isMobile }) {
   const {
     size: { w, h, d },
     colors,
@@ -441,8 +441,8 @@ function Bag({ bag, index, show, brandName }) {
 
       <div
         style={{
-          marginTop: 10,
-          fontSize: 10,
+          marginTop: isMobile ? 4 : 10,
+          fontSize: isMobile ? 8 : 10,
           letterSpacing: 4,
           textTransform: "uppercase",
           color: "rgba(90,70,50,0.6)",
@@ -458,6 +458,14 @@ function Bag({ bag, index, show, brandName }) {
 export function KraftBagSVG() {
   const [show, setShow] = useState(false);
   const [brandName, setBrandName] = useState("NIRMALYAM");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setShow(true), 80);
@@ -480,7 +488,7 @@ export function KraftBagSVG() {
         justifyContent: "center",
         position: "relative",
         overflow: "hidden",
-        padding: "30px 0px 33px",
+        padding: isMobile ? "20px 0px" : "30px 0px 33px",
         background: "transparent",
         boxSizing: "border-box",
       }}
@@ -501,12 +509,12 @@ export function KraftBagSVG() {
           style={{
             position: "relative",
             width: "100%",
-            minHeight: 420,
+            minHeight: isMobile ? 180 : 380, // Reduced from 260
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            paddingTop: 30,
-            paddingBottom: 20,
+            paddingTop: 20,
+            paddingBottom: 15,
           }}
         >
           <div
@@ -532,25 +540,27 @@ export function KraftBagSVG() {
               display: "flex",
               alignItems: "flex-end",
               justifyContent: "center",
-              gap: 13,
+              gap: isMobile ? 2 : 13,
               width: "100%",
               maxWidth: 820,
-              flexWrap: "wrap",
+              flexWrap: "nowrap", // Forced one line
             }}
           >
-            <div style={{ transform: "translateX(clamp(0px, 1vw, 70px))" }}>
+            <div style={{ transform: isMobile ? "none" : "translateX(clamp(0px, 1vw, 70px))", scale: isMobile ? 0.45 : 1 }}>
               <Bag
                 bag={bagConfigs[0]}
                 index={0}
                 show={show}
                 brandName={trimmedBrand}
+                isMobile={isMobile}
               />
             </div>
 
             <div
               style={{
                 transform: "translateY(-4px)",
-                marginInline: "clamp(-12px, -1vw, -4px)",
+                marginInline: isMobile ? "-4px" : "clamp(-12px, -1vw, -4px)",
+                scale: isMobile ? 0.55 : 1, // Smaller on mobile
               }}
             >
               <Bag
@@ -558,15 +568,17 @@ export function KraftBagSVG() {
                 index={1}
                 show={show}
                 brandName={trimmedBrand}
+                isMobile={isMobile}
               />
             </div>
 
-            <div style={{ transform: "translateX(clamp(-20px, -3vw, 10px))" }}>
+            <div style={{ transform: isMobile ? "none" : "translateX(clamp(-20px, -3vw, 10px))", scale: isMobile ? 0.45 : 1 }}>
               <Bag
                 bag={bagConfigs[2]}
                 index={2}
                 show={show}
                 brandName={trimmedBrand}
+                isMobile={isMobile}
               />
             </div>
           </div>
@@ -584,7 +596,7 @@ export function KraftBagSVG() {
         >
           <div
             style={{
-              fontSize: 14,
+              fontSize: isMobile ? 12 : 14,
               color: "#ffffffff",
               letterSpacing: 1,
               textAlign: "center",
@@ -601,13 +613,13 @@ export function KraftBagSVG() {
             maxLength={18}
             style={{
               width: "min(360px, 90vw)",
-              padding: "14px 18px",
+              padding: isMobile ? "10px 14px" : "14px 18px",
               borderRadius: 14,
               border: "1px solid rgba(0,0,0,0.15)",
               background: "#ffffff",
               color: "#111",
               outline: "none",
-              fontSize: 15,
+              fontSize: isMobile ? 13 : 15,
               boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
             }}
           />
@@ -618,7 +630,7 @@ export function KraftBagSVG() {
               borderRadius: 14,
               border: "none",
               cursor: "pointer",
-              fontSize: 15,
+              fontSize: isMobile ? 13 : 15,
               fontWeight: 700,
               color: "#fff",
               background: "linear-gradient(180deg, #2c2118 0%, #5a3b1d 100%)",
