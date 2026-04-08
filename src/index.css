@@ -20,6 +20,8 @@
   --eco-600: #16a34a;
   --eco-700: #15803d;
   --eco-800: #166534;
+  --eco-900: #14532d;
+  --eco-950: #052e16;
 
   --ink-50: #f8f7f4;
   --ink-100: #f0ede7;
@@ -344,8 +346,16 @@ h6 {
 }
 
 .container {
+  width: 100%;
   max-width: 1536px;
   margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
 }
 
 .text-gradient {
@@ -750,8 +760,45 @@ h6 {
   gap: 20px;
 }
 
+@media (max-width: 1024px) {
+  .section-padding {
+    padding: 64px 0;
+  }
+  
+  .section-title {
+    font-size: clamp(28px, 6vw, 44px);
+  }
+}
+
 @media (max-width: 640px) {
+  .section-padding {
+    padding: 48px 0;
+  }
+  
   .contact-form-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .btn-primary, .btn-secondary, .btn-eco {
+    padding: 12px 24px;
+    font-size: 13px;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ─── Responsive Grid Overrides ─── */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 40px;
   }
 }
