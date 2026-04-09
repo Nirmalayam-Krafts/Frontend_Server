@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Input, Badge, Modal } from "../../components/ui";
+import RawMaterialDetail from "../../components/inventory/RawMaterialDetail";
+import RawMaterialForm from "../../components/forms/RawMaterialForm";
 import {
   Boxes,
   AlertTriangle,
@@ -20,6 +22,14 @@ import {
   Ruler,
   Calculator,
   CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  ArrowUpRight,
+  ArrowDownRight,
+  ClipboardList,
+  FileBox,
+  Activity,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -53,6 +63,7 @@ interface IRawMaterial {
   reservedStock: number;
   availableForSale: number;
   unit: string;
+  unitPrice: number;
   reorderPoint: number;
   minStock?: number;
   description?: string;
@@ -89,6 +100,8 @@ interface IProductionForm {
   productId: string;
   quantity: string | number;
   category: "STANDARD" | "PREMIUM" | "FOOD_GRADE";
+  bagColor: string;
+  bagSizeLabel: string;
   reorderPt: string | number;
   unitPrice?: string | number;
   note?: string;
@@ -112,6 +125,7 @@ const initialForm: Omit<IRawMaterial, "stockHistory" | "availableForSale"> = {
   color: "",
   type: "Paper",
   unit: "kg",
+  unitPrice: 0,
   availableStock: 0,
   reservedStock: 0,
   reorderPoint: 0,
@@ -124,6 +138,8 @@ const initialProductionForm: IProductionForm = {
   productId: "",
   quantity: "",
   category: "STANDARD",
+  bagColor: "",
+  bagSizeLabel: "",
   reorderPt: "10",
   unitPrice: "",
   note: "",
@@ -160,6 +176,8 @@ const RAW_MATERIAL_UNITS = [
 const INVENTORY_CATEGORY_OPTIONS = ["STANDARD", "PREMIUM", "FOOD_GRADE"] as const;
 
 const DIMENSION_UNITS = ["inch", "cm", "mm", "ft"];
+const DEFAULT_BAG_COLORS = ["Brown", "White", "Black", "Natural", "Printed"];
+const DEFAULT_BAG_SIZES = ["Small", "Medium", "Large"];
 
 const getStockStatus = (availableStock: number | string, reorderPoint: number | string) => {
   const stock = Number(availableStock || 0);
@@ -184,6 +202,7 @@ const getFormFromItem = (item: IRawMaterial): Omit<IRawMaterial, "stockHistory" 
   color: item?.color || "",
   type: item?.type || "Paper",
   unit: item?.unit || "kg",
+  unitPrice: item?.unitPrice ?? 0,
   availableStock: item?.availableStock ?? 0,
   reservedStock: item?.reservedStock ?? 0,
   reorderPoint: item?.reorderPoint ?? 0,
@@ -269,6 +288,10 @@ const RawMaterial = () => {
 
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [productionForm, setProductionForm] = useState<IProductionForm>(initialProductionForm);
+  const [bagColorOptions, setBagColorOptions] = useState<string[]>(DEFAULT_BAG_COLORS);
+  const [bagSizeOptions, setBagSizeOptions] = useState<string[]>(DEFAULT_BAG_SIZES);
+  const [customBagColor, setCustomBagColor] = useState("");
+  const [customBagSize, setCustomBagSize] = useState("");
 
   const { data: rawMaterials = [], isLoading } = useGetAllRawMaterials({ search });
   const { data: lowStockAlerts = [] } = useGetLowStockRawMaterials();
@@ -291,6 +314,11 @@ const RawMaterial = () => {
   const activeMaterials = rawMaterials.filter((item: IRawMaterial) => item.isActive).length;
   const totalStockUnits = rawMaterials.reduce(
     (sum: number, item: IRawMaterial) => sum + Number(item.availableStock || 0),
+    0
+  );
+  const totalRawMaterialValue = rawMaterials.reduce(
+    (sum: number, item: IRawMaterial) =>
+      sum + Number(item.availableStock || 0) * Number(item.unitPrice || 0),
     0
   );
   const lowStockCount = lowStockAlerts.length;
@@ -350,6 +378,18 @@ const RawMaterial = () => {
 
     const quantity = toNumber(productionForm.quantity);
     const mappedMaterials = selectedProductionProduct?.rawMaterials || [];
+    const rawMaterialPriceById: Map<string, number> = new Map(
+      rawMaterials.map((item: IRawMaterial) => [
+        String(item._id || item.id || ""),
+        Number(item.unitPrice || 0),
+      ])
+    );
+    const rawMaterialPriceByName: Map<string, number> = new Map(
+      rawMaterials.map((item: IRawMaterial) => [
+        String(item.name || "").trim().toLowerCase(),
+        Number(item.unitPrice || 0),
+      ])
+    );
 
     return mappedMaterials.map((material: NonNullable<IBagProduct["rawMaterials"]>[number], index: number) => {
       const usageType = material?.usageType || "fixed";
@@ -365,6 +405,14 @@ const RawMaterial = () => {
       const baseTotal = perBagRequired * quantity;
       const wastageAmount = baseTotal * (wastagePercent / 100);
       const totalRequired = baseTotal + wastageAmount;
+      const materialIdKey = String(material?.rawMaterialId || "");
+      const materialNameKey = String(material?.rawMaterialName || "").trim().toLowerCase();
+      const unitPrice = Number(
+        rawMaterialPriceById.get(materialIdKey) ??
+          rawMaterialPriceByName.get(materialNameKey) ??
+          0
+      );
+      const estimatedMaterialCost = totalRequired * unitPrice;
 
       return {
         id: material?.rawMaterialId || `${index}`,
@@ -376,9 +424,72 @@ const RawMaterial = () => {
         adjustedPerBagQty: roundTo(perBagRequired),
         wastagePercent,
         totalRequired: roundTo(totalRequired),
+        unitPrice: roundTo(unitPrice, 2),
+        estimatedMaterialCost: roundTo(estimatedMaterialCost, 2),
       };
     });
-  }, [selectedProductionProduct, productionForm.quantity, dimensionScaleFactor]);
+  }, [selectedProductionProduct, productionForm.quantity, dimensionScaleFactor, rawMaterials]);
+
+  const manualUnitPricePreview = useMemo(
+    () => toNumber(productionForm.unitPrice || 0),
+    [productionForm.unitPrice]
+  );
+
+  const autoComputedUnitPricePreview = useMemo(() => {
+    const quantity = toNumber(productionForm.quantity);
+    if (!quantity) return 0;
+
+    const totalRawMaterialCost = rawMaterialCalculationPreview.reduce(
+      (sum: number, item: any) => sum + Number(item.estimatedMaterialCost || 0),
+      0
+    );
+
+    return roundTo(totalRawMaterialCost / quantity, 2);
+  }, [productionForm.quantity, rawMaterialCalculationPreview]);
+
+  const effectiveUnitPricePreview =
+    manualUnitPricePreview > 0 ? manualUnitPricePreview : autoComputedUnitPricePreview;
+
+  const manualTotalStockValuePreview = useMemo(
+    () => roundTo(toNumber(productionForm.quantity) * effectiveUnitPricePreview, 2),
+    [productionForm.quantity, effectiveUnitPricePreview]
+  );
+
+  useEffect(() => {
+    const materialColorOptions = rawMaterials
+      .map((item: IRawMaterial) => String(item.color || "").trim())
+      .filter((color: string) => color.length > 0);
+
+    setBagColorOptions((prev: string[]) => {
+      const merged = [...DEFAULT_BAG_COLORS, ...materialColorOptions, ...prev];
+      return Array.from(new Set(merged.map((i) => i.trim()).filter(Boolean)));
+    });
+
+    const productSizeOptions = products
+      .map((product: IBagProduct) => {
+        const d = product.dimensions;
+        if (!d) return "";
+        return `${toNumber(d.length)} x ${toNumber(d.width)} x ${toNumber(d.height)} ${d.unit || "inch"}`;
+      })
+      .filter((size: string) => size.length > 0);
+
+    setBagSizeOptions((prev: string[]) => {
+      const merged = [...DEFAULT_BAG_SIZES, ...productSizeOptions, ...prev];
+      return Array.from(new Set(merged.map((i) => i.trim()).filter(Boolean)));
+    });
+  }, [rawMaterials, products]);
+
+  useEffect(() => {
+    if (!selectedProductionProduct || productionForm.bagSizeLabel) return;
+    const d = selectedProductionProduct.dimensions;
+    if (!d) return;
+    const derivedSize = `${toNumber(d.length)} x ${toNumber(d.width)} x ${toNumber(d.height)} ${d.unit || "inch"}`;
+    handleProductionField("bagSizeLabel", derivedSize);
+    setBagSizeOptions((prev: string[]) => {
+      if (prev.includes(derivedSize)) return prev;
+      return [...prev, derivedSize];
+    });
+  }, [selectedProductionProduct, productionForm.bagSizeLabel]);
 
   const resetForm = () => {
     setFormData(initialForm);
@@ -422,6 +533,7 @@ const RawMaterial = () => {
       color: (formData.color || "").trim(),
       type: formData.type,
       unit: formData.unit,
+      unitPrice: Number(formData.unitPrice || 0),
       availableStock: Number(formData.availableStock || 0),
       reorderPoint: Number(formData.reorderPoint || 0),
       minStock: Number(formData.minStock || 0),
@@ -577,9 +689,20 @@ const RawMaterial = () => {
       productId: productionForm.productId,
       quantity: Number(productionForm.quantity || 0),
       category: productionForm.category,
+      bagColor: (productionForm.bagColor || "").trim(),
+      bagSizeLabel: (productionForm.bagSizeLabel || "").trim(),
       reorderPt: Number(productionForm.reorderPt || 10),
       note: productionForm.note,
-      unitPrice: Number(productionForm.unitPrice || 0),
+      unitPrice: Number(effectiveUnitPricePreview || 0),
+      customDimensions:
+        productionForm.dimensionMode === "custom"
+          ? {
+              length: Number(productionForm.customDimensions.length || 0),
+              width: Number(productionForm.customDimensions.width || 0),
+              height: Number(productionForm.customDimensions.height || 0),
+              unit: productionForm.customDimensions.unit || "inch",
+            }
+          : undefined,
 
       dimensionMode: productionForm.dimensionMode,
       productionDimensions: effectiveDimensions,
@@ -679,7 +802,7 @@ const RawMaterial = () => {
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
@@ -754,6 +877,25 @@ const RawMaterial = () => {
               </div>
               <div className="rounded-2xl bg-white p-3 text-red-600">
                 <AlertTriangle className="h-6 w-6" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Total Raw Material Value
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {Number(totalRawMaterialValue).toLocaleString()}
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Sum of stock value (stock x unit price)
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                <Calculator className="h-6 w-6" />
               </div>
             </div>
           </Card>
@@ -864,13 +1006,14 @@ const RawMaterial = () => {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="rounded-3xl border border-gray-100 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
+          <Card className="rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-emerald-600" />
                   Raw Materials Overview
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mt-1">
                   Showing {filteredItems.length} raw materials
                 </p>
               </div>
@@ -887,118 +1030,191 @@ const RawMaterial = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1150px]">
+                <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Material
+                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Material Details
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Code
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Type & Unit
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Type
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Stock Information
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Unit
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Pricing
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Stock Status
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Reorder Point
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
                         Status
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                      <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-700">
                         Actions
                       </th>
                     </tr>
                   </thead>
 
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100">
                     {filteredItems.map((item: IRawMaterial) => {
                       const status = getStockStatus(
                         item.availableStock,
                         item.reorderPoint
                       );
+                      const totalValue = Number(item.availableStock || 0) * Number(item.unitPrice || 0);
+                      const stockPercentage = item.reorderPoint > 0 
+                        ? Math.min((item.availableStock / item.reorderPoint) * 100, 100) 
+                        : 100;
 
                       return (
                         <tr
                           key={item._id || item.id}
-                          className="border-b border-gray-100 transition hover:bg-gray-50"
+                          className="bg-white hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-transparent transition-all duration-200 group"
                         >
-                          <td className="px-4 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{item.name}</p>
-                              <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                                <Palette className="h-3.5 w-3.5" />
-                                {item.color || "No color"}
-                              </p>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                            {item.code}
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <Badge variant="secondary">{item.type}</Badge>
-                          </td>
-
-                          <td className="px-4 py-4 text-sm text-gray-700">
-                            {item.unit}
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                                <span className="text-xs font-semibold text-blue-600">
-                                  {Number(item.reservedStock || 0).toLocaleString()} {item.unit} Reserved
-                                </span>
+                          {/* Material Details */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center flex-shrink-0">
+                                {item.type === 'Paper' ? <Layers3 className="w-6 h-6 text-emerald-600" /> : 
+                                 item.type === 'Handle' ? <ArrowUpRight className="w-6 h-6 text-blue-600" /> : 
+                                 item.type === 'Printing' ? <ClipboardList className="w-6 h-6 text-purple-600" /> : 
+                                 item.type === 'Adhesive' ? <ArrowDownRight className="w-6 h-6 text-amber-600" /> : 
+                                 item.type === 'Accessory' ? <Package className="w-6 h-6 text-pink-600" /> : 
+                                 <FileBox className="w-6 h-6 text-gray-600" />}
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                <span className="text-xs font-bold text-emerald-600">
-                                  {Number(item.availableForSale || 0).toLocaleString()} {item.unit} Ready
-                                </span>
-                              </div>
-                              <div className="mt-1 border-t border-gray-50 pt-1 text-[10px] font-medium text-gray-400">
-                                Total: {Number(item.availableStock || 0).toLocaleString()} {item.unit}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-gray-900 text-base truncate group-hover:text-emerald-700 transition-colors">
+                                  {item.name}
+                                </p>
+                                <p className="text-xs font-mono font-semibold text-gray-600 mt-1 bg-gray-100 inline-block px-2 py-0.5 rounded">
+                                  {item.code}
+                                </p>
+                                {item.color && (
+                                  <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                                    <Palette className="h-3 w-3" />
+                                    {item.color}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-4 text-sm text-gray-700">
-                            {Number(item.reorderPoint || 0).toLocaleString()} {item.unit}
+                          {/* Type & Unit */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <Badge variant="secondary" className="text-xs">
+                                {item.type}
+                              </Badge>
+                              <div className="flex items-center gap-1 text-sm text-gray-600">
+                                <span className="font-medium">{item.unit}</span>
+                              </div>
+                            </div>
                           </td>
 
-                          <td className="px-4 py-4">
-                            <Badge
-                              variant={statusVariantMap[status] || "primary"}
-                            >
-                              {status.charAt(0).toUpperCase() + status.slice(1)}
-                            </Badge>
+                          {/* Stock Information */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-600">Available:</span>
+                                <span className="font-bold text-emerald-600">
+                                  {Number(item.availableForSale || 0).toLocaleString()} {item.unit}
+                                </span>
+                              </div>
+                              {item.reservedStock > 0 && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-600">Reserved:</span>
+                                  <span className="font-semibold text-blue-600">
+                                    {Number(item.reservedStock || 0).toLocaleString()} {item.unit}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-600">Total:</span>
+                                <span className="font-semibold text-gray-900">
+                                  {Number(item.availableStock || 0).toLocaleString()} {item.unit}
+                                </span>
+                              </div>
+                              {/* Stock Progress Bar */}
+                              <div className="mt-2">
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                                      stockPercentage > 100 ? 'bg-emerald-500' :
+                                      stockPercentage > 50 ? 'bg-blue-500' :
+                                      stockPercentage > 25 ? 'bg-amber-500' : 'bg-red-500'
+                                    }`}
+                                    style={{ width: `${Math.min(stockPercentage, 100)}%` }}
+                                  />
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                  Reorder at: {Number(item.reorderPoint || 0).toLocaleString()} {item.unit}
+                                </p>
+                              </div>
+                            </div>
                           </td>
 
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
+                          {/* Pricing */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <div className="text-xs text-gray-600">
+                                <span className="text-gray-500">Unit:</span>
+                                <span className="font-semibold ml-1">
+                                  ₹{Number(item.unitPrice || 0).toFixed(2)}/{item.unit}
+                                </span>
+                              </div>
+                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-2 border border-emerald-100">
+                                <p className="text-[10px] text-emerald-600 font-medium">Total Value</p>
+                                <p className="text-base font-bold text-emerald-700">
+                                  ₹{totalValue.toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <Badge
+                                variant={statusVariantMap[status] || "primary"}
+                                className="text-xs font-semibold flex items-center gap-1"
+                              >
+                                {status === 'critical' ? <><TrendingDown className="w-3 h-3" /> Critical</> :
+                                 status === 'low' ? <><Minus className="w-3 h-3" /> Low</> :
+                                 status === 'medium' ? <><Activity className="w-3 h-3" /> Medium</> : 
+                                 <><TrendingUp className="w-3 h-3" /> Healthy</>}
+                              </Badge>
+                              <div className="text-xs text-gray-500">
+                                {item.isActive ? (
+                                  <span className="flex items-center gap-1 text-emerald-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-red-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    Inactive
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => {
                                   setSelectedItem(item);
                                   setShowDetailPanel(true);
                                 }}
-                                className="rounded-lg p-2 text-gray-700 transition hover:bg-gray-100"
-                                title="View"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200" 
+                                title="View Details"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
 
                               <button
                                 onClick={() => openAddStockModal(item)}
-                                className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-200"
                                 title="Add Stock"
                               >
                                 <CirclePlus className="h-4 w-4" />
@@ -1006,7 +1222,7 @@ const RawMaterial = () => {
 
                               <button
                                 onClick={() => openEditModal(item)}
-                                className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200"
                                 title="Edit"
                               >
                                 <Edit2 className="h-4 w-4" />
@@ -1014,7 +1230,7 @@ const RawMaterial = () => {
 
                               <button
                                 onClick={() => handleDeleteItem(item._id || item.id)}
-                                className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
                                 title="Delete"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1027,8 +1243,12 @@ const RawMaterial = () => {
 
                     {!filteredItems.length && (
                       <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
-                          No raw materials found.
+                        <td colSpan={6} className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                            <Boxes className="w-16 h-16 text-gray-300 mb-4" />
+                            <p className="text-lg font-semibold text-gray-600">No raw materials found</p>
+                            <p className="text-sm text-gray-500 mt-1">Create your first raw material to get started</p>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -1084,9 +1304,6 @@ const RawMaterial = () => {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Number of Bags
-                </label>
                 <Input
                   label="Number of Bags"
                   className=""
@@ -1122,9 +1339,96 @@ const RawMaterial = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Reorder Point
-                </label>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Bag Color</label>
+                <div className="flex gap-2">
+                  <select
+                    value={productionForm.bagColor}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      handleProductionField("bagColor", e.target.value)
+                    }
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  >
+                    <option value="">Select color</option>
+                    {bagColorOptions.map((color: string) => (
+                      <option key={color} value={color}>
+                        {color}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    label=""
+                    className=""
+                    error={undefined}
+                    icon={undefined}
+                    value={customBagColor}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagColor(e.target.value)}
+                    placeholder="Add new color"
+                  />
+                  <Button
+                    type="button"
+                    className="whitespace-nowrap bg-emerald-700"
+                    onClick={() => {
+                      const value = customBagColor.trim();
+                      if (!value) return;
+                      setBagColorOptions((prev: string[]) =>
+                        prev.includes(value) ? prev : [...prev, value]
+                      );
+                      handleProductionField("bagColor", value);
+                      setCustomBagColor("");
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Bag Size Label</label>
+                <select
+                  value={productionForm.bagSizeLabel}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    handleProductionField("bagSizeLabel", e.target.value)
+                  }
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                >
+                  <option value="">Select size</option>
+                  {bagSizeOptions.map((size: string) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    label=""
+                    className=""
+                    error={undefined}
+                    icon={undefined}
+                    value={customBagSize}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagSize(e.target.value)}
+                    placeholder='Add new size (e.g. 10x14 inch)'
+                  />
+                  <Button
+                    type="button"
+                    className="whitespace-nowrap bg-emerald-700"
+                    onClick={() => {
+                      const value = customBagSize.trim();
+                      if (!value) return;
+                      setBagSizeOptions((prev: string[]) =>
+                        prev.includes(value) ? prev : [...prev, value]
+                      );
+                      handleProductionField("bagSizeLabel", value);
+                      setCustomBagSize("");
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              <div>
                 <Input
                   label="Reorder Point"
                   className=""
@@ -1139,11 +1443,8 @@ const RawMaterial = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Unit Price Override
-                </label>
                 <Input
-                  label="Unit Price Override"
+                  label="Unit Price (Per Bag)"
                   className=""
                   error={undefined}
                   icon={undefined}
@@ -1151,9 +1452,29 @@ const RawMaterial = () => {
                   min="0"
                   value={productionForm.unitPrice}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductionField("unitPrice", e.target.value)}
-                  placeholder="Optional price override"
+                  placeholder="Enter selling/production unit price"
                 />
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Bag Price Summary
+              </p>
+              <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <p className="rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
+                  Qty: <span className="font-bold text-gray-900">{toNumber(productionForm.quantity)}</span>
+                </p>
+                <p className="rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
+                  Unit Price: <span className="font-bold text-gray-900">{effectiveUnitPricePreview.toLocaleString()}</span>
+                </p>
+                <p className="rounded-xl bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
+                  Total: <span className="font-bold">{manualTotalStockValuePreview.toLocaleString()}</span>
+                </p>
+              </div>
+              <p className="mt-2 text-xs text-gray-600">
+                Auto unit price uses raw material consumption cost per bag. You can still override manually.
+              </p>
             </div>
 
             {selectedProductionProduct && (
@@ -1314,6 +1635,8 @@ const RawMaterial = () => {
                       adjustedPerBagQty: number;
                       wastagePercent: number;
                       totalRequired: number;
+                      unitPrice: number;
+                      estimatedMaterialCost: number;
                     }) => (
                       <div
                         key={item.id}
@@ -1326,6 +1649,9 @@ const RawMaterial = () => {
                             </p>
                             <p className="mt-1 text-xs text-gray-500">
                               Type: {item.rawMaterialType} · Usage: {item.usageType}
+                            </p>
+                            <p className="mt-1 text-xs text-emerald-700">
+                              Unit Price: {item.unitPrice.toLocaleString()} · Cost: {item.estimatedMaterialCost.toLocaleString()}
                             </p>
                           </div>
 
@@ -1405,170 +1731,13 @@ const RawMaterial = () => {
           isOpen={showFormModal}
           title={editingItem ? "Edit Raw Material" : "Create Raw Material"}
           onClose={resetForm}
+          size="xl"
         >
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Material Name
-                </label>
-                <Input
-                  label="Material Name"
-                  value={formData.name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("name", e.target.value)}
-                  placeholder="Kraft Paper Roll"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Code
-                </label>
-                <Input
-                  label="Code"
-                  value={formData.code}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("code", e.target.value)}
-                  placeholder="RM-KRAFT-001"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Color
-                </label>
-                <Input
-                  label="Color"
-                  value={formData.color}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("color", e.target.value)}
-                  placeholder="Brown"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Type
-                </label>
-                <select
-                  value={formData.type}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange("type", e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                >
-                  {RAW_MATERIAL_TYPES.map((type: string) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Unit
-                </label>
-                <select
-                  value={formData.unit}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange("unit", e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                >
-                  {RAW_MATERIAL_UNITS.map((unit: string) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Available Stock
-                </label>
-                <Input
-                  label="Available Stock"
-                  type="number"
-                  min="0"
-                  value={formData.availableStock}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    handleFieldChange("availableStock", e.target.value)
-                  }
-                  placeholder="1200"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Reorder Point
-                </label>
-                <Input
-                  label="Reorder Point"
-                  type="number"
-                  min="0"
-                  value={formData.reorderPoint}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    handleFieldChange("reorderPoint", e.target.value)
-                  }
-                  placeholder="300"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Minimum Stock
-                </label>
-                <Input
-                  label="Minimum Stock"
-                  className=""
-                  error={undefined}
-                  icon={undefined}
-                  type="number"
-                  min="0"
-                  value={formData.minStock}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange("minStock", e.target.value)}
-                  placeholder="200"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) =>
-                    handleFieldChange("description", e.target.value)
-                  }
-                  placeholder="Primary kraft paper roll for shopping bags"
-                  className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      handleFieldChange("isActive", e.target.checked)
-                    }
-                  />
-                  Active Raw Material
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={resetForm}>
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-green-700">
-                {editingItem ? "Update Material" : "Create Material"}
-              </Button>
-            </div>
-          </form>
+          <RawMaterialForm
+            initialData={editingItem}
+            onSubmit={handleSubmit}
+            loading={false}
+          />
         </Modal>
 
         <Modal
@@ -1681,136 +1850,41 @@ const RawMaterial = () => {
             />
 
             <motion.div
-              className="relative h-screen w-full max-w-md overflow-y-auto bg-white shadow-2xl"
-              initial={{ x: 400 }}
+              className="relative h-screen w-full max-w-4xl overflow-y-auto bg-white shadow-2xl"
+              initial={{ x: 800 }}
               animate={{ x: 0 }}
-              exit={{ x: 400 }}
+              exit={{ x: 800 }}
             >
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Raw Material Detail
-                  </h2>
-                  <button
-                    onClick={() => setShowDetailPanel(false)}
-                    className="text-gray-500"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
-                  <p className="text-lg font-semibold text-gray-900">
-                    {selectedItem.name}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600">{selectedItem.code}</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Type
-                    </p>
-                    <p className="mt-1 text-gray-900">{selectedItem.type}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Color
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {selectedItem.color || "No color"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Available Stock
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {Number(selectedItem.availableStock || 0).toLocaleString()}{" "}
-                      {selectedItem.unit}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Reorder Point
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {Number(selectedItem.reorderPoint || 0).toLocaleString()}{" "}
-                      {selectedItem.unit}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Minimum Stock
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {Number(selectedItem.minStock || 0).toLocaleString()}{" "}
-                      {selectedItem.unit}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Description
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {selectedItem.description || "No description added"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="mb-3 text-xs font-semibold uppercase text-gray-500">
-                      Stock History
-                    </p>
-
-                    <div className="space-y-2">
-                      {(selectedItem.stockHistory || []).length > 0 ? (
-                        selectedItem.stockHistory
-                          .slice()
-                          .reverse()
-                          .map((log: IStockHistory, idx: number) => (
-                            <div key={idx} className="rounded-xl bg-gray-50 p-3 text-sm">
-                              <p className="font-medium text-gray-900">
-                                {log.action} · {log.quantity} {selectedItem.unit}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {log.note || "Stock activity"}
-                              </p>
-                              <p className="mt-1 text-xs text-gray-500">
-                                Previous: {log.previousStock} → New: {log.newStock}
-                              </p>
-                            </div>
-                          ))
-                      ) : (
-                        <p className="text-sm text-gray-500">
-                          No stock history available
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-2">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Raw Material Details
+                </h2>
+                <div className="flex items-center gap-2">
                   <Button
-                    variant="secondary"
-                    onClick={() => setShowDetailPanel(false)}
-                  >
-                    Close
-                  </Button>
-
-                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => {
                       openEditModal(selectedItem);
                       setShowDetailPanel(false);
                     }}
                   >
-                    Edit Material
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Edit
                   </Button>
+                  <button
+                    onClick={() => setShowDetailPanel(false)}
+                    className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
+              </div>
+
+              <div className="p-6">
+                <RawMaterialDetail
+                  material={selectedItem}
+                  onClose={() => setShowDetailPanel(false)}
+                />
               </div>
             </motion.div>
           </motion.div>

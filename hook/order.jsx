@@ -8,7 +8,7 @@ export const useGetAllOrders = (params = {}) => {
   const query = useQuery({
     queryKey: ["getAllOrders", params],
     queryFn: async () => {
-      const res = await axiosInstance.get("/orders");
+      const res = await axiosInstance.get("/orders", { params });
 
       return res.data.data;
     },
