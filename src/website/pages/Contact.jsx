@@ -286,138 +286,358 @@ export default function Contact() {
                 </button>
               </div>
             ) : (
-              <form
-                onSubmit={handleSubmit}
-                style={{
-                  background: 'var(--kraft-50)', borderRadius: 'var(--radius-xl)',
-                  padding: '40px 0px', border: '1px solid var(--kraft-100)',
-                  boxShadow: 'var(--shadow-md)',
-                }}
-              >
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--kraft-900)', marginBottom: 8 }}>
-                  Request a Quote
-                </h3>
-                <p style={{ fontSize: 14, color: 'var(--kraft-500)', marginBottom: 28 }}>
-                  Fill in your details and we'll get back to you with a tailored solution.
-                </p>
+            <form
+  onSubmit={handleSubmit}
+  style={{
+    background:
+      'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,244,238,0.98) 100%)',
+    borderRadius: '24px',
+    padding: '36px',
+    border: '1px solid rgba(160, 128, 96, 0.12)',
+    boxShadow: '0 20px 50px rgba(43, 31, 20, 0.10)',
+    backdropFilter: 'blur(10px)',
+    maxWidth: '900px',
+    margin: '0 auto',
+  }}
+>
+  {/* Header */}
+  <div style={{ marginBottom: 28 }}>
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '6px 12px',
+        background: 'rgba(166, 124, 82, 0.10)',
+        color: 'var(--kraft-700)',
+        borderRadius: '999px',
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        marginBottom: 14,
+      }}
+    >
+      <span>Custom Packaging</span>
+    </div>
 
-                {/* Error banner */}
-                {error && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '12px 16px', marginBottom: 20,
-                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-                    borderRadius: 'var(--radius-md)', color: '#dc2626', fontSize: 14,
-                  }}>
-                    <AlertCircle size={16} />
-                    {error}
-                  </div>
-                )}
+    <h3
+      style={{
+        fontFamily: "'Playfair Display', serif",
+        fontSize: 'clamp(28px, 4vw, 38px)',
+        lineHeight: 1.15,
+        color: 'var(--kraft-900)',
+        marginBottom: 10,
+        letterSpacing: '-0.02em',
+      }}
+    >
+      Request a Quote
+    </h3>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  {[
-                    { name: 'name', label: 'Full Name *', placeholder: 'Sarah Merchant', required: true },
-                    { name: 'email', label: 'Email Address *', placeholder: 'sarah@brand.com', type: 'email', required: true },
-                    { name: 'phone', label: 'Phone Number', placeholder: '+91 98765 43210' },
-                    { name: 'business_name', label: 'Company / Brand Name', placeholder: 'My Brand Co.' },
-                  ].map(({ name, label, placeholder, type = 'text', required }) => (
-                    <div key={name}>
-                      <label style={{
-                        display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                        marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                      }}>
-                        {label}
-                      </label>
-                      <input
-                        className="input-field"
-                        name={name}
-                        type={type}
-                        placeholder={placeholder}
-                        value={form[name]}
-                        onChange={handleChange}
-                        required={required}
-                      />
-                    </div>
-                  ))}
-                </div>
+    <p
+      style={{
+        fontSize: 15,
+        lineHeight: 1.7,
+        color: 'var(--kraft-500)',
+        maxWidth: 640,
+        margin: 0,
+      }}
+    >
+      Share your packaging needs and our team will send you a tailored quote with
+      the best options for your brand, quantity, and finish.
+    </p>
+  </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-                  <div>
-                    <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                      marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    }}>
-                      Product Interest
-                    </label>
-                    <select
-                      className="input-field"
-                      name="product_category"
-                      value={form.product_category}
-                      onChange={handleChange}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {PRODUCT_OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
+  {/* Error banner */}
+  {error && (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 10,
+        padding: '14px 16px',
+        marginBottom: 24,
+        background: 'rgba(239,68,68,0.08)',
+        border: '1px solid rgba(239,68,68,0.24)',
+        borderRadius: '16px',
+        color: '#dc2626',
+        fontSize: 14,
+      }}
+    >
+      <AlertCircle size={18} style={{ marginTop: 1, flexShrink: 0 }} />
+      <span>{error}</span>
+    </div>
+  )}
 
-                  <div>
-                    <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                      marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    }}>
-                      Estimated Quantity (units)
-                    </label>
-                    <input
-                      className="input-field"
-                      name="quantity"
-                      type="number"
-                      placeholder="e.g. 500"
-                      value={form.quantity}
-                      onChange={handleChange}
-                      min="50"
-                    />
-                  </div>
-                </div>
+  {/* Section title */}
+  <div style={{ marginBottom: 16 }}>
+    <h4
+      style={{
+        fontSize: 15,
+        fontWeight: 700,
+        color: 'var(--kraft-800)',
+        marginBottom: 4,
+      }}
+    >
+      Contact Information
+    </h4>
+    <p
+      style={{
+        fontSize: 13,
+        color: 'var(--kraft-500)',
+        margin: 0,
+      }}
+    >
+      Please provide your basic details so we can reach out with the quotation.
+    </p>
+  </div>
 
-                <div style={{ marginTop: 16 }}>
-                  <label style={{
-                    display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--kraft-700)',
-                    marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>
-                    Additional Requirements
-                  </label>
-                  <textarea
-                    className="input-field"
-                    name="requirement"
-                    placeholder="Describe size requirements, print colours, special finishes, timeline, etc."
-                    value={form.requirement}
-                    onChange={handleChange}
-                    rows={4}
-                    style={{ resize: 'vertical', minHeight: 100 }}
-                  />
-                </div>
+  {/* Top grid */}
+  <div
+    style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+      gap: 18,
+    }}
+  >
+    {[
+      { name: 'name', label: 'Full Name *', placeholder: 'Sarah Merchant', required: true },
+      { name: 'email', label: 'Email Address *', placeholder: 'sarah@brand.com', type: 'email', required: true },
+      { name: 'phone', label: 'Phone Number', placeholder: '+91 98765 43210' },
+      { name: 'business_name', label: 'Company / Brand Name', placeholder: 'My Brand Co.' },
+    ].map(({ name, label, placeholder, type = 'text', required }) => (
+      <div key={name}>
+        <label
+          style={{
+            display: 'block',
+            fontSize: 12,
+            fontWeight: 700,
+            color: 'var(--kraft-700)',
+            marginBottom: 8,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+          }}
+        >
+          {label}
+        </label>
+        <input
+          className="input-field premium-input"
+          name={name}
+          type={type}
+          placeholder={placeholder}
+          value={form[name]}
+          onChange={handleChange}
+          required={required}
+        />
+      </div>
+    ))}
+  </div>
 
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  style={{ marginTop: 24, width: '100%', justifyContent: 'center', padding: '15px', fontSize: 15 }}
-                  disabled={loading}
-                >
-                  {loading ? 'Sending…' : (
-                    <>
-                      <span>Submit Quote Request</span>
-                      <Send size={16} />
-                    </>
-                  )}
-                </button>
+  {/* Divider */}
+  <div
+    style={{
+      height: 1,
+      background: 'linear-gradient(to right, transparent, rgba(160,128,96,0.18), transparent)',
+      margin: '28px 0',
+    }}
+  />
 
-                <p style={{ fontSize: 12, color: 'var(--kraft-400)', textAlign: 'center', marginTop: 14 }}>
-                  By submitting, you agree to our{' '}
-                  <a href="/privacy" style={{ color: 'var(--kraft-600)' }}>Privacy Policy</a>.
-                </p>
-              </form>
+  {/* Quote Details */}
+  <div style={{ marginBottom: 16 }}>
+    <h4
+      style={{
+        fontSize: 15,
+        fontWeight: 700,
+        color: 'var(--kraft-800)',
+        marginBottom: 4,
+      }}
+    >
+      Quote Details
+    </h4>
+    <p
+      style={{
+        fontSize: 13,
+        color: 'var(--kraft-500)',
+        margin: 0,
+      }}
+    >
+      Tell us what product you need and the approximate quantity.
+    </p>
+  </div>
+
+  <div
+    style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+      gap: 18,
+    }}
+  >
+    <div>
+      <label
+        style={{
+          display: 'block',
+          fontSize: 12,
+          fontWeight: 700,
+          color: 'var(--kraft-700)',
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+        }}
+      >
+        Product Interest
+      </label>
+      <select
+        className="input-field premium-input"
+        name="product_category"
+        value={form.product_category}
+        onChange={handleChange}
+        style={{ cursor: 'pointer' }}
+      >
+        {PRODUCT_OPTIONS.map(({ value, label }) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div>
+      <label
+        style={{
+          display: 'block',
+          fontSize: 12,
+          fontWeight: 700,
+          color: 'var(--kraft-700)',
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+        }}
+      >
+        Estimated Quantity
+      </label>
+      <input
+        className="input-field premium-input"
+        name="quantity"
+        type="number"
+        placeholder="e.g. 500"
+        value={form.quantity}
+        onChange={handleChange}
+        min="50"
+      />
+      <p style={{ fontSize: 12, color: 'var(--kraft-400)', marginTop: 8 }}>
+        Minimum recommended quantity: 50 units
+      </p>
+    </div>
+  </div>
+
+  {/* Requirements */}
+  <div style={{ marginTop: 20 }}>
+    <label
+      style={{
+        display: 'block',
+        fontSize: 12,
+        fontWeight: 700,
+        color: 'var(--kraft-700)',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+      }}
+    >
+      Additional Requirements
+    </label>
+    <textarea
+      className="input-field premium-input"
+      name="requirement"
+      placeholder="Describe size requirements, print colours, materials, special finishes, delivery timeline, or any custom notes."
+      value={form.requirement}
+      onChange={handleChange}
+      rows={5}
+      style={{
+        resize: 'vertical',
+        minHeight: 130,
+        paddingTop: 14,
+      }}
+    />
+  </div>
+
+  {/* Suggestion chips */}
+  <div
+    style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginTop: 16,
+    }}
+  >
+    {['Custom Size', 'Printed Logo', 'Premium Finish', 'Bulk Order', 'Urgent Delivery'].map((item) => (
+      <span
+        key={item}
+        style={{
+          padding: '8px 12px',
+          borderRadius: '999px',
+          background: 'rgba(166, 124, 82, 0.08)',
+          border: '1px solid rgba(166, 124, 82, 0.12)',
+          fontSize: 12,
+          color: 'var(--kraft-700)',
+          fontWeight: 600,
+        }}
+      >
+        {item}
+      </span>
+    ))}
+  </div>
+
+  {/* Submit */}
+  <button
+    type="submit"
+    className="btn-primary premium-btn"
+    style={{
+      marginTop: 28,
+      width: '100%',
+      justifyContent: 'center',
+      padding: '16px 18px',
+      fontSize: 15,
+      fontWeight: 700,
+      borderRadius: '16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+    }}
+    disabled={loading}
+  >
+    {loading ? (
+      'Sending...'
+    ) : (
+      <>
+        <span>Submit Quote Request</span>
+        <Send size={17} />
+      </>
+    )}
+  </button>
+
+  <p
+    style={{
+      fontSize: 12,
+      color: 'var(--kraft-400)',
+      textAlign: 'center',
+      marginTop: 16,
+      lineHeight: 1.6,
+    }}
+  >
+    By submitting, you agree to our{' '}
+    <a
+      href="/privacy"
+      style={{
+        color: 'var(--kraft-700)',
+        fontWeight: 600,
+        textDecoration: 'none',
+      }}
+    >
+      Privacy Policy
+    </a>
+    .
+  </p>
+</form>
             )}
           </div>
         </div>

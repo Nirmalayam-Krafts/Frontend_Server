@@ -57,6 +57,25 @@ const initialOrderForm = {
   notes: "",
 };
 
+const BAG_SIZE_OPTIONS = ["Small", "Medium", "Large", "Extra Large"];
+
+const COLOR_OPTIONS_BY_SIZE = {
+  Small: ["Brown", "White", "Black"],
+  Medium: ["Brown", "White", "Black", "Green", "Blue"],
+  Large: ["Brown", "White", "Black", "Green", "Blue", "Red"],
+  "Extra Large": ["Brown", "White", "Black", "Green", "Blue", "Red", "Gray"],
+};
+
+const COLOR_PREVIEW_CLASSES = {
+  Brown: "bg-amber-700",
+  White: "bg-white border border-gray-300",
+  Black: "bg-black",
+  Green: "bg-emerald-600",
+  Blue: "bg-blue-600",
+  Red: "bg-red-600",
+  Gray: "bg-gray-500",
+};
+
 const Leads = () => {
   const { data, isLoading, refetch } = usegetAllLeads();
   const showNotification = useUIStore((state) => state.showNotification);
@@ -202,10 +221,22 @@ const Leads = () => {
   };
 
   const handleOrderFormChange = (field, value) => {
-    setOrderForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setOrderForm((prev) => {
+      if (field === "bagSize") {
+        const nextColorOptions = COLOR_OPTIONS_BY_SIZE[value] || [];
+        const currentColorIsValid = nextColorOptions.includes(prev.color);
+        return {
+          ...prev,
+          bagSize: value,
+          color: currentColorIsValid ? prev.color : "",
+        };
+      }
+
+      return {
+        ...prev,
+        [field]: value,
+      };
+    });
   };
 
   const handleUpdateLeadStatus = async (id, status, leadData = null) => {
@@ -502,6 +533,9 @@ const Leads = () => {
     const item = (lead?.followupHistory || []).find((f) => f.key === flowKey);
     return item || null;
   };
+
+  const colorOptionsForSelectedSize =
+    COLOR_OPTIONS_BY_SIZE[orderForm.bagSize] || [];
 
   return (
     <Layout>
@@ -934,15 +968,20 @@ const Leads = () => {
                 </label>
                 <div className="relative">
                   <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
+                  <select
                     value={orderForm.bagSize}
                     onChange={(e) =>
                       handleOrderFormChange("bagSize", e.target.value)
                     }
-                    placeholder="Small / Medium / Large"
                     className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
+                  >
+                    <option value="">Select bag size</option>
+                    {BAG_SIZE_OPTIONS.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -952,16 +991,34 @@ const Leads = () => {
                 </label>
                 <div className="relative">
                   <Palette className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
+                  <select
                     value={orderForm.color}
                     onChange={(e) =>
                       handleOrderFormChange("color", e.target.value)
                     }
-                    placeholder="Brown / White / Green"
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
+                    disabled={!orderForm.bagSize}
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {orderForm.bagSize
+                        ? "Select bag color"
+                        : "Select bag size first"}
+                    </option>
+                    {colorOptionsForSelectedSize.map((color) => (
+                      <option key={color} value={color}>
+                        {color}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {orderForm.color ? (
+                  <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700">
+                    <span
+                      className={`h-3.5 w-3.5 rounded-full ${COLOR_PREVIEW_CLASSES[orderForm.color] || "bg-gray-300"}`}
+                    />
+                    Selected: {orderForm.color}
+                  </div>
+                ) : null}
               </div>
 
               <div>
