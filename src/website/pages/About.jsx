@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Leaf, TreePine, Droplets, Truck, Recycle, Heart, Globe, Users, Award, ArrowRight, Check } from 'lucide-react';
+import { Leaf, Heart, Globe, Users, Award, ArrowRight, Mail, Phone, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 /* ── Values ── */
 const values = [
@@ -8,12 +9,24 @@ const values = [
   { icon: Users, title: 'Partner Centric', desc: 'We don\'t just supply bags; we partner with your brand to conceptualize structural packaging that elevates your unboxing experience.' },
 ];
 
-/* ── Green Print steps ── */
-const greenPrint = [
-  { icon: TreePine, title: 'Ethical Sourcing', desc: 'We source kraft paper from managed forests where for every tree harvested, three are planted.' },
-  { icon: Droplets, title: 'Non-Toxic Printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.' },
-  { icon: Truck, title: 'Efficient Transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.' },
-  { icon: Recycle, title: '100% Compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.' },
+/* ── Visionaries ── */
+const visionaries = [
+  {
+    name: 'Rajesh Nair',
+    role: 'Managing Director',
+    email: 'rajesh@nirmalyamkrafts.com',
+    phone: '+91 98765 43210',
+    desc: 'With over 20 years of experience in sustainable manufacturing, Rajesh leads the vision of making plastic-free packaging accessible to all.',
+    image: '/images/generated/owner_1.png'
+  },
+  {
+    name: 'Anjali Nair',
+    role: 'Creative Director',
+    email: 'anjali@nirmalyamkrafts.com',
+    phone: '+91 98765 43211',
+    desc: 'Anjali is the creative force behind our premium designs, ensuring that sustainability never comes at the cost of brand elegance.',
+    image: '/images/generated/owner_2.png'
+  }
 ];
 
 /* ── Quality pillars ── */
@@ -25,79 +38,92 @@ const qualityPillars = [
 ];
 
 export default function About() {
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', paddingTop: 80 }}>
 
       {/* ── Page Hero ── */}
-      <div className="page-hero" style={{ 
+      <div className="page-hero" style={{
         backgroundImage: 'url(/images/generated/about_hero_wood.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
-        minHeight: '500px',
+        minHeight: isMobile ? '450px' : isTablet ? '480px' : '520px',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        padding: isMobile ? '80px 0 40px' : isTablet ? '90px 0 50px' : '100px 0 40px'
       }}>
-        {/* Dark overlay for readability */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to right, rgba(26, 18, 8, 0.9) 0%, rgba(26, 18, 8, 0.7) 45%, rgba(26, 18, 8, 0.4) 100%)',
+          background: isMobile 
+            ? 'linear-gradient(to bottom, rgba(20, 14, 6, 0.95) 0%, rgba(20, 14, 6, 0.8) 50%, rgba(20, 14, 6, 0.6) 100%)'
+            : 'linear-gradient(to right, rgba(20, 14, 6, 0.98) 0%, rgba(20, 14, 6, 0.85) 40%, rgba(20, 14, 6, 0.4) 100%)',
           zIndex: 0
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', 
-            gap: 80, 
-            alignItems: 'center' 
+          <div className={isMobile || isTablet ? "flex flex-col" : "responsive-grid"} style={{
+            gap: isMobile ? 32 : isTablet ? 60 : 100,
+            alignItems: 'center',
+            textAlign: isMobile || isTablet ? 'center' : 'left'
           }}>
             <div className="anim-fade-up">
-              <div className="section-label" style={{ color: 'var(--eco-400)', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>About Nirmalyam Krafts</div>
+              <div className="eco-badge" style={{ 
+                marginBottom: 24, 
+                background: 'rgba(192, 148, 87, 0.2)', 
+                color: 'var(--kraft-100)', 
+                borderColor: 'rgba(255,255,255,0.2)',
+                margin: isMobile || isTablet ? '0 auto 24px' : '0 0 24px'
+              }}>
+                Established Excellence
+              </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', serif",
                 fontSize: 'clamp(36px, 6vw, 64px)',
                 color: 'white',
                 fontWeight: 600,
-                marginBottom: 20,
-                lineHeight: 1.1,
-                textShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                marginBottom: 24,
+                lineHeight: 1.15
               }}>
-                Rooted in Tradition,<br />
-                <span style={{ color: 'var(--kraft-300)' }}>Driven by Innovation</span>
+                Artisanal Spirit,<br />
+                <span style={{ color: 'var(--kraft-300)' }}>Future-Proof Purity</span>
               </h1>
-              <p style={{ 
-                fontSize: 'clamp(16px, 2vw, 19px)', 
-                color: 'rgba(255,255,255,0.9)', 
-                maxWidth: 580, 
-                lineHeight: 1.7,
-                textShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+              <p style={{
+                fontSize: isMobile ? '16px' : '19px',
+                color: 'rgba(255,255,255,0.9)',
+                maxWidth: isMobile || isTablet ? '100%' : 620,
+                lineHeight: 1.8,
+                margin: isMobile || isTablet ? '0 auto' : '0'
               }}>
-                We are pioneers in crafting premium, sustainable packaging solutions. 
-                We believe true luxury does not harm the environment, but preserves it for the next generation.
+                {isMobile ? "Pioneers in premium packaging — luxury that honors our earth through meticulous craftsmanship." : 
+                "Pioneers in premium, zero-waste packaging. We believe true luxury shouldn't cost the earth, but rather honor its preservation through meticulous craftsmanship."}
               </p>
             </div>
 
-            {/* Product Hero Image */}
-            <div className="hidden lg:block anim-float" style={{ position: 'relative', perspective: '1000px' }}>
-              <div style={{
-                position: 'absolute',
-                inset: '-10%',
-                background: 'radial-gradient(circle, rgba(192, 148, 87, 0.15) 0%, transparent 70%)',
-                filter: 'blur(30px)',
-                zIndex: -1
-              }} />
-              <img 
-                src="/images/generated/about_hero_bags.png" 
+            <div className="anim-float" style={{ 
+              position: 'relative',
+              width: isMobile ? '90%' : isTablet ? '70%' : '100%',
+              maxWidth: isMobile || isTablet ? 'none' : '520px',
+              margin: isMobile || isTablet ? '40px auto 0' : '0 auto 0 auto'
+            }}>
+              <img
+                src="/images/generated/about_hero_bags.png"
                 alt="Premium Sustainable Packaging"
-                className="mission-image-glow"
                 style={{
                   width: '100%',
                   borderRadius: 'var(--radius-xl)',
-                  boxShadow: '0 30px 60px rgba(0,0,0,0.5)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  transform: 'rotate(-1deg)'
+                  boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
+                  border: '1px solid rgba(255,255,255,0.1)'
                 }}
               />
             </div>
@@ -105,249 +131,300 @@ export default function About() {
         </div>
       </div>
 
-      {/* ── Mission ── */}
-      <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
-        <div className="nature-layer-wood" />
-        <div className="nature-layer-leaf" />
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 72, alignItems: 'center' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 48, alignItems: 'center' }}>
-              {/* Mission Image with Animation */}
-              <div className="animate-mission-float hidden lg:block" style={{ 
-                position: 'relative', 
-                width: 320,
-                borderRadius: 'var(--radius-xl)',
-                flexShrink: 0
-              }}>
-                <div className="mission-image-glow" />
-                <img 
-                  src="/images/generated/about_mission_bag_dynamic_1775488029249.png" 
-                  alt="Sustainable Kraft Bag"
-                  style={{ 
-                    width: '100%', 
-                    borderRadius: 'var(--radius-xl)', 
-                    boxShadow: '0 30px 60px -12px rgba(62, 57, 46, 0.2)',
-                    position: 'relative',
-                    zIndex: 1,
-                    border: '1px solid rgba(255,255,255,0.4)'
-                  }} 
-                />
-                <div className="animate-leaf-float" style={{ position: 'absolute', top: -30, right: -20, zIndex: 2, opacity: 0.8 }}>
-                  <div style={{ width: 60, height: 60, background: 'var(--eco-50)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', border: '1px solid var(--eco-100)' }}>
-                    <Leaf size={28} color="var(--eco-600)" fill="rgba(22,163,74,0.1)" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="section-label">Our Mission</div>
-                <h2 className="section-title">Crafting a Plastic-Free Tomorrow</h2>
-                <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.75, marginBottom: 28 }}>
-                  Nirmalyam Krafts began with a simple yet powerful mission: to prove that high-end commerce
-                  doesn't need to cost the earth. We've spent years perfecting the balance between artisanal
-                  quality and industrial scalability.
-                </p>
-                <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.75, marginBottom: 36 }}>
-                  Today, we stand as a beacon for sustainable retail, helping thousands of brands transition
-                  from plastic to premium paper packaging without compromising on their brand's visual identity.
-                </p>
-                <Link to="/contact" className="btn-primary">
-                  <span>Partner With Us</span>
-                  <ArrowRight size={16} />
-                </Link>
-              </div>
-            </div>
-
-            {/* Values cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {values.map(({ icon: Icon, title, desc }) => (
-                <div key={title} style={{
-                  display: 'flex',
-                  gap: 20,
-                  background: 'white',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '24px 28px',
-                  border: '1px solid var(--kraft-100)',
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(6px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
-                >
-                  <div style={{
-                    width: 48, height: 48,
-                    borderRadius: 12,
-                    background: 'rgba(22,163,74,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Icon size={20} color="var(--eco-600)" />
-                  </div>
-                  <div>
-                    <h4 style={{ fontWeight: 600, fontSize: 16, color: 'var(--kraft-900)', marginBottom: 6 }}>{title}</h4>
-                    <p style={{ fontSize: 14, color: 'var(--kraft-500)', lineHeight: 1.6 }}>{desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Green Print (Sustainability) ── */}
-      <section className="section-padding nature-section" id="sustainability" style={{ background: 'var(--kraft-50)' }}>
-        <div className="nature-layer-wood" style={{ opacity: 0.05 }} />
-        <div className="nature-layer-leaf" style={{ opacity: 0.02 }} />
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div className="section-label">Our Green Print</div>
-            <h2 className="section-title">Transparency in Every Fiber</h2>
-            <p className="section-subtitle" style={{ margin: '0 auto' }}>
-              Discover how our manufacturing process gives back to nature at every step.
-            </p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 28 }}>
-            {greenPrint.map(({ icon: Icon, title, desc }, i) => (
-              <div key={title} style={{
-                background: 'white',
-                borderRadius: 'var(--radius-lg)',
-                padding: 32,
-                border: '1px solid var(--kraft-100)',
-                boxShadow: 'var(--shadow-sm)',
-                position: 'relative',
-                overflow: 'hidden',
-                transition: 'all 0.3s ease',
-              }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'var(--eco-500)';
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = 'var(--kraft-100)';
-                  e.currentTarget.style.transform = 'none';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                }}
-              >
+      {/* ── SECTION: OUR PHILOSOPHY ── */}
+      <section className="section-padding" style={{ 
+        background: 'white', 
+        position: 'relative',
+        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '100px 0'
+      }}>
+        <div className="container">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : 'repeat(2, 1fr)',
+            gap: isMobile ? 60 : isTablet ? 80 : 100,
+            alignItems: 'center',
+            textAlign: isMobile || isTablet ? 'center' : 'left'
+          }}>
+            <div className="anim-fade-up-slow" style={{ order: isMobile || isTablet ? 1 : 0 }}>
+              <div style={{ position: 'relative', maxWidth: isMobile || isTablet ? 'none' : '480px', margin: '0 auto' }}>
                 <div style={{
                   position: 'absolute',
-                  top: -16, right: -16,
-                  width: 72, height: 72,
-                  borderRadius: '50%',
-                  background: 'rgba(22,163,74,0.06)',
+                  inset: isMobile ? '-10px' : '-15px',
+                  background: 'var(--kraft-50)',
+                  borderRadius: 'var(--radius-xl)',
+                  zIndex: -1
                 }} />
-                <div style={{
-                  width: 52, height: 52,
-                  borderRadius: 14,
-                  background: 'rgba(22,163,74,0.12)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  marginBottom: 20,
+                <img
+                  src="/images/generated/about_philosophy_feature_1775591345213.png"
+                  alt="Craftsmanship"
+                  style={{
+                    width: '100%',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-xl)',
+                  }}
+                />
+                <div className="glass-card anim-float" style={{
+                  position: 'absolute',
+                  bottom: isMobile ? '-15px' : '-30px',
+                  right: isMobile ? '12px' : '-30px',
+                  transform: 'none',
+                  padding: isMobile ? '20px 24px' : '40px',
+                  width: isMobile ? '280px' : '320px',
+                  maxWidth: isMobile ? '85%' : 'none',
+                  borderRadius: 'var(--radius-xl)',
+                  zIndex: 2,
+                  background: 'var(--kraft-950)',
+                  color: 'white',
+                  boxShadow: '0 30px 60px rgba(58, 36, 16, 0.3)',
+                  textAlign: isMobile ? 'left' : 'center'
                 }}>
-                  <Icon size={22} color="var(--eco-600)" />
+                  <p style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontStyle: 'italic',
+                    fontSize: isMobile ? 18 : 22,
+                    lineHeight: 1.4,
+                    marginBottom: 16
+                  }}>
+                    "Purity is not an objective, it is our origin."
+                  </p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--eco-400)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    — The Nirmalyam Vow
+                  </p>
                 </div>
-                <div style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'var(--eco-600)',
-                  marginBottom: 8,
+              </div>
+            </div>
+
+            <div className="anim-fade-up" style={{ order: isMobile || isTablet ? 0 : 1 }}>
+              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Our Philosophy</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? '32px' : isTablet ? '40px' : '48px' }}>Luxury through a Green lens</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 20 : 28 }}>
+                <p style={{ fontSize: isMobile ? 16 : 17, color: 'var(--kraft-900)', lineHeight: 1.8, fontWeight: 500 }}>
+                  Founded on the Sanskrit principle of 'Nirmalyam'—the sacred purity of offerings—we began with a single mission: to infuse corporate gifting and retail with environmental integrity.
+                </p>
+                <p style={{ fontSize: isMobile ? 16 : 17, color: 'var(--kraft-600)', lineHeight: 1.8 }}>
+                  Our journey is rooted in the belief that packaging is the first handshake between a brand and its customer. We ensure that contact is sustainable, tactile, and unforgettable, replacing single-use plastics with masterpieces of kraft engineering.
+                </p>
+                <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: isMobile || isTablet ? 'center' : 'flex-start' }}>
+                  <Check size={20} color="var(--eco-600)" style={{ marginRight: 12 }} />
+                  <span style={{ fontWeight: 700, color: 'var(--kraft-950)' }}>100% Plastic-Free Lifecycle</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION: THE VISIONARIES ── */}
+      <section className="section-padding" style={{ 
+        background: 'var(--kraft-50)',
+        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '120px 0'
+      }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: isMobile ? 48 : 80 }}>
+            <div className="section-label" style={{ margin: '0 auto 12px' }}>Leadership</div>
+            <h2 className="section-title" style={{ fontSize: isMobile ? '32px' : isTablet ? '40px' : '48px' }}>The Visionaries</h2>
+            <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '16px' : '18px', maxWidth: 700 }}>
+              The architects driving Bharat's transition to circular packaging economies.
+            </p>
+          </div>
+
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr' : 'repeat(2, 1fr)', 
+            gap: isMobile ? 24 : 40,
+            maxWidth: isTablet ? 600 : '1100px',
+            margin: '0 auto'
+          }}>
+            {visionaries.map((owner, idx) => (
+              <div key={idx} className="anim-fade-up" style={{ animationDelay: `${idx * 0.25}s` }}>
+                <div style={{ 
+                  borderRadius: 'var(--radius-2xl)', 
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  background: 'white',
+                  boxShadow: 'var(--shadow-lg)',
+                  height: '100%',
+                  border: '1px solid var(--kraft-100)'
                 }}>
-                  Step {i + 1}
+                  <div style={{ 
+                    width: isMobile ? '100%' : '45%', 
+                    height: isMobile ? 240 : isTablet ? 320 : 'auto', 
+                    overflow: 'hidden' 
+                  }}>
+                    <img src={owner.image} alt={owner.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ 
+                    width: isMobile ? '100%' : '55%', 
+                    padding: isMobile ? '24px' : isTablet ? '40px' : '40px 32px' 
+                  }}>
+                    <h3 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 8 }}>{owner.name}</h3>
+                    <div style={{ color: 'var(--eco-600)', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>{owner.role}</div>
+                    <p style={{ fontSize: isMobile ? 14 : 15, color: 'var(--kraft-600)', lineHeight: 1.7, marginBottom: 20 }}>{owner.desc}</p>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <a href={`mailto:${owner.email}`} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--kraft-900)', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
+                        <div style={{ width: 28, height: 28, background: 'var(--kraft-50)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Mail size={12} color="var(--kraft-500)" />
+                        </div>
+                        {owner.email}
+                      </a>
+                      <a href={`tel:${owner.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--kraft-900)', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
+                        <div style={{ width: 28, height: 28, background: 'var(--kraft-50)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Phone size={12} color="var(--kraft-500)" />
+                        </div>
+                        {owner.phone}
+                      </a>
+                    </div>
+                  </div>
                 </div>
-                <h3 style={{ fontSize: 19, fontWeight: 600, color: 'var(--kraft-900)', marginBottom: 12 }}>{title}</h3>
-                <p style={{ fontSize: 14, color: 'var(--kraft-500)', lineHeight: 1.65 }}>{desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Quality ── */}
-      <section className="section-padding nature-section" style={{
-        background: 'linear-gradient(135deg, var(--kraft-100) 0%, var(--kraft-50) 100%)',
+      {/* ── SECTION: QUALITY PILLARS ── */}
+      <section className="section-padding" style={{ 
+        background: 'white',
+        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '120px 0'
       }}>
-        <div className="nature-layer-wood" />
-        <div className="nature-layer-leaf" />
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div className="section-label">Standards</div>
-            <h2 className="section-title">Consistent Quality</h2>
-            <p className="section-subtitle" style={{ margin: '0 auto' }}>
-              We adhere to stringent ISO-grade quality checks ensuring every bag performs flawlessly.
-            </p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24 }}>
-            {qualityPillars.map(({ icon: Icon, title, desc }) => (
-              <div key={title} style={{
-                display: 'flex',
-                gap: 16,
-                background: 'white',
-                borderRadius: 'var(--radius-md)',
-                padding: '24px 24px',
-                border: '1px solid var(--kraft-100)',
-              }}>
-                <Check size={20} color="var(--eco-500)" style={{ flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <h4 style={{ fontWeight: 600, fontSize: 15, color: 'var(--kraft-900)', marginBottom: 6 }}>{title}</h4>
-                  <p style={{ fontSize: 13, color: 'var(--kraft-500)', lineHeight: 1.6 }}>{desc}</p>
+        <div className="container">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : 'repeat(2, 1fr)',
+            gap: isMobile ? 48 : isTablet ? 60 : 80,
+            alignItems: 'center',
+            textAlign: isMobile || isTablet ? 'center' : 'left'
+          }}>
+            <div className="anim-fade-up-slow" style={{ order: isMobile || isTablet ? 1 : 0 }}>
+              <div style={{ position: 'relative' }}>
+                <img 
+                  src="/images/generated/quality_standards_feature.png" 
+                  alt="Quality Assurance" 
+                  style={{
+                    width: '100%',
+                    borderRadius: 'var(--radius-xl)',
+                    boxShadow: 'var(--shadow-xl)',
+                    border: '1px solid var(--kraft-100)'
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: isMobile ? 12 : 24,
+                  right: isMobile ? 12 : 24,
+                  background: 'var(--eco-600)',
+                  color: 'white',
+                  padding: isMobile ? '8px 16px' : '14px 28px',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  fontSize: isMobile ? 10 : 13,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  boxShadow: 'var(--shadow-lg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <Award size={isMobile ? 14 : 18} />
+                  ISO 9001:2015
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="anim-fade-up" style={{ order: isMobile || isTablet ? 0 : 1 }}>
+              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Standard of Excellence</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? '32px' : isTablet ? '40px' : '48px' }}>Consistent Perfection</h2>
+              <p className="section-subtitle" style={{ 
+                marginBottom: isMobile ? 32 : 48, 
+                fontSize: isMobile ? '16px' : '18px',
+                margin: isMobile || isTablet ? '0 auto 32px' : '0 0 48px',
+                maxWidth: 600
+              }}>
+                Every bag that leaves our production floor undergoes a 12-point quality check, protecting your brand's integrity in every detail.
+              </p>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)', 
+                gap: isMobile ? 12 : 20 
+              }}>
+                {qualityPillars.map(({ icon: Icon, title, desc }) => (
+                  <div key={title} style={{
+                    background: 'var(--kraft-50)',
+                    padding: isMobile ? '16px' : '28px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--kraft-100)',
+                    transition: 'all 0.3s',
+                    textAlign: isMobile ? 'center' : 'left'
+                  }}
+                  onMouseEnter={e => { if(!isMobile) e.currentTarget.style.borderColor = 'var(--kraft-300)'; }}
+                  onMouseLeave={e => { if(!isMobile) e.currentTarget.style.borderColor = 'var(--kraft-100)'; }}
+                  >
+                    <div style={{ 
+                      width: isMobile ? 28 : 32, 
+                      height: isMobile ? 28 : 32, 
+                      background: 'white', 
+                      borderRadius: '8px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      marginBottom: isMobile ? 12 : 16, 
+                      boxShadow: 'var(--shadow-sm)', 
+                      margin: isMobile || isTablet ? '0 auto 12px' : '0 0 16px' 
+                    }}>
+                      <Icon size={isMobile ? 14 : 16} color="var(--eco-600)" />
+                    </div>
+                    <h4 style={{ fontWeight: 800, fontSize: isMobile ? 13 : 17, color: 'var(--kraft-950)', marginBottom: 6 }}>{title}</h4>
+                    <p style={{ fontSize: isMobile ? 11 : 14, color: 'var(--kraft-600)', lineHeight: 1.5 }}>{desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── CTA ── */}
-      <section className="nature-section" style={{
-        background: 'linear-gradient(135deg, var(--eco-800), var(--eco-700))',
-        padding: '72px 0px',
+      <section style={{
+        padding: isMobile ? '80px 0' : '120px 0',
         textAlign: 'center',
+        background: 'var(--ink-950)',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/tree-texture.png)',
+          backgroundImage: 'url(/images/generated/cta_forest_bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          opacity: 0.15,
-          mixBlendMode: 'overlay',
-          pointerEvents: 'none',
+          opacity: 0.5
         }} />
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <Leaf size={40} color="white" style={{ marginBottom: 20, opacity: 0.7 }} />
-          <h2 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: 'clamp(28px, 4vw, 48px)',
-            color: 'white',
-            marginBottom: 14,
-          }}>
-            Ready to Go Plastic-Free?
-          </h2>
-          <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.8)', marginBottom: 36, maxWidth: 500, margin: '0 auto 36px' }}>
-            Join 12,000+ brands that trust Nirmalyam for sustainable, premium packaging.
-          </p>
-          <Link to="/contact" style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '16px 44px',
-            background: 'white',
-            color: 'var(--eco-700)',
-            borderRadius: 'var(--radius-full)',
-            fontWeight: 700,
-            fontSize: 15,
-            textDecoration: 'none',
-            transition: 'all 0.3s',
-          }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.2)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            Start Your Journey <ArrowRight size={16} />
-          </Link>
+
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to bottom, transparent, rgba(14,9,4,0.8))',
+          zIndex: 1
+        }} />
+
+        <div className="container" style={{ position: 'relative', zIndex: 2 }}>
+          <div className="anim-fade-up">
+            <h2 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: 'clamp(32px, 5vw, 56px)',
+              color: 'white',
+              marginBottom: 32,
+              lineHeight: 1.1,
+              fontWeight: 600,
+            }}>
+              Join the Nirmalyam <br /><span className="text-gradient">Eco-Legacy</span>
+            </h2>
+            <Link to="/contact" className="btn-primary" style={{ padding: isMobile ? '18px 48px' : '22px 64px', fontSize: isMobile ? '14px' : '16px' }}>
+              Consult an Expert <ArrowRight size={20} />
+            </Link>
+          </div>
         </div>
       </section>
     </div>

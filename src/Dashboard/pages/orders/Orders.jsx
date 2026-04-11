@@ -53,6 +53,7 @@ import { useAuthContext } from "../../../context/Adminauth";
 import { useUIStore } from "../../store";
 import { useGetAllOrders } from "../../../../hook/order";
 import { useGetInventory } from "../../../../hook/inventory";
+import { useGetAllProducts } from "../../../../hook/product";
 
 const initialManualOrderForm = {
   customerName: "",
@@ -144,6 +145,7 @@ const Orders = () => {
   });
 
   const { data: inventoryData } = useGetInventory();
+  const { data: productsData } = useGetAllProducts();
 
   const inventoryItems = useMemo(() => {
     if (Array.isArray(inventoryData)) return inventoryData;
@@ -153,6 +155,13 @@ const Orders = () => {
     if (Array.isArray(inventoryData?.data)) return inventoryData.data;
     return [];
   }, [inventoryData]);
+  const productItems = useMemo(() => {
+    if (Array.isArray(productsData)) return productsData;
+    if (Array.isArray(productsData?.items)) return productsData.items;
+    if (Array.isArray(productsData?.products)) return productsData.products;
+    if (Array.isArray(productsData?.data)) return productsData.data;
+    return [];
+  }, [productsData]);
 
   const rawOrders = data?.orders || [];
   const pagination = data?.pagination || {
@@ -219,6 +228,17 @@ const Orders = () => {
     (o) => o.paymentStatus === "Partial Paid"
   ).length;
 
+  const firstPendingQuotationOrder = useMemo(() => {
+    return formattedOrders.find((o) => {
+      const hasQuotation =
+        !!o?.quotation?.quotationNumber ||
+        ["sent", "approved"].includes(
+          String(o?.quotation?.status || "").toLowerCase()
+        );
+      return o?.orderStatusKey === "PENDING" && !hasQuotation;
+    });
+  }, [formattedOrders]);
+
   const orderStatusColors = {
     PENDING: "warning",
     PROCESSING: "primary",
@@ -270,6 +290,22 @@ const Orders = () => {
   const toNumber = (value) => {
     const n = Number(value);
     return Number.isNaN(n) ? 0 : n;
+  };
+
+  const convertToInch = (value, unit) => {
+    const v = Number(value || 0);
+    if (!v) return 0;
+    switch (String(unit || "inch").toLowerCase()) {
+      case "cm":
+        return v / 2.54;
+      case "mm":
+        return v / 25.4;
+      case "ft":
+      case "feet":
+        return v * 12;
+      default:
+        return v;
+    }
   };
 
   const getInventoryQuantity = (item) => {
@@ -392,14 +428,14 @@ const Orders = () => {
     setCheckingOrderId(order.id || order._id);
 
     try {
-      // 🚀 REAL API CALL to the Smart Inventory Brain
+      //  REAL API CALL to the Smart Inventory Brain
       const resp = await axiosInstance.get(
         `/orders/${order.id || order._id}/availability`,
         { params: { mode: deductionMode } }
       );
 
       if (resp.data.success) {
-        const resData = resp.data.data;
+        const resData = applyAvailabilityCostCorrection(resp.data.data, order);
         const matchInsight = analyzeInventoryMatches(order);
         const productResolved = resData.productResolved !== false;
         setAvailabilityResult({
@@ -816,11 +852,263 @@ Delivery Address: ${report.deliveryAddress}
     }
   };
 
+  const getDerivedMaterialCost = (pricing, order) => {
+    const apiCost = Number(pricing?.totalOrderMaterialCost || 0);
+    if (apiCost > 0) return apiCost;
+
+    const lines = Array.isArray(pricing?.materialRequirements)
+      ? pricing.materialRequirements
+      : [];
+
+    const exactInventoryLine = findExactInventoryLineForOrder(order);
+    const baseDims = getInventoryDimensions(exactInventoryLine);
+    const orderDims = order?.orderDetails?.dimensions || {};
+    const baseLinearSum =
+      convertToInch(baseDims.length, baseDims.unit) +
+      convertToInch(baseDims.width, baseDims.unit) +
+      convertToInch(baseDims.height, baseDims.unit);
+    const orderLinearSum =
+      convertToInch(orderDims.length, orderDims.unit || "inch") +
+      convertToInch(orderDims.width, orderDims.unit || "inch") +
+      convertToInch(orderDims.height, orderDims.unit || "inch");
+    const clientScaleFactor =
+      baseLinearSum > 0 && orderLinearSum > 0 ? orderLinearSum / baseLinearSum : 1;
+    const productionQty = Number(pricing?.requiredFromProduction || 0);
+
+    const lineTotal = lines.reduce((sum, line) => {
+      const direct = Number(line?.totalPrice || 0);
+      if (direct > 0) return sum + direct;
+
+      const unit = Number(line?.unitPrice || 0);
+      const usageType = String(line?.usageType || "");
+      const lineScaleFactor = Number(line?.lineScaleFactor || 1);
+      const perBagFromApi = Number(line?.quantityPerBag || 0);
+      const totalQtyFromApi = Number(line?.totalQuantity || 0);
+
+      // Align quotation math with RawMaterial page:
+      // for dimension_based lines use linear-sum factor from exact matched dimensions.
+      if (
+        usageType === "dimension_based" &&
+        productionQty > 0 &&
+        perBagFromApi > 0 &&
+        lineScaleFactor > 0
+      ) {
+        const basePerBag = perBagFromApi / lineScaleFactor;
+        const correctedPerBag = basePerBag * (clientScaleFactor || 1);
+        const correctedTotalQty = correctedPerBag * productionQty;
+        return sum + correctedTotalQty * unit;
+      }
+
+      return sum + totalQtyFromApi * unit;
+    }, 0);
+
+    if (lineTotal > 0) return lineTotal;
+    return 0;
+  };
+
+  const getInventorySellPrice = (item) => {
+    const candidates = [
+      item?.sellingPricePerUnit,
+      item?.sellPrice,
+      item?.sellingPrice,
+      item?.unitSellPrice,
+      item?.price,
+      item?.unitPrice,
+      item?.costPrice,
+    ];
+    for (const value of candidates) {
+      const num = Number(value || 0);
+      if (num > 0) return num;
+    }
+    return 0;
+  };
+
+  const getInventoryAvailableBags = (item) => {
+    const candidates = [
+      item?.availableForSale,
+      item?.availableBags,
+      item?.stockLevel,
+      item?.availableStock,
+      item?.quantity,
+    ];
+    for (const value of candidates) {
+      const num = Number(value || 0);
+      if (num > 0) return num;
+    }
+    return 0;
+  };
+
+  const findExactInventoryLineForOrder = (order) => {
+    const orderProductId = String(order?.orderDetails?.productId || "").trim();
+    const orderColor = normalizeText(order?.orderDetails?.color);
+    const orderSize = normalizeText(order?.orderDetails?.bagSize);
+
+    const candidates = inventoryItems.filter((item) => {
+      if (!isSameDimension(item, order)) return false;
+      const itemColor = normalizeText(item?.bagColor || item?.color);
+      const itemSize = normalizeText(item?.bagSizeLabel || item?.bagSize);
+      return itemColor === orderColor && itemSize === orderSize;
+    });
+
+    if (!candidates.length) return null;
+
+    if (orderProductId) {
+      const byProduct = candidates.find(
+        (item) => String(item?.productId || item?.product?._id || item?.product?.id || "").trim() === orderProductId
+      );
+      if (byProduct) return byProduct;
+    }
+
+    return candidates[0];
+  };
+
+  const applyAvailabilityCostCorrection = (pricing, order) => {
+    if (!pricing || !Array.isArray(pricing?.materialRequirements)) return pricing;
+
+    const productionQty = Number(pricing?.requiredFromProduction || 0);
+    const orderProductId = String(order?.orderDetails?.productId || "").trim();
+    const linkedProduct =
+      productItems.find(
+        (p) => String(p?._id || p?.id || "").trim() === orderProductId
+      ) || null;
+    const productBaseDims = linkedProduct?.dimensions || {};
+    const orderDims = order?.orderDetails?.dimensions || {};
+    // Must match RawMaterial + backend service logic:
+    // factor = (order L+W+H) / (product base L+W+H)
+    const baseLinearSum =
+      convertToInch(productBaseDims.length, productBaseDims.unit || "inch") +
+      convertToInch(productBaseDims.width, productBaseDims.unit || "inch") +
+      convertToInch(productBaseDims.height, productBaseDims.unit || "inch");
+    const orderLinearSum =
+      convertToInch(orderDims.length, orderDims.unit || "inch") +
+      convertToInch(orderDims.width, orderDims.unit || "inch") +
+      convertToInch(orderDims.height, orderDims.unit || "inch");
+    const factor = baseLinearSum > 0 && orderLinearSum > 0 ? orderLinearSum / baseLinearSum : 1;
+
+    const correctedMaterials = pricing.materialRequirements.map((mat) => {
+      const usageType = String(mat?.usageType || "").trim().toLowerCase();
+      const lineScaleFactor = Number(mat?.lineScaleFactor || 1);
+      const quantityPerBag = Number(mat?.quantityPerBag || 0);
+      const unitPrice = Number(mat?.unitPrice || 0);
+      const fallbackTotalQty = Number(mat?.totalQuantity || 0);
+      const wastagePercent = Number(mat?.wastagePercent || 0);
+      const wastageMultiplier = 1 + wastagePercent / 100;
+
+      if (
+        usageType === "dimension_based" &&
+        productionQty > 0 &&
+        quantityPerBag > 0 &&
+        lineScaleFactor > 0
+      ) {
+        const bomLine =
+          linkedProduct?.rawMaterials?.find((rm) => {
+            const rmId = String(rm?.rawMaterialId || "").trim();
+            const matId = String(mat?.materialId || "").trim();
+            const rmName = normalizeText(rm?.rawMaterialName);
+            const matName = normalizeText(mat?.name);
+            return (rmId && matId && rmId === matId) || (rmName && matName && rmName === matName);
+          }) || null;
+        const bomBasePerBag = Number(bomLine?.requiredQuantityPerBag || 0);
+
+        // Prefer Product BOM base qty to enforce parity with RawMaterial page.
+        const perBagWithoutWastage =
+          wastageMultiplier > 0 ? quantityPerBag / wastageMultiplier : quantityPerBag;
+        const basePerBag =
+          bomBasePerBag > 0
+            ? bomBasePerBag
+            : perBagWithoutWastage / lineScaleFactor;
+        const correctedPerBag = basePerBag * factor;
+        const correctedTotalQty = correctedPerBag * productionQty;
+        const correctedTotalPrice = correctedTotalQty * unitPrice;
+        return {
+          ...mat,
+          quantityPerBag: Number(correctedPerBag.toFixed(4)),
+          totalQuantity: Number(correctedTotalQty.toFixed(4)),
+          totalPrice: Number(correctedTotalPrice.toFixed(2)),
+          lineScaleFactor: Number(factor.toFixed(4)),
+          wastagePercent: 0,
+        };
+      }
+
+      // Keep non-dimension lines wastage-free as well.
+      const totalQtyWithoutWastage =
+        wastageMultiplier > 0 ? fallbackTotalQty / wastageMultiplier : fallbackTotalQty;
+      return {
+        ...mat,
+        totalQuantity: Number(totalQtyWithoutWastage.toFixed(4)),
+        totalPrice: Number((totalQtyWithoutWastage * unitPrice).toFixed(2)),
+        wastagePercent: 0,
+      };
+    });
+
+    const correctedTotal = correctedMaterials.reduce(
+      (sum, mat) => sum + Number(mat?.totalPrice || 0),
+      0
+    );
+
+    return {
+      ...pricing,
+      materialRequirements: correctedMaterials,
+      totalOrderMaterialCost: Number(correctedTotal.toFixed(2)),
+    };
+  };
+
+  const getStockUnitQuotePrice = (pricing, order) => {
+    const exactInventoryLine = findExactInventoryLineForOrder(order);
+    const exactInventoryPrice = getInventorySellPrice(exactInventoryLine);
+    if (exactInventoryPrice > 0) return exactInventoryPrice;
+
+    const candidates = [
+      pricing?.finishedGoodsInsight?.matchedSellPrice,
+      pricing?.finishedGoodsInsight?.matchedUnitSellPrice,
+      pricing?.finishedGoodsInsight?.sellPrice,
+      pricing?.finishedGoodsInsight?.unitSellPrice,
+      pricing?.finishedGoodsInsight?.matchedPrice,
+      pricing?.finishedGoodsInsight?.unitPrice,
+      pricing?.referenceInventory?.[0]?.sellPrice,
+      pricing?.referenceInventory?.[0]?.unitSellPrice,
+      pricing?.referenceInventory?.[0]?.price,
+      pricing?.referenceInventory?.[0]?.unitPrice,
+      order?.orderDetails?.unitPrice,
+      order?.unitPrice,
+    ];
+
+    for (const value of candidates) {
+      const num = Number(value || 0);
+      if (num > 0) return num;
+    }
+    return 0;
+  };
+
+  const getSuggestedQuotationTotal = (pricing, order) => {
+    const orderQty = Number(order?.orderDetails?.quantity || 0);
+    const exactInventoryLine = findExactInventoryLineForOrder(order);
+    const exactInventoryQty = getInventoryAvailableBags(exactInventoryLine);
+    const stockQty = Math.max(Number(pricing?.canFulfillFromStock || 0), exactInventoryQty);
+    const productionCost = getDerivedMaterialCost(pricing, order);
+    const stockUnitPrice = getStockUnitQuotePrice(pricing, order);
+
+    if (orderQty > 0 && stockQty > 0 && stockUnitPrice > 0) {
+      const stockCovered = Math.min(orderQty, stockQty);
+      const stockQuoteValue = stockCovered * stockUnitPrice;
+      // If some quantity still needs production, add production estimate.
+      if (stockCovered < orderQty) {
+        const total = stockQuoteValue + Math.max(productionCost, 0);
+        return total > 0 ? total : Number(order?.totalAmount || 0);
+      }
+      return stockQuoteValue;
+    }
+
+    if (productionCost > 0) return productionCost;
+    return Number(order?.totalAmount || 0);
+  };
+
   const openQuotationModal = (order) => {
     setQuotationOrder(order);
     setQuotationPricing(null);
     setQuotationTotalInput("");
-    setQuotationMode(deductionMode || "AUTO");
+    // Default to AUTO so available finished stock is considered first.
+    setQuotationMode("AUTO");
     const defaultUntil = new Date();
     defaultUntil.setDate(defaultUntil.getDate() + 7);
     setQuotationValidUntil(defaultUntil.toISOString().slice(0, 10));
@@ -837,10 +1125,10 @@ Delivery Address: ${report.deliveryAddress}
           params: { mode: quotationMode },
         });
         if (cancelled || !resp.data.success) return;
-        const d = resp.data.data;
+        const d = applyAvailabilityCostCorrection(resp.data.data, quotationOrder);
         setQuotationPricing(d);
-        const suggested = Number(d.totalOrderMaterialCost || quotationOrder.totalAmount || 0);
-        setQuotationTotalInput(String(suggested || ""));
+        const suggested = getSuggestedQuotationTotal(d, quotationOrder);
+        setQuotationTotalInput(String(suggested > 0 ? suggested : ""));
         if (!cancelled && d.productResolved === false) {
           showNotification(
             "Quotation: reference-only stock/BOM — link a catalog product on the order for exact fulfillment numbers.",
@@ -1031,6 +1319,12 @@ Delivery Address: ${report.deliveryAddress}
     const loadingToast = toast.loading("Saving quotation...");
     try {
       const totalQuoted = Number(quotationTotalInput || 0);
+      if (totalQuoted <= 0) {
+        toast.error("Enter a valid quotation amount greater than 0", {
+          id: loadingToast,
+        });
+        return;
+      }
       await axiosInstance.patch(`/orders/${quotationOrder.id}/quotation`, {
         status,
         totalQuoted,
@@ -1520,6 +1814,13 @@ ${lines || "(See PDF for full BOM)"}
               } else if (filter === "PENDING_QUOTE") {
                 setOrderStatusFilter("Pending");
               }
+            }}
+            onCreateQuotation={() => {
+              if (firstPendingQuotationOrder) {
+                openQuotationModal(firstPendingQuotationOrder);
+                return;
+              }
+              showNotification("No pending orders need quotation right now", "success");
             }}
           />
         )}
@@ -2224,6 +2525,19 @@ ${lines || "(See PDF for full BOM)"}
                     <RefreshCw className={`h-4 w-4 ${checkingOrderId ? "animate-spin" : ""}`} />
                     Apply Mode & Re-Check
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!availabilityOrder) return;
+                      setAvailabilityModalOpen(false);
+                      openQuotationModal(availabilityOrder);
+                    }}
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-700 py-2.5 text-sm font-bold text-white transition hover:bg-violet-800"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Open Quotation
+                  </button>
                 </div>
 
                 {checkingOrderId ? (
@@ -2731,8 +3045,8 @@ ${lines || "(See PDF for full BOM)"}
                               <p className="mt-1 text-xs text-gray-600">
                                 Quantities are for{" "}
                                 <strong>{availabilityResult.requiredFromProduction}</strong> bag(s) to manufacture
-                                (after finished stock). Per-bag qty includes product wastage; dimension-based lines also
-                                use the scale factor above when applicable.
+                                (after finished stock). Per-bag qty excludes wastage; dimension-based lines use the
+                                scale factor above.
                               </p>
                             </div>
                             <div className="overflow-x-auto">

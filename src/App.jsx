@@ -7,9 +7,10 @@ import Footer from "./website/components/Footer";
 import Home from "./website/pages/Home";
 import Products from "./website/pages/Products";
 import About from "./website/pages/About";
+import Sustainability from "./website/pages/Sustainability";
 import Contact from "./website/pages/Contact";
 import ProductCategory from "./website/pages/ProductCategory";
-// import DesignYourProduct from "./website/pages/DesignYourProduct";
+import FloatingWidgets from "./website/components/FloatingWidgets";
 import NotFound from "./website/pages/NotFound";
 import { Toaster } from "react-hot-toast";
 
@@ -79,6 +80,7 @@ function AppLayout() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/:categoryId" element={<ProductCategory />} />
           <Route path="/about" element={<About />} />
+          <Route path="/sustainability" element={<Sustainability />} />
           <Route path="/contact" element={<Contact />} />
           {/* <Route path="/design" element={<DesignYourProduct />} /> */}
 
@@ -172,6 +174,7 @@ function AppLayout() {
       </main>
 
       {!isDashboardRoute && <Footer />}
+      {!isDashboardRoute && <FloatingWidgets />}
 
       {notification && (
         <Toast

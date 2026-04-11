@@ -16,7 +16,13 @@ import {
   Eye,
 } from "lucide-react";
 
-const OrderActionsDashboard = ({ orders = [], onViewOrder, onProcessOrder, onCompleteOrder }) => {
+const OrderActionsDashboard = ({
+  orders = [],
+  onViewOrder,
+  onProcessOrder,
+  onCompleteOrder,
+  onCreateQuotation,
+}) => {
   // Calculate order metrics
   const totalOrders = orders.length;
   const pendingOrders = orders.filter((o) => o.orderStatusKey === "PENDING").length;
@@ -24,7 +30,12 @@ const OrderActionsDashboard = ({ orders = [], onViewOrder, onProcessOrder, onCom
   const processingOrders = orders.filter((o) => o.orderStatusKey === "PROCESSING").length;
   const completedOrders = orders.filter((o) => o.orderStatusKey === "COMPLETED").length;
 
-  const pendingQuotations = orders.filter((o) => !o.quotationGenerated).length;
+  const pendingQuotations = orders.filter((o) => {
+    const hasQuotation =
+      !!o?.quotation?.quotationNumber ||
+      ["sent", "approved"].includes(String(o?.quotation?.status || "").toLowerCase());
+    return o?.orderStatusKey === "PENDING" && !hasQuotation;
+  }).length;
   const totalRevenue = orders
     .filter((o) => o.orderStatusKey === "COMPLETED")
     .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
@@ -218,7 +229,7 @@ const OrderActionsDashboard = ({ orders = [], onViewOrder, onProcessOrder, onCom
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <button
-            onClick={() => onViewOrder?.("PENDING_QUOTE")}
+            onClick={() => onCreateQuotation?.()}
             className="flex items-center gap-3 p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors group"
           >
             <FileText className="w-5 h-5 text-blue-600" />

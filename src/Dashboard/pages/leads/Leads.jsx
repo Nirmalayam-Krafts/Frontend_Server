@@ -39,6 +39,8 @@ import { usegetAllLeads } from "../../../../hook/leads";
 import { toast } from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "../../../context/Adminauth";
+import { useGetInventory } from "../../../../hook/inventory";
+import { useGetAllProducts } from "../../../../hook/product";
 
 const FOLLOWUP_FLOW = [
   { key: "first_followup", label: "First Follow-up", order: 1 },
@@ -47,6 +49,7 @@ const FOLLOWUP_FLOW = [
 ];
 
 const initialOrderForm = {
+  selectedProductId: "",
   bagSize: "",
   color: "",
   quantity: "",
@@ -78,6 +81,8 @@ const COLOR_PREVIEW_CLASSES = {
 
 const Leads = () => {
   const { data, isLoading, refetch } = usegetAllLeads();
+  const { data: inventoryData } = useGetInventory();
+  const { data: productsData } = useGetAllProducts();
   const showNotification = useUIStore((state) => state.showNotification);
   const queryClient = useQueryClient();
   const { axiosInstance } = useAuthContext();
@@ -98,6 +103,21 @@ const Leads = () => {
 
   const itemsPerPage = 5;
   const rawLeads = data?.leads || [];
+  const inventoryItems = useMemo(() => {
+    if (Array.isArray(inventoryData)) return inventoryData;
+    if (Array.isArray(inventoryData?.items)) return inventoryData.items;
+    if (Array.isArray(inventoryData?.inventory)) return inventoryData.inventory;
+    if (Array.isArray(inventoryData?.products)) return inventoryData.products;
+    if (Array.isArray(inventoryData?.data)) return inventoryData.data;
+    return [];
+  }, [inventoryData]);
+  const productItems = useMemo(() => {
+    if (Array.isArray(productsData)) return productsData;
+    if (Array.isArray(productsData?.items)) return productsData.items;
+    if (Array.isArray(productsData?.products)) return productsData.products;
+    if (Array.isArray(productsData?.data)) return productsData.data;
+    return [];
+  }, [productsData]);
 
   const formattedLeads = useMemo(() => {
     return rawLeads.map((lead) => {
@@ -111,6 +131,12 @@ const Leads = () => {
         phone: lead.phone || "—",
         email: lead.email || "—",
         productInterest: lead.product_category || "—",
+        productId:
+          lead.productId ||
+          lead.product_id ||
+          lead?.product?._id ||
+          lead?.product?.id ||
+          "",
         quantity: lead.quantity || "—",
         source: lead.source || "—",
         status: (lead.status || "New").toUpperCase(),
@@ -211,9 +237,11 @@ const Leads = () => {
   };
 
   const openConvertModal = (lead) => {
+    const preResolvedProductId = resolveProductIdForLead(lead, initialOrderForm);
     setLeadToConvert(lead);
     setOrderForm({
       ...initialOrderForm,
+      selectedProductId: preResolvedProductId || "",
       quantity:
         lead?.quantity && lead.quantity !== "—" ? String(lead.quantity) : "",
     });
@@ -279,6 +307,86 @@ const Leads = () => {
     }
   };
 
+  const normalizeText = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  const resolveProductIdForLead = (lead, form) => {
+    const directLeadProductId = String(lead?.productId || "").trim();
+    if (directLeadProductId) return directLeadProductId;
+
+    const leadCategory = normalizeText(lead?.productInterest);
+    if (!leadCategory) return "";
+
+    const getProductId = (item) =>
+      String(item?._id || item?.id || item?.productId || "").trim();
+
+    const getItemName = (item) =>
+      normalizeText(
+        item?.productName ||
+          item?.name ||
+          item?.bagName ||
+          item?.title ||
+          item?.productCategory ||
+          item?.category
+      );
+
+    const bagSize = normalizeText(form?.bagSize);
+    const bagColor = normalizeText(form?.color);
+    const categoryAliasTokens = Array.from(
+      new Set(
+        [
+          leadCategory,
+          leadCategory.replace(/\bbags?\b/g, "").trim(),
+          leadCategory.includes("ecocraft") ? "ecocraft" : "",
+          leadCategory.includes("f&b") || leadCategory.includes("gourmet")
+            ? "f&b gourmet"
+            : "",
+          leadCategory.includes("luxury") ? "luxury" : "",
+          leadCategory.includes("food") ? "food" : "",
+        ].filter(Boolean)
+      )
+    );
+
+    const productMatch = productItems.find((product) => {
+      const searchable = normalizeText(
+        [
+          product?.name,
+          product?.category,
+          product?.bagType,
+          product?.sku,
+          product?.title,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+      return categoryAliasTokens.some(
+        (token) => searchable.includes(token) || token.includes(searchable)
+      );
+    });
+    if (productMatch) return getProductId(productMatch);
+
+    const categoryMatches = inventoryItems.filter((item) => {
+      const name = getItemName(item);
+      return categoryAliasTokens.some(
+        (token) => name === token || name.includes(token) || token.includes(name)
+      );
+    });
+
+    const exactSpecMatch = categoryMatches.find((item) => {
+      const itemSize = normalizeText(item?.bagSizeLabel || item?.bagSize);
+      const itemColor = normalizeText(item?.bagColor || item?.color);
+      return (
+        (!bagSize || !itemSize || bagSize === itemSize) &&
+        (!bagColor || !itemColor || bagColor === itemColor)
+      );
+    });
+
+    const fallbackMatch = exactSpecMatch || categoryMatches[0];
+    return fallbackMatch ? String(fallbackMatch?.productId || "").trim() : "";
+  };
+
   const handleConvertLeadToOrder = async (e) => {
     e.preventDefault();
 
@@ -288,6 +396,7 @@ const Leads = () => {
     }
 
     if (
+      !orderForm.selectedProductId ||
       !orderForm.bagSize ||
       !orderForm.color ||
       !orderForm.quantity ||
@@ -302,6 +411,17 @@ const Leads = () => {
     const loadingToast = toast.loading("Converting lead into order...");
 
     try {
+      const resolvedProductId =
+        String(orderForm.selectedProductId || "").trim() ||
+        resolveProductIdForLead(leadToConvert, orderForm);
+      if (!resolvedProductId) {
+        toast.error(
+          "Unable to match a valid product for this lead. Please update product mapping and try again.",
+          { id: loadingToast }
+        );
+        return;
+      }
+
       const orderPayload = {
         leadId: leadToConvert.id,
         customerName: leadToConvert.name,
@@ -312,6 +432,7 @@ const Leads = () => {
         source: leadToConvert.source,
 
         orderDetails: {
+          productId: resolvedProductId,
           bagSize: orderForm.bagSize,
           color: orderForm.color,
           quantity: Number(orderForm.quantity),
@@ -536,6 +657,18 @@ const Leads = () => {
 
   const colorOptionsForSelectedSize =
     COLOR_OPTIONS_BY_SIZE[orderForm.bagSize] || [];
+  const productSelectOptions = useMemo(() => {
+    return productItems.map((item) => ({
+      id: String(item?._id || item?.id || item?.productId || "").trim(),
+      label:
+        item?.name ||
+        item?.title ||
+        item?.productName ||
+        item?.sku ||
+        "Unnamed Product",
+      sku: item?.sku || "",
+    }));
+  }, [productItems]);
 
   return (
     <Layout>
@@ -962,6 +1095,28 @@ const Leads = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Product <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={orderForm.selectedProductId}
+                  onChange={(e) =>
+                    handleOrderFormChange("selectedProductId", e.target.value)
+                  }
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  required
+                >
+                  <option value="">Select product</option>
+                  {productSelectOptions.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.label}
+                      {product.sku ? ` (${product.sku})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Bag Size <span className="text-red-500">*</span>

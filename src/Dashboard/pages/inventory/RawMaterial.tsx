@@ -268,6 +268,27 @@ const getAverageLinearFactor = (
   return (lRatio + wRatio + hRatio) / 3;
 };
 
+const getLinearSumFactor = (
+  baseDimensions?: { length: number | string; width: number | string; height: number | string; unit: string },
+  customDimensions?: { length: number | string; width: number | string; height: number | string; unit: string }
+) => {
+  if (!baseDimensions || !customDimensions) return 1;
+
+  const baseLength = convertToInch(baseDimensions.length, baseDimensions.unit);
+  const baseWidth = convertToInch(baseDimensions.width, baseDimensions.unit);
+  const baseHeight = convertToInch(baseDimensions.height, baseDimensions.unit);
+
+  const customLength = convertToInch(customDimensions.length, customDimensions.unit);
+  const customWidth = convertToInch(customDimensions.width, customDimensions.unit);
+  const customHeight = convertToInch(customDimensions.height, customDimensions.unit);
+
+  const baseLinearSum = baseLength + baseWidth + baseHeight;
+  const customLinearSum = customLength + customWidth + customHeight;
+
+  if (!baseLinearSum || !customLinearSum) return 1;
+  return customLinearSum / baseLinearSum;
+};
+
 const RawMaterial = () => {
   const navigate = useNavigate();
   const { axiosInstance } = useAuthContext();
@@ -277,6 +298,7 @@ const RawMaterial = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingItem, setEditingItem] = useState<IRawMaterial | null>(null);
   const [formData, setFormData] = useState<Omit<IRawMaterial, "stockHistory" | "availableForSale">>(initialForm);
+  const [rawMaterialSubmitting, setRawMaterialSubmitting] = useState(false);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedItem, setSelectedItem] = useState<IRawMaterial | null>(null);
@@ -363,11 +385,15 @@ const RawMaterial = () => {
     if (!selectedProductionProduct) return 1;
     if (productionForm.dimensionMode !== "custom") return 1;
 
-    const baseVolume = getVolumeLikeFactor(baseProductDimensions);
-    const customVolume = getVolumeLikeFactor(effectiveDimensions);
+    // Keep scale logic consistent with order availability engine:
+    // factor = (L+W+H custom) / (L+W+H base)
+    const linearSumFactor = getLinearSumFactor(
+      baseProductDimensions,
+      effectiveDimensions
+    );
 
-    if (baseVolume > 0 && customVolume > 0) {
-      return customVolume / baseVolume;
+    if (linearSumFactor > 0) {
+      return linearSumFactor;
     }
 
     return getAverageLinearFactor(baseProductDimensions, effectiveDimensions);
@@ -401,10 +427,9 @@ const RawMaterial = () => {
         perBagRequired = perBagQty * (dimensionScaleFactor || 1);
       }
 
-      const wastagePercent = toNumber(material?.wastagePercent || 0);
       const baseTotal = perBagRequired * quantity;
-      const wastageAmount = baseTotal * (wastagePercent / 100);
-      const totalRequired = baseTotal + wastageAmount;
+      // Exclude wastage from quotation/stock costing.
+      const totalRequired = baseTotal;
       const materialIdKey = String(material?.rawMaterialId || "");
       const materialNameKey = String(material?.rawMaterialName || "").trim().toLowerCase();
       const unitPrice = Number(
@@ -422,7 +447,7 @@ const RawMaterial = () => {
         unit: material?.unit || "pcs",
         perBagQty: roundTo(perBagQty),
         adjustedPerBagQty: roundTo(perBagRequired),
-        wastagePercent,
+        wastagePercent: 0,
         totalRequired: roundTo(totalRequired),
         unitPrice: roundTo(unitPrice, 2),
         estimatedMaterialCost: roundTo(estimatedMaterialCost, 2),
@@ -430,10 +455,16 @@ const RawMaterial = () => {
     });
   }, [selectedProductionProduct, productionForm.quantity, dimensionScaleFactor, rawMaterials]);
 
-  const manualUnitPricePreview = useMemo(
+  const manualBaseUnitPricePreview = useMemo(
     () => toNumber(productionForm.unitPrice || 0),
     [productionForm.unitPrice]
   );
+
+  const dimensionModeledManualUnitPricePreview = useMemo(() => {
+    if (!manualBaseUnitPricePreview) return 0;
+    const scale = productionForm.dimensionMode === "custom" ? dimensionScaleFactor || 1 : 1;
+    return roundTo(manualBaseUnitPricePreview * scale, 2);
+  }, [manualBaseUnitPricePreview, productionForm.dimensionMode, dimensionScaleFactor]);
 
   const autoComputedUnitPricePreview = useMemo(() => {
     const quantity = toNumber(productionForm.quantity);
@@ -448,7 +479,9 @@ const RawMaterial = () => {
   }, [productionForm.quantity, rawMaterialCalculationPreview]);
 
   const effectiveUnitPricePreview =
-    manualUnitPricePreview > 0 ? manualUnitPricePreview : autoComputedUnitPricePreview;
+    dimensionModeledManualUnitPricePreview > 0
+      ? dimensionModeledManualUnitPricePreview
+      : autoComputedUnitPricePreview;
 
   const manualTotalStockValuePreview = useMemo(
     () => roundTo(toNumber(productionForm.quantity) * effectiveUnitPricePreview, 2),
@@ -524,26 +557,27 @@ const RawMaterial = () => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async (
+    values: Omit<IRawMaterial, "stockHistory" | "availableForSale">
+  ) => {
     const payload = {
-      name: formData.name.trim(),
-      code: formData.code.trim(),
-      color: (formData.color || "").trim(),
-      type: formData.type,
-      unit: formData.unit,
-      unitPrice: Number(formData.unitPrice || 0),
-      availableStock: Number(formData.availableStock || 0),
-      reorderPoint: Number(formData.reorderPoint || 0),
-      minStock: Number(formData.minStock || 0),
-      description: (formData.description || "").trim(),
-      isActive: formData.isActive,
+      name: String(values?.name || "").trim(),
+      code: String(values?.code || "").trim(),
+      color: String(values?.color || "").trim(),
+      type: values?.type || "Paper",
+      unit: values?.unit || "kg",
+      unitPrice: Number(values?.unitPrice || 0),
+      availableStock: Number(values?.availableStock || 0),
+      reorderPoint: Number(values?.reorderPoint || 0),
+      minStock: Number(values?.minStock || 0),
+      description: String(values?.description || "").trim(),
+      isActive: values?.isActive ?? true,
     };
 
     const loadingToast = toast.loading(
       editingItem ? "Updating raw material..." : "Creating raw material..."
     );
+    setRawMaterialSubmitting(true);
 
     try {
       const response = editingItem
@@ -578,6 +612,8 @@ const RawMaterial = () => {
         error?.response?.data?.message || "Failed to save raw material",
         { id: loadingToast }
       );
+    } finally {
+      setRawMaterialSubmitting(false);
     }
   };
 
@@ -1472,8 +1508,14 @@ const RawMaterial = () => {
                   Total: <span className="font-bold">{manualTotalStockValuePreview.toLocaleString()}</span>
                 </p>
               </div>
+              {manualBaseUnitPricePreview > 0 && productionForm.dimensionMode === "custom" && (
+                <p className="mt-2 text-xs text-gray-600">
+                  Base manual price {manualBaseUnitPricePreview.toLocaleString()} × scale factor{" "}
+                  {roundTo(dimensionScaleFactor, 4)} = {effectiveUnitPricePreview.toLocaleString()}
+                </p>
+              )}
               <p className="mt-2 text-xs text-gray-600">
-                Auto unit price uses raw material consumption cost per bag. You can still override manually.
+                For custom dimensions, manual unit price is auto-scaled by dimension factor. If manual price is empty, raw material consumption cost per bag is used.
               </p>
             </div>
 
@@ -1736,7 +1778,7 @@ const RawMaterial = () => {
           <RawMaterialForm
             initialData={editingItem}
             onSubmit={handleSubmit}
-            loading={false}
+            loading={rawMaterialSubmitting}
           />
         </Modal>
 

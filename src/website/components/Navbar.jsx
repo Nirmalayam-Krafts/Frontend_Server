@@ -15,7 +15,7 @@ const navLinks = [
   },
 // { label: 'Design Your Product', to: '/design' },
   { label: 'About', to: '/about' },
-  { label: 'Sustainability', to: '/about#sustainability' },
+  { label: 'Sustainable Solutions', to: '/sustainability' },
   { label: 'Contact', to: '/contact' },
 ];
 
@@ -23,7 +23,15 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -73,7 +81,7 @@ export default function Navbar() {
             <div>
               <div style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: '18px',
+                fontSize: isMobile ? '16px' : '18px',
                 fontWeight: 700,
                 color: scrolled || !isHome ? 'var(--kraft-950)' : 'white',
                 textShadow: !scrolled && isHome ? '0 2px 10px rgba(26, 18, 8, 0.3)' : 'none',
@@ -190,9 +198,12 @@ export default function Navbar() {
           {/* Right Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
-            <Link to="/contact" className="btn-primary" style={{ padding: '9px 22px', fontSize: '13px' }}>
-              <span>Get a Quote</span>
-              <ShoppingBag size={14} />
+            <Link to="/contact" className="btn-primary" style={{ 
+              padding: isMobile ? '8px 12px' : '9px 22px', 
+              fontSize: isMobile ? '12px' : '13px' 
+            }}>
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>Get a Quote</span>
+              <ShoppingBag size={isMobile ? 18 : 14} />
             </Link>
 
             {/* Hamburger */}
