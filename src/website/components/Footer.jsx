@@ -1,5 +1,14 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Mail, Phone, MapPin, Link2, Globe, Heart } from 'lucide-react';
+import {
+  Leaf,
+  Mail,
+  Phone,
+  MapPin,
+  Link2,
+  Globe,
+  Heart,
+  ArrowRight,
+} from 'lucide-react';
 
 const shopLinks = [
   { label: 'Kraft Bags', to: '/products#ecocraft' },
@@ -23,7 +32,21 @@ const supportLinks = [
   { label: 'Bulk Order Enquiry', to: '/contact' },
 ];
 
+const footerSocialLinks = [
+  { icon: Link2, href: '#', label: 'LinkedIn' },
+  { icon: Globe, href: '#', label: 'Website' },
+  { icon: Heart, href: '#', label: 'Instagram' },
+];
+
+const footerContact = [
+  { icon: Mail, text: 'hello@nirmalyamkrafts.com', href: 'mailto:hello@nirmalyamkrafts.com' },
+  { icon: Phone, text: '+91 98765 43210', href: 'tel:+919876543210' },
+  { icon: MapPin, text: 'Plot 42, Industrial Area Phase II, Bengaluru, KA 560066', href: null },
+];
+
 export default function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer style={{
       background: 'linear-gradient(160deg, var(--kraft-950) 0%, var(--kraft-900) 100%)',
@@ -58,13 +81,46 @@ export default function Footer() {
             <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--kraft-400)', marginBottom: 20 }}>
               Leading the transition to zero-waste packaging in India with premium kraft paper solutions for modern brands.
             </p>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+              <Link
+                to="/contact"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'var(--eco-600)',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Get a Quote
+                <ArrowRight size={14} />
+              </Link>
+              <Link
+                to="/products"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(192,148,87,0.35)',
+                  color: 'var(--kraft-200)',
+                  textDecoration: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Explore Products
+              </Link>
+            </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              {[
-                { icon: Link2, href: '#' },
-                { icon: Globe, href: '#' },
-                { icon: Heart, href: '#' },
-              ].map(({ icon: Icon, href }, i) => (
-                <a key={i} href={href}
+              {footerSocialLinks.map(({ icon: Icon, href, label }) => (
+                <a key={label} href={href} aria-label={label}
                   style={{
                     width: 36, height: 36,
                     borderRadius: 8,
@@ -153,11 +209,7 @@ export default function Footer() {
           <div>
             <h4 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--kraft-300)', marginBottom: 18 }}>Contact</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {[
-                { icon: Mail, text: 'hello@nirmalyamkrafts.com', href: 'mailto:hello@nirmalyamkrafts.com' },
-                { icon: Phone, text: '+91 98765 43210', href: 'tel:+919876543210' },
-                { icon: MapPin, text: 'Plot 42, Industrial Area Phase II, Bengaluru, KA 560066', href: null },
-              ].map(({ icon: Icon, text, href }) => (
+              {footerContact.map(({ icon: Icon, text, href }) => (
                 <div key={text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <Icon size={15} color="var(--eco-500)" style={{ marginTop: 2, flexShrink: 0 }} />
                   {href ? (
@@ -181,14 +233,18 @@ export default function Footer() {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 16,
-          padding: '20px 0',
+          padding: '20px 0 28px',
         }}>
           <p style={{ fontSize: 13, color: 'var(--kraft-600)' }}>
-            © 2026 Nirmalyam Krafts. All rights reserved.
+            © {currentYear} Nirmalyam Krafts. All rights reserved.
           </p>
           <div style={{ display: 'flex', gap: 24 }}>
-            {['Security', 'Accessibility', 'Status'].map(label => (
-              <Link key={label} to="#" style={{
+            {[
+              { label: 'Security', to: '/security' },
+              { label: 'Accessibility', to: '/accessibility' },
+              { label: 'Status', to: '/status' },
+            ].map(item => (
+              <Link key={item.label} to={item.to} style={{
                 fontSize: 13,
                 color: 'var(--kraft-600)',
                 textDecoration: 'none',
@@ -197,7 +253,7 @@ export default function Footer() {
                 onMouseEnter={e => e.target.style.color = 'var(--kraft-300)'}
                 onMouseLeave={e => e.target.style.color = 'var(--kraft-600)'}
               >
-                {label}
+                {item.label}
               </Link>
             ))}
           </div>
