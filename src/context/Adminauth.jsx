@@ -9,17 +9,23 @@ export const AuthContextProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : true;
   });
 
-  const adminToken = localStorage.getItem("adminToken");
-
   const axiosInstance = useMemo(() => {
-    return axios.create({
+    const instance = axios.create({
       baseURL: import.meta.env.VITE_API_BASE_URL,
       withCredentials: true,
-      headers: {
-        Authorization: `Bearer ${adminToken}`,
-      },
     });
-  }, [adminToken]);
+
+    instance.interceptors.request.use((config) => {
+      const token = localStorage.getItem("adminToken");
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    return instance;
+  }, []);
 
   const handleSetNotification = (value) => {
     setNotificationOn(value);

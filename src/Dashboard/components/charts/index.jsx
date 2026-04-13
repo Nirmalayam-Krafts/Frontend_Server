@@ -106,6 +106,18 @@ export const LeadConversionChart = ({ data }) => {
 export const InventoryChart = ({ data }) => {
   const labelColor = "#111827";
   const COLORS = ["#22c55e", "#8b5cf6", "#3b82f6"];
+  const normalizedData = Array.isArray(data)
+    ? data.map((item, index) => ({
+        ...item,
+        value: Number(item?.value) || 0,
+        _color: COLORS[index % COLORS.length],
+      }))
+    : [];
+
+  const hasPositiveValues = normalizedData.some((item) => item.value > 0);
+  const pieData = hasPositiveValues
+    ? normalizedData.filter((item) => item.value > 0)
+    : [{ name: "No Data", value: 100, _color: "#d1d5db" }];
 
   return (
     <Card className="h-80">
@@ -116,19 +128,23 @@ export const InventoryChart = ({ data }) => {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={pieData}
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={({ name, value }) => `${name}: ${value}%`}
+              stroke="none"
+              label={({ name, value }) =>
+                hasPositiveValues ? `${name}: ${value}%` : "No inventory data"
+              }
               outerRadius={100}
               fill="#8884d8"
               dataKey="value"
             >
-              {data.map((entry, index) => (
+              {pieData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={entry._color || COLORS[index % COLORS.length]}
+                  stroke="none"
                 />
               ))}
             </Pie>
@@ -193,6 +209,14 @@ export const MultiLineChart = ({ data, lines }) => {
 };
 
 export const HorizontalBarChart = ({ data }) => {
+  const BAR_COLORS = ["#15803d", "#0284c7", "#f59e0b", "#7c3aed"];
+  const toPercent = (value) => {
+    const raw = String(value ?? "").replace("%", "").trim();
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(100, n));
+  };
+
   return (
     <Card>
       <h3 className="text-lg font-semibold mb-4 text-gray-900">
@@ -206,14 +230,24 @@ export const HorizontalBarChart = ({ data }) => {
                 {item.standard}
               </span>
               <span className="text-sm font-bold text-gray-900">
-                {item.percentage}%
+                {toPercent(item.percentage)}%
               </span>
             </div>
             <div className="w-full rounded-full h-2 bg-gray-200">
+              {(() => {
+                const percent = toPercent(item.percentage);
+                const width = percent > 0 ? Math.max(percent, 2) : 0;
+                const fillColor = item.color || BAR_COLORS[idx % BAR_COLORS.length];
+                return (
               <div
-                className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${item.percentage}%` }}
+                className="h-2 rounded-full transition-all duration-300"
+                style={{
+                  width: `${width}%`,
+                  backgroundColor: fillColor,
+                }}
               />
+                );
+              })()}
             </div>
           </div>
         ))}
