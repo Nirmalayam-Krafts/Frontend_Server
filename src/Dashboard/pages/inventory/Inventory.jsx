@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Modal } from "../../components/ui";
-import { InventoryForm } from "../../components/forms";
+import InventoryDetail from "../../components/inventory/InventoryDetail";
+import InventoryForm from "../../components/forms/InventoryForm";
 import { useInventoryStore } from "../../store";
 import {
   Plus,
@@ -15,6 +16,12 @@ import {
   CirclePlus,
   X,
   Eye,
+  Calculator,
+  TrendingDown,
+  Minus,
+  Activity,
+  FileBox,
+  ShoppingBag,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -249,6 +256,11 @@ const Inventory = () => {
     (sum, item) => sum + Number(item.stockLevel || 0),
     0
   );
+  const totalInventoryValue = items.reduce(
+    (sum, item) =>
+      sum + Number(item.totalStockValue || Number(item.stockLevel || 0) * Number(item.unitPrice || 0)),
+    0
+  );
 
   const reorderCount = items.filter(
     (item) => Number(item.stockLevel) <= Number(item.reorderPt)
@@ -342,7 +354,7 @@ const Inventory = () => {
           </div>
         </motion.div>
         <motion.div
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
@@ -444,6 +456,25 @@ const Inventory = () => {
                   </span>
                 )}
                 <AlertTriangle className="h-6 w-6" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Total Inventory Value
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {Number(totalInventoryValue).toLocaleString()}
+                </p>
+                <p className="mt-2 text-xs text-emerald-600">
+                  All bag stock price total
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                <Calculator className="h-6 w-6" />
               </div>
             </div>
           </Card>
@@ -586,13 +617,14 @@ const Inventory = () => {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="rounded-3xl border border-gray-100 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
+          <Card className="rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-emerald-600" />
                   Inventory Overview
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mt-1">
                   Showing {filteredItems.length} inventory items
                 </p>
               </div>
@@ -609,34 +641,34 @@ const Inventory = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1000px]">
+                <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        SKU
+                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Product Details
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Product Name
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
                         Category
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Stock Status
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Stock Information
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
-                        Reorder Pt
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Specifications
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Pricing & Value
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700">
                         Status
                       </th>
-                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase text-gray-500">
+                      <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-700">
                         Actions
                       </th>
                     </tr>
                   </thead>
 
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100">
                     {filteredItems.map((item) => {
                       const status = getStockStatus(
                         Number(item.stockLevel),
@@ -646,104 +678,205 @@ const Inventory = () => {
                         Number(item.stockLevel),
                         Number(item.reorderPt)
                       );
+                      const totalValue = Number(item.totalStockValue || 0);
+                      const unitPrice = Number(item.unitPrice || 0);
+                      const sellingPrice = Number(item.sellingPricePerUnit || 0);
 
                       return (
                         <tr
                           key={item.id || item._id}
-                          className="border-b border-gray-100 transition hover:bg-gray-50"
+                          className="bg-white hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-transparent transition-all duration-200 group"
                         >
-                          <td className="px-4 py-4 font-medium text-gray-900">
-                            {item.sku}
+                          {/* Product Details */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
+                                {item.category === 'STANDARD' ? <Package className="w-6 h-6 text-blue-600" /> : 
+                                 item.category === 'PREMIUM' ? <ShoppingBag className="w-6 h-6 text-amber-600" /> : 
+                                 item.category === 'FOOD_GRADE' ? <FileBox className="w-6 h-6 text-emerald-600" /> : 
+                                 <Boxes className="w-6 h-6 text-gray-600" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-gray-900 text-base truncate group-hover:text-emerald-700 transition-colors">
+                                  {item.productName}
+                                </p>
+                                <p className="text-xs font-mono font-semibold text-gray-600 mt-1 bg-gray-100 inline-block px-2 py-0.5 rounded">
+                                  {item.sku}
+                                </p>
+                                {item.bagType && (
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    {item.bagType}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </td>
 
-                          <td className="px-4 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {item.productName}
-                              </p>
-                              <p className="text-xs text-gray-500">
+                          {/* Category */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <Badge className={`text-xs font-semibold ${
+                                item.category === 'STANDARD' ? 'bg-blue-100 text-blue-700' :
+                                item.category === 'PREMIUM' ? 'bg-purple-100 text-purple-700' :
+                                item.category === 'FOOD_GRADE' ? 'bg-emerald-100 text-emerald-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
                                 {item.categoryLabel}
-                              </p>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <Badge variant="secondary">
-                              {item.categoryLabel}
-                            </Badge>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                                <span className="text-xs font-semibold text-blue-600">
-                                  {Number(item.reservedQuantity || 0).toLocaleString()} {item.unit || "Units"} Reserved
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                <span className="text-xs font-bold text-emerald-600">
-                                  {Number(item.availableForSale || 0).toLocaleString()} {item.unit || "Units"} Ready
-                                </span>
-                              </div>
-                              <div className="mt-1 border-t border-gray-50 pt-1 text-[10px] font-medium text-gray-400">
-                                Total: {Number(item.stockLevel || 0).toLocaleString()} Units
+                              </Badge>
+                              <div className="text-xs text-gray-500">
+                                {item.unit || 'bags'}
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-4 text-sm text-gray-600">
-                            {Number(item.reorderPt || 0).toLocaleString()} units
+                          {/* Stock Information */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-600">Available:</span>
+                                <span className="font-bold text-emerald-600">
+                                  {Number(item.availableForSale || 0).toLocaleString()} {item.unit || 'bags'}
+                                </span>
+                              </div>
+                              {item.reservedQuantity > 0 && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-600">Reserved:</span>
+                                  <span className="font-semibold text-blue-600">
+                                    {Number(item.reservedQuantity || 0).toLocaleString()} {item.unit || 'bags'}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-600">Total:</span>
+                                <span className="font-semibold text-gray-900">
+                                  {Number(item.stockLevel || 0).toLocaleString()} {item.unit || 'bags'}
+                                </span>
+                              </div>
+                              {/* Stock Progress Bar */}
+                              <div className="mt-2">
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                                      percentage > 100 ? 'bg-emerald-500' :
+                                      percentage > 50 ? 'bg-blue-500' :
+                                      percentage > 25 ? 'bg-amber-500' : 'bg-red-500'
+                                    }`}
+                                    style={{ width: `${Math.min(percentage, 100)}%` }}
+                                  />
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                  Reorder at: {Number(item.reorderPt || 0).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
                           </td>
 
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-2 w-full max-w-[140px] rounded-full bg-gray-200">
-                                <div
-                                  className={`h-2 rounded-full transition-all ${statusColors[status]}`}
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
+                          {/* Specifications */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-1 text-xs">
+                              {item.bagColor && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">Color:</span>
+                                  <span className="font-medium text-gray-900">{item.bagColor}</span>
+                                </div>
+                              )}
+                              {item.bagSizeLabel && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">Size:</span>
+                                  <span className="font-medium text-gray-900">{item.bagSizeLabel}</span>
+                                </div>
+                              )}
+                              {item.dimensions && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">Dims:</span>
+                                  <span className="font-medium text-gray-900">
+                                    {item.dimensions.length}×{item.dimensions.width}×{item.dimensions.height}{item.dimensions.unit}
+                                  </span>
+                                </div>
+                              )}
+                              {!item.bagColor && !item.bagSizeLabel && !item.dimensions && (
+                                <span className="text-gray-400">No specs</span>
+                              )}
+                            </div>
+                          </td>
 
+                          {/* Pricing & Value */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <div className="text-xs">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-gray-500">Cost:</span>
+                                  <span className="font-semibold text-gray-900">
+                                    ₹{unitPrice.toFixed(2)}
+                                  </span>
+                                </div>
+                                {sellingPrice > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">Sell:</span>
+                                    <span className="font-semibold text-emerald-600">
+                                      ₹{sellingPrice.toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-2 border border-emerald-100">
+                                <p className="text-[10px] text-emerald-600 font-medium">Stock Value</p>
+                                <p className="text-base font-bold text-emerald-700">
+                                  ₹{totalValue.toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
                               <Badge
                                 variant={
-                                  status === "critical"
-                                    ? "danger"
-                                    : status === "low"
-                                      ? "danger"
-                                      : status === "medium"
-                                        ? "warning"
-                                        : "success"
+                                  status === "critical" ? "danger" :
+                                  status === "low" ? "danger" :
+                                  status === "medium" ? "warning" : "success"
                                 }
+                                className="text-xs font-semibold flex items-center gap-1"
                               >
-                                {status === "healthy"
-                                  ? "Healthy"
-                                  : status === "medium"
-                                    ? "Medium"
-                                    : status === "low"
-                                      ? "Low"
-                                      : "Critical"}
+                                {status === 'critical' ? <><TrendingDown className="w-3 h-3" /> Critical</> :
+                                 status === 'low' ? <><Minus className="w-3 h-3" /> Low</> :
+                                 status === 'medium' ? <><Activity className="w-3 h-3" /> Medium</> : 
+                                 <><TrendingUp className="w-3 h-3" /> Healthy</>}
                               </Badge>
+                              <div className="text-xs text-gray-500">
+                                {item.isActive !== false ? (
+                                  <span className="flex items-center gap-1 text-emerald-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-red-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    Inactive
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
+                          {/* Actions */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => {
                                   setSelectedItem(item);
                                   setShowDetailPanel(true);
                                 }}
-                                className="rounded-lg p-2 text-gray-700 transition hover:bg-gray-100"
-                                title="View Item"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200"
+                                title="View Details"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
 
                               <button
                                 onClick={() => openAddStockModal(item)}
-                                className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-200"
                                 title="Add Stock"
                               >
                                 <CirclePlus className="h-4 w-4" />
@@ -754,16 +887,16 @@ const Inventory = () => {
                                   setEditingItem(item);
                                   setShowModal(true);
                                 }}
-                                className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                title="Edit Item"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200"
+                                title="Edit"
                               >
                                 <Edit2 className="h-4 w-4" />
                               </button>
 
                               <button
                                 onClick={() => handleDeleteItem(item.id || item._id)}
-                                className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                                title="Delete Item"
+                                className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+                                title="Delete"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -777,9 +910,13 @@ const Inventory = () => {
                       <tr>
                         <td
                           colSpan={7}
-                          className="px-4 py-12 text-center text-gray-500"
+                          className="px-6 py-16 text-center"
                         >
-                          No inventory items found.
+                          <div className="flex flex-col items-center justify-center">
+                            <Package className="w-16 h-16 text-gray-300 mb-4" />
+                            <p className="text-lg font-semibold text-gray-600">No inventory items found</p>
+                            <p className="text-sm text-gray-500 mt-1">Add your first inventory item to get started</p>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -797,10 +934,12 @@ const Inventory = () => {
             setShowModal(false);
             setEditingItem(null);
           }}
+          size="xl"
         >
           <InventoryForm
             initialData={editingItem}
             onSubmit={editingItem ? handleUpdateItem : handleAddItem}
+            loading={false}
           />
         </Modal>
 
@@ -895,123 +1034,42 @@ const Inventory = () => {
             />
 
             <motion.div
-              className="relative h-screen w-full max-w-md overflow-y-auto bg-white shadow-2xl"
-              initial={{ x: 400 }}
+              className="relative h-screen w-full max-w-5xl overflow-y-auto bg-white shadow-2xl"
+              initial={{ x: 800 }}
               animate={{ x: 0 }}
-              exit={{ x: 400 }}
+              exit={{ x: 800 }}
             >
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Inventory Detail
-                  </h2>
-                  <button
-                    onClick={() => setShowDetailPanel(false)}
-                    className="text-gray-500"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
-                  <p className="text-lg font-semibold text-gray-900">
-                    {selectedItem.productName}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600">{selectedItem.sku}</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Category
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {selectedItem.categoryLabel}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Stock Level
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {Number(selectedItem.stockLevel).toLocaleString()} units
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Reorder Point
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {Number(selectedItem.reorderPt).toLocaleString()} units
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Unit
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {selectedItem.unit || "units"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Description
-                    </p>
-                    <p className="mt-1 text-gray-900">
-                      {selectedItem.description || "No description added"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Stock History
-                    </p>
-                    <div className="mt-2 space-y-2">
-                      {(selectedItem.stockHistory || []).length > 0 ? (
-                        selectedItem.stockHistory.slice().reverse().map((log, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-xl bg-gray-50 p-3 text-sm"
-                          >
-                            <p className="font-medium text-gray-900">
-                              {log.action} · {log.quantity} units
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {log.note || "Stock activity"}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500">
-                          No stock history available
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-2">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Inventory Details
+                </h2>
+                <div className="flex items-center gap-2">
                   <Button
-                    variant="secondary"
-                    onClick={() => setShowDetailPanel(false)}
-                  >
-                    Close
-                  </Button>
-
-                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => {
                       setEditingItem(selectedItem);
                       setShowModal(true);
                       setShowDetailPanel(false);
                     }}
                   >
-                    Edit Item
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Edit
                   </Button>
+                  <button
+                    onClick={() => setShowDetailPanel(false)}
+                    className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
+              </div>
+
+              <div className="p-6">
+                <InventoryDetail
+                  item={selectedItem}
+                  onClose={() => setShowDetailPanel(false)}
+                />
               </div>
             </motion.div>
           </motion.div>

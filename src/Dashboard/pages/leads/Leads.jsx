@@ -39,6 +39,8 @@ import { usegetAllLeads } from "../../../../hook/leads";
 import { toast } from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "../../../context/Adminauth";
+import { useGetInventory } from "../../../../hook/inventory";
+import { useGetAllProducts } from "../../../../hook/product";
 
 const FOLLOWUP_FLOW = [
   { key: "first_followup", label: "First Follow-up", order: 1 },
@@ -47,6 +49,7 @@ const FOLLOWUP_FLOW = [
 ];
 
 const initialOrderForm = {
+  selectedProductId: "",
   bagSize: "",
   color: "",
   quantity: "",
@@ -57,8 +60,29 @@ const initialOrderForm = {
   notes: "",
 };
 
+const BAG_SIZE_OPTIONS = ["Small", "Medium", "Large", "Extra Large"];
+
+const COLOR_OPTIONS_BY_SIZE = {
+  Small: ["Brown", "White", "Black"],
+  Medium: ["Brown", "White", "Black", "Green", "Blue"],
+  Large: ["Brown", "White", "Black", "Green", "Blue", "Red"],
+  "Extra Large": ["Brown", "White", "Black", "Green", "Blue", "Red", "Gray"],
+};
+
+const COLOR_PREVIEW_CLASSES = {
+  Brown: "bg-amber-700",
+  White: "bg-white border border-gray-300",
+  Black: "bg-black",
+  Green: "bg-emerald-600",
+  Blue: "bg-blue-600",
+  Red: "bg-red-600",
+  Gray: "bg-gray-500",
+};
+
 const Leads = () => {
   const { data, isLoading, refetch } = usegetAllLeads();
+  const { data: inventoryData } = useGetInventory();
+  const { data: productsData } = useGetAllProducts();
   const showNotification = useUIStore((state) => state.showNotification);
   const queryClient = useQueryClient();
   const { axiosInstance } = useAuthContext();
@@ -79,6 +103,21 @@ const Leads = () => {
 
   const itemsPerPage = 5;
   const rawLeads = data?.leads || [];
+  const inventoryItems = useMemo(() => {
+    if (Array.isArray(inventoryData)) return inventoryData;
+    if (Array.isArray(inventoryData?.items)) return inventoryData.items;
+    if (Array.isArray(inventoryData?.inventory)) return inventoryData.inventory;
+    if (Array.isArray(inventoryData?.products)) return inventoryData.products;
+    if (Array.isArray(inventoryData?.data)) return inventoryData.data;
+    return [];
+  }, [inventoryData]);
+  const productItems = useMemo(() => {
+    if (Array.isArray(productsData)) return productsData;
+    if (Array.isArray(productsData?.items)) return productsData.items;
+    if (Array.isArray(productsData?.products)) return productsData.products;
+    if (Array.isArray(productsData?.data)) return productsData.data;
+    return [];
+  }, [productsData]);
 
   const formattedLeads = useMemo(() => {
     return rawLeads.map((lead) => {
@@ -92,6 +131,12 @@ const Leads = () => {
         phone: lead.phone || "—",
         email: lead.email || "—",
         productInterest: lead.product_category || "—",
+        productId:
+          lead.productId ||
+          lead.product_id ||
+          lead?.product?._id ||
+          lead?.product?.id ||
+          "",
         quantity: lead.quantity || "—",
         source: lead.source || "—",
         status: (lead.status || "New").toUpperCase(),
@@ -192,9 +237,11 @@ const Leads = () => {
   };
 
   const openConvertModal = (lead) => {
+    const preResolvedProductId = resolveProductIdForLead(lead, initialOrderForm);
     setLeadToConvert(lead);
     setOrderForm({
       ...initialOrderForm,
+      selectedProductId: preResolvedProductId || "",
       quantity:
         lead?.quantity && lead.quantity !== "—" ? String(lead.quantity) : "",
     });
@@ -202,10 +249,22 @@ const Leads = () => {
   };
 
   const handleOrderFormChange = (field, value) => {
-    setOrderForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setOrderForm((prev) => {
+      if (field === "bagSize") {
+        const nextColorOptions = COLOR_OPTIONS_BY_SIZE[value] || [];
+        const currentColorIsValid = nextColorOptions.includes(prev.color);
+        return {
+          ...prev,
+          bagSize: value,
+          color: currentColorIsValid ? prev.color : "",
+        };
+      }
+
+      return {
+        ...prev,
+        [field]: value,
+      };
+    });
   };
 
   const handleUpdateLeadStatus = async (id, status, leadData = null) => {
@@ -248,6 +307,86 @@ const Leads = () => {
     }
   };
 
+  const normalizeText = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  const resolveProductIdForLead = (lead, form) => {
+    const directLeadProductId = String(lead?.productId || "").trim();
+    if (directLeadProductId) return directLeadProductId;
+
+    const leadCategory = normalizeText(lead?.productInterest);
+    if (!leadCategory) return "";
+
+    const getProductId = (item) =>
+      String(item?._id || item?.id || item?.productId || "").trim();
+
+    const getItemName = (item) =>
+      normalizeText(
+        item?.productName ||
+          item?.name ||
+          item?.bagName ||
+          item?.title ||
+          item?.productCategory ||
+          item?.category
+      );
+
+    const bagSize = normalizeText(form?.bagSize);
+    const bagColor = normalizeText(form?.color);
+    const categoryAliasTokens = Array.from(
+      new Set(
+        [
+          leadCategory,
+          leadCategory.replace(/\bbags?\b/g, "").trim(),
+          leadCategory.includes("ecocraft") ? "ecocraft" : "",
+          leadCategory.includes("f&b") || leadCategory.includes("gourmet")
+            ? "f&b gourmet"
+            : "",
+          leadCategory.includes("luxury") ? "luxury" : "",
+          leadCategory.includes("food") ? "food" : "",
+        ].filter(Boolean)
+      )
+    );
+
+    const productMatch = productItems.find((product) => {
+      const searchable = normalizeText(
+        [
+          product?.name,
+          product?.category,
+          product?.bagType,
+          product?.sku,
+          product?.title,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+      return categoryAliasTokens.some(
+        (token) => searchable.includes(token) || token.includes(searchable)
+      );
+    });
+    if (productMatch) return getProductId(productMatch);
+
+    const categoryMatches = inventoryItems.filter((item) => {
+      const name = getItemName(item);
+      return categoryAliasTokens.some(
+        (token) => name === token || name.includes(token) || token.includes(name)
+      );
+    });
+
+    const exactSpecMatch = categoryMatches.find((item) => {
+      const itemSize = normalizeText(item?.bagSizeLabel || item?.bagSize);
+      const itemColor = normalizeText(item?.bagColor || item?.color);
+      return (
+        (!bagSize || !itemSize || bagSize === itemSize) &&
+        (!bagColor || !itemColor || bagColor === itemColor)
+      );
+    });
+
+    const fallbackMatch = exactSpecMatch || categoryMatches[0];
+    return fallbackMatch ? String(fallbackMatch?.productId || "").trim() : "";
+  };
+
   const handleConvertLeadToOrder = async (e) => {
     e.preventDefault();
 
@@ -257,6 +396,7 @@ const Leads = () => {
     }
 
     if (
+      !orderForm.selectedProductId ||
       !orderForm.bagSize ||
       !orderForm.color ||
       !orderForm.quantity ||
@@ -271,6 +411,17 @@ const Leads = () => {
     const loadingToast = toast.loading("Converting lead into order...");
 
     try {
+      const resolvedProductId =
+        String(orderForm.selectedProductId || "").trim() ||
+        resolveProductIdForLead(leadToConvert, orderForm);
+      if (!resolvedProductId) {
+        toast.error(
+          "Unable to match a valid product for this lead. Please update product mapping and try again.",
+          { id: loadingToast }
+        );
+        return;
+      }
+
       const orderPayload = {
         leadId: leadToConvert.id,
         customerName: leadToConvert.name,
@@ -281,6 +432,7 @@ const Leads = () => {
         source: leadToConvert.source,
 
         orderDetails: {
+          productId: resolvedProductId,
           bagSize: orderForm.bagSize,
           color: orderForm.color,
           quantity: Number(orderForm.quantity),
@@ -502,6 +654,21 @@ const Leads = () => {
     const item = (lead?.followupHistory || []).find((f) => f.key === flowKey);
     return item || null;
   };
+
+  const colorOptionsForSelectedSize =
+    COLOR_OPTIONS_BY_SIZE[orderForm.bagSize] || [];
+  const productSelectOptions = useMemo(() => {
+    return productItems.map((item) => ({
+      id: String(item?._id || item?.id || item?.productId || "").trim(),
+      label:
+        item?.name ||
+        item?.title ||
+        item?.productName ||
+        item?.sku ||
+        "Unnamed Product",
+      sku: item?.sku || "",
+    }));
+  }, [productItems]);
 
   return (
     <Layout>
@@ -930,19 +1097,46 @@ const Leads = () => {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Product <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={orderForm.selectedProductId}
+                  onChange={(e) =>
+                    handleOrderFormChange("selectedProductId", e.target.value)
+                  }
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                  required
+                >
+                  <option value="">Select product</option>
+                  {productSelectOptions.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.label}
+                      {product.sku ? ` (${product.sku})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Bag Size <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
+                  <select
                     value={orderForm.bagSize}
                     onChange={(e) =>
                       handleOrderFormChange("bagSize", e.target.value)
                     }
-                    placeholder="Small / Medium / Large"
                     className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
+                  >
+                    <option value="">Select bag size</option>
+                    {BAG_SIZE_OPTIONS.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -952,16 +1146,34 @@ const Leads = () => {
                 </label>
                 <div className="relative">
                   <Palette className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
+                  <select
                     value={orderForm.color}
                     onChange={(e) =>
                       handleOrderFormChange("color", e.target.value)
                     }
-                    placeholder="Brown / White / Green"
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
+                    disabled={!orderForm.bagSize}
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {orderForm.bagSize
+                        ? "Select bag color"
+                        : "Select bag size first"}
+                    </option>
+                    {colorOptionsForSelectedSize.map((color) => (
+                      <option key={color} value={color}>
+                        {color}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {orderForm.color ? (
+                  <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700">
+                    <span
+                      className={`h-3.5 w-3.5 rounded-full ${COLOR_PREVIEW_CLASSES[orderForm.color] || "bg-gray-300"}`}
+                    />
+                    Selected: {orderForm.color}
+                  </div>
+                ) : null}
               </div>
 
               <div>

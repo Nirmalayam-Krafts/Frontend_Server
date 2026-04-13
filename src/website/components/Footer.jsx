@@ -18,7 +18,6 @@ const policyLinks = [
 
 const supportLinks = [
   { label: 'About Us', to: '/about' },
-  { label: 'Sustainability', to: '/sustainability' },
   { label: 'Contact Us', to: '/contact' },
   { label: 'Bulk Order Enquiry', to: '/contact' },
 ];
