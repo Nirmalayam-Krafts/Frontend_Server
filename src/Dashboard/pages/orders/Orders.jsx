@@ -13,6 +13,7 @@ import {
 } from "../../components/ui";
 import OrderDetail from "../../components/orders/OrderDetail";
 import OrderActionsDashboard from "../../components/orders/OrderActionsDashboard";
+import OrderListSection from "../../components/orders/OrderListSection";
 import {
   Plus,
   Search,
@@ -171,12 +172,37 @@ const Orders = () => {
     totalPages: 1,
   };
 
+  const normalizePaymentStatusKey = (status) => {
+    const key = String(status || "Unpaid")
+      .trim()
+      .toUpperCase();
+    if (key.startsWith("PARTIAL")) return "PARTIAL";
+    return key;
+  };
+
+  const getOrderReference = (id) => {
+    const value = String(id || "").trim();
+    return value ? `#${value.slice(-6).toUpperCase()}` : "#ORDER";
+  };
+
+  const formatDimensionsLabel = (dimensions) => {
+    if (!dimensions) return "Not added";
+    const length = Number(dimensions.length || 0);
+    const width = Number(dimensions.width || 0);
+    const height = Number(dimensions.height || 0);
+    const unit = dimensions.unit || "inch";
+
+    if (!length && !width && !height) return "Not added";
+    return `${length} x ${width} x ${height} ${unit}`;
+  };
+
   const formattedOrders = useMemo(() => {
     return rawOrders.map((order) => {
-      const amount =
-        order?.payment?.paymentType === "full"
-          ? order?.payment?.fullPaidAmount || 0
-          : order?.payment?.partialPaidAmount || 0;
+      const dimensions = order?.orderDetails?.dimensions || {};
+      const paymentMode =
+        order?.confirmedPayment?.paymentMode || order?.payment?.paymentType || "";
+      const totalAmount = Number(order?.totalAmount || 0);
+      const paidAmount = Number(order?.paidAmount || 0);
 
       return {
         id: order?._id,
@@ -189,19 +215,41 @@ const Orders = () => {
         source: order?.source || "Manual",
         orderStatus: order?.orderStatus || "Pending",
         paymentStatus: order?.paymentStatus || "Unpaid",
-        totalAmount: order?.totalAmount || 0,
-        paidAmount: order?.paidAmount || 0,
+        totalAmount,
+        paidAmount,
         orderStatusKey: (order?.orderStatus || "Pending").toUpperCase(),
-        paymentStatusKey: (order?.paymentStatus || "Unpaid").toUpperCase(),
+        paymentStatusKey: normalizePaymentStatusKey(order?.paymentStatus),
         date: order?.createdAt
           ? new Date(order.createdAt).toLocaleDateString()
           : "—",
         fullDate: order?.createdAt || "",
+        createdAt: order?.createdAt || null,
+        updatedAt: order?.updatedAt || null,
         notes: order?.notes || "",
         payment: order?.payment || {},
-        orderDetails: order?.orderDetails || {},
+        paymentMode,
+        orderDetails: {
+          ...(order?.orderDetails || {}),
+          length:
+            order?.orderDetails?.dimensions?.length ?? order?.orderDetails?.length ?? 0,
+          width:
+            order?.orderDetails?.dimensions?.width ?? order?.orderDetails?.width ?? 0,
+          height:
+            order?.orderDetails?.dimensions?.height ?? order?.orderDetails?.height ?? 0,
+          dimensionUnit:
+            order?.orderDetails?.dimensions?.unit ||
+            order?.orderDetails?.dimensionUnit ||
+            "inch",
+          dimensions,
+        },
+        orderDimensions: dimensions,
+        dimensionSummary: formatDimensionsLabel(dimensions),
         confirmedPayment: order?.confirmedPayment || {},
         delivery: order?.delivery || {},
+        deliveryAddress: order?.delivery?.deliveryAddress || "",
+        deliveryDate: order?.delivery?.deliveryDate || null,
+        dispatchDate: order?.delivery?.dispatchDate || null,
+        deliveryMode: order?.delivery?.deliveryMode || "",
         inventoryCheck: order?.inventoryCheck || {},
         quotation: order?.quotation || {},
         lastProcessingCheck: order?.lastProcessingCheck || {},
@@ -209,7 +257,9 @@ const Orders = () => {
         isConfirmed: order?.isConfirmed || false,
         confirmedAt: order?.confirmedAt || null,
         confirmedBy: order?.confirmedBy || null,
-        amount: order?.totalAmount || 0,
+        amount: totalAmount,
+        pendingAmount: Math.max(0, totalAmount - paidAmount),
+        reference: getOrderReference(order?._id),
         avatar: (order?.customerName || "U")
           .split(" ")
           .map((part) => part[0])
@@ -249,11 +299,25 @@ const Orders = () => {
 
   const paymentColors = {
     UNPAID: "danger",
-    "PARTIAL PAID": "warning",
+    PARTIAL: "warning",
     PAID: "success",
   };
 
   const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString()}`;
+
+  const orderStatusMeta = {
+    PENDING: { label: "Pending", icon: Clock3, tone: "text-amber-700" },
+    CONFIRMED: { label: "Confirmed", icon: ShieldCheck, tone: "text-emerald-700" },
+    PROCESSING: { label: "Processing", icon: RefreshCw, tone: "text-blue-700" },
+    COMPLETED: { label: "Completed", icon: CheckCircle2, tone: "text-emerald-700" },
+    CANCELLED: { label: "Cancelled", icon: AlertTriangle, tone: "text-red-700" },
+  };
+
+  const paymentStatusMeta = {
+    UNPAID: { label: "Unpaid", icon: AlertTriangle, tone: "text-red-700" },
+    PARTIAL: { label: "Partial Paid", icon: Wallet, tone: "text-amber-700" },
+    PAID: { label: "Paid", icon: CheckCircle2, tone: "text-emerald-700" },
+  };
 
   const handleFormChange = (field, value) => {
     setManualOrderForm((prev) => ({
@@ -1891,7 +1955,7 @@ ${lines || "(See PDF for full BOM)"}
                   <div key={i} className="h-16 animate-pulse rounded-2xl bg-gray-100" />
                 ))}
               </div>
-            ) : (
+            ) : viewMode === "__legacy_table__" ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -2132,6 +2196,27 @@ ${lines || "(See PDF for full BOM)"}
                   </tbody>
                 </table>
               </div>
+            ) : (
+              <OrderListSection
+                orders={formattedOrders}
+                isLoading={isLoading}
+                checkingOrderId={checkingOrderId}
+                processingActionId={processingActionId}
+                completeActionId={completeActionId}
+                orderStatusColors={orderStatusColors}
+                paymentColors={paymentColors}
+                orderStatusMeta={orderStatusMeta}
+                paymentStatusMeta={paymentStatusMeta}
+                formatCurrency={formatCurrency}
+                onViewOrder={(order) => {
+                  setSelectedOrder(order);
+                  setShowDetailPanel(true);
+                }}
+                onCheckAvailability={handleCheckOrderAvailability}
+                onOpenQuotation={openQuotationModal}
+                onMoveToProcessing={handleMoveToProcessing}
+                onCompleteOrder={handleCompleteOrder}
+              />
             )}
 
             {(pagination?.totalPages || 1) > 1 && (
@@ -3485,13 +3570,13 @@ ${lines || "(See PDF for full BOM)"}
             />
 
             <motion.div
-              className="relative h-screen w-full max-w-xl overflow-y-auto bg-white shadow-2xl"
+              className="relative h-screen w-full max-w-4xl overflow-y-auto bg-slate-50 shadow-2xl"
               initial={{ x: 400 }}
               animate={{ x: 0 }}
             >
               <div className="p-6">
                 <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">Order Detail</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Order Workspace</h2>
                   <button onClick={() => setShowDetailPanel(false)} className="text-gray-500">
                     <X className="h-5 w-5" />
                   </button>
@@ -3673,6 +3758,14 @@ ${lines || "(See PDF for full BOM)"}
                     </div>
                   )}
                 </Modal>
+                <OrderDetail order={selectedOrder} />
+                <div className="mt-6 flex justify-end">
+                  <Button variant="secondary" onClick={() => setShowDetailPanel(false)}>
+                    Close
+                  </Button>
+                </div>
+                {selectedOrder?.id === "__legacy_drawer__" && (
+                  <>
                 <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
@@ -3848,6 +3941,8 @@ ${lines || "(See PDF for full BOM)"}
                     Close
                   </Button>
                 </div>
+                  </>
+                )}
               </div>
             </motion.div>
           </motion.div>

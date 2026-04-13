@@ -345,6 +345,24 @@ const RawMaterial = () => {
   );
   const lowStockCount = lowStockAlerts.length;
   const differentBagTypes = products.length;
+  const manufacturingHoldUnits = rawMaterials.reduce(
+    (sum: number, item: IRawMaterial) => sum + Number(item.reservedStock || 0),
+    0
+  );
+  const availableToUseUnits = rawMaterials.reduce(
+    (sum: number, item: IRawMaterial) => sum + Number(item.availableForSale || 0),
+    0
+  );
+  const activeMaterialRate = totalMaterials ? Math.round((activeMaterials / totalMaterials) * 100) : 0;
+  const lowStockSummary =
+    lowStockCount === 0
+      ? "All materials are above reorder point"
+      : `${lowStockCount} material${lowStockCount > 1 ? "s" : ""} need close monitoring`;
+  const formattedRawMaterialValue = `₹${Number(totalRawMaterialValue).toLocaleString("en-IN")}`;
+  const stockToAddValue = Number(stockToAdd || 0);
+  const projectedStockLevel = Number(selectedStockItem?.availableStock || 0) + stockToAddValue;
+  const projectedStockValue =
+    projectedStockLevel * Number(selectedStockItem?.unitPrice || 0);
 
   const selectedProductionProduct = useMemo(() => {
     return (
@@ -380,6 +398,10 @@ const RawMaterial = () => {
       unit: baseProductDimensions.unit || "inch",
     };
   }, [productionForm.dimensionMode, productionForm.customDimensions, baseProductDimensions]);
+  const selectedProductDimensionSummary = `${toNumber(effectiveDimensions.length)} × ${toNumber(
+    effectiveDimensions.width
+  )} × ${toNumber(effectiveDimensions.height)} ${effectiveDimensions.unit || "inch"}`;
+  const selectedProductMaterialCount = selectedProductionProduct?.rawMaterials?.length || 0;
 
   const dimensionScaleFactor = useMemo(() => {
     if (!selectedProductionProduct) return 1;
@@ -788,15 +810,20 @@ const RawMaterial = () => {
         <motion.div
           initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
-          className="overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-6 text-white shadow-xl ring-1 ring-white/10"
+          className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-700 p-6 text-white shadow-xl ring-1 ring-emerald-900/10 md:p-7"
         >
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+          <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_58%)]" />
+          <div className="absolute -left-16 top-10 h-36 w-36 rounded-full bg-emerald-300/10 blur-3xl" />
+          <div className="absolute bottom-0 right-8 h-40 w-40 rounded-full bg-cyan-200/10 blur-3xl" />
+
+          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-stretch xl:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-50 backdrop-blur-sm">
-                Inventory Control Panel
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-[0.18em] text-emerald-50 backdrop-blur-sm">
+                <ClipboardList className="h-3.5 w-3.5" />
+                <span>Inventory Control Panel</span>
               </div>
 
-              <h1 className="mt-4 text-3xl font-bold leading-tight md:text-4xl">
+              <h1 className="mt-4 text-3xl font-bold leading-tight text-white md:text-4xl">
                 Raw Material Management
               </h1>
 
@@ -804,35 +831,132 @@ const RawMaterial = () => {
                 Manage raw materials, monitor alerts, create products, and generate
                 dimension-wise inventory stock directly from mapped product raw materials.
               </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    label: "Active materials",
+                    value: `${activeMaterials}/${totalMaterials || 0}`,
+                    helper: `${activeMaterialRate}% operational`,
+                    Icon: CheckCircle2,
+                  },
+                  {
+                    label: "Low stock alerts",
+                    value: String(lowStockCount),
+                    helper: lowStockCount === 0 ? "Everything looks stable" : "Needs replenishment",
+                    Icon: AlertTriangle,
+                  },
+                  {
+                    label: "Mapped products",
+                    value: String(differentBagTypes),
+                    helper: "Ready for stock creation",
+                    Icon: ShoppingBag,
+                  },
+                  {
+                    label: "Material value",
+                    value: formattedRawMaterialValue,
+                    helper: "Live stock worth",
+                    Icon: Calculator,
+                  },
+                ].map(({ label, value, helper, Icon }) => (
+                  <div
+                    key={label}
+                    className="rounded-2xl border border-white/12 bg-white/10 p-4 backdrop-blur-sm"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                          {label}
+                        </p>
+                        <p className="mt-2 text-2xl font-bold text-white">{value}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white/12 p-3 text-white shadow-inner shadow-white/10">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-emerald-50/80">{helper}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:min-w-[420px] xl:max-w-[460px]">
-              <button
-                type="button"
-                onClick={() => navigate("/Product")}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white px-5 py-3 text-sm font-semibold text-emerald-800 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg"
-              >
-                <ShoppingBag size={18} />
-                <span>Create Product</span>
-              </button>
+            <div className="xl:w-[430px]">
+              <div className="rounded-[28px] border border-white/12 bg-white/10 p-4 shadow-2xl backdrop-blur-md">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                      Quick Actions
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-white">
+                      Keep stock and product flow moving
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-emerald-50/80">
+                      Jump directly into product setup, production stock, or new raw
+                      material entry from one place.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/12 p-3 text-white shadow-inner shadow-white/10">
+                    <Activity className="h-5 w-5" />
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setShowProductionModal(true)}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-emerald-900/40 px-5 py-3 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-900/55 hover:shadow-lg"
-              >
-                <Factory size={18} />
-                <span>Create Production Stock</span>
-              </button>
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/Product")}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white px-5 py-3 text-sm font-semibold text-emerald-900 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg"
+                  >
+                    <ShoppingBag size={18} />
+                    <span>Create Product</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="sm:col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
-              >
-                <Plus size={18} />
-                <span>Create Raw Material</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowProductionModal(true)}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-emerald-950/35 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-950/50 hover:shadow-lg"
+                  >
+                    <Factory size={18} />
+                    <span>Create Production Stock</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="sm:col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
+                  >
+                    <Plus size={18} />
+                    <span>Create Raw Material</span>
+                  </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Available to Use
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-white">
+                      {availableToUseUnits.toLocaleString()}
+                    </p>
+                    <p className="mt-1 text-xs text-emerald-50/75">
+                      Immediately usable for mapped production.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                      <Layers3 className="h-3.5 w-3.5" />
+                      Manufacturing Hold
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-white">
+                      {manufacturingHoldUnits.toLocaleString()}
+                    </p>
+                    <p className="mt-1 text-xs text-emerald-50/75">
+                      Reserved stock already committed to operations.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -842,113 +966,145 @@ const RawMaterial = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Total Materials
-                </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {totalMaterials}
-                </p>
+          <Card className="overflow-hidden rounded-[28px] border border-emerald-100 bg-white shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" />
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Total Materials
+                  </p>
+                  <p className="mt-3 text-3xl font-bold text-gray-900">{totalMaterials}</p>
+                </div>
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                  <Boxes className="h-5 w-5" />
+                </div>
               </div>
-              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
-                <Boxes className="h-6 w-6" />
+              <p className="mt-4 text-sm text-gray-500">
+                Complete count of raw material records managed in inventory.
+              </p>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden rounded-[28px] border border-blue-100 bg-white shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500" />
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Active Materials
+                  </p>
+                  <p className="mt-3 text-3xl font-bold text-gray-900">{activeMaterials}</p>
+                </div>
+                <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+                  <Package className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs font-medium text-gray-500">
+                  <span>Operational coverage</span>
+                  <span>{activeMaterialRate}%</span>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-blue-50">
+                  <div
+                    className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                    style={{ width: `${activeMaterialRate}%` }}
+                  />
+                </div>
               </div>
             </div>
           </Card>
 
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Active Materials
-                </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {activeMaterials}
-                </p>
+          <Card className="overflow-hidden rounded-[28px] border border-violet-100 bg-white shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Total Stock Units
+                  </p>
+                  <p className="mt-3 text-3xl font-bold text-gray-900">
+                    {Number(totalStockUnits).toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-violet-50 p-3 text-violet-600">
+                  <Layers3 className="h-5 w-5" />
+                </div>
               </div>
-              <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-                <Package className="h-6 w-6" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Total Stock Units
-                </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {Number(totalStockUnits).toLocaleString()}
-                </p>
-                <div className="mt-1 flex items-center gap-2 text-[10px] font-medium text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                    {rawMaterials.reduce((sum: number, i: IRawMaterial) => sum + (i.reservedStock || 0), 0).toLocaleString()} Manufacturing Hold
+              <div className="mt-4 space-y-2 text-xs text-gray-600">
+                <div className="flex items-center justify-between rounded-2xl bg-violet-50/70 px-3 py-2">
+                  <span className="font-medium text-gray-500">Manufacturing hold</span>
+                  <span className="font-semibold text-gray-900">
+                    {manufacturingHoldUnits.toLocaleString()}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {rawMaterials.reduce((sum: number, i: IRawMaterial) => sum + (i.availableForSale || 0), 0).toLocaleString()} Available to Use
+                </div>
+                <div className="flex items-center justify-between rounded-2xl bg-emerald-50/70 px-3 py-2">
+                  <span className="font-medium text-gray-500">Available to use</span>
+                  <span className="font-semibold text-gray-900">
+                    {availableToUseUnits.toLocaleString()}
                   </span>
                 </div>
               </div>
-              <div className="rounded-2xl bg-purple-50 p-3 text-purple-600">
-                <Layers3 className="h-6 w-6" />
-              </div>
             </div>
           </Card>
 
-          <Card className="rounded-2xl border border-red-100 bg-red-50 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-red-500">
-                  Low Stock Alerts
-                </p>
-                <p className="mt-2 text-3xl font-bold text-red-600">
-                  {lowStockCount}
-                </p>
-                <p className="mt-2 text-xs text-red-600">Need attention</p>
+          <Card className="overflow-hidden rounded-[28px] border border-red-100 bg-gradient-to-br from-red-50 via-white to-red-50/80 shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-red-500 to-orange-400" />
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500">
+                    Low Stock Alerts
+                  </p>
+                  <p className="mt-3 text-3xl font-bold text-red-600">{lowStockCount}</p>
+                </div>
+                <div className="rounded-2xl bg-white p-3 text-red-600 shadow-sm">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
               </div>
-              <div className="rounded-2xl bg-white p-3 text-red-600">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
+              <p className="mt-4 text-sm text-red-600">{lowStockSummary}</p>
             </div>
           </Card>
 
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Total Raw Material Value
-                </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {Number(totalRawMaterialValue).toLocaleString()}
-                </p>
-                <p className="mt-2 text-xs text-gray-500">
-                  Sum of stock value (stock x unit price)
-                </p>
+          <Card className="overflow-hidden rounded-[28px] border border-emerald-100 bg-white shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-lime-400" />
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Total Raw Material Value
+                  </p>
+                  <p className="mt-3 text-3xl font-bold text-gray-900">
+                    {formattedRawMaterialValue}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                  <Calculator className="h-5 w-5" />
+                </div>
               </div>
-              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
-                <Calculator className="h-6 w-6" />
-              </div>
+              <p className="mt-4 text-sm text-gray-500">
+                Total live stock value based on available units and unit price.
+              </p>
             </div>
           </Card>
 
-          <Card className="rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Bag Types / Products
-                </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {differentBagTypes}
-                </p>
+          <Card className="overflow-hidden rounded-[28px] border border-amber-100 bg-white shadow-sm">
+            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-orange-400" />
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Bag Types / Products
+                  </p>
+                  <p className="mt-3 text-3xl font-bold text-gray-900">{differentBagTypes}</p>
+                </div>
+                <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
+                  <ShoppingBag className="h-5 w-5" />
+                </div>
               </div>
-              <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
-                <ShoppingBag className="h-6 w-6" />
-              </div>
+              <p className="mt-4 text-sm text-gray-500">
+                Product entries already mapped for production stock generation.
+              </p>
             </div>
           </Card>
         </motion.div>
@@ -1302,8 +1458,51 @@ const RawMaterial = () => {
             setShowProductionModal(false);
             setProductionForm(initialProductionForm);
           }}
+          size="xl"
         >
-          <form onSubmit={handleCreateProductionStock} className="space-y-5">
+          <form onSubmit={handleCreateProductionStock} className="space-y-6">
+            <div className="overflow-hidden rounded-[28px] border border-emerald-100 bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-700 text-white shadow-lg">
+              <div className="grid gap-5 p-5 md:grid-cols-[1.5fr_1fr] md:p-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-50">
+                    <Factory className="h-3.5 w-3.5" />
+                    Production Stock Workspace
+                  </div>
+                  <h3 className="mt-4 text-2xl font-bold">Create stock with better clarity</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/85">
+                    Choose a product, define quantity and bag details, then review dimensions,
+                    price, and material usage before creating stock.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">
+                  <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                      Bags
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-white">
+                      {toNumber(productionForm.quantity).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                      Mapped materials
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-white">
+                      {selectedProductMaterialCount}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                      Dimensions
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {selectedProductionProduct ? selectedProductDimensionSummary : "Select product first"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Product
@@ -1324,7 +1523,54 @@ const RawMaterial = () => {
             </div>
 
             {selectedProductionProduct && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <ShoppingBag className="h-4 w-4" />
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+                      Selected Product
+                    </p>
+                  </div>
+                  <p className="mt-2 text-base font-bold text-gray-900">
+                    {selectedProductionProduct.name}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    SKU: {selectedProductionProduct.sku}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <FileBox className="h-4 w-4" />
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+                      Bag Type
+                    </p>
+                  </div>
+                  <p className="mt-2 text-base font-bold text-gray-900">
+                    {selectedProductionProduct.bagType || "Not specified"}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    {selectedProductMaterialCount} mapped raw materials
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                  <div className="flex items-center gap-2 text-violet-700">
+                    <Ruler className="h-4 w-4" />
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+                      Default Dimensions
+                    </p>
+                  </div>
+                  <p className="mt-2 text-base font-bold text-gray-900">
+                    {toNumber(baseProductDimensions.length)} × {toNumber(baseProductDimensions.width)} ×{" "}
+                    {toNumber(baseProductDimensions.height)} {baseProductDimensions.unit || "inch"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {selectedProductionProduct && (
+              <div className="hidden rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <p className="text-sm font-semibold text-gray-900">
                   Selected Product: {selectedProductionProduct.name}
                 </p>
@@ -1338,13 +1584,11 @@ const RawMaterial = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-3">
               <div>
                 <Input
                   label="Number of Bags"
-                  className=""
-                  error={undefined}
-                  icon={undefined}
+                  icon={Package}
                   type="number"
                   min="1"
                   value={productionForm.quantity}
@@ -1467,9 +1711,7 @@ const RawMaterial = () => {
               <div>
                 <Input
                   label="Reorder Point"
-                  className=""
-                  error={undefined}
-                  icon={undefined}
+                  icon={AlertTriangle}
                   type="number"
                   min="0"
                   value={productionForm.reorderPt}
@@ -1481,9 +1723,7 @@ const RawMaterial = () => {
               <div>
                 <Input
                   label="Unit Price (Per Bag)"
-                  className=""
-                  error={undefined}
-                  icon={undefined}
+                  icon={Calculator}
                   type="number"
                   min="0"
                   value={productionForm.unitPrice}
@@ -1493,20 +1733,35 @@ const RawMaterial = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <div className="rounded-[28px] border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
                 Bag Price Summary
               </p>
-              <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <p className="rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
-                  Qty: <span className="font-bold text-gray-900">{toNumber(productionForm.quantity)}</span>
-                </p>
-                <p className="rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
-                  Unit Price: <span className="font-bold text-gray-900">{effectiveUnitPricePreview.toLocaleString()}</span>
-                </p>
-                <p className="rounded-xl bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
-                  Total: <span className="font-bold">{manualTotalStockValuePreview.toLocaleString()}</span>
-                </p>
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Quantity
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">
+                    {toNumber(productionForm.quantity).toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Effective Unit Price
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">
+                    Rs. {effectiveUnitPricePreview.toLocaleString("en-IN")}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-100/70 px-4 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                    Total Stock Value
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-emerald-900">
+                    Rs. {manualTotalStockValuePreview.toLocaleString("en-IN")}
+                  </p>
+                </div>
               </div>
               {manualBaseUnitPricePreview > 0 && productionForm.dimensionMode === "custom" && (
                 <p className="mt-2 text-xs text-gray-600">
@@ -1520,7 +1775,7 @@ const RawMaterial = () => {
             </div>
 
             {selectedProductionProduct && (
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <Ruler className="h-4 w-4 text-emerald-600" />
                   <h3 className="text-sm font-bold text-gray-900">
@@ -1657,7 +1912,7 @@ const RawMaterial = () => {
             )}
 
             {selectedProductionProduct && (
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   <h3 className="text-sm font-bold text-gray-900">
@@ -1738,7 +1993,7 @@ const RawMaterial = () => {
               </div>
             )}
 
-            <div>
+            <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Note
               </label>
@@ -1751,10 +2006,11 @@ const RawMaterial = () => {
               />
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="secondary"
+                className="rounded-xl"
                 onClick={() => {
                   setShowProductionModal(false);
                   setProductionForm(initialProductionForm);
@@ -1762,7 +2018,7 @@ const RawMaterial = () => {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-green-700" size="md" variant="primary">
+              <Button type="submit" className="rounded-xl bg-green-700" size="md" variant="primary">
                 Create Stock
               </Button>
             </div>
@@ -1791,49 +2047,66 @@ const RawMaterial = () => {
             setStockToAdd("");
             setStockNote("");
           }}
+          size="lg"
         >
           {selectedStockItem && (
-            <div className="space-y-5">
-              <div className="rounded-2xl bg-emerald-50 p-4">
-                <p className="text-sm text-gray-500">Material</p>
-                <p className="font-semibold text-gray-900">{selectedStockItem.name}</p>
-
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs uppercase text-gray-500">Current Stock</p>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {Number(selectedStockItem.availableStock || 0).toLocaleString()}{" "}
-                      {selectedStockItem.unit}
+            <div className="space-y-6">
+              <div className="overflow-hidden rounded-[28px] border border-emerald-100 bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-700 text-white shadow-lg">
+                <div className="grid gap-5 p-5 md:grid-cols-[1.35fr_1fr] md:p-6">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-50">
+                      <CirclePlus className="h-3.5 w-3.5" />
+                      Stock Update
+                    </div>
+                    <h3 className="mt-4 text-2xl font-bold">{selectedStockItem.name}</h3>
+                    <p className="mt-2 text-sm leading-6 text-emerald-50/85">
+                      Add fresh stock for this raw material and review the new balance before
+                      saving the update.
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs uppercase text-gray-500">Code</p>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {selectedStockItem.code}
-                    </p>
+                  <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">
+                    <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                        Current Stock
+                      </p>
+                      <p className="mt-2 text-2xl font-bold text-white">
+                        {Number(selectedStockItem.availableStock || 0).toLocaleString()} {selectedStockItem.unit}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                        Material Code
+                      </p>
+                      <p className="mt-2 text-lg font-bold text-white">
+                        {selectedStockItem.code}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
+                        Unit Price
+                      </p>
+                      <p className="mt-2 text-lg font-bold text-white">
+                        Rs. {Number(selectedStockItem.unitPrice || 0).toLocaleString("en-IN")} / {selectedStockItem.unit}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Add Stock Quantity
-                </label>
+              <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
                 <Input
                   label="Add Stock Quantity"
-                  className=""
-                  error={undefined}
-                  icon={undefined}
+                  icon={Package}
                   type="number"
                   min="1"
                   value={stockToAdd}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
-                  placeholder="Enter quantity"
+                  placeholder={`Enter quantity in ${selectedStockItem.unit}`}
                 />
               </div>
 
-              <div>
+              <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Note
                 </label>
@@ -1846,22 +2119,44 @@ const RawMaterial = () => {
                 />
               </div>
 
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="text-sm text-gray-600">
-                  New stock level:
-                  <span className="ml-2 font-semibold text-gray-900">
-                    {(
-                      Number(selectedStockItem.availableStock || 0) +
-                      Number(stockToAdd || 0)
-                    ).toLocaleString()}{" "}
-                    {selectedStockItem.unit}
-                  </span>
-                </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Current Stock
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">
+                    {Number(selectedStockItem.availableStock || 0).toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">{selectedStockItem.unit}</p>
+                </div>
+
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
+                    Adding Now
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">
+                    {stockToAddValue.toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">{selectedStockItem.unit}</p>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                    New Stock Level
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-emerald-900">
+                    {projectedStockLevel.toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {selectedStockItem.unit} | Value Rs. {projectedStockValue.toLocaleString("en-IN")}
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <Button
                   variant="secondary"
+                  className="rounded-xl"
                   onClick={() => {
                     setShowStockModal(false);
                     setSelectedStockItem(null);
@@ -1872,7 +2167,7 @@ const RawMaterial = () => {
                   Cancel
                 </Button>
 
-                <Button className="bg-green-900" onClick={handleAddStock}>
+                <Button className="rounded-xl bg-green-900" onClick={handleAddStock}>
                   Add Stock
                 </Button>
               </div>
