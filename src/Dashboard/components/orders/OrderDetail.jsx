@@ -94,7 +94,11 @@ export default function OrderDetail({ order }) {
       ? `${Number(dimensions.length || 0)} x ${Number(dimensions.width || 0)} x ${Number(dimensions.height || 0)} ${dimensions.unit || "inch"}`
       : "Not added";
 
-  const currentStepIndex = workflowSteps.findIndex((step) => step.key === order.orderStatusKey);
+  const workflowReferenceKey =
+    order.orderStatusKey === "CANCELLED"
+      ? String(order?.cancellation?.previousStatus || "PENDING").toUpperCase()
+      : order.orderStatusKey;
+  const currentStepIndex = workflowSteps.findIndex((step) => step.key === workflowReferenceKey);
 
   return (
     <motion.div
@@ -154,7 +158,15 @@ export default function OrderDetail({ order }) {
                           : "bg-gray-200 text-gray-400"
                       } ${current ? "ring-4 ring-emerald-100" : ""}`}
                     >
-                      <StepIcon className={`h-5 w-5 ${step.key === "PROCESSING" && active ? "animate-spin" : ""}`} />
+                      <StepIcon
+                        className={`h-5 w-5 ${
+                          step.key === "PROCESSING" &&
+                          active &&
+                          order.orderStatusKey !== "CANCELLED"
+                            ? "animate-spin"
+                            : ""
+                        }`}
+                      />
                     </div>
                     <p className={`text-xs font-semibold ${active ? "text-emerald-700" : "text-gray-400"}`}>
                       {step.label}
@@ -172,6 +184,25 @@ export default function OrderDetail({ order }) {
             })}
           </div>
         </div>
+
+        {order.orderStatusKey === "CANCELLED" && (
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-red-100 p-2 text-red-700">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-red-900">
+                  Cancellation saved for this order
+                </p>
+                <p className="mt-1 text-sm leading-6 text-red-800">
+                  {order?.cancellation?.stockActionNote ||
+                    "This order was cancelled and stock impact depends on the stage it reached."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -357,6 +388,52 @@ export default function OrderDetail({ order }) {
               />
             </div>
           </div>
+
+          {(order.orderStatusKey === "CANCELLED" ||
+            order?.cancellation?.cancelledAt ||
+            order?.cancellation?.reason) && (
+            <div className={infoCardClass}>
+              <div className="mb-4 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Cancellation Details
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <DetailBlock
+                  icon={AlertTriangle}
+                  label="Previous Status"
+                  value={order?.cancellation?.previousStatus || "Not added"}
+                  tone="text-red-700"
+                />
+                <DetailBlock
+                  icon={Calendar}
+                  label="Cancelled At"
+                  value={formatDate(order?.cancellation?.cancelledAt)}
+                  tone="text-red-700"
+                />
+                <DetailBlock
+                  icon={User2}
+                  label="Cancelled By"
+                  value={order?.cancellation?.cancelledBy?.name || "Admin/System"}
+                />
+                <DetailBlock
+                  icon={Package}
+                  label="Stock Impact"
+                  value={order?.cancellation?.stockActionNote || "Not added"}
+                />
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-red-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                  Reason
+                </p>
+                <p className="mt-2 text-sm leading-7 text-gray-700">
+                  {order?.cancellation?.reason || "No cancellation reason recorded."}
+                </p>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </motion.div>

@@ -34,6 +34,7 @@ export default function OrderListSection({
   checkingOrderId,
   processingActionId,
   completeActionId,
+  cancelActionId,
   orderStatusColors,
   paymentColors,
   orderStatusMeta,
@@ -44,6 +45,8 @@ export default function OrderListSection({
   onOpenQuotation,
   onMoveToProcessing,
   onCompleteOrder,
+  onCancelOrder,
+  canAdminCancelOrders,
 }) {
   if (isLoading) {
     return (
@@ -251,6 +254,8 @@ export default function OrderListSection({
                       <p className="mt-1 text-sm text-gray-700">
                         {order.orderStatus === "Completed"
                           ? "This order is finished and ready for review."
+                          : order.orderStatus === "Cancelled"
+                            ? "This order has been cancelled. Review the stock impact in details."
                           : order.orderStatus === "Processing"
                             ? "Work is in progress. Keep the team updated here."
                             : order.orderStatus === "Confirmed"
@@ -270,29 +275,33 @@ export default function OrderListSection({
                         <span>View details</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onCheckAvailability(order)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                        title="Check Availability"
-                      >
-                        {checkingOrderId === order.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <ClipboardCheck className="h-4 w-4" />
-                        )}
-                        <span>{checkingOrderId === order.id ? "Checking..." : "Check stock"}</span>
-                      </button>
+                      {order.orderStatusKey !== "CANCELLED" && (
+                        <button
+                          type="button"
+                          onClick={() => onCheckAvailability(order)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                          title="Check Availability"
+                        >
+                          {checkingOrderId === order.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ClipboardCheck className="h-4 w-4" />
+                          )}
+                          <span>{checkingOrderId === order.id ? "Checking..." : "Check stock"}</span>
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => onOpenQuotation(order)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
-                        title="Create Quotation"
-                      >
-                        <FileDown className="h-4 w-4" />
-                        <span>Create quote</span>
-                      </button>
+                      {order.orderStatusKey !== "CANCELLED" && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenQuotation(order)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
+                          title="Create Quotation"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          <span>Create quote</span>
+                        </button>
+                      )}
 
                       {order.orderStatusKey === "CONFIRMED" && (
                         <button
@@ -325,6 +334,23 @@ export default function OrderListSection({
                             <CheckCircle2 className="h-4 w-4" />
                           )}
                           <span>Complete order</span>
+                        </button>
+                      )}
+
+                      {canAdminCancelOrders && order.orderStatusKey !== "CANCELLED" && (
+                        <button
+                          type="button"
+                          onClick={() => onCancelOrder(order)}
+                          disabled={cancelActionId === order.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          title="Cancel Order"
+                        >
+                          {cancelActionId === order.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4" />
+                          )}
+                          <span>Cancel order</span>
                         </button>
                       )}
                     </div>
