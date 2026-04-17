@@ -60,7 +60,7 @@ export default function About() {
         minHeight: isMobile ? '450px' : isTablet ? '480px' : '520px',
         display: 'flex',
         alignItems: 'center',
-        padding: isMobile ? '80px 0 40px' : isTablet ? '90px 0 50px' : '100px 0 40px'
+        padding: isMobile ? '80px var(--container-gutter) 40px' : isTablet ? '90px var(--container-gutter) 50px' : '100px var(--container-gutter) 40px'
       }}>
         <div style={{
           position: 'absolute',
@@ -135,7 +135,7 @@ export default function About() {
       <section className="section-padding" style={{ 
         background: 'white', 
         position: 'relative',
-        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '100px 0'
+        padding: isMobile ? '64px var(--container-gutter)' : isTablet ? '80px var(--container-gutter)' : '100px var(--container-gutter)'
       }}>
         <div className="container">
           <div style={{
@@ -217,7 +217,7 @@ export default function About() {
       {/* ── SECTION: THE VISIONARIES ── */}
       <section className="section-padding" style={{ 
         background: 'var(--kraft-50)',
-        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '120px 0'
+        padding: isMobile ? '64px var(--container-gutter)' : isTablet ? '80px var(--container-gutter)' : '120px var(--container-gutter)'
       }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: isMobile ? 48 : 80 }}>
@@ -287,7 +287,7 @@ export default function About() {
       {/* ── SECTION: QUALITY PILLARS ── */}
       <section className="section-padding" style={{ 
         background: 'white',
-        padding: isMobile ? '64px 0' : isTablet ? '80px 0' : '120px 0'
+        padding: isMobile ? '64px var(--container-gutter)' : isTablet ? '80px var(--container-gutter)' : '120px var(--container-gutter)'
       }}>
         <div className="container">
           <div style={{
@@ -387,7 +387,7 @@ export default function About() {
 
       {/* ── CTA ── */}
       <section style={{
-        padding: isMobile ? '80px 0' : '120px 0',
+        padding: isMobile ? '80px var(--container-gutter)' : '120px var(--container-gutter)',
         textAlign: 'center',
         background: 'var(--ink-950)',
         position: 'relative',

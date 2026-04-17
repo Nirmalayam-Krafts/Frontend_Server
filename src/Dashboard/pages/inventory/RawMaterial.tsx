@@ -39,8 +39,8 @@ import { useNavigate } from "react-router-dom";
 import {
   useGetAllRawMaterials,
   useGetLowStockRawMaterials,
-} from "../../../../hook/rawMaterial";
-import { useGetAllProducts } from "../../../../hook/product";
+} from "../../../../hook/RawMaterial";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 // --- Types ---
 

@@ -25,77 +25,105 @@ const supportLinks = [
 export default function Footer() {
   return (
     <footer style={{
-      background: 'linear-gradient(160deg, var(--kraft-950) 0%, var(--kraft-900) 100%)',
-      color: 'var(--kraft-200)',
-      paddingTop: 72,
+      position: 'relative',
+      background: 'white',
+      color: 'var(--kraft-900)',
+      paddingTop: 60, // Reduced from 80
+      paddingBottom: 30, // Reduced from 40
+      borderTop: '1px solid var(--kraft-100)',
+      overflow: 'hidden'
     }}>
-      <div className="container" style={{ padding: '0 24px' }}>
-        {/* Top Row */}
+      {/* Background Image of Bags */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'url("https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=2000")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 0.05, // Very subtle
+        zIndex: 0,
+        pointerEvents: 'none'
+      }} />
+      <div className="container">
+        {/* Pinterest-style Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 48,
-          paddingBottom: 56,
-          borderBottom: '1px solid rgba(192,148,87,0.2)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 32,
+          marginBottom: 40, // Reduced from 64
+          position: 'relative',
+          zIndex: 1
         }}>
-          {/* Brand */}
-          <div style={{ gridColumn: 'span 1' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-              <div style={{
-                width: 40, height: 40,
-                background: 'linear-gradient(135deg, var(--kraft-600), var(--kraft-400))',
-                borderRadius: 10,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Leaf size={18} color="white" />
+          {/* Brand Card */}
+          <div style={{
+            background: 'var(--kraft-50)',
+            padding: 40,
+            borderRadius: 32,
+            gridColumn: 'span 1',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                <div style={{
+                  width: 48, height: 48,
+                  background: 'var(--eco-600)',
+                  borderRadius: 14,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Leaf size={24} color="white" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--kraft-950)' }}>Nirmalyam</div>
+                  <div style={{ fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--eco-600)', fontWeight: 800 }}>Krafts</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--kraft-100)' }}>Nirmalyam</div>
-                <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--eco-400)' }}>Krafts</div>
-              </div>
+              <p style={{ fontSize: 18, lineHeight: 1.6, color: 'var(--kraft-700)', marginBottom: 32, fontWeight: 500 }}>
+                Crafting the future of sustainable luxury. Zero plastic, 100% impact.
+              </p>
             </div>
-            <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--kraft-400)', marginBottom: 20 }}>
-              Leading the transition to zero-waste packaging in India with premium kraft paper solutions for modern brands.
-            </p>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
               {[
-                { icon: Link2, href: '#' },
                 { icon: Globe, href: '#' },
-                { icon: Heart, href: '#' },
+                { icon: Mail, href: 'mailto:hello@nirmalyamkrafts.com' },
+                { icon: Phone, href: 'tel:+919876543210' },
               ].map(({ icon: Icon, href }, i) => (
                 <a key={i} href={href}
                   style={{
-                    width: 36, height: 36,
-                    borderRadius: 8,
-                    border: '1px solid rgba(192,148,87,0.3)',
+                    width: 44, height: 44,
+                    borderRadius: '50%',
+                    background: 'white',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--kraft-400)',
+                    color: 'var(--kraft-900)',
                     textDecoration: 'none',
-                    transition: 'all 0.2s',
+                    transition: 'all 0.3s ease',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--eco-500)'; e.currentTarget.style.color = 'var(--eco-400)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(192,148,87,0.3)'; e.currentTarget.style.color = 'var(--kraft-400)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; }}
                 >
-                  <Icon size={15} />
+                  <Icon size={18} />
                 </a>
               ))}
             </div>
           </div>
 
-          {/* Shop */}
-          <div>
-            <h4 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--kraft-300)', marginBottom: 18 }}>Shop</h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {shopLinks.map(link => (
+          {/* Links Column 1: Explore */}
+          <div style={{ padding: '20px 10px' }}>
+            <h4 style={{ fontSize: 20, fontWeight: 900, color: 'var(--kraft-950)', marginBottom: 32 }}>Explore</h4>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {[...shopLinks, ...supportLinks.slice(0, 1)].map(link => (
                 <li key={link.label}>
                   <Link to={link.to} style={{
-                    fontSize: 14,
-                    color: 'var(--kraft-400)',
+                    fontSize: 18,
+                    color: 'var(--kraft-600)',
                     textDecoration: 'none',
-                    transition: 'color 0.2s',
+                    fontWeight: 500,
+                    transition: 'all 0.2s',
                   }}
-                    onMouseEnter={e => e.target.style.color = 'var(--kraft-100)'}
-                    onMouseLeave={e => e.target.style.color = 'var(--kraft-400)'}
+                    onMouseEnter={e => { e.target.style.color = 'var(--eco-600)'; e.target.style.paddingLeft = '8px'; }}
+                    onMouseLeave={e => { e.target.style.color = 'var(--kraft-600)'; e.target.style.paddingLeft = '0px'; }}
                   >
                     {link.label}
                   </Link>
@@ -104,20 +132,21 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Policies */}
-          <div>
-            <h4 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--kraft-300)', marginBottom: 18 }}>Policies</h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {policyLinks.map(link => (
+          {/* Links Column 2: Relations */}
+          <div style={{ padding: '20px 10px' }}>
+            <h4 style={{ fontSize: 20, fontWeight: 900, color: 'var(--kraft-950)', marginBottom: 32 }}>Relations</h4>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {[...supportLinks.slice(1), ...policyLinks].map(link => (
                 <li key={link.label}>
                   <Link to={link.to} style={{
-                    fontSize: 14,
-                    color: 'var(--kraft-400)',
+                    fontSize: 18,
+                    color: 'var(--kraft-600)',
                     textDecoration: 'none',
-                    transition: 'color 0.2s',
+                    fontWeight: 500,
+                    transition: 'all 0.2s',
                   }}
-                    onMouseEnter={e => e.target.style.color = 'var(--kraft-100)'}
-                    onMouseLeave={e => e.target.style.color = 'var(--kraft-400)'}
+                    onMouseEnter={e => { e.target.style.color = 'var(--eco-600)'; e.target.style.paddingLeft = '8px'; }}
+                    onMouseLeave={e => { e.target.style.color = 'var(--kraft-600)'; e.target.style.paddingLeft = '0px'; }}
                   >
                     {link.label}
                   </Link>
@@ -126,47 +155,28 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Support */}
-          <div>
-            <h4 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--kraft-300)', marginBottom: 18 }}>Support</h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {supportLinks.map(link => (
-                <li key={link.label}>
-                  <Link to={link.to} style={{
-                    fontSize: 14,
-                    color: 'var(--kraft-400)',
-                    textDecoration: 'none',
-                    transition: 'color 0.2s',
-                  }}
-                    onMouseEnter={e => e.target.style.color = 'var(--kraft-100)'}
-                    onMouseLeave={e => e.target.style.color = 'var(--kraft-400)'}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--kraft-300)', marginBottom: 18 }}>Contact</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Reach Us Card */}
+          <div style={{
+            background: 'var(--kraft-950)',
+            padding: 40,
+            borderRadius: 32,
+            color: 'white'
+          }}>
+            <h4 style={{ fontSize: 20, fontWeight: 900, color: 'white', marginBottom: 24 }}>Reach Us</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               {[
-                { icon: Mail, text: 'hello@nirmalyamkrafts.com', href: 'mailto:hello@nirmalyamkrafts.com' },
-                { icon: Phone, text: '+91 98765 43210', href: 'tel:+919876543210' },
-                { icon: MapPin, text: 'Plot 42, Industrial Area Phase II, Bengaluru, KA 560066', href: null },
-              ].map(({ icon: Icon, text, href }) => (
-                <div key={text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <Icon size={15} color="var(--eco-500)" style={{ marginTop: 2, flexShrink: 0 }} />
-                  {href ? (
-                    <a href={href} style={{ fontSize: 13, color: 'var(--kraft-400)', textDecoration: 'none', lineHeight: 1.5 }}
-                      onMouseEnter={e => e.target.style.color = 'var(--kraft-100)'}
-                      onMouseLeave={e => e.target.style.color = 'var(--kraft-400)'}
-                    >{text}</a>
-                  ) : (
-                    <span style={{ fontSize: 13, color: 'var(--kraft-400)', lineHeight: 1.5 }}>{text}</span>
-                  )}
+                { icon: MapPin, text: 'Plot 42, Industrial Area, Noida, UP', sub: 'Main Production Unit' },
+                { icon: Phone, text: '+91 98765 43210', sub: '9 AM - 7 PM' },
+                { icon: Mail, text: 'hello@nirmalyam.com', sub: 'Bulk Inquiries' },
+              ].map(({ icon: Icon, text, sub }) => (
+                <div key={text} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                  <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={18} color="var(--eco-400)" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>{text}</div>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{sub}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -175,31 +185,16 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div style={{
+          paddingTop: 24, // Reduced from 40
+          borderTop: '1px solid var(--kraft-100)',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
           gap: 16,
-          padding: '20px 0',
         }}>
-          <p style={{ fontSize: 13, color: 'var(--kraft-600)' }}>
-            © 2026 Nirmalyam Krafts. All rights reserved.
+          <p style={{ fontSize: 16, color: 'var(--kraft-400)', fontWeight: 500 }}>
+            © 2026 Nirmalyam Krafts. Designed with <Heart size={14} color="#ff4d4d" fill="#ff4d4d" style={{ display: 'inline', margin: '0 4px' }} /> in India.
           </p>
-          <div style={{ display: 'flex', gap: 24 }}>
-            {['Security', 'Accessibility', 'Status'].map(label => (
-              <Link key={label} to="#" style={{
-                fontSize: 13,
-                color: 'var(--kraft-600)',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-              }}
-                onMouseEnter={e => e.target.style.color = 'var(--kraft-300)'}
-                onMouseLeave={e => e.target.style.color = 'var(--kraft-600)'}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
         </div>
       </div>
     </footer>

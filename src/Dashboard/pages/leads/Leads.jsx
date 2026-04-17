@@ -40,7 +40,7 @@ import { toast } from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "../../../context/Adminauth";
 import { useGetInventory } from "../../../../hook/inventory";
-import { useGetAllProducts } from "../../../../hook/product";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 const FOLLOWUP_FLOW = [
   { key: "first_followup", label: "First Follow-up", order: 1 },

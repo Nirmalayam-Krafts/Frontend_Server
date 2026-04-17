@@ -251,7 +251,7 @@ export default function Home() {
         <div className="container" style={{
           position: 'relative',
           zIndex: 1,
-          padding: isMobile ? '100px 0px 20px' : '80px 0px 30px',
+          padding: isMobile ? '100px var(--container-gutter) 20px' : '80px var(--container-gutter) 30px',
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr',
           gap: isMobile ? 24 : 32,
@@ -1032,9 +1032,9 @@ export default function Home() {
       </section>
 
       {/* ── CTA: About Factory ── */}
-      <section style={{ 
-        background: '#fff9f2', 
-        padding: isMobile ? '60px 24px' : '80px 0', 
+      <section style={{
+        background: '#fff9f2',
+        padding: isMobile ? '60px 24px' : '80px 0',
         borderBottom: '1px solid var(--kraft-100)',
         position: 'relative',
         overflow: 'hidden'
@@ -1151,9 +1151,9 @@ export default function Home() {
       </section>
 
       {/* ── CTA: Sustainability ── */}
-      <section style={{ 
-        background: 'var(--eco-50)', 
-        padding: isMobile ? '60px 24px' : '80px 0', 
+      <section style={{
+        background: 'var(--eco-50)',
+        padding: isMobile ? '60px 24px' : '80px 0',
         borderBottom: '1px solid var(--eco-100)',
         position: 'relative'
       }}>
@@ -1175,33 +1175,34 @@ export default function Home() {
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
       <section id="testimonials" style={{
         position: 'relative',
-        padding: '80px 24px',
+        padding: isMobile ? '100px 16px' : '140px 24px',
         overflow: 'hidden',
-        background: '#3a2410',
+        background: '#fdfbf7', // Light neutral base
       }}>
-        {/* Wood Texture Background */}
+        {/* High-Quality Paper Texture Background */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("/images/testimonials_bg_wood.png")',
+          backgroundImage: 'url("https://images.unsplash.com/photo-1586075010623-26c50dec8a45?auto=format&fit=crop&q=80&w=2000")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          opacity: 0.9,
-          zIndex: 0
+          opacity: 0.2, // Subtle texture
+          zIndex: 0,
+          filter: 'grayscale(100%) brightness(1.1)'
         }} />
 
-        {/* Overlay for readability */}
+        {/* Light Overlay for readability */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to bottom, rgba(58, 36, 16, 0.4), rgba(58, 36, 16, 0.7))',
+          background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.7))',
           zIndex: 0
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <div className="section-label" style={{
-              color: 'white',
+              color: 'black',
               letterSpacing: '2px',
               textTransform: 'uppercase',
               fontSize: '12px'
@@ -1209,14 +1210,13 @@ export default function Home() {
               Testimonials
             </div>
             <h2 className="section-title" style={{
-              color: 'white',
-              fontSize: 'clamp(28px, 4vw, 44px)',
-              fontWeight: 800,
-              letterSpacing: '-0.5px',
-              textShadow: '0 10px 30px rgba(0,0,0,0.3)',
-              marginBottom: 12
+              color: 'var(--kraft-950)',
+              fontSize: 'clamp(36px, 6vw, 64px)', // Increased size
+              fontWeight: 900,
+              letterSpacing: '-1px',
+              marginBottom: 16
             }}>
-              The Nirmalyam <span style={{ color: 'var(--eco-400)' }}>Legacy</span>
+              The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>Legacy</span>
             </h2>
             <div style={{
               width: 60,
@@ -1226,13 +1226,13 @@ export default function Home() {
               borderRadius: 2
             }} />
             <p style={{
-              color: 'rgba(255,255,255,0.8)',
-              fontSize: 'clamp(15px, 1.1vw, 18px)',
-              maxWidth: 600,
+              color: 'var(--kraft-700)',
+              fontSize: 'clamp(18px, 1.4vw, 22px)', // Increased size
+              maxWidth: 750,
               margin: '0 auto',
-              lineHeight: 1.5,
+              lineHeight: 1.6,
               fontStyle: 'italic',
-              fontWeight: 400
+              fontWeight: 500
             }}>
               Rooted in Quality, Driven by Purpose — Sustainable kraft solutions trusted by leading brands across India.
             </p>
@@ -1289,14 +1289,14 @@ export default function Home() {
                   pointerEvents: isActive ? 'auto' : 'none',
                 }}>
                   <div className="glass-card" style={{
-                    padding: '48px 32px 32px', // Compact padding
+                    padding: '64px 40px 48px', // Increased padding
                     textAlign: 'center',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    backdropFilter: 'blur(30px)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                    borderRadius: 32,
-                    color: 'white',
+                    background: 'white',
+                    backdropFilter: 'none',
+                    border: '2px solid var(--kraft-100)',
+                    boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.08)',
+                    borderRadius: 40,
+                    color: 'var(--kraft-900)',
                     position: 'relative'
                   }}>
                     {/* Floating Profile Image */}
@@ -1331,10 +1331,10 @@ export default function Home() {
                     </div>
 
                     <p style={{
-                      fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: 18,
+                      fontFamily: "'Playfair Display', serif",
+                      fontSize: 24, // Increased size
                       lineHeight: 1.5,
-                      color: 'rgba(255,255,255,0.95)',
+                      color: 'var(--kraft-800)',
                       fontStyle: 'italic',
                     }}>
                       {t.text}
@@ -1468,15 +1468,15 @@ export default function Home() {
             Get a free custom quote from our experts — usually within 2 business hours.
             Sustainable choices made simple.
           </p>
-          <div style={{ 
-            display: 'flex', 
-            gap: 20, 
-            justifyContent: 'center', 
+          <div style={{
+            display: 'flex',
+            gap: 20,
+            justifyContent: 'center',
             flexWrap: 'wrap',
             flexDirection: isMobile ? 'column' : 'row',
             alignItems: 'center'
           }}>
-            <Link to="/contact" className="btn-primary" style={{ 
+            <Link to="/contact" className="btn-primary" style={{
               minWidth: isMobile ? '100%' : 260,
               padding: '18px 32px',
               fontSize: 16,

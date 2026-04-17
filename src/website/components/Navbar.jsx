@@ -13,7 +13,7 @@ const navLinks = [
       { label: 'Luxury Bags', to: '/products/luxury' },
     ],
   },
-// { label: 'Design Your Product', to: '/design' },
+  // { label: 'Design Your Product', to: '/design' },
   { label: 'About', to: '/about' },
   { label: 'Sustainable Solutions', to: '/sustainability' },
   { label: 'Contact', to: '/contact' },
@@ -59,15 +59,21 @@ export default function Navbar() {
           background: scrolled
             ? 'rgba(253, 249, 243, 0.96)'
             : isHome
-            ? 'transparent'
-            : 'rgba(253, 249, 243, 0.96)',
+              ? 'transparent'
+              : 'rgba(253, 249, 243, 0.96)',
           backdropFilter: scrolled || !isHome ? 'blur(20px)' : 'none',
           boxShadow: scrolled ? 'var(--shadow-sm)' : 'none',
           borderBottom: scrolled ? '1px solid rgba(192, 148, 87, 0.15)' : 'none',
           padding: scrolled ? '10px 0' : '18px 0',
         }}
       >
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0px' }}>
+        <div className="container" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 var(--container-gutter)', // Consistent side padding
+          maxWidth: '1800px' // Wider reach for elite feel
+        }}>
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             <div style={{
@@ -198,9 +204,9 @@ export default function Navbar() {
           {/* Right Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
-            <Link to="/contact" className="btn-primary" style={{ 
-              padding: isMobile ? '8px 12px' : '9px 22px', 
-              fontSize: isMobile ? '12px' : '13px' 
+            <Link to="/contact" className="btn-primary" style={{
+              padding: isMobile ? '8px 12px' : '9px 22px',
+              fontSize: isMobile ? '12px' : '13px'
             }}>
               <span style={{ display: isMobile ? 'none' : 'inline' }}>Get a Quote</span>
               <ShoppingBag size={isMobile ? 18 : 14} />

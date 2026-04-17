@@ -497,9 +497,34 @@ export default function ProductCategory() {
                       objectFit: 'cover',
                       transition: 'transform 0.63s var(--transition-main)'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                    className="gallery-img"
                   />
+                  {/* Hover Overlay */}
+                  <div className="gallery-overlay" style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease',
+                    backdropFilter: 'blur(4px)'
+                  }}>
+                    <Link to="/contact" style={{
+                      padding: '12px 24px',
+                      background: 'white',
+                      color: 'var(--kraft-950)',
+                      borderRadius: 'var(--radius-full)',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      textDecoration: 'none',
+                      transform: 'translateY(20px)',
+                      transition: 'transform 0.3s ease'
+                    }}>
+                      Get a Quote
+                    </Link>
+                  </div>
                 </div>
                 <h4 style={{ fontSize: isMobile ? 12 : 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4, textAlign: 'center' }}>{item.title}</h4>
                 <p style={{ fontSize: isMobile ? 10 : 15, color: 'var(--kraft-500)', lineHeight: 1.5, textAlign: 'center', display: isMobile ? 'none' : 'block' }}>{item.desc}</p>
@@ -606,6 +631,15 @@ export default function ProductCategory() {
           .category-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
           .cta-buttons { flex-direction: column !important; align-items: stretch !important; }
           .cta-buttons > * { text-align: center !important; }
+        }
+        .gallery-grid div:hover .gallery-overlay {
+          opacity: 1 !important;
+        }
+        .gallery-grid div:hover .gallery-overlay a {
+          transform: translateY(0) !important;
+        }
+        .gallery-grid div:hover .gallery-img {
+          transform: scale(1.1) !important;
         }
       `}</style>
     </div>

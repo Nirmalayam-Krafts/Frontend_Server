@@ -412,10 +412,10 @@ const Orders = () => {
 
   const getInventoryQuantity = (item) => {
     return (
-    
-   
+
+
       Number(item?.stockLevel) ||
-     
+
       0
     );
   };
@@ -558,7 +558,7 @@ const Orders = () => {
           requiredQty: Number(order?.orderDetails?.quantity || 0),
           message: !productResolved
             ? resData.adminHint ||
-              "No catalog product matched this order label. Use suggestions below or set product ID on the order."
+            "No catalog product matched this order label. Use suggestions below or set product ID on the order."
             : resData.isAvailable
               ? "Order can be fulfilled using current logic mode."
               : "Insufficient raw materials or stock for this mode.",
@@ -1955,7 +1955,7 @@ ${lines || "(See PDF for full BOM)"}
             </div>
           </Card>
 
-          
+
         </motion.div>
 
         {/* View Mode Toggle */}
@@ -1967,21 +1967,19 @@ ${lines || "(See PDF for full BOM)"}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode("dashboard")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                viewMode === "dashboard"
+              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "dashboard"
                   ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
-              }`}
+                }`}
             >
               📊 Dashboard View
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                viewMode === "table"
+              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "table"
                   ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
-              }`}
+                }`}
             >
               📋 Table View
             </button>
@@ -2202,22 +2200,22 @@ ${lines || "(See PDF for full BOM)"}
                         {/* Status */}
                         <td className="px-6 py-4">
                           <div className="space-y-2">
-                            <Badge 
+                            <Badge
                               variant={orderStatusColors[order.orderStatusKey] || "primary"}
                               className="text-xs font-semibold w-full justify-center"
                             >
                               {order.orderStatusKey === 'PENDING' ? '⏳' :
-                               order.orderStatusKey === 'CONFIRMED' ? '✅' :
-                               order.orderStatusKey === 'PROCESSING' ? '🔄' :
-                               order.orderStatusKey === 'COMPLETED' ? '🎉' : '❌'}{" "}
+                                order.orderStatusKey === 'CONFIRMED' ? '✅' :
+                                  order.orderStatusKey === 'PROCESSING' ? '🔄' :
+                                    order.orderStatusKey === 'COMPLETED' ? '🎉' : '❌'}{" "}
                               {order.orderStatus}
                             </Badge>
-                            <Badge 
+                            <Badge
                               variant={paymentColors[order.paymentStatusKey] || "primary"}
                               className="text-xs font-semibold w-full justify-center"
                             >
                               {order.paymentStatusKey === 'PAID' ? '💰' :
-                               order.paymentStatusKey === 'PARTIAL' ? '💵' : '❌'}{" "}
+                                order.paymentStatusKey === 'PARTIAL' ? '💵' : '❌'}{" "}
                               {order.paymentStatus}
                             </Badge>
                           </div>
@@ -2805,25 +2803,23 @@ ${lines || "(See PDF for full BOM)"}
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={`overflow-hidden rounded-3xl border shadow-sm ${
-                        availabilityResult.productResolved === false
+                      className={`overflow-hidden rounded-3xl border shadow-sm ${availabilityResult.productResolved === false
                           ? "border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50"
                           : availabilityResult.enoughStock
                             ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50"
                             : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50"
-                      }`}
+                        }`}
                     >
                       <div className="p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex items-start gap-3">
                             <div
-                              className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-                                availabilityResult.productResolved === false
+                              className={`flex h-12 w-12 items-center justify-center rounded-2xl ${availabilityResult.productResolved === false
                                   ? "bg-indigo-100 text-indigo-700"
                                   : availabilityResult.enoughStock
                                     ? "bg-emerald-100 text-emerald-700"
                                     : "bg-amber-100 text-amber-700"
-                              }`}
+                                }`}
                             >
                               {availabilityResult.productResolved === false ? (
                                 <Link2 className="h-6 w-6" />
@@ -2836,13 +2832,12 @@ ${lines || "(See PDF for full BOM)"}
 
                             <div>
                               <h3
-                                className={`text-base font-bold ${
-                                  availabilityResult.productResolved === false
+                                className={`text-base font-bold ${availabilityResult.productResolved === false
                                     ? "text-indigo-900"
                                     : availabilityResult.enoughStock
                                       ? "text-emerald-900"
                                       : "text-amber-900"
-                                }`}
+                                  }`}
                               >
                                 {availabilityResult.productResolved === false
                                   ? "Catalog product not matched"
@@ -2851,13 +2846,12 @@ ${lines || "(See PDF for full BOM)"}
                                     : "Insufficient Stock/Materials"}
                               </h3>
                               <p
-                                className={`mt-1 text-sm ${
-                                  availabilityResult.productResolved === false
+                                className={`mt-1 text-sm ${availabilityResult.productResolved === false
                                     ? "text-indigo-800"
                                     : availabilityResult.enoughStock
                                       ? "text-emerald-800"
                                       : "text-amber-800"
-                                }`}
+                                  }`}
                               >
                                 {availabilityResult.message}
                               </p>
@@ -2871,13 +2865,12 @@ ${lines || "(See PDF for full BOM)"}
                           </div>
 
                           <div
-                            className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm ${
-                              availabilityResult.productResolved === false
+                            className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm ${availabilityResult.productResolved === false
                                 ? "bg-indigo-600"
                                 : availabilityResult.enoughStock
                                   ? "bg-emerald-600"
                                   : "bg-amber-600"
-                            }`}
+                              }`}
                           >
                             {availabilityResult.productResolved === false
                               ? "Link product first"
@@ -2947,21 +2940,19 @@ ${lines || "(See PDF for full BOM)"}
                           </div>
 
                           <div
-                            className={`rounded-2xl border px-4 py-4 shadow-sm ${
-                              Number(availabilityResult.onDemandCount || 0) > 0
+                            className={`rounded-2xl border px-4 py-4 shadow-sm ${Number(availabilityResult.onDemandCount || 0) > 0
                                 ? "border-rose-200 bg-rose-50/50"
                                 : "border-slate-100 bg-white"
-                            }`}
+                              }`}
                           >
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                               BOM lines short on stock
                             </p>
                             <p
-                              className={`mt-2 text-2xl font-bold ${
-                                Number(availabilityResult.onDemandCount || 0) > 0
+                              className={`mt-2 text-2xl font-bold ${Number(availabilityResult.onDemandCount || 0) > 0
                                   ? "text-rose-800"
                                   : "text-slate-900"
-                              }`}
+                                }`}
                             >
                               {availabilityResult.onDemandCount ?? 0}
                             </p>
@@ -3217,18 +3208,18 @@ ${lines || "(See PDF for full BOM)"}
 
                           {(availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0 ||
                             availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0) && (
-                            <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
-                              <p className="font-semibold">Suggested alternatives found:</p>
-                              <p className="mt-1">
-                                {availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0
-                                  ? `Same size but different color: ${availabilityResult.matchInsight.sizeMatchedColorDifferent.length}. `
-                                  : ""}
-                                {availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0
-                                  ? `Same color but different size: ${availabilityResult.matchInsight.colorMatchedSizeDifferent.length}.`
-                                  : ""}
-                              </p>
-                            </div>
-                          )}
+                              <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+                                <p className="font-semibold">Suggested alternatives found:</p>
+                                <p className="mt-1">
+                                  {availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0
+                                    ? `Same size but different color: ${availabilityResult.matchInsight.sizeMatchedColorDifferent.length}. `
+                                    : ""}
+                                  {availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0
+                                    ? `Same color but different size: ${availabilityResult.matchInsight.colorMatchedSizeDifferent.length}.`
+                                    : ""}
+                                </p>
+                              </div>
+                            )}
 
                           {!availabilityResult?.matchInsight?.hasAnySuggestedMatch && (
                             <div className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3">
@@ -3440,11 +3431,10 @@ ${lines || "(See PDF for full BOM)"}
 
                           <div className="sm:col-span-2 rounded-2xl bg-gray-50 p-4 border border-gray-100 flex items-center justify-between">
                             <span className="text-sm font-medium text-gray-500">Remaining Balance:</span>
-                            <span className={`text-lg font-bold ${
-                              (Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)) <= 0 
-                                ? "text-emerald-600" 
+                            <span className={`text-lg font-bold ${(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)) <= 0
+                                ? "text-emerald-600"
                                 : "text-amber-600"
-                            }`}>
+                              }`}>
                               ₹{(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)).toLocaleString()}
                             </span>
                           </div>
@@ -3993,181 +3983,181 @@ ${lines || "(See PDF for full BOM)"}
                 </div>
                 {selectedOrder?.id === "__legacy_drawer__" && (
                   <>
-                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                      {selectedOrder.avatar}
-                    </div>
-                    <div>
-                      <p className="text-lg font-semibold text-gray-900">{selectedOrder.customerName}</p>
-                      <p className="text-sm text-gray-500">{selectedOrder.email}</p>
-                    </div>
-                  </div>
+                    <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+                          {selectedOrder.avatar}
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold text-gray-900">{selectedOrder.customerName}</p>
+                          <p className="text-sm text-gray-500">{selectedOrder.email}</p>
+                        </div>
+                      </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3">
-                      <p className="text-xs font-semibold uppercase text-gray-500">Order Status</p>
-                      <div className="mt-2">
-                        <Badge variant={orderStatusColors[selectedOrder.orderStatusKey] || "primary"}>
-                          {selectedOrder.orderStatus}
-                        </Badge>
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase text-gray-500">Order Status</p>
+                          <div className="mt-2">
+                            <Badge variant={orderStatusColors[selectedOrder.orderStatusKey] || "primary"}>
+                              {selectedOrder.orderStatus}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase text-gray-500">Payment Status</p>
+                          <div className="mt-2">
+                            <Badge variant={paymentColors[selectedOrder.paymentStatusKey] || "primary"}>
+                              {selectedOrder.paymentStatus}
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3">
-                      <p className="text-xs font-semibold uppercase text-gray-500">Payment Status</p>
-                      <div className="mt-2">
-                        <Badge variant={paymentColors[selectedOrder.paymentStatusKey] || "primary"}>
-                          {selectedOrder.paymentStatus}
-                        </Badge>
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <p className="text-xs font-semibold uppercase text-gray-500">Business Name</p>
+                        <p className="mt-1 text-gray-900">{selectedOrder.businessName}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <p className="text-xs font-semibold uppercase text-gray-500">Phone</p>
+                        <p className="mt-1 text-gray-900">{selectedOrder.phone}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <p className="text-xs font-semibold uppercase text-gray-500">Product Category</p>
+                        <p className="mt-1 text-gray-900">{selectedOrder.productCategory}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <p className="text-xs font-semibold uppercase text-gray-500">Source</p>
+                        <p className="mt-1 text-gray-900">{selectedOrder.source}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                          <p className="text-xs font-semibold uppercase text-gray-500">Bag Details</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Bag Size</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.bagSize || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Color</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.color || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Quantity</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.quantity || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Amount</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {formatCurrency(selectedOrder.amount)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Ruler className="h-4 w-4 text-emerald-600" />
+                          <p className="text-xs font-semibold uppercase text-gray-500">Dimensions</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Length</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.dimensions?.length || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Width</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.dimensions?.width || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Height</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.dimensions?.height || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Unit</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.orderDetails?.dimensions?.unit || "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Wallet className="h-4 w-4 text-emerald-600" />
+                          <p className="text-xs font-semibold uppercase text-gray-500">Payment Details</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Type</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedOrder.payment?.paymentType || "—"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Partial Paid</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {formatCurrency(selectedOrder.payment?.partialPaidAmount)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Full Paid</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {formatCurrency(selectedOrder.payment?.fullPaidAmount)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <p className="text-xs font-semibold uppercase text-gray-500">Notes</p>
+                        <p className="mt-2 whitespace-pre-line text-gray-900">
+                          {selectedOrder.notes || "No notes added."}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <p className="text-xs font-semibold uppercase text-gray-500">Created On</p>
+                        <p className="mt-1 text-gray-900">{selectedOrder.date}</p>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Business Name</p>
-                    <p className="mt-1 text-gray-900">{selectedOrder.businessName}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Phone</p>
-                    <p className="mt-1 text-gray-900">{selectedOrder.phone}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Product Category</p>
-                    <p className="mt-1 text-gray-900">{selectedOrder.productCategory}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Source</p>
-                    <p className="mt-1 text-gray-900">{selectedOrder.source}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <ShoppingBag className="h-4 w-4 text-emerald-600" />
-                      <p className="text-xs font-semibold uppercase text-gray-500">Bag Details</p>
+                    <div className="mt-6 flex gap-2">
+                      <Button variant="secondary" onClick={() => setShowDetailPanel(false)}>
+                        Close
+                      </Button>
                     </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Bag Size</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.bagSize || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Color</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.color || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Quantity</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.quantity || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Amount</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {formatCurrency(selectedOrder.amount)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Ruler className="h-4 w-4 text-emerald-600" />
-                      <p className="text-xs font-semibold uppercase text-gray-500">Dimensions</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Length</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.dimensions?.length || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Width</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.dimensions?.width || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Height</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.dimensions?.height || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Unit</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.orderDetails?.dimensions?.unit || "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-emerald-600" />
-                      <p className="text-xs font-semibold uppercase text-gray-500">Payment Details</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Type</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedOrder.payment?.paymentType || "—"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Partial Paid</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {formatCurrency(selectedOrder.payment?.partialPaidAmount)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Full Paid</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {formatCurrency(selectedOrder.payment?.fullPaidAmount)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Notes</p>
-                    <p className="mt-2 whitespace-pre-line text-gray-900">
-                      {selectedOrder.notes || "No notes added."}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Created On</p>
-                    <p className="mt-1 text-gray-900">{selectedOrder.date}</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-2">
-                  <Button variant="secondary" onClick={() => setShowDetailPanel(false)}>
-                    Close
-                  </Button>
-                </div>
                   </>
                 )}
               </div>

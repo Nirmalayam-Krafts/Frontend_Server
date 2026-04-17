@@ -77,8 +77,26 @@ const PRODUCT_OPTIONS = [
 
 const INITIAL_FORM = {
   name: '', email: '', phone: '', business_name: '',
-  product_category: '', quantity: '', requirement: '',
+  product_category: '', quantity: '', requirement: '', location_area: '',
 };
+
+const LOCATION_OPTIONS = [
+  { value: '', label: 'Select your area...' },
+  { label: '--- Pune Areas ---', value: '', disabled: true },
+  { value: 'Baner, Pune', label: 'Baner' },
+  { value: 'Kothrud, Pune', label: 'Kothrud' },
+  { value: 'Hinjewadi, Pune', label: 'Hinjewadi' },
+  { value: 'Viman Nagar, Pune', label: 'Viman Nagar' },
+  { value: 'Wakad, Pune', label: 'Wakad' },
+  { value: 'Hadapsar, Pune', label: 'Hadapsar' },
+  { label: '--- Mumbai Areas ---', value: '', disabled: true },
+  { value: 'Andheri, Mumbai', label: 'Andheri' },
+  { value: 'Bandra, Mumbai', label: 'Bandra' },
+  { value: 'Borivali, Mumbai', label: 'Borivali' },
+  { value: 'Ghatkopar, Mumbai', label: 'Ghatkopar' },
+  { value: 'Powai, Mumbai', label: 'Powai' },
+  { value: 'South Mumbai', label: 'South Mumbai' },
+];
 
 export default function Contact() {
   const { axiosInstance } = useAuthContext();
@@ -360,22 +378,31 @@ export default function Contact() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                       <div style={{ display: 'grid', gap: 8 }}>
-                        <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Category</label>
-                        <select className="contact-input" name="product_category" value={form.product_category} onChange={handleChange}>
+                        <label className="section-label" style={{ fontSize: 12, margin: 0, color: 'var(--kraft-950)', fontWeight: 800 }}>Product Category</label>
+                        <select className="contact-input" name="product_category" value={form.product_category} onChange={handleChange} style={{ color: 'var(--kraft-950)', fontWeight: 600 }}>
                           {PRODUCT_OPTIONS.map(({ value, label }) => (
                             <option key={value} value={value}>{label}</option>
                           ))}
                         </select>
                       </div>
                       <div style={{ display: 'grid', gap: 8 }}>
-                        <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Quantity</label>
-                        <input className="contact-input" name="quantity" type="number" placeholder="Min 100" value={form.quantity} onChange={handleChange} />
+                        <label className="section-label" style={{ fontSize: 12, margin: 0, color: 'var(--kraft-950)', fontWeight: 800 }}>Target Quantity</label>
+                        <input className="contact-input" name="quantity" type="number" placeholder="Min 100" value={form.quantity} onChange={handleChange} style={{ color: 'var(--kraft-950)', fontWeight: 600 }} />
                       </div>
                     </div>
 
                     <div style={{ display: 'grid', gap: 8 }}>
-                      <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Requirements</label>
-                      <textarea className="contact-input" name="requirement" placeholder="Size, print details, special finishes, timeline, etc." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 120, resize: 'none' }} />
+                      <label className="section-label" style={{ fontSize: 12, margin: 0, color: 'var(--kraft-950)', fontWeight: 800 }}>Business Location (Pune/Mumbai)</label>
+                      <select className="contact-input" name="location_area" value={form.location_area} onChange={handleChange} style={{ color: 'var(--kraft-950)', fontWeight: 600 }}>
+                        {LOCATION_OPTIONS.map((opt, i) => (
+                          <option key={i} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <label className="section-label" style={{ fontSize: 12, margin: 0, color: 'var(--kraft-950)', fontWeight: 800 }}>Tell us about your requirements</label>
+                      <textarea className="contact-input" name="requirement" placeholder="Size, print details, special finishes, timeline, etc." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 120, resize: 'none', color: 'var(--kraft-950)', fontWeight: 600 }} />
                     </div>
 
                     <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', padding: 18, justifyContent: 'center', fontSize: 16 }}>
@@ -472,6 +499,25 @@ export default function Contact() {
           </div>
         </div>
       </section>
+      <style>{`
+        .contact-input {
+          width: 100%;
+          padding: 16px 20px;
+          background: white;
+          border: 2px solid var(--kraft-200);
+          border-radius: 16px;
+          font-size: 16px;
+          transition: all 0.3s ease;
+          outline: none;
+        }
+        .contact-input:focus {
+          border-color: var(--eco-600);
+          box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+        }
+        .contact-input::placeholder {
+          color: var(--kraft-300);
+        }
+      `}</style>
     </div>
   );
 }

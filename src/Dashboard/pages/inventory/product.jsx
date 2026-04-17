@@ -19,7 +19,7 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { useAuthContext } from "../../../context/Adminauth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetAllProducts } from "../../../../hook/product";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 const Product = () => {
   const { axiosInstance } = useAuthContext();

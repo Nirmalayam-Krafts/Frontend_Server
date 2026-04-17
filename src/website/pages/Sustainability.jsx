@@ -62,7 +62,7 @@ export default function Sustainability() {
         minHeight: isMobile ? '400px' : isTablet ? '450px' : '500px',
         display: 'flex',
         alignItems: 'center',
-        padding: isMobile ? '60px 0 40px' : '80px 0'
+        padding: isMobile ? '60px var(--container-gutter) 40px' : '80px var(--container-gutter)'
       }}>
         <div style={{
           position: 'absolute',
@@ -112,7 +112,7 @@ export default function Sustainability() {
       <section className="section-padding" style={{ 
         background: 'var(--kraft-50)', 
         position: 'relative',
-        padding: isMobile ? '64px 0' : '100px 0'
+        padding: isMobile ? '64px var(--container-gutter)' : '100px var(--container-gutter)'
       }}>
         <div className="nature-layer-leaf" style={{ opacity: 0.05 }} />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
@@ -224,7 +224,7 @@ export default function Sustainability() {
       {/* ── SECTION: LAWS & COMPLIANCE ── */}
       <section className="section-padding" style={{ 
         background: 'white',
-        padding: isMobile ? '64px 0' : '100px 0'
+        padding: isMobile ? '64px var(--container-gutter)' : '100px var(--container-gutter)'
       }}>
         <div className="container">
           <div style={{ 
@@ -280,7 +280,7 @@ export default function Sustainability() {
       <section className="section-padding" style={{ 
         background: 'var(--kraft-950)', 
         color: 'white',
-        padding: isMobile ? '64px 0' : '100px 0'
+        padding: isMobile ? '64px var(--container-gutter)' : '100px var(--container-gutter)'
       }}>
         <div className="container" style={{ maxWidth: 1100 }}>
           <div style={{ textAlign: 'center', marginBottom: isMobile ? 48 : 80 }}>
