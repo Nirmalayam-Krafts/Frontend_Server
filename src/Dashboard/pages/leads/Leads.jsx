@@ -225,7 +225,7 @@ const Leads = () => {
         refetch();
       }
     } catch (error) {
-       console.error("Update Lead Error:", error);
+      console.error("Update Lead Error:", error);
       showNotification("Failed to update lead", "error");
     }
   };
@@ -325,11 +325,11 @@ const Leads = () => {
     const getItemName = (item) =>
       normalizeText(
         item?.productName ||
-          item?.name ||
-          item?.bagName ||
-          item?.title ||
-          item?.productCategory ||
-          item?.category
+        item?.name ||
+        item?.bagName ||
+        item?.title ||
+        item?.productCategory ||
+        item?.category
       );
 
     const bagSize = normalizeText(form?.bagSize);
@@ -450,7 +450,7 @@ const Leads = () => {
       };
 
       const data = await axiosInstance.post(`/order/create`, orderPayload);
-     
+
       await axiosInstance.patch(`/leads/${leadToConvert.id}/status`, {
         status: "Converted",
       });
@@ -502,7 +502,7 @@ const Leads = () => {
         }
       }
     } catch (error) {
-       toast.error(error?.response?.data?.message || "Failed to delete lead", { id: loadingToast });
+      toast.error(error?.response?.data?.message || "Failed to delete lead", { id: loadingToast });
     }
   };
 
@@ -806,8 +806,8 @@ const Leads = () => {
                   setCurrentPage(1);
                 }}
                 className={`rounded-xl px-4 py-2 text-sm font-medium transition ${statusFilter === status
-                    ? "bg-emerald-600 text-white shadow"
-                    : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  ? "bg-emerald-600 text-white shadow"
+                  : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                   }`}
               >
                 {status}
@@ -1024,344 +1024,344 @@ const Leads = () => {
         </Modal>
 
         {/* NEW ORDER CONVERSION MODAL */}
- <Modal
-  isOpen={showConvertModal}
-  title="Convert Lead to Order"
-  onClose={resetConvertModal}
->
-  <div className="w-full max-w-5xl">
-    <form onSubmit={handleConvertLeadToOrder} className="space-y-6">
-      {/* Header / Lead Summary */}
-      <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 shadow-sm">
-        <div className="flex flex-col gap-5">
-          <div className="flex items-start gap-4">
-            <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 shadow-sm">
-              <ShoppingBag className="h-6 w-6" />
-            </div>
+        <Modal
+          isOpen={showConvertModal}
+          title="Convert Lead to Order"
+          onClose={resetConvertModal}
+        >
+          <div className="w-full max-w-5xl">
+            <form onSubmit={handleConvertLeadToOrder} className="space-y-6">
+              {/* Header / Lead Summary */}
+              <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 shadow-sm">
+                <div className="flex flex-col gap-5">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 shadow-sm">
+                      <ShoppingBag className="h-6 w-6" />
+                    </div>
 
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">
-                Order Conversion Details
-              </h3>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-600">
-                Fill all bag specification, dimensions, and payment details to
-                convert this lead into an order in a clean and structured way.
-              </p>
-            </div>
-          </div>
-
-          {leadToConvert && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Lead Name
-                </p>
-                <p className="mt-2 text-sm font-bold text-gray-900">
-                  {leadToConvert.name}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Business
-                </p>
-                <p className="mt-2 text-sm font-bold text-gray-900">
-                  {leadToConvert.businessName}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Source
-                </p>
-                <p className="mt-2 text-sm font-bold text-gray-900">
-                  {leadToConvert.source || "—"}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 items-start">
-        {/* Left Form Area */}
-        <div className="space-y-6 xl:col-span-2">
-          {/* Bag Details */}
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-emerald-600" />
-              <h4 className="text-base font-bold text-gray-900">Bag Details</h4>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Product <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={orderForm.selectedProductId}
-                  onChange={(e) =>
-                    handleOrderFormChange("selectedProductId", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  required
-                >
-                  <option value="">Select product</option>
-                  {productSelectOptions.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.label}
-                      {product.sku ? ` (${product.sku})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Bag Size <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={orderForm.bagSize}
-                    onChange={(e) =>
-                      handleOrderFormChange("bagSize", e.target.value)
-                    }
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  >
-                    <option value="">Select bag size</option>
-                    {BAG_SIZE_OPTIONS.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Bag Color <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Palette className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={orderForm.color}
-                    onChange={(e) =>
-                      handleOrderFormChange("color", e.target.value)
-                    }
-                    disabled={!orderForm.bagSize}
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 disabled:cursor-not-allowed disabled:bg-gray-100"
-                  >
-                    <option value="">
-                      {orderForm.bagSize
-                        ? "Select bag color"
-                        : "Select bag size first"}
-                    </option>
-                    {colorOptionsForSelectedSize.map((color) => (
-                      <option key={color} value={color}>
-                        {color}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {orderForm.color ? (
-                  <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700">
-                    <span
-                      className={`h-3.5 w-3.5 rounded-full ${COLOR_PREVIEW_CLASSES[orderForm.color] || "bg-gray-300"}`}
-                    />
-                    Selected: {orderForm.color}
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">
+                        Order Conversion Details
+                      </h3>
+                      <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-600">
+                        Fill all bag specification, dimensions, and payment details to
+                        convert this lead into an order in a clean and structured way.
+                      </p>
+                    </div>
                   </div>
-                ) : null}
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Quantity <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="number"
-                    min="1"
-                    value={orderForm.quantity}
-                    onChange={(e) =>
-                      handleOrderFormChange("quantity", e.target.value)
-                    }
-                    placeholder="Enter quantity"
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                  />
+                  {leadToConvert && (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Lead Name
+                        </p>
+                        <p className="mt-2 text-sm font-bold text-gray-900">
+                          {leadToConvert.name}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Business
+                        </p>
+                        <p className="mt-2 text-sm font-bold text-gray-900">
+                          {leadToConvert.businessName}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Source
+                        </p>
+                        <p className="mt-2 text-sm font-bold text-gray-900">
+                          {leadToConvert.source || "—"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Dimension Unit
-                </label>
-                <select
-                  value={orderForm.dimensionUnit}
-                  onChange={(e) =>
-                    handleOrderFormChange("dimensionUnit", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+              {/* Main Content */}
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 items-start">
+                {/* Left Form Area */}
+                <div className="space-y-6 xl:col-span-2">
+                  {/* Bag Details */}
+                  <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <div className="mb-5 flex items-center gap-2">
+                      <ShoppingBag className="h-5 w-5 text-emerald-600" />
+                      <h4 className="text-base font-bold text-gray-900">Bag Details</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Product <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={orderForm.selectedProductId}
+                          onChange={(e) =>
+                            handleOrderFormChange("selectedProductId", e.target.value)
+                          }
+                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                          required
+                        >
+                          <option value="">Select product</option>
+                          {productSelectOptions.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.label}
+                              {product.sku ? ` (${product.sku})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Bag Size <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <select
+                            value={orderForm.bagSize}
+                            onChange={(e) =>
+                              handleOrderFormChange("bagSize", e.target.value)
+                            }
+                            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                          >
+                            <option value="">Select bag size</option>
+                            {BAG_SIZE_OPTIONS.map((size) => (
+                              <option key={size} value={size}>
+                                {size}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Bag Color <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Palette className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <select
+                            value={orderForm.color}
+                            onChange={(e) =>
+                              handleOrderFormChange("color", e.target.value)
+                            }
+                            disabled={!orderForm.bagSize}
+                            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                          >
+                            <option value="">
+                              {orderForm.bagSize
+                                ? "Select bag color"
+                                : "Select bag size first"}
+                            </option>
+                            {colorOptionsForSelectedSize.map((color) => (
+                              <option key={color} value={color}>
+                                {color}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {orderForm.color ? (
+                          <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700">
+                            <span
+                              className={`h-3.5 w-3.5 rounded-full ${COLOR_PREVIEW_CLASSES[orderForm.color] || "bg-gray-300"}`}
+                            />
+                            Selected: {orderForm.color}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Quantity <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="number"
+                            min="1"
+                            value={orderForm.quantity}
+                            onChange={(e) =>
+                              handleOrderFormChange("quantity", e.target.value)
+                            }
+                            placeholder="Enter quantity"
+                            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Dimension Unit
+                        </label>
+                        <select
+                          value={orderForm.dimensionUnit}
+                          onChange={(e) =>
+                            handleOrderFormChange("dimensionUnit", e.target.value)
+                          }
+                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                        >
+                          <option value="inch">Inch</option>
+                          <option value="cm">CM</option>
+                          <option value="mm">MM</option>
+                          <option value="ft">Feet</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dimensions */}
+                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6 shadow-sm">
+                    <div className="mb-5 flex items-center gap-2">
+                      <Ruler className="h-5 w-5 text-emerald-600" />
+                      <h4 className="text-base font-bold text-gray-900">Bag Dimensions</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Length <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={orderForm.length}
+                          onChange={(e) =>
+                            handleOrderFormChange("length", e.target.value)
+                          }
+                          placeholder="Length"
+                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Width <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={orderForm.width}
+                          onChange={(e) =>
+                            handleOrderFormChange("width", e.target.value)
+                          }
+                          placeholder="Width"
+                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Height <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={orderForm.height}
+                          onChange={(e) =>
+                            handleOrderFormChange("height", e.target.value)
+                          }
+                          placeholder="Height"
+                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <label className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900">
+                      <FileText className="h-4 w-4 text-emerald-600" />
+                      Extra Notes
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={orderForm.notes}
+                      onChange={(e) => handleOrderFormChange("notes", e.target.value)}
+                      placeholder="Write order note, design details, customer requirements, delivery notes, etc."
+                      className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Right Side */}
+                <div className="space-y-6">
+                </div>
+              </div>
+
+              {/* Order Preview */}
+              <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 shadow-sm">
+                <h4 className="text-base font-bold text-emerald-800">
+                  Live Order Preview
+                </h4>
+
+                <div className="mt-5 space-y-4 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-600">Bag Size</span>
+                    <span className="font-semibold text-gray-900">
+                      {orderForm.bagSize || "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-600">Color</span>
+                    <span className="font-semibold text-gray-900">
+                      {orderForm.color || "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-600">Quantity</span>
+                    <span className="font-semibold text-gray-900">
+                      {orderForm.quantity || "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-gray-600">Dimensions</span>
+                    <span className="text-right font-semibold text-gray-900">
+                      {orderForm.length || "0"} × {orderForm.width || "0"} ×{" "}
+                      {orderForm.height || "0"} {orderForm.dimensionUnit}
+                    </span>
+                  </div>
+
+                  <div className="h-px bg-emerald-100" />
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-600 font-bold">Total Quote Items</span>
+                    <span className="font-bold text-emerald-700">
+                      {orderForm.quantity || "—"} Units
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="sticky bottom-0 flex flex-col gap-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={resetConvertModal}
+                  className="sm:min-w-[140px]"
                 >
-                  <option value="inch">Inch</option>
-                  <option value="cm">CM</option>
-                  <option value="mm">MM</option>
-                  <option value="ft">Feet</option>
-                </select>
+                  Cancel
+                </Button>
+
+                <Button
+                  type="submit"
+                  className="bg-emerald-600 px-6 hover:bg-emerald-700 sm:min-w-[200px]"
+                >
+                  Convert & Create Order
+                </Button>
               </div>
-            </div>
+            </form>
           </div>
-
-          {/* Dimensions */}
-          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6 shadow-sm">
-            <div className="mb-5 flex items-center gap-2">
-              <Ruler className="h-5 w-5 text-emerald-600" />
-              <h4 className="text-base font-bold text-gray-900">Bag Dimensions</h4>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Length <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={orderForm.length}
-                  onChange={(e) =>
-                    handleOrderFormChange("length", e.target.value)
-                  }
-                  placeholder="Length"
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Width <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={orderForm.width}
-                  onChange={(e) =>
-                    handleOrderFormChange("width", e.target.value)
-                  }
-                  placeholder="Width"
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Height <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={orderForm.height}
-                  onChange={(e) =>
-                    handleOrderFormChange("height", e.target.value)
-                  }
-                  placeholder="Height"
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-            <label className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900">
-              <FileText className="h-4 w-4 text-emerald-600" />
-              Extra Notes
-            </label>
-            <textarea
-              rows={5}
-              value={orderForm.notes}
-              onChange={(e) => handleOrderFormChange("notes", e.target.value)}
-              placeholder="Write order note, design details, customer requirements, delivery notes, etc."
-              className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-            />
-          </div>
-        </div>
-
-        {/* Right Side */}
-        <div className="space-y-6">
-        </div>
-      </div>
-
-          {/* Order Preview */}
-          <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 shadow-sm">
-            <h4 className="text-base font-bold text-emerald-800">
-              Live Order Preview
-            </h4>
-
-            <div className="mt-5 space-y-4 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-600">Bag Size</span>
-                <span className="font-semibold text-gray-900">
-                  {orderForm.bagSize || "—"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-600">Color</span>
-                <span className="font-semibold text-gray-900">
-                  {orderForm.color || "—"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-600">Quantity</span>
-                <span className="font-semibold text-gray-900">
-                  {orderForm.quantity || "—"}
-                </span>
-              </div>
-
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-gray-600">Dimensions</span>
-                <span className="text-right font-semibold text-gray-900">
-                  {orderForm.length || "0"} × {orderForm.width || "0"} ×{" "}
-                  {orderForm.height || "0"} {orderForm.dimensionUnit}
-                </span>
-              </div>
-
-            <div className="h-px bg-emerald-100" />
-
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-gray-600 font-bold">Total Quote Items</span>
-              <span className="font-bold text-emerald-700">
-                {orderForm.quantity || "—"} Units
-              </span>
-            </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="sticky bottom-0 flex flex-col gap-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={resetConvertModal}
-          className="sm:min-w-[140px]"
-        >
-          Cancel
-        </Button>
-
-        <Button
-          type="submit"
-          className="bg-emerald-600 px-6 hover:bg-emerald-700 sm:min-w-[200px]"
-        >
-          Convert & Create Order
-        </Button>
-      </div>
-    </form>
-  </div>
-</Modal>
+        </Modal>
 
         {showDetailPanel && selectedLead && (
           <motion.div
@@ -1498,8 +1498,8 @@ const Leads = () => {
                           <div
                             key={flow.key}
                             className={`rounded-2xl border p-4 transition ${isDone
-                                ? "border-emerald-200 bg-emerald-50"
-                                : "border-gray-200 bg-white"
+                              ? "border-emerald-200 bg-emerald-50"
+                              : "border-gray-200 bg-white"
                               }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -1526,8 +1526,8 @@ const Leads = () => {
                                 onClick={() => handleMarkFollowup(flow.key)}
                                 disabled={isDone}
                                 className={`${isDone
-                                    ? "cursor-not-allowed bg-gray-300"
-                                    : "bg-emerald-600 hover:bg-emerald-700"
+                                  ? "cursor-not-allowed bg-gray-300"
+                                  : "bg-emerald-600 hover:bg-emerald-700"
                                   }`}
                               >
                                 {isDone ? "Completed" : "Mark Done"}

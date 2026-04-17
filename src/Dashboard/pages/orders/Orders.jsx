@@ -1968,8 +1968,8 @@ ${lines || "(See PDF for full BOM)"}
             <button
               onClick={() => setViewMode("dashboard")}
               className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "dashboard"
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
-                  : "text-gray-600 hover:bg-gray-100"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-100"
                 }`}
             >
               📊 Dashboard View
@@ -1977,8 +1977,8 @@ ${lines || "(See PDF for full BOM)"}
             <button
               onClick={() => setViewMode("table")}
               className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "table"
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
-                  : "text-gray-600 hover:bg-gray-100"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-100"
                 }`}
             >
               📋 Table View
@@ -2804,10 +2804,10 @@ ${lines || "(See PDF for full BOM)"}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       className={`overflow-hidden rounded-3xl border shadow-sm ${availabilityResult.productResolved === false
-                          ? "border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50"
-                          : availabilityResult.enoughStock
-                            ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50"
-                            : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50"
+                        ? "border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50"
+                        : availabilityResult.enoughStock
+                          ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50"
+                          : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50"
                         }`}
                     >
                       <div className="p-5">
@@ -2815,10 +2815,10 @@ ${lines || "(See PDF for full BOM)"}
                           <div className="flex items-start gap-3">
                             <div
                               className={`flex h-12 w-12 items-center justify-center rounded-2xl ${availabilityResult.productResolved === false
-                                  ? "bg-indigo-100 text-indigo-700"
-                                  : availabilityResult.enoughStock
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-amber-100 text-amber-700"
+                                ? "bg-indigo-100 text-indigo-700"
+                                : availabilityResult.enoughStock
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700"
                                 }`}
                             >
                               {availabilityResult.productResolved === false ? (
@@ -2833,10 +2833,10 @@ ${lines || "(See PDF for full BOM)"}
                             <div>
                               <h3
                                 className={`text-base font-bold ${availabilityResult.productResolved === false
-                                    ? "text-indigo-900"
-                                    : availabilityResult.enoughStock
-                                      ? "text-emerald-900"
-                                      : "text-amber-900"
+                                  ? "text-indigo-900"
+                                  : availabilityResult.enoughStock
+                                    ? "text-emerald-900"
+                                    : "text-amber-900"
                                   }`}
                               >
                                 {availabilityResult.productResolved === false
@@ -2847,10 +2847,10 @@ ${lines || "(See PDF for full BOM)"}
                               </h3>
                               <p
                                 className={`mt-1 text-sm ${availabilityResult.productResolved === false
-                                    ? "text-indigo-800"
-                                    : availabilityResult.enoughStock
-                                      ? "text-emerald-800"
-                                      : "text-amber-800"
+                                  ? "text-indigo-800"
+                                  : availabilityResult.enoughStock
+                                    ? "text-emerald-800"
+                                    : "text-amber-800"
                                   }`}
                               >
                                 {availabilityResult.message}
@@ -2866,10 +2866,10 @@ ${lines || "(See PDF for full BOM)"}
 
                           <div
                             className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm ${availabilityResult.productResolved === false
-                                ? "bg-indigo-600"
-                                : availabilityResult.enoughStock
-                                  ? "bg-emerald-600"
-                                  : "bg-amber-600"
+                              ? "bg-indigo-600"
+                              : availabilityResult.enoughStock
+                                ? "bg-emerald-600"
+                                : "bg-amber-600"
                               }`}
                           >
                             {availabilityResult.productResolved === false
@@ -2941,8 +2941,8 @@ ${lines || "(See PDF for full BOM)"}
 
                           <div
                             className={`rounded-2xl border px-4 py-4 shadow-sm ${Number(availabilityResult.onDemandCount || 0) > 0
-                                ? "border-rose-200 bg-rose-50/50"
-                                : "border-slate-100 bg-white"
+                              ? "border-rose-200 bg-rose-50/50"
+                              : "border-slate-100 bg-white"
                               }`}
                           >
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -2950,8 +2950,8 @@ ${lines || "(See PDF for full BOM)"}
                             </p>
                             <p
                               className={`mt-2 text-2xl font-bold ${Number(availabilityResult.onDemandCount || 0) > 0
-                                  ? "text-rose-800"
-                                  : "text-slate-900"
+                                ? "text-rose-800"
+                                : "text-slate-900"
                                 }`}
                             >
                               {availabilityResult.onDemandCount ?? 0}
@@ -3432,8 +3432,8 @@ ${lines || "(See PDF for full BOM)"}
                           <div className="sm:col-span-2 rounded-2xl bg-gray-50 p-4 border border-gray-100 flex items-center justify-between">
                             <span className="text-sm font-medium text-gray-500">Remaining Balance:</span>
                             <span className={`text-lg font-bold ${(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)) <= 0
-                                ? "text-emerald-600"
-                                : "text-amber-600"
+                              ? "text-emerald-600"
+                              : "text-amber-600"
                               }`}>
                               ₹{(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)).toLocaleString()}
                             </span>

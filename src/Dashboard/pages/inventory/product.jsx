@@ -147,48 +147,48 @@ const Product = () => {
     <Layout>
       <div className="space-y-6">
         <motion.div
-  initial={{ opacity: 0, y: -18 }}
-  animate={{ opacity: 1, y: 0 }}
-  className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-6 text-white shadow-xl ring-1 ring-white/10"
->
-  {/* subtle overlay glow */}
-  <div className="pointer-events-none absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
+          initial={{ opacity: 0, y: -18 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-6 text-white shadow-xl ring-1 ring-white/10"
+        >
+          {/* subtle overlay glow */}
+          <div className="pointer-events-none absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
 
-  <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-    
-    {/* LEFT CONTENT */}
-    <div className="max-w-3xl">
-      <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur-sm">
-        Product Control Panel
-      </div>
+          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
 
-      <h1 className="mt-4 text-3xl font-bold leading-tight md:text-4xl">
-        Product Management
-      </h1>
+            {/* LEFT CONTENT */}
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 backdrop-blur-sm">
+                Product Control Panel
+              </div>
 
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/90 md:text-base">
-        Create products with full specifications, dimensions, pricing setup,
-        and raw material mapping for accurate bag estimation.
-      </p>
-    </div>
+              <h1 className="mt-4 text-3xl font-bold leading-tight md:text-4xl">
+                Product Management
+              </h1>
 
-    {/* RIGHT CTA */}
-    <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:w-auto">
-      
-      <Button
-        icon={Plus}
-        onClick={() => {
-          setEditingProduct(null);
-          setShowModal(true);
-        }}
-        className="flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
-      >
-        Add New Product
-      </Button>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/90 md:text-base">
+                Create products with full specifications, dimensions, pricing setup,
+                and raw material mapping for accurate bag estimation.
+              </p>
+            </div>
 
-    </div>
-  </div>
-</motion.div> 
+            {/* RIGHT CTA */}
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:w-auto">
+
+              <Button
+                icon={Plus}
+                onClick={() => {
+                  setEditingProduct(null);
+                  setShowModal(true);
+                }}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
+              >
+                Add New Product
+              </Button>
+
+            </div>
+          </div>
+        </motion.div>
 
         <motion.div
           className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"

@@ -251,7 +251,7 @@ export default function Home() {
         <div className="container" style={{
           position: 'relative',
           zIndex: 1,
-          padding: isMobile ? '100px var(--container-gutter) 20px' : '80px var(--container-gutter) 30px',
+          padding: isMobile ? '100px 0px 20px' : '80px 0px 30px',
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr',
           gap: isMobile ? 24 : 32,
@@ -1175,34 +1175,33 @@ export default function Home() {
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
       <section id="testimonials" style={{
         position: 'relative',
-        padding: isMobile ? '100px 16px' : '140px 24px',
+        padding: '80px 24px',
         overflow: 'hidden',
-        background: '#fdfbf7', // Light neutral base
+        background: '#3a2410',
       }}>
-        {/* High-Quality Paper Texture Background */}
+        {/* Wood Texture Background */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("https://images.unsplash.com/photo-1586075010623-26c50dec8a45?auto=format&fit=crop&q=80&w=2000")',
+          backgroundImage: 'url("/images/testimonials_bg_wood.png")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          opacity: 0.2, // Subtle texture
-          zIndex: 0,
-          filter: 'grayscale(100%) brightness(1.1)'
+          opacity: 0.9,
+          zIndex: 0
         }} />
 
-        {/* Light Overlay for readability */}
+        {/* Overlay for readability */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.7))',
+          background: 'linear-gradient(to bottom, rgba(58, 36, 16, 0.4), rgba(58, 36, 16, 0.7))',
           zIndex: 0
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <div className="section-label" style={{
-              color: 'black',
+              color: 'white',
               letterSpacing: '2px',
               textTransform: 'uppercase',
               fontSize: '12px'
@@ -1210,13 +1209,14 @@ export default function Home() {
               Testimonials
             </div>
             <h2 className="section-title" style={{
-              color: 'var(--kraft-950)',
-              fontSize: 'clamp(36px, 6vw, 64px)', // Increased size
-              fontWeight: 900,
-              letterSpacing: '-1px',
-              marginBottom: 16
+              color: 'white',
+              fontSize: 'clamp(28px, 4vw, 44px)',
+              fontWeight: 800,
+              letterSpacing: '-0.5px',
+              textShadow: '0 10px 30px rgba(0,0,0,0.3)',
+              marginBottom: 12
             }}>
-              The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>Legacy</span>
+              The Nirmalyam <span style={{ color: 'var(--eco-400)' }}>Legacy</span>
             </h2>
             <div style={{
               width: 60,
@@ -1226,13 +1226,13 @@ export default function Home() {
               borderRadius: 2
             }} />
             <p style={{
-              color: 'var(--kraft-700)',
-              fontSize: 'clamp(18px, 1.4vw, 22px)', // Increased size
-              maxWidth: 750,
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: 'clamp(15px, 1.1vw, 18px)',
+              maxWidth: 600,
               margin: '0 auto',
-              lineHeight: 1.6,
+              lineHeight: 1.5,
               fontStyle: 'italic',
-              fontWeight: 500
+              fontWeight: 400
             }}>
               Rooted in Quality, Driven by Purpose — Sustainable kraft solutions trusted by leading brands across India.
             </p>
@@ -1289,14 +1289,14 @@ export default function Home() {
                   pointerEvents: isActive ? 'auto' : 'none',
                 }}>
                   <div className="glass-card" style={{
-                    padding: '64px 40px 48px', // Increased padding
+                    padding: '48px 32px 32px', // Compact padding
                     textAlign: 'center',
-                    background: 'white',
-                    backdropFilter: 'none',
-                    border: '2px solid var(--kraft-100)',
-                    boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.08)',
-                    borderRadius: 40,
-                    color: 'var(--kraft-900)',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    backdropFilter: 'blur(30px)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    borderRadius: 32,
+                    color: 'white',
                     position: 'relative'
                   }}>
                     {/* Floating Profile Image */}
@@ -1331,10 +1331,10 @@ export default function Home() {
                     </div>
 
                     <p style={{
-                      fontFamily: "'Playfair Display', serif",
-                      fontSize: 24, // Increased size
+                      fontFamily: "'Cormorant Garamond', serif",
+                      fontSize: 18,
                       lineHeight: 1.5,
-                      color: 'var(--kraft-800)',
+                      color: 'rgba(255,255,255,0.95)',
                       fontStyle: 'italic',
                     }}>
                       {t.text}

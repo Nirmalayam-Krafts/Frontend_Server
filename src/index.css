@@ -3,13 +3,12 @@
 
 /* ─── Design Tokens ─── */
 :root {
-  --kraft-50: #fffefa;
-  --kraft-100: #fcf6eb;
-  --kraft-200: #f5ead6;
-  --kraft-300: #ead8b8;
-  --kraft-400: #dbbf8f;
-  --kraft-500: #c8a36d;
-  --container-gutter: 60px;
+  --kraft-50: #fdf9f3;
+  --kraft-100: #f7f0e2;
+  --kraft-200: #eedfc4;
+  --kraft-300: #e0c99e;
+  --kraft-400: #cfad77;
+  --kraft-500: #c09457;
   --kraft-600: #b07a3e;
   --kraft-700: #925f2e;
   --kraft-800: #764c27;
@@ -47,14 +46,7 @@
 /* ─── Base ─── */
 html {
   scroll-behavior: smooth;
-  font-size: 22px;
-  /* Increased base font for better readability for all ages */
-}
-
-@media (max-width: 1024px) {
-  html {
-    font-size: 18px;
-  }
+  font-size: 16px;
 }
 
 body {
@@ -64,7 +56,6 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
 }
 
 h1,
@@ -391,18 +382,12 @@ h6 {
   width: 100%;
   max-width: 1536px;
   margin: 0 auto;
-  padding: 0 var(--container-gutter);
-}
-
-@media (max-width: 1024px) {
-  :root {
-    --container-gutter: 40px;
-  }
+  padding: 0 24px;
 }
 
 @media (max-width: 768px) {
-  :root {
-    --container-gutter: 24px;
+  .container {
+    padding: 0 16px;
   }
 }
 
