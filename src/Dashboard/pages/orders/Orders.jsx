@@ -55,7 +55,6 @@ import { useUIStore } from "../../store";
 import { useGetAllOrders } from "../../../../hook/order";
 import { useGetInventory } from "../../../../hook/inventory";
 import { useGetAllProducts } from "../../../../hook/product";
-import { useCurrentUser } from "../../../../hook/admin";
 
 const initialManualOrderForm = {
   customerName: "",
@@ -133,15 +132,8 @@ const Orders = () => {
   const [quotationTotalInput, setQuotationTotalInput] = useState("");
   const [processingActionId, setProcessingActionId] = useState(null);
   const [completeActionId, setCompleteActionId] = useState(null);
-  const [cancelActionId, setCancelActionId] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelTargetOrder, setCancelTargetOrder] = useState(null);
-  const [cancelReason, setCancelReason] = useState("");
 
   const limit = 10;
-  const { data: currentUser } = useCurrentUser();
-  const canAdminCancelOrders =
-    String(currentUser?.role || "").toLowerCase() === "admin";
 
   const { data, isLoading, refetch } = useGetAllOrders({
     search,
@@ -265,7 +257,6 @@ const Orders = () => {
         isConfirmed: order?.isConfirmed || false,
         confirmedAt: order?.confirmedAt || null,
         confirmedBy: order?.confirmedBy || null,
-        cancellation: order?.cancellation || {},
         amount: totalAmount,
         pendingAmount: Math.max(0, totalAmount - paidAmount),
         reference: getOrderReference(order?._id),
@@ -326,35 +317,6 @@ const Orders = () => {
     UNPAID: { label: "Unpaid", icon: AlertTriangle, tone: "text-red-700" },
     PARTIAL: { label: "Partial Paid", icon: Wallet, tone: "text-amber-700" },
     PAID: { label: "Paid", icon: CheckCircle2, tone: "text-emerald-700" },
-  };
-
-  const getCancellationImpactMeta = (status) => {
-    switch (status) {
-      case "Confirmed":
-        return {
-          badge: "Reserved stock will be released",
-          description:
-            "This order already reserved stock. Cancelling will release that held stock and raw material back to available inventory.",
-        };
-      case "Processing":
-        return {
-          badge: "No automatic stock reversal",
-          description:
-            "This order is already in processing. The system will cancel the order record, but stock will stay as-is and any adjustment must be handled manually.",
-        };
-      case "Completed":
-        return {
-          badge: "Completed stock stays unchanged",
-          description:
-            "This order is already completed. Cancelling will only update the order record and keep inventory unchanged.",
-        };
-      default:
-        return {
-          badge: "No stock movement",
-          description:
-            "This order has not reserved or consumed stock yet, so cancelling it will not change inventory.",
-        };
-    }
   };
 
   const handleFormChange = (field, value) => {
@@ -927,65 +889,6 @@ Delivery Address: ${report.deliveryAddress}
       await handleUpdateStatus(order.id, "Processing", { deductionMode });
     } finally {
       setProcessingActionId(null);
-    }
-  };
-
-  const openCancelOrderModal = (order) => {
-    if (!order || order.orderStatusKey === "CANCELLED") return;
-    setCancelTargetOrder(order);
-    setCancelReason("");
-    setShowCancelModal(true);
-  };
-
-  const closeCancelOrderModal = () => {
-    setShowCancelModal(false);
-    setCancelTargetOrder(null);
-    setCancelReason("");
-  };
-
-  const handleCancelOrder = async () => {
-    if (!cancelTargetOrder) return;
-
-    const trimmedReason = cancelReason.trim();
-    if (!trimmedReason) {
-      showNotification("Please enter a cancellation reason", "error");
-      return;
-    }
-
-    setCancelActionId(cancelTargetOrder.id);
-    const loadingToast = toast.loading("Cancelling order...");
-
-    try {
-      const response = await axiosInstance.patch(
-        `/orders/${cancelTargetOrder.id}/status`,
-        {
-          newStatus: "Cancelled",
-          productId: cancelTargetOrder?.orderDetails?.productId || null,
-          deductionMode: deductionMode || "AUTO",
-          cancelReason: trimmedReason,
-        }
-      );
-
-      if (response.data.success) {
-        toast.success(
-          response.data?.message || "Order cancelled successfully",
-          { id: loadingToast }
-        );
-        queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
-        queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
-        await refetch();
-        closeCancelOrderModal();
-      } else {
-        toast.error(response.data?.message || "Failed to cancel order", {
-          id: loadingToast,
-        });
-      }
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to cancel order", {
-        id: loadingToast,
-      });
-    } finally {
-      setCancelActionId(null);
     }
   };
 
@@ -1764,45 +1667,14 @@ ${lines || "(See PDF for full BOM)"}
       });
     }
 
-    if (order?.cancellation?.cancelledAt || order?.cancellation?.reason) {
-      logs.push({
-        type: "cancellation",
-        title: "Order Cancelled",
-        description:
-          order?.cancellation?.stockActionNote ||
-          "Order was cancelled by an admin.",
-        time:
-          order?.cancellation?.cancelledAt ||
-          order?.updatedAt ||
-          order?.fullDate ||
-          order?.date,
-        status: "danger",
-        meta: {
-          previousStatus: order?.cancellation?.previousStatus || "—",
-          cancelledBy: order?.cancellation?.cancelledBy?.name || "Admin/System",
-          reason: order?.cancellation?.reason || "—",
-          stockImpact: order?.cancellation?.stockActionNote || "—",
-        },
-      });
-    }
-
     if (Array.isArray(order?.workflowLogs) && order.workflowLogs.length) {
       order.workflowLogs.forEach((w) => {
-        const action = String(w?.action || "").toUpperCase();
-        const note = String(w?.note || "");
-        const workflowStatus = action.includes("CANCEL")
-          ? "danger"
-          : action.includes("PROCESSING_CHECK") && note.toLowerCase().includes("blocked")
-            ? "warning"
-            : action.includes("COMPLETED") || action.includes("CONFIRMED")
-              ? "success"
-              : "done";
         logs.push({
           type: "server",
           title: w.action || "Workflow",
           description: w.note || "—",
           time: w.at,
-          status: workflowStatus,
+          status: "done",
           meta: {},
         });
       });
@@ -2329,7 +2201,6 @@ ${lines || "(See PDF for full BOM)"}
                 checkingOrderId={checkingOrderId}
                 processingActionId={processingActionId}
                 completeActionId={completeActionId}
-                cancelActionId={cancelActionId}
                 orderStatusColors={orderStatusColors}
                 paymentColors={paymentColors}
                 orderStatusMeta={orderStatusMeta}
@@ -2343,8 +2214,6 @@ ${lines || "(See PDF for full BOM)"}
                 onOpenQuotation={openQuotationModal}
                 onMoveToProcessing={handleMoveToProcessing}
                 onCompleteOrder={handleCompleteOrder}
-                onCancelOrder={openCancelOrderModal}
-                canAdminCancelOrders={canAdminCancelOrders}
               />
             )}
 
@@ -3679,84 +3548,6 @@ ${lines || "(See PDF for full BOM)"}
           )}
         </Modal>
 
-        <Modal
-          isOpen={showCancelModal}
-          title="Cancel Order"
-          onClose={closeCancelOrderModal}
-          size="md"
-        >
-          {cancelTargetOrder && (
-            <div className="space-y-5">
-              <div className="rounded-3xl border border-red-200 bg-red-50 p-5">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-2xl bg-red-100 p-3 text-red-700">
-                    <AlertTriangle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-red-900">
-                      {cancelTargetOrder.reference} - {cancelTargetOrder.customerName}
-                    </p>
-                    <p className="mt-1 text-sm text-red-800">
-                      Current status: {cancelTargetOrder.orderStatus}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
-                  Stock Impact
-                </p>
-                <p className="mt-2 text-base font-semibold text-gray-900">
-                  {getCancellationImpactMeta(cancelTargetOrder.orderStatus).badge}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-gray-700">
-                  {getCancellationImpactMeta(cancelTargetOrder.orderStatus).description}
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-800">
-                  Cancellation reason
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  rows={5}
-                  placeholder="Write why this order is being cancelled..."
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  This note will be saved in the order timeline for admin review.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={closeCancelOrderModal}
-                >
-                  Keep order
-                </Button>
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={handleCancelOrder}
-                  disabled={cancelActionId === cancelTargetOrder.id}
-                >
-                  {cancelActionId === cancelTargetOrder.id ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <AlertTriangle className="mr-2 h-4 w-4" />
-                  )}
-                  Confirm cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </Modal>
-
         {showDetailPanel && selectedOrder && (
           <motion.div
             className="fixed inset-0 z-40 flex items-center justify-end"
@@ -3871,24 +3662,6 @@ ${lines || "(See PDF for full BOM)"}
                       Complete order
                     </Button>
                   )}
-
-                  {canAdminCancelOrders &&
-                    selectedOrder.orderStatusKey !== "CANCELLED" && (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        className="rounded-2xl px-4 py-2"
-                        onClick={() => openCancelOrderModal(selectedOrder)}
-                        disabled={cancelActionId === selectedOrder.id}
-                      >
-                        {cancelActionId === selectedOrder.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <AlertTriangle className="mr-2 h-4 w-4" />
-                        )}
-                        Cancel order
-                      </Button>
-                    )}
 
                   <Button
                     type="button"
