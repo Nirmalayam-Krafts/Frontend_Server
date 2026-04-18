@@ -54,7 +54,7 @@ import { useAuthContext } from "../../../context/Adminauth";
 import { useUIStore } from "../../store";
 import { useGetAllOrders } from "../../../../hook/order";
 import { useGetInventory } from "../../../../hook/inventory";
-import { useGetAllProducts } from "../../../../hook/product";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 const initialManualOrderForm = {
   customerName: "",
