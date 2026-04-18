@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Leaf, Coffee, Crown, ShieldCheck, Zap, Globe } from 'lucide-react';
+import { ArrowRight, Leaf, Coffee, Crown, ShieldCheck, Zap, Globe, MessageSquare } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const categories = [
@@ -154,12 +154,16 @@ export default function Products() {
                 }}
               >
                   {/* Image Section */}
-                  <div style={{ 
-                    order: isMobile ? 1 : (i % 2 === 0 ? 1 : 2),
-                    height: isMobile ? '200px' : 'auto',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
+                  <div 
+                    className="product-gallery-item"
+                    style={{ 
+                      order: isMobile ? 1 : (i % 2 === 0 ? 1 : 2),
+                      height: isMobile ? '300px' : 'auto',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      cursor: 'pointer'
+                    }}
+                  >
                     <img 
                       src={cat.image} 
                       alt={cat.title} 
@@ -169,13 +173,32 @@ export default function Products() {
                         objectFit: 'cover',
                         transition: 'transform 1s cubic-bezier(0.2, 0, 0, 1)'
                       }}
-                      onMouseEnter={e => { if (!isMobile) e.target.style.transform = 'scale(1.15)'; }}
+                      onMouseEnter={e => { if (!isMobile) e.target.style.transform = 'scale(1.1)'; }}
                       onMouseLeave={e => { if (!isMobile) e.target.style.transform = 'scale(1)'; }}
                     />
+                    
+                    {/* "Get a Quote" Overlay */}
+                    <div className="gallery-quote-btn">
+                      <MessageSquare size={isMobile ? 24 : 32} style={{ marginBottom: 4 }} />
+                      <span style={{ 
+                        fontSize: isMobile ? 18 : 22, 
+                        fontWeight: 700, 
+                        letterSpacing: '0.05em',
+                        textTransform: 'uppercase'
+                      }}>Get a Quote</span>
+                      <p style={{ 
+                        fontSize: isMobile ? 12 : 14, 
+                        opacity: 0.8,
+                        margin: 0
+                      }}>Click to inquire about {cat.title}</p>
+                    </div>
+
                     <div style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.4))'
+                      background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.6))',
+                      pointerEvents: 'none',
+                      zIndex: 1
                     }} />
                   </div>
 

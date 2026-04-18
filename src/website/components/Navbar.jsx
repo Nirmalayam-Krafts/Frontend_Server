@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Leaf, Menu, X, ShoppingBag, User, ChevronDown } from 'lucide-react';
+import { Leaf, Menu, X, ShoppingBag, User, ChevronDown, MessageCircle } from 'lucide-react';
 
 const navLinks = [
   { label: 'Home', to: '/' },
@@ -71,45 +71,47 @@ export default function Navbar() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 var(--container-gutter)', // Consistent side padding
-          maxWidth: '1800px' // Wider reach for elite feel
+          padding: isMobile ? '0 20px' : '0 40px',
+          maxWidth: '1440px', // Standard desktop max-width for better focus
+          margin: '0 auto',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
             <div style={{
-              width: 38, height: 38,
-              background: 'linear-gradient(135deg, var(--kraft-800) 0%, var(--kraft-600) 100%)',
-              borderRadius: '10px',
+              width: isMobile ? 36 : 44,
+              height: isMobile ? 36 : 44,
+              background: 'linear-gradient(135deg, #000000 0%, #1a1208 100%)',
+              borderRadius: '12px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
+              flexShrink: 0
             }}>
-              <Leaf size={18} color="var(--kraft-100)" />
+              <Leaf size={isMobile ? 18 : 22} color="white" />
             </div>
-            <div>
-              <div style={{
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              whiteSpace: 'nowrap'
+            }}>
+              <span style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: isMobile ? '16px' : '18px',
-                fontWeight: 700,
-                color: scrolled || !isHome ? 'var(--kraft-950)' : 'white',
-                textShadow: !scrolled && isHome ? '0 2px 10px rgba(26, 18, 8, 0.3)' : 'none',
+                fontSize: isMobile ? '20px' : '26px',
+                fontWeight: 900,
+                color: scrolled || !isHome ? '#000000' : isHome ? '#ffffff' : '#000000',
+                textShadow: !scrolled && isHome ? '0 4px 15px rgba(0,0,0,0.3)' : 'none',
                 lineHeight: 1,
+                letterSpacing: '-0.01em'
               }}>
-                Nirmalyam
-              </div>
-              <div style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: '10px',
-                fontWeight: 600,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: scrolled || !isHome ? 'var(--eco-600)' : 'rgba(255,255,255,0.75)',
-              }}>
-                Krafts
-              </div>
+                Nirmalyam Krafts
+              </span>
             </div>
           </Link>
 
           {/* Desktop Nav */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} className="desktop-nav">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="desktop-nav">
             {navLinks.map((link) =>
               link.children ? (
                 <div key={link.label} style={{ position: 'relative' }}
@@ -119,25 +121,25 @@ export default function Navbar() {
                   <NavLink
                     to={link.to}
                     style={({ isActive }) => ({
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '8px 12px',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '8px 14px',
                       borderRadius: 'var(--radius-full)',
                       fontFamily: "'Inter', sans-serif",
-                      fontSize: '14px',
-                      fontWeight: 500,
+                      fontSize: '15px',
+                      fontWeight: 700,
                       textDecoration: 'none',
                       color: scrolled || !isHome
                         ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
-                        : isActive ? 'var(--eco-400)' : 'rgba(255,255,255,0.9)',
-                      textShadow: !scrolled && isHome ? '0 1px 12px rgba(26, 18, 8, 0.4)' : 'none',
+                        : isActive ? 'var(--eco-400)' : 'white',
+                      textShadow: !scrolled && isHome ? '0 2px 10px rgba(0,0,0,0.2)' : 'none',
                       background: isActive
-                        ? scrolled || !isHome ? 'rgba(22,163,74,0.08)' : 'rgba(255,255,255,0.1)'
+                        ? scrolled || !isHome ? 'rgba(22,163,74,0.06)' : 'rgba(255,255,255,0.12)'
                         : 'transparent',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     })}
                   >
                     {link.label}
-                    <ChevronDown size={14} style={{ transform: productsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                    <ChevronDown size={12} style={{ transform: productsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }} />
                   </NavLink>
                   {productsOpen && (
                     <div style={{
@@ -180,19 +182,19 @@ export default function Navbar() {
                   key={link.label}
                   to={link.to}
                   style={({ isActive }) => ({
-                    padding: '8px 12px',
+                    padding: '8px 14px',
                     borderRadius: 'var(--radius-full)',
                     fontFamily: "'Inter', sans-serif",
-                    fontSize: '14px',
-                    fontWeight: 500,
+                    fontSize: '15px',
+                    fontWeight: 700,
                     textDecoration: 'none',
                     color: scrolled || !isHome
                       ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
-                      : isActive ? 'var(--eco-400)' : 'rgba(255,255,255,0.9)',
+                      : isActive ? 'var(--eco-400)' : 'white',
                     background: isActive
-                      ? scrolled || !isHome ? 'rgba(22,163,74,0.08)' : 'rgba(255,255,255,0.1)'
+                      ? scrolled || !isHome ? 'rgba(22,163,74,0.06)' : 'rgba(255,255,255,0.12)'
                       : 'transparent',
-                    transition: 'all 0.2s',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   })}
                 >
                   {link.label}
@@ -205,11 +207,15 @@ export default function Navbar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
             <Link to="/contact" className="btn-primary" style={{
-              padding: isMobile ? '8px 12px' : '9px 22px',
-              fontSize: isMobile ? '12px' : '13px'
+              padding: isMobile ? '10px 16px' : '14px 32px',
+              fontSize: isMobile ? '13px' : '16px',
+              borderRadius: '100px',
+              background: 'var(--eco-600)',
+              boxShadow: '0 8px 20px rgba(34, 197, 94, 0.2)',
+              fontWeight: 700
             }}>
-              <span style={{ display: isMobile ? 'none' : 'inline' }}>Get a Quote</span>
-              <ShoppingBag size={isMobile ? 18 : 14} />
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>Consult Expert</span>
+              <MessageCircle size={isMobile ? 20 : 18} style={{ marginLeft: isMobile ? 0 : 10 }} />
             </Link>
 
             {/* Hamburger */}
@@ -263,16 +269,20 @@ export default function Navbar() {
                 key={link.label}
                 to={link.to}
                 style={({ isActive }) => ({
-                  display: 'block',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '18px 24px',
+                  borderRadius: '18px',
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: '16px',
-                  fontWeight: 500,
+                  fontSize: '20px',
+                  fontWeight: 700,
                   textDecoration: 'none',
-                  color: isActive ? 'var(--eco-700)' : 'var(--kraft-800)',
-                  background: isActive ? 'rgba(22,163,74,0.08)' : 'transparent',
-                  transition: 'all 0.2s',
+                  color: isActive ? 'var(--eco-700)' : 'var(--kraft-950)',
+                  background: isActive ? 'rgba(22,163,74,0.1)' : 'white',
+                  border: '1px solid',
+                  borderColor: isActive ? 'var(--eco-200)' : 'var(--kraft-100)',
+                  transition: 'all 0.3s ease',
+                  boxShadow: isActive ? '0 10px 20px rgba(22,163,74,0.06)' : 'none'
                 })}
               >
                 {link.label}

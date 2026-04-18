@@ -3,17 +3,17 @@
 
 /* ─── Design Tokens ─── */
 :root {
-  --kraft-50: #fdf9f3;
-  --kraft-100: #f7f0e2;
-  --kraft-200: #eedfc4;
-  --kraft-300: #e0c99e;
-  --kraft-400: #cfad77;
-  --kraft-500: #c09457;
-  --kraft-600: #b07a3e;
-  --kraft-700: #925f2e;
-  --kraft-800: #764c27;
-  --kraft-900: #5c3c1e;
-  --kraft-950: #3a2410;
+  --kraft-50: #fdfdfc;
+  --kraft-100: #f8f8f5;
+  --kraft-200: #f2efe9;
+  --kraft-300: #e8e2d5;
+  --kraft-400: #d4c8af;
+  --kraft-500: #c0a875;
+  --kraft-600: #a38b55;
+  --kraft-700: #857041;
+  --kraft-800: #665633;
+  --kraft-900: #4a3e25;
+  --kraft-950: #2d2617;
 
   --eco-400: #4ade80;
   --eco-500: #22c55e;
@@ -62,7 +62,8 @@ h1,
 h2,
 h3 {
   font-family: 'Playfair Display', serif;
-  line-height: 1.2;
+  line-height: 1.15;
+  font-weight: 700;
 }
 
 h4,
@@ -563,10 +564,10 @@ h6 {
 }
 
 .section-subtitle {
-  font-size: 17px;
+  font-size: 20px;
   color: var(--kraft-600);
-  line-height: 1.65;
-  max-width: 580px;
+  line-height: 1.7;
+  max-width: 650px;
 }
 
 /* Product cards */
@@ -638,16 +639,43 @@ h6 {
   pointer-events: none;
 }
 
-/* Tag chip */
-.tag-chip {
-  display: inline-block;
-  padding: 4px 12px;
-  background: var(--kraft-100);
-  color: var(--kraft-700);
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 500;
+/* --- Accessibility & Premium Polish --- */
+.text-accessible {
+  color: var(--kraft-950) !important;
+  font-weight: 600;
 }
+
+.bg-light-texture {
+  background-color: #fafaf8;
+  background-image: radial-gradient(var(--kraft-200) 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
+}
+
+.section-padding-large {
+  padding: 120px 0px;
+}
+
+.gallery-quote-btn {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+  color: white;
+  text-align: center;
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.product-gallery-item:hover .gallery-quote-btn {
+  transform: translateY(0);
+}
+
 
 
 /* ─── Nature Textures ─── */

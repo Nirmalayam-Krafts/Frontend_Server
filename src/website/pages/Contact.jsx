@@ -36,9 +36,9 @@ const contacts = [
   {
     icon: MapPin,
     title: 'Visit Us',
-    value: 'Plot 42, Industrial Area Phase II',
-    sub: 'Bengaluru, Karnataka 560066, India',
-    href: 'https://maps.google.com/?q=Nirmalyam+Krafts+Bengaluru',
+    value: 'Regional Distribution Hub',
+    sub: 'Pune & Mumbai, Maharashtra, India',
+    href: 'https://maps.google.com/?q=Nirmalyam+Krafts',
     color: '#ef4444',
     bg: 'rgba(239,68,68,0.08)',
   },
@@ -82,20 +82,24 @@ const INITIAL_FORM = {
 
 const LOCATION_OPTIONS = [
   { value: '', label: 'Select your area...' },
-  { label: '--- Pune Areas ---', value: '', disabled: true },
+  { label: '--- Pune Regions ---', value: '', disabled: true },
   { value: 'Baner, Pune', label: 'Baner' },
+  { value: 'Aundh, Pune', label: 'Aundh' },
   { value: 'Kothrud, Pune', label: 'Kothrud' },
   { value: 'Hinjewadi, Pune', label: 'Hinjewadi' },
   { value: 'Viman Nagar, Pune', label: 'Viman Nagar' },
   { value: 'Wakad, Pune', label: 'Wakad' },
-  { value: 'Hadapsar, Pune', label: 'Hadapsar' },
-  { label: '--- Mumbai Areas ---', value: '', disabled: true },
-  { value: 'Andheri, Mumbai', label: 'Andheri' },
-  { value: 'Bandra, Mumbai', label: 'Bandra' },
+  { value: 'Hadapsar, Pune', label: 'Hadapsar / Magarpatta' },
+  { value: 'Kalyani Nagar, Pune', label: 'Kalyani Nagar' },
+  { label: '--- Mumbai Regions ---', value: '', disabled: true },
+  { value: 'Andheri, Mumbai', label: 'Andheri (East/West)' },
+  { value: 'Bandra, Mumbai', label: 'Bandra / BKC' },
   { value: 'Borivali, Mumbai', label: 'Borivali' },
   { value: 'Ghatkopar, Mumbai', label: 'Ghatkopar' },
   { value: 'Powai, Mumbai', label: 'Powai' },
-  { value: 'South Mumbai', label: 'South Mumbai' },
+  { value: 'South Mumbai', label: 'South Mumbai / Colaba' },
+  { value: 'Thane', label: 'Thane / Mulund' },
+  { value: 'Navi Mumbai', label: 'Navi Mumbai / Vashi' },
 ];
 
 export default function Contact() {
@@ -356,23 +360,23 @@ export default function Contact() {
                   <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 24 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                       <div style={{ display: 'grid', gap: 8 }}>
-                        <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Full Name *</label>
-                        <input className="contact-input" name="name" placeholder="John Doe" value={form.name} onChange={handleChange} required />
+                        <label className="section-label" style={{ fontSize: 13, margin: 0, color: 'var(--kraft-900)', fontWeight: 800 }}>Full Name *</label>
+                        <input className="contact-input" name="name" placeholder="John Doe" value={form.name} onChange={handleChange} required style={{ color: 'var(--kraft-950)', fontWeight: 600 }} />
                       </div>
                       <div style={{ display: 'grid', gap: 8 }}>
-                        <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Email *</label>
-                        <input className="contact-input" name="email" type="email" placeholder="john@company.com" value={form.email} onChange={handleChange} required />
+                        <label className="section-label" style={{ fontSize: 13, margin: 0, color: 'var(--kraft-900)', fontWeight: 800 }}>Email *</label>
+                        <input className="contact-input" name="email" type="email" placeholder="john@company.com" value={form.email} onChange={handleChange} required style={{ color: 'var(--kraft-950)', fontWeight: 600 }} />
                       </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                       <div style={{ display: 'grid', gap: 8 }}>
-                        <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Phone</label>
-                        <input className="contact-input" name="phone" placeholder="+91 98765 43210" value={form.phone} onChange={handleChange} />
+                        <label className="section-label" style={{ fontSize: 13, margin: 0, color: 'var(--kraft-900)', fontWeight: 800 }}>Phone</label>
+                        <input className="contact-input" name="phone" placeholder="+91 98765 43210" value={form.phone} onChange={handleChange} style={{ color: 'var(--kraft-950)', fontWeight: 600 }} />
                       </div>
                       <div style={{ display: 'grid', gap: 8 }}>
-                        <label className="section-label" style={{ fontSize: 10, margin: 0 }}>Company</label>
-                        <input className="contact-input" name="business_name" placeholder="Logistics PVT LTD" value={form.business_name} onChange={handleChange} />
+                        <label className="section-label" style={{ fontSize: 13, margin: 0, color: 'var(--kraft-900)', fontWeight: 800 }}>Company</label>
+                        <input className="contact-input" name="business_name" placeholder="Logistics PVT LTD" value={form.business_name} onChange={handleChange} style={{ color: 'var(--kraft-950)', fontWeight: 600 }} />
                       </div>
                     </div>
 

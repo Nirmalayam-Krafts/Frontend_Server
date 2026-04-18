@@ -78,7 +78,7 @@ const categories = [
     title: 'Ecocraft Bags',
     desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
     icon: Package,
-    image: '/collection-ecocraft.png',
+    image: '/images/collection_ecocraft_vibrant.png',
     color: '#4ade80',
     bg: '#f0fdf4',
     to: '/products#ecocraft',
@@ -87,7 +87,7 @@ const categories = [
     title: 'F&B Gourmet Bags',
     desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
     icon: Zap,
-    image: '/collection-fnb.png',
+    image: '/images/collection_fnb_vibrant.png',
     color: '#f59e0b',
     bg: '#fffbeb',
     to: '/products#fnb',
@@ -96,7 +96,7 @@ const categories = [
     title: 'Luxury Bags',
     desc: 'High-finish, elegant packaging for premium retail, jewelry, and exclusive gifting.',
     icon: Award,
-    image: '/collection-luxury.png',
+    image: '/images/collection_luxury_vibrant.png',
     color: '#c09457',
     bg: '#fdf9f3',
     to: '/products#luxury',
@@ -108,34 +108,38 @@ const whyCards = [
   {
     id: 1,
     title: '12,000+',
-    label: 'Brands Served',
-    image: '/images/why_quality.png',
+    label: 'Indian Brands Joined',
+    image: '/images/why_brands.png',
+    video: 'https://player.vimeo.com/external/494252666.sd.mp4?s=40428d009265f242e82500c4c454e963&profile_id=165',
     icon: Users,
-    accent: 'var(--kraft-500)'
+    accent: 'var(--eco-600)'
   },
   {
     id: 2,
     title: '100%',
-    label: 'Recyclable Process',
-    image: '/images/why_recyclable.png',
-    icon: Recycle,
-    accent: 'var(--eco-500)'
+    label: 'On-Time Delivery',
+    image: '/images/why_delivery.png',
+    video: 'https://player.vimeo.com/external/459389133.sd.mp4?s=183f3f3f6111a43a6d4e2d27f8d6f5c80&profile_id=165',
+    icon: Shield,
+    accent: 'var(--kraft-500)'
   },
   {
     id: 3,
-    title: '99%',
-    label: 'On-Time Delivery',
-    image: '/images/why_printing.png',
-    icon: Shield,
-    accent: 'var(--kraft-400)'
+    title: 'Artisanal',
+    label: 'Craftsmanship Heritage',
+    image: '/images/why_artisans.png',
+    video: 'https://player.vimeo.com/external/517090025.sd.mp4?s=1a491f69201a4f028682e75e92701742&profile_id=165',
+    icon: Star,
+    accent: '#f59e0b'
   },
   {
     id: 4,
-    title: '500 Units',
-    label: 'Small Batch MOQ',
-    image: '/images/why_moq.png',
-    icon: Package,
-    accent: 'var(--eco-600)'
+    title: 'Vibrant',
+    label: 'Colorful Collections',
+    image: '/images/why_vibrant.png',
+    video: 'https://player.vimeo.com/external/371433846.sd.mp4?s=231da6469cf3680e92743846d03f0b24&profile_id=165',
+    icon: TrendingUp,
+    accent: '#ec4899'
   },
 ];
 
@@ -207,174 +211,170 @@ export default function Home() {
 
       {/* ══════════════════ HERO ══════════════════ */}
       <section style={{
-        minHeight: '80vh',
+        minHeight: isMobile ? '700px' : '95vh',
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
+        paddingTop: isMobile ? 80 : 0
       }}>
-        {/* Nature background image */}
+        {/* Main Background Image - Colorful bags hanging from tree */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/hero-bg.png)',
+          backgroundImage: 'url(/images/luxury_hero.png)',
           backgroundSize: 'cover',
-          backgroundPosition: 'center top',
+          backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
         }} />
 
-        {/* Overlay gradient left→transparent + bottom fade to cream */}
+        {/* Sophisticated Overlays */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: `
-            linear-gradient(to bottom, rgba(58, 38, 14, 0.45) 0%, transparent 35%),
-            linear-gradient(to right, rgba(255, 253, 245, 0.92) 0%, rgba(255, 253, 245, 0.75) 40%, rgba(88, 56, 25, 0.05) 75%, transparent 100%),
-            linear-gradient(to top, rgba(253, 249, 243, 1) 0%, transparent 25%)
-          `,
+          background: isMobile 
+            ? 'linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 30%, transparent 60%, rgba(255,255,255,1) 100%)'
+            : 'linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 30%, rgba(255,255,255,0.4) 50%, transparent 100%)',
           zIndex: 1,
         }} />
 
-        {/* Subtle tree background layer */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: 'url(/tree-texture.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 0.1,
-          mixBlendMode: 'multiply',
-          pointerEvents: 'none',
-        }} />
-
-        {/* Content */}
         <div className="container" style={{
           position: 'relative',
-          zIndex: 1,
-          padding: isMobile ? '100px 0px 20px' : '80px 0px 30px',
+          zIndex: 2,
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr',
-          gap: isMobile ? 24 : 32,
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
           alignItems: 'center',
-          textAlign: isMobile ? 'center' : 'left'
+          gap: 48
         }}>
-          {/* Left — text */}
-          <div>
-            {/* Badge */}
+          {/* Left Side: Content Box */}
+          <div className="anim-fade-up">
             <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 16px',
-              background: 'rgba(22,101,52,0.1)',
-              border: '1px solid rgba(22,101,52,0.25)',
-              borderRadius: 'var(--radius-full)',
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              color: '#166534',
-              marginBottom: 24,
+               display: 'inline-flex',
+               alignItems: 'center',
+               gap: 8,
+               padding: '8px 20px',
+               borderRadius: '100px',
+               border: '1px solid var(--eco-600)',
+               color: 'var(--eco-700)',
+               fontSize: 12,
+               fontWeight: 700,
+               letterSpacing: '0.15em',
+               textTransform: 'uppercase',
+               background: 'rgba(34, 197, 94, 0.05)',
+               marginBottom: 24,
             }}>
-              <Leaf size={11} /> Sustainable Solutions
+              <Leaf size={14} /> Sustainable Solutions
             </div>
+
+            <h2 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: isMobile ? '24px' : '36px',
+              fontWeight: 600,
+              color: 'var(--kraft-900)',
+              marginBottom: 8,
+              lineHeight: 1.2
+            }}>
+              The Future of Eco Packaging
+            </h2>
 
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: 'clamp(32px, 5.5vw, 72px)',
-              fontWeight: 800,
-              color: '#1a1208',
-              lineHeight: 1.1,
-              marginBottom: 18,
-              textAlign: isMobile ? 'center' : 'left'
+              fontSize: 'clamp(40px, 6vw, 84px)',
+              fontWeight: 900,
+              color: 'var(--kraft-950)',
+              marginBottom: 20,
+              lineHeight: 0.95,
+              letterSpacing: '-1px'
             }}>
-              The Future of<br />
-              <span style={{ color: '#7a4a1e' }}>Eco Packaging</span>
+              Nirmalyam Kraft
             </h1>
 
             <p style={{
-              fontSize: isMobile ? 15 : 16,
-              color: '#4a3c2a',
-              lineHeight: 1.75,
-              maxWidth: 440,
-              marginBottom: 36,
-              margin: isMobile ? '0 auto 36px' : '0 0 36px',
-              textAlign: isMobile ? 'center' : 'left'
+              fontSize: isMobile ? 17 : 20,
+              fontWeight: 600,
+              color: 'var(--kraft-800)',
+              marginBottom: 16,
+              lineHeight: 1.4,
+              maxWidth: 580
             }}>
-              Transforming Indian retail with premium, custom-printed kraft paper solutions.
-              Elevate your brand sustainably with Nirmalyam Krafts.
+              Elevating brands through sustainable craftsmanship. <br />
+              <span style={{ color: 'var(--eco-600)' }}>Pure. Bold. Zero-waste.</span>
             </p>
 
-            {/* CTA buttons */}
-            <div style={{
-              display: 'flex',
-              gap: 14,
-              flexWrap: 'wrap',
-              justifyContent: isMobile ? 'center' : 'flex-start'
+            <p style={{
+              fontSize: isMobile ? 14 : 16,
+              color: 'var(--kraft-600)',
+              marginBottom: 40,
+              lineHeight: 1.6,
+              maxWidth: 500,
+              fontWeight: 500
             }}>
-              {/* WhatsApp button */}
-              <a
-                href="https://wa.me/919876543210"
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '14px 28px',
-                  background: '#25D366',
-                  color: 'white',
-                  borderRadius: 'var(--radius-full)',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  textDecoration: 'none',
-                  boxShadow: '0 4px 20px rgba(37,211,102,0.35)',
-                  transition: 'all 0.25s',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(37,211,102,0.45)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(37,211,102,0.35)'; }}
+              Specializing in ITC ECF paperboards and eco-friendly specialty papers. 
+              We deliver high-performance packaging that ensures your products stay fresh and sustainably stunning.
+            </p>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '18px 36px',
+                background: '#25D366',
+                color: 'white',
+                borderRadius: '100px',
+                fontSize: 17,
+                fontWeight: 700,
+                textDecoration: 'none',
+                boxShadow: '0 10px 30px rgba(37,211,102,0.3)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
               >
-                <WhatsAppIcon size={19} />
-                <span>Chat on WhatsApp</span>
+                <WhatsAppIcon size={22} />
+                Chat on WhatsApp
               </a>
 
-              {/* Get a Quote button */}
-              <Link
-                to="/contact"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '13px 28px',
-                  background: 'white',
-                  color: '#5c3d1a',
-                  border: '2px solid #c09457',
-                  borderRadius: 'var(--radius-full)',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  textDecoration: 'none',
-                  transition: 'all 0.25s',
-                  boxShadow: '0 2px 12px rgba(192,148,87,0.15)',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#fdf6ec'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.transform = 'none'; }}
+              <Link to="/contact" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '17px 36px',
+                background: 'white',
+                border: '2px solid var(--kraft-200)',
+                color: 'var(--kraft-900)',
+                borderRadius: '100px',
+                fontSize: 17,
+                fontWeight: 700,
+                textDecoration: 'none',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--kraft-400)'; e.currentTarget.style.background = 'var(--kraft-50)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--kraft-200)'; e.currentTarget.style.background = 'white'; }}
               >
-                <span>Get a Quote</span>
+                Get a Quote
               </Link>
             </div>
           </div>
 
-          {/* Right — floating bag image */}
-          <KraftBagSVG />
+          {/* Right Side: 3D Bag Animation */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: isMobile ? 'center' : 'flex-end', 
+            alignItems: 'center',
+            width: '100%',
+            marginTop: isMobile ? 32 : 0
+          }}>
+            <KraftBagSVG />
+          </div>
         </div>
 
-        {/* Wave divider */}
-        <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0 }}>
-          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 60L1440 60L1440 30C1200 -10 960 70 720 30C480 -10 240 70 0 30L0 60Z" fill="var(--kraft-50)" />
-          </svg>
+        {/* Wave bottom transition */}
+        <div style={{ position: 'absolute', bottom: -2, left: 0, width: '100%', zIndex: 3, pointerEvents: 'none' }}>
+           <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+             <path d="M0 120H1440V50C1320 100 1080 100 840 50C600 0 360 0 120 50C80 66 40 83 0 100V120Z" fill="white" />
+           </svg>
         </div>
       </section>
 
@@ -408,201 +408,193 @@ export default function Home() {
               hidden: {},
               visible: {
                 transition: {
-                  staggerChildren: 0.12
+                  staggerChildren: 0.1
                 }
               }
             }}
             style={{
-              display: isMobile ? 'grid' : 'flex',
-              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'none',
-              gridAutoRows: isMobile ? 'minmax(80px, 1fr)' : 'auto',
+              display: 'grid',
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
               justifyContent: 'center',
-              alignItems: 'stretch',
-              gap: isMobile ? '10px' : 'clamp(12px, 2vw, 24px)',
-              flexWrap: isMobile ? 'nowrap' : 'wrap'
+              alignItems: 'start',
+              gap: isMobile ? '32px 16px' : '48px',
             }}
           >
             {/* Make in India */}
             <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
               }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: isMobile ? 4 : 16,
-                padding: isMobile ? '10px' : '12px 28px',
-                background: 'rgba(255, 255, 255, 0.45)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: isMobile ? 12 : 24,
-                border: '1px solid rgba(255, 255, 255, 0.7)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                textAlign: 'center',
                 cursor: 'default',
-                textAlign: 'center'
-              }}
-              whileHover={{
-                scale: 1.05,
-                y: -5,
-                boxShadow: '0 15px 35px rgba(122, 74, 30, 0.08)',
-                borderColor: 'rgba(122, 74, 30, 0.2)'
               }}
             >
-              <motion.img
-                src="/images/make_in_india_lion.png"
-                alt="Make in India"
-                style={{ height: isMobile ? 24 : 48, width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-                animate={{
-                  filter: ['drop-shadow(0 2px 4px rgba(0,0,0,0.1))', 'drop-shadow(0 4px 8px rgba(122, 74, 30, 0.2))', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))']
-                }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ marginBottom: 20 }}>
+                <motion.img
+                  src="/images/make_in_india_lion.png"
+                  alt="Make in India"
+                  style={{ height: isMobile ? 48 : 80, width: 'auto' }}
+                  whileHover={{ scale: 1.1 }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{
-                  fontSize: isMobile ? 8 : 10,
+                  fontSize: isMobile ? '10px' : '12px',
                   fontWeight: 800,
                   color: '#7a4a1e',
-                  letterSpacing: '0.25em',
+                  letterSpacing: '0.2em',
                   textTransform: 'uppercase',
-                  marginBottom: 2
+                  opacity: 0.8
                 }}>AUTHENTIC</span>
                 <span style={{
-                  fontSize: isMobile ? 13 : 18,
+                  fontSize: isMobile ? '16px' : '22px',
                   fontWeight: 900,
                   color: '#1a1208',
-                  letterSpacing: '0.05em',
                   fontFamily: "'Playfair Display', serif"
                 }}>MAKE IN INDIA</span>
               </div>
             </motion.div>
 
-            {/* Recycle India */}
+            {/* Recycle Card */}
             <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
               }}
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: isMobile ? 'center' : 'flex-start',
-                gap: isMobile ? 8 : 12,
-                padding: isMobile ? '10px 12px' : '12px 24px',
-                background: 'rgba(255, 255, 255, 0.45)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: isMobile ? 20 : 24,
-                border: '1px solid rgba(255, 255, 255, 0.7)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                textAlign: 'center',
                 cursor: 'default'
-              }}
-              whileHover={{
-                scale: 1.05,
-                y: -5,
-                boxShadow: '0 15px 35px rgba(22, 101, 52, 0.08)',
-                borderColor: 'rgba(22, 101, 52, 0.2)'
               }}
             >
               <motion.div
+                style={{ marginBottom: 20 }}
                 animate={{ rotate: 360 }}
-                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                whileHover={{ scale: 1.15 }}
               >
                 <img
                   src="https://upload.wikimedia.org/wikipedia/commons/4/44/Recycle001.svg"
                   alt="Recycle"
-                  style={{ height: isMobile ? 18 : 28, width: 'auto', opacity: 0.9 }}
+                  style={{ height: isMobile ? 40 : 64, width: 'auto' }}
                 />
               </motion.div>
-              <span style={{ fontSize: isMobile ? 9 : 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.12em' }}>RECYCLE INDIA</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{
+                  fontSize: isMobile ? '10px' : '12px',
+                  fontWeight: 800,
+                  color: '#166534',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  opacity: 0.8
+                }}>CIRCULAR</span>
+                <span style={{
+                  fontSize: isMobile ? '16px' : '20px',
+                  fontWeight: 900,
+                  color: '#1a1208',
+                  fontFamily: "'Playfair Display', serif"
+                }}>RECYCLE INDIA</span>
+              </div>
             </motion.div>
 
-            {/* Plastic Free */}
+            {/* Plastic Free Card */}
             <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
               }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: isMobile ? 4 : 12,
-                padding: isMobile ? '10px' : '12px 24px',
-                background: 'rgba(255, 255, 255, 0.45)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: isMobile ? 12 : 24,
-                border: '1px solid rgba(255, 255, 255, 0.7)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-                cursor: 'default',
-                textAlign: 'center'
-              }}
-              whileHover={{
-                scale: 1.05,
-                y: -5,
-                boxShadow: '0 15px 35px rgba(22, 163, 74, 0.08)',
-                borderColor: 'rgba(22, 163, 74, 0.2)'
+                textAlign: 'center',
+                cursor: 'default'
               }}
             >
               <motion.div
                 style={{
-                  width: isMobile ? 28 : 36, height: isMobile ? 28 : 36,
-                  borderRadius: 10,
-                  background: 'rgba(22,163,74,0.12)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  width: isMobile ? 56 : 90, 
+                  height: isMobile ? 56 : 90,
+                  borderRadius: '24px',
+                  background: 'rgba(34, 197, 94, 0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 20
                 }}
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                animate={{ scale: [1, 1.08, 1] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                whileHover={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', scale: 1.1 }}
               >
-                <Leaf size={isMobile ? 14 : 20} color="#166534" />
+                <Leaf size={isMobile ? 28 : 44} color="#166534" />
               </motion.div>
-              <span style={{ fontSize: isMobile ? 9 : 13, fontWeight: 700, color: '#166534', letterSpacing: '0.12em' }}>100% PLASTIC-FREE</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{
+                  fontSize: isMobile ? '10px' : '12px',
+                  fontWeight: 800,
+                  color: '#166534',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  opacity: 0.8
+                }}>ECO-FRIENDLY</span>
+                <span style={{
+                  fontSize: isMobile ? '16px' : '20px',
+                  fontWeight: 900,
+                  color: '#1a1208',
+                  fontFamily: "'Playfair Display', serif"
+                }}>100% PLASTIC-FREE</span>
+              </div>
             </motion.div>
 
-            {/* Pune Pride */}
+            {/* Location Card */}
             <motion.div
               variants={{
                 hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
               }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: isMobile ? 4 : 12,
-                padding: isMobile ? '10px' : '12px 24px',
-                background: 'rgba(255, 255, 255, 0.45)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: isMobile ? 12 : 24,
-                border: '1px solid rgba(255, 255, 255, 0.7)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-                cursor: 'default',
-                textAlign: 'center'
-              }}
-              whileHover={{
-                scale: 1.05,
-                y: -5,
-                boxShadow: '0 15px 35px rgba(139, 94, 52, 0.08)',
-                borderColor: 'rgba(139, 94, 52, 0.2)'
+                textAlign: 'center',
+                cursor: 'default'
               }}
             >
               <motion.div
                 style={{
-                  width: isMobile ? 28 : 36, height: isMobile ? 28 : 36,
-                  borderRadius: 10,
-                  background: 'rgba(139,94,52,0.1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  width: isMobile ? 56 : 90, 
+                  height: isMobile ? 56 : 90,
+                  borderRadius: '24px',
+                  background: 'rgba(139, 94, 52, 0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 20
                 }}
-                animate={{ y: [0, -3, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                whileHover={{ backgroundColor: 'rgba(139, 94, 52, 0.15)', scale: 1.1 }}
               >
-                <MapPin size={isMobile ? 18 : 20} color="#8b5e34" />
+                <MapPin size={isMobile ? 28 : 44} color="#8b5e34" />
               </motion.div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, color: '#8b5e34', letterSpacing: '0.1em' }}>BEST ECO-FRIENDLY</span>
-                <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 700, color: '#2d1a06', letterSpacing: '0.1em' }}>PRODUCTS IN PUNE</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{
+                  fontSize: isMobile ? '10px' : '12px',
+                  fontWeight: 800,
+                  color: '#8b5e34',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  opacity: 0.8
+                }}>REGION PRIDE</span>
+                <span style={{
+                  fontSize: isMobile ? '16px' : '18px',
+                  fontWeight: 900,
+                  color: '#1a1208',
+                  fontFamily: "'Playfair Display', serif"
+                }}>BEST IN PUNE</span>
               </div>
             </motion.div>
           </motion.div>
@@ -760,10 +752,10 @@ export default function Home() {
         <div className="nature-layer-wood" style={{ zIndex: 1 }} />
         <div className="nature-layer-leaf" style={{ zIndex: 1 }} />
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <div className="section-label">Our Collections</div>
-            <h2 className="section-title">Packaging That Speaks</h2>
-            <p className="section-subtitle" style={{ margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 60 }}>
+            <div className="section-label" style={{ fontSize: 13, letterSpacing: '0.2em' }}>Our Collections</div>
+            <h2 className="section-title" style={{ fontSize: 'clamp(40px, 7vw, 72px)', marginBottom: 24 }}>Packaging That Speaks</h2>
+            <p className="section-subtitle" style={{ margin: '0 auto', fontSize: 22, maxWidth: 750 }}>
               Discover our range of sustainable packaging solutions, meticulously crafted
               to elevate your brand while protecting the planet.
             </p>
@@ -780,26 +772,26 @@ export default function Home() {
                   onMouseEnter={e => e.currentTarget.style.borderColor = color}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--kraft-100)'}
                 >
-                  <div style={{ height: 220, overflow: 'hidden', position: 'relative' }}>
+                  <div style={{ height: 280, overflow: 'hidden', position: 'relative' }}>
                     <img src={image} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <div style={{
                       position: 'absolute',
-                      top: 16, left: 16,
-                      width: 44, height: 44,
-                      borderRadius: 12,
+                      top: 20, left: 20,
+                      width: 52, height: 52,
+                      borderRadius: 14,
                       background: bg,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                       backdropFilter: 'blur(4px)',
                     }}>
-                      <Icon size={20} color={color} />
+                      <Icon size={24} color={color} />
                     </div>
                   </div>
-                  <div style={{ padding: '24px 32px 32px' }}>
-                    <h3 style={{ fontSize: 22, fontWeight: 600, marginBottom: 10, color: 'var(--kraft-900)' }}>{title}</h3>
-                    <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.6, marginBottom: 20 }}>{desc}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color, fontWeight: 600, fontSize: 14 }}>
-                      Explore <ArrowRight size={14} />
+                  <div style={{ padding: '32px 32px 40px' }}>
+                    <h3 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12, color: 'var(--kraft-900)', fontFamily: "'Playfair Display', serif" }}>{title}</h3>
+                    <p style={{ fontSize: 18, color: 'var(--kraft-600)', lineHeight: 1.7, marginBottom: 24 }}>{desc}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color, fontWeight: 700, fontSize: 17 }}>
+                      Explore <ArrowRight size={18} />
                     </div>
                   </div>
                 </div>
@@ -900,19 +892,37 @@ export default function Home() {
                   border: '1px solid rgba(255,255,255,0.05)'
                 }}
               >
-                {/* Background Image with Hover Scale */}
-                <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-                  <img
-                    src={card.image}
-                    alt={card.label}
-                    className="why-card-img"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
-                  />
+                  {/* Video/Image Background */}
+                  <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+                    {card.video ? (
+                      <video
+                        src={card.video}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        poster={card.image}
+                        className="why-card-img"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={card.image}
+                        alt={card.label}
+                        className="why-card-img"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                      />
+                    )}
                   <div style={{
                     position: 'absolute',
                     inset: 0,
@@ -1074,12 +1084,12 @@ export default function Home() {
             gap: isMobile ? 8 : 32
           }} className="product-grid-3x3">
             {[
-              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: 'var(--gold-500)', image: '/product-luxury-retail.png' },
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: 'var(--eco-500)', image: '/product-food-bakery.png' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: 'var(--kraft-500)', image: '/product-eco-pouches.png' },
-              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: 'var(--eco-600)', image: '/product-flat-handle.png' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: 'var(--kraft-600)', image: '/product-industrial-rolls.png' },
-              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: 'var(--gold-400)', image: '/product-custom-mailers.png' },
+              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury.png' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/prod_fnb.png' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches.png' },
+              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat.png' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/prod_rolls.png' },
+              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: '#ec4899', image: '/images/prod_mailers.png' },
             ].map(({ name, cat, desc, color, image }, idx) => (
               <div key={name} className="product-card anim-reveal"
                 style={{
@@ -1092,7 +1102,7 @@ export default function Home() {
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
               >
                 <div style={{
-                  height: isMobile ? 100 : 220,
+                  height: isMobile ? 180 : 280,
                   background: `linear-gradient(135deg, ${color}12 0%, ${color}05 100%)`,
                   display: 'flex',
                   alignItems: 'center',
@@ -1110,10 +1120,10 @@ export default function Home() {
                     rel="noreferrer"
                     style={{
                       position: 'absolute',
-                      right: 16,
-                      bottom: 16,
-                      width: 44,
-                      height: 44,
+                      right: 20,
+                      bottom: 20,
+                      width: 52,
+                      height: 52,
                       background: '#25D366',
                       borderRadius: '50%',
                       display: 'flex',
@@ -1127,15 +1137,15 @@ export default function Home() {
                     onClick={(e) => e.stopPropagation()}
                     className="wa-product-btn"
                   >
-                    <WhatsAppIcon size={22} />
+                    <WhatsAppIcon size={26} />
                   </a>
                 </div>
-                <div style={{ padding: isMobile ? '12px 8px' : '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <span className="tag-chip" style={{ background: `${color}12`, color: color, fontSize: isMobile ? 8 : 12, padding: isMobile ? '2px 6px' : '4px 10px' }}>{cat}</span>
+                <div style={{ padding: isMobile ? '20px 16px' : '32px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                    <span className="tag-chip" style={{ background: `${color}12`, color: color, fontSize: 13, padding: '6px 14px', fontWeight: 600, letterSpacing: '0.05em' }}>{cat}</span>
                   </div>
-                  <h3 style={{ fontSize: isMobile ? 10 : 19, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: isMobile ? 2 : 10 }}>{name}</h3>
-                  <p style={{ fontSize: isMobile ? 8 : 14, color: 'var(--kraft-600)', lineHeight: 1.3, display: isMobile ? '-webkit-box' : 'block', WebkitLineClamp: isMobile ? 2 : 'none', WebkitBoxOrient: isMobile ? 'vertical' : 'none', overflow: isMobile ? 'hidden' : 'visible' }}>{desc}</p>
+                  <h3 style={{ fontSize: 24, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 12, fontFamily: "'Playfair Display', serif" }}>{name}</h3>
+                  <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.6 }}>{desc}</p>
                 </div>
               </div>
             ))}
@@ -1175,78 +1185,58 @@ export default function Home() {
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
       <section id="testimonials" style={{
         position: 'relative',
-        padding: '80px 24px',
+        padding: '120px 24px',
         overflow: 'hidden',
-        background: '#3a2410',
+        background: '#fafaf8',
       }}>
         {/* Wood Texture Background */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("/images/testimonials_bg_wood.png")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 0.9,
-          zIndex: 0
-        }} />
-
-        {/* Overlay for readability */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(to bottom, rgba(58, 36, 16, 0.4), rgba(58, 36, 16, 0.7))',
+          backgroundImage: 'radial-gradient(var(--kraft-200) 0.5px, transparent 0.5px)',
+          backgroundSize: '32px 32px',
+          opacity: 0.5,
           zIndex: 0
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+          <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <div className="section-label" style={{
-              color: 'white',
-              letterSpacing: '2px',
+              color: 'var(--kraft-600)',
+              letterSpacing: '3px',
               textTransform: 'uppercase',
-              fontSize: '12px'
+              fontSize: '14px',
+              fontWeight: 800
             }}>
               Testimonials
             </div>
             <h2 className="section-title" style={{
-              color: 'white',
-              fontSize: 'clamp(28px, 4vw, 44px)',
+              color: 'var(--kraft-950)',
+              fontSize: 'clamp(36px, 5vw, 64px)',
               fontWeight: 800,
-              letterSpacing: '-0.5px',
-              textShadow: '0 10px 30px rgba(0,0,0,0.3)',
-              marginBottom: 12
+              letterSpacing: '-1px',
+              marginBottom: 16
             }}>
-              The Nirmalyam <span style={{ color: 'var(--eco-400)' }}>Legacy</span>
+              The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>Legacy</span>
             </h2>
             <div style={{
-              width: 60,
+              width: 80,
               height: 4,
-              background: 'var(--eco-500)',
-              margin: '0 auto 24px',
+              background: 'var(--eco-600)',
+              margin: '0 auto',
               borderRadius: 2
             }} />
-            <p style={{
-              color: 'rgba(255,255,255,0.8)',
-              fontSize: 'clamp(15px, 1.1vw, 18px)',
-              maxWidth: 600,
-              margin: '0 auto',
-              lineHeight: 1.5,
-              fontStyle: 'italic',
-              fontWeight: 400
-            }}>
-              Rooted in Quality, Driven by Purpose — Sustainable kraft solutions trusted by leading brands across India.
-            </p>
           </div>
 
           <div style={{
-            maxWidth: 1200,
+            maxWidth: 1400,
             margin: '0 auto',
             position: 'relative',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: isMobile ? 380 : 420, // Reduced height
-            paddingTop: isMobile ? 30 : 40  // Reduced room
+            minHeight: isMobile ? 500 : 700,
+            paddingTop: 80
           }}>
             {/* Main Slider Area */}
             {testimonials.map((t, idx) => {
@@ -1263,79 +1253,79 @@ export default function Home() {
               let blur = '0px';
 
               if (isPrev) {
-                offset = '-105%';
-                scale = 0.85;
-                opacity = 0.4;
+                offset = '-110%';
+                scale = 0.8;
+                opacity = 0.3;
                 zIndex = 1;
-                blur = '2px';
+                blur = '4px';
               } else if (isNext) {
-                offset = '105%';
-                scale = 0.85;
-                opacity = 0.4;
+                offset = '110%';
+                scale = 0.8;
+                opacity = 0.3;
                 zIndex = 1;
-                blur = '2px';
+                blur = '4px';
               }
 
               return (
                 <div key={idx} style={{
                   position: 'absolute',
                   width: '100%',
-                  maxWidth: isMobile ? 'calc(100% - 32px)' : 580,
+                  maxWidth: isMobile ? 'calc(100% - 32px)' : 850,
                   transform: `translateX(${offset}) scale(${scale})`,
                   opacity,
                   zIndex,
                   filter: `blur(${blur})`,
-                  transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
+                  transition: 'all 0.8s cubic-bezier(0.23, 1, 0.32, 1)',
                   pointerEvents: isActive ? 'auto' : 'none',
                 }}>
                   <div className="glass-card" style={{
-                    padding: '48px 32px 32px', // Compact padding
+                    padding: isMobile ? '60px 24px 40px' : '100px 80px 80px',
                     textAlign: 'center',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    backdropFilter: 'blur(30px)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                    borderRadius: 32,
-                    color: 'white',
+                    background: 'white',
+                    border: '1px solid var(--kraft-200)',
+                    boxShadow: '0 40px 100px -20px rgba(58, 36, 16, 0.15)',
+                    borderRadius: 64,
+                    color: 'var(--kraft-950)',
                     position: 'relative'
                   }}>
                     {/* Floating Profile Image */}
                     <div style={{
-                      width: 70,
-                      height: 70,
+                      width: isMobile ? 100 : 160,
+                      height: isMobile ? 100 : 160,
                       position: 'absolute',
                       top: 0,
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
                       borderRadius: '50%',
-                      border: '3px solid rgba(255,255,255,0.2)',
+                      border: '8px solid white',
                       overflow: 'hidden',
-                      boxShadow: '0 10px 20px rgba(0,0,0,0.4)',
+                      boxShadow: '0 25px 50px rgba(0,0,0,0.1)',
                       background: 'var(--kraft-100)',
                       zIndex: 10
                     }}>
                       <img src={t.image} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 20, fontWeight: 700 }}>{t.name}</div>
-                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+                    <div style={{ marginBottom: 32 }}>
+                      <div style={{ fontSize: isMobile ? 26 : 40, fontWeight: 800, color: 'var(--kraft-950)' }}>{t.name}</div>
+                      <div style={{ fontSize: isMobile ? 16 : 20, color: 'var(--kraft-500)', fontWeight: 600, marginTop: 12 }}>
                         {t.role} • {t.location}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 40 }}>
                       {Array.from({ length: t.rating }).map((_, i) => (
-                        <Star key={i} size={16} fill="#fbbf24" color="#fbbf24" />
+                        <Star key={i} size={isMobile ? 24 : 32} fill="#fbbf24" color="#fbbf24" />
                       ))}
                     </div>
 
                     <p style={{
                       fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: 18,
-                      lineHeight: 1.5,
-                      color: 'rgba(255,255,255,0.95)',
+                      fontSize: isMobile ? 24 : 38,
+                      lineHeight: 1.4,
+                      color: 'var(--kraft-900)',
                       fontStyle: 'italic',
+                      fontWeight: 500
                     }}>
                       {t.text}
                     </p>
@@ -1345,62 +1335,67 @@ export default function Home() {
             })}
 
             {/* Navigation Buttons */}
-            <button onClick={prev} style={{
-              position: 'absolute',
-              left: -60,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 56, height: 56,
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'white',
-              transition: 'all 0.3s',
-              zIndex: 10
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-500)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
-            >
-              <ChevronLeft size={24} />
-            </button>
+            {!isMobile && (
+              <>
+                <button onClick={prev} style={{
+                  position: 'absolute',
+                  left: -120,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 84, height: 84,
+                  borderRadius: '50%',
+                  background: 'white',
+                  border: '1px solid var(--kraft-200)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--kraft-900)',
+                  transition: 'all 0.3s',
+                  zIndex: 10,
+                  boxShadow: '0 10px 20px rgba(0,0,0,0.05)'
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+                >
+                  <ChevronLeft size={40} />
+                </button>
 
-            <button onClick={next} style={{
-              position: 'absolute',
-              right: -60,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 56, height: 56,
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'white',
-              transition: 'all 0.3s',
-              zIndex: 10
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-500)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
-            >
-              <ChevronRight size={24} />
-            </button>
+                <button onClick={next} style={{
+                  position: 'absolute',
+                  right: -120,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 84, height: 84,
+                  borderRadius: '50%',
+                  background: 'white',
+                  border: '1px solid var(--kraft-200)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--kraft-900)',
+                  transition: 'all 0.3s',
+                  zIndex: 10,
+                  boxShadow: '0 10px 20px rgba(0,0,0,0.05)'
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+                >
+                  <ChevronRight size={40} />
+                </button>
+              </>
+            )}
           </div>
 
+
           {/* Dots */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 48 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 64 }}>
             {testimonials.map((_, i) => (
               <button key={i} onClick={() => setActiveTestimonial(i)} style={{
-                width: i === activeTestimonial ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                background: i === activeTestimonial ? 'var(--eco-500)' : 'rgba(255,255,255,0.3)',
+                width: i === activeTestimonial ? 40 : 12,
+                height: 12,
+                borderRadius: 6,
+                background: i === activeTestimonial ? 'var(--eco-600)' : 'var(--kraft-200)',
                 border: 'none',
                 cursor: 'pointer',
-                transition: 'all 0.3s',
+                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
               }} />
             ))}
           </div>
