@@ -233,7 +233,7 @@ export default function ProductCategory() {
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ paddingTop: isMobile ? 100 : 160, paddingBottom: isMobile ? 60 : 100 }}>
+      <div style={{ paddingTop: isMobile ? 40 : 120, paddingBottom: isMobile ? 60 : 100 }}>
         <div className="container">
           {/* Breadcrumbs */}
           <div style={{ 
