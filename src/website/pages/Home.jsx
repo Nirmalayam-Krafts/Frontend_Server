@@ -1086,10 +1086,10 @@ export default function Home() {
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury.png' },
               { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/prod_fnb.png' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches.png' },
-              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat.png' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/prod_rolls.png' },
-              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: '#ec4899', image: '/images/prod_mailers.png' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches_paper.png' },
+              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper.png' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/prod_rolls_paper.png' },
+              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: '#ec4899', image: '/images/prod_mailers_paper.png' },
             ].map(({ name, cat, desc, color, image }, idx) => (
               <div key={name} className="product-card anim-reveal"
                 style={{
@@ -1162,22 +1162,39 @@ export default function Home() {
 
       {/* ── CTA: Sustainability ── */}
       <section style={{
-        background: 'var(--eco-50)',
-        padding: isMobile ? '60px 24px' : '80px 0',
-        borderBottom: '1px solid var(--eco-100)',
-        position: 'relative'
+        position: 'relative',
+        padding: isMobile ? '80px 24px' : '120px 0',
+        overflow: 'hidden',
+        background: '#0a1f0a', // Dark fallback
       }}>
-        <div className="nature-layer-leaf" style={{ opacity: 0.03 }} />
-        <div className="container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 32 : 80, textAlign: isMobile ? 'center' : 'left', position: 'relative', zIndex: 1 }}>
-          <div style={{ maxWidth: 640 }}>
-            <div className="section-label" style={{ marginBottom: 12, fontSize: 12, color: 'var(--eco-600)' }}>Environmental Impact</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 28 : 36, color: 'var(--eco-950)', marginBottom: 16, lineHeight: 1.2 }}>Pioneering a Circular Economy</h3>
-            <p style={{ fontSize: isMobile ? 15 : 18, color: 'var(--eco-700)', lineHeight: 1.7 }}>
+        {/* Forest Background Image */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url("/images/sustainability_cta_bg.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.6,
+          zIndex: 0
+        }} />
+        {/* Gradient Overlay for Readability */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 100%)',
+          zIndex: 1
+        }} />
+        <div className="nature-layer-leaf" style={{ opacity: 0.1, zIndex: 2 }} />
+        <div className="container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 32 : 80, textAlign: isMobile ? 'center' : 'left', position: 'relative', zIndex: 3 }}>
+          <div style={{ maxWidth: 700 }}>
+            <div className="section-label" style={{ marginBottom: 16, fontSize: 13, color: 'var(--eco-400)', letterSpacing: '0.2em' }}>Environmental Impact</div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 32 : 48, color: 'white', marginBottom: 20, lineHeight: 1.1 }}>Pioneering a Circular Economy</h3>
+            <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7, maxWidth: 600 }}>
               Our commitment to the planet goes beyond products. Explore how we're leading the waste-free transformation across India.
             </p>
           </div>
-          <Link to="/sustainability" className="btn-secondary" style={{ padding: '16px 40px', minWidth: 220, justifyContent: 'center', fontSize: 15, borderColor: 'var(--eco-200)', color: 'var(--eco-800)', background: 'white', boxShadow: 'var(--shadow-sm)' }}>
-            Our Sustainability <Leaf size={18} />
+          <Link to="/sustainability" className="btn-primary" style={{ padding: '18px 48px', minWidth: 240, justifyContent: 'center', fontSize: 16, background: 'var(--eco-600)', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+            Our Sustainability <Leaf size={20} />
           </Link>
         </div>
       </section>
@@ -1185,17 +1202,18 @@ export default function Home() {
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
       <section id="testimonials" style={{
         position: 'relative',
-        padding: '120px 24px',
+        padding: isMobile ? '40px 24px' : '60px 24px',
         overflow: 'hidden',
-        background: '#fafaf8',
+        background: '#f4ece1',
       }}>
-        {/* Wood Texture Background */}
+        {/* Paper Texture Background */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'radial-gradient(var(--kraft-200) 0.5px, transparent 0.5px)',
-          backgroundSize: '32px 32px',
-          opacity: 0.5,
+          backgroundImage: 'url("/images/testimonial_bg_texture.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.4,
           zIndex: 0
         }} />
 
@@ -1235,8 +1253,8 @@ export default function Home() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: isMobile ? 500 : 700,
-            paddingTop: 80
+            minHeight: isMobile ? 300 : 440,
+            paddingTop: isMobile ? 40 : 50
           }}>
             {/* Main Slider Area */}
             {testimonials.map((t, idx) => {
@@ -1279,49 +1297,50 @@ export default function Home() {
                   pointerEvents: isActive ? 'auto' : 'none',
                 }}>
                   <div className="glass-card" style={{
-                    padding: isMobile ? '60px 24px 40px' : '100px 80px 80px',
+                    padding: isMobile ? '50px 24px 30px' : '70px 60px 60px',
                     textAlign: 'center',
-                    background: 'white',
-                    border: '1px solid var(--kraft-200)',
-                    boxShadow: '0 40px 100px -20px rgba(58, 36, 16, 0.15)',
-                    borderRadius: 64,
+                    background: 'rgba(255,255,255,0.85)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(165, 126, 93, 0.2)',
+                    boxShadow: '0 20px 50px -10px rgba(58, 36, 16, 0.1)',
+                    borderRadius: 40,
                     color: 'var(--kraft-950)',
                     position: 'relative'
                   }}>
                     {/* Floating Profile Image */}
                     <div style={{
-                      width: isMobile ? 100 : 160,
-                      height: isMobile ? 100 : 160,
+                      width: isMobile ? 80 : 120,
+                      height: isMobile ? 80 : 120,
                       position: 'absolute',
                       top: 0,
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
                       borderRadius: '50%',
-                      border: '8px solid white',
+                      border: '6px solid white',
                       overflow: 'hidden',
-                      boxShadow: '0 25px 50px rgba(0,0,0,0.1)',
+                      boxShadow: '0 15px 30px rgba(0,0,0,0.1)',
                       background: 'var(--kraft-100)',
                       zIndex: 10
                     }}>
                       <img src={t.image} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
 
-                    <div style={{ marginBottom: 32 }}>
-                      <div style={{ fontSize: isMobile ? 26 : 40, fontWeight: 800, color: 'var(--kraft-950)' }}>{t.name}</div>
-                      <div style={{ fontSize: isMobile ? 16 : 20, color: 'var(--kraft-500)', fontWeight: 600, marginTop: 12 }}>
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: isMobile ? 22 : 32, fontWeight: 800, color: 'var(--kraft-950)' }}>{t.name}</div>
+                      <div style={{ fontSize: isMobile ? 14 : 16, color: 'var(--kraft-500)', fontWeight: 600, marginTop: 8 }}>
                         {t.role} • {t.location}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 40 }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
                       {Array.from({ length: t.rating }).map((_, i) => (
-                        <Star key={i} size={isMobile ? 24 : 32} fill="#fbbf24" color="#fbbf24" />
+                        <Star key={i} size={isMobile ? 20 : 26} fill="#fbbf24" color="#fbbf24" />
                       ))}
                     </div>
 
                     <p style={{
                       fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: isMobile ? 24 : 38,
+                      fontSize: isMobile ? 20 : 28,
                       lineHeight: 1.4,
                       color: 'var(--kraft-900)',
                       fontStyle: 'italic',

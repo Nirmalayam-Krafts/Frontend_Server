@@ -8,26 +8,26 @@ const categories = [
     title: 'Ecocraft Collection',
     subtitle: 'Sustainable Everyday Packaging',
     description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, boutiques, and eco-conscious brands looking for durability and natural aesthetics.',
-    image: '/images/products/ecocraft.png',
-    color: 'var(--eco-600)',
+    image: '/images/collection_ecocraft_vibrant.png',
+    color: '#4ade80',
     features: ['100-140 GSM Kraft', 'Twisted Paper Handles', 'Eco-friendly Glues'],
   },
   {
     id: 'fnb',
-    title: 'F&B Gourmet',
+    title: 'F&B Gourmet Bags',
     subtitle: 'Safe for Food, Kind to Earth',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry. Designed to keep freshness in and plastics out.',
-    image: '/images/products/fnb.png',
-    color: 'var(--kraft-700)',
+    image: '/images/collection_fnb_vibrant.png',
+    color: '#f59e0b',
     features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Heat Resistant'],
   },
   {
     id: 'luxury',
-    title: 'Luxury Kraft',
+    title: 'Luxury Kraft Bags',
     subtitle: 'Premium Unboxing experience',
     description: 'Elevate your brand with our luxury collection. High-thickness boards, premium textures, and exquisite finishes that redefine paper packaging.',
-    image: '/images/products/luxury.png',
-    color: 'var(--kraft-900)',
+    image: '/images/collection_luxury_vibrant.png',
+    color: '#c09457',
     features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Cotton Ribbon Handles'],
   }
 ];
@@ -47,7 +47,7 @@ export default function Products() {
   return (
     <div style={{ minHeight: '100vh', paddingTop: isMobile ? 60 : 80, background: 'white' }}>
       {/* ── Page Hero ── */}
-      <div className="page-hero" style={{ 
+      <div className="page-hero" style={{
         backgroundImage: 'url(/images/generated/products_hero_bg.png)',
         backgroundSize: 'cover',
         backgroundPosition: isMobile ? 'center' : 'center right',
@@ -67,15 +67,15 @@ export default function Products() {
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile || isTablet ? '1fr' : 'minmax(0, 1.2fr) minmax(0, 1fr)', 
-            gap: isMobile ? 32 : 80, 
-            alignItems: 'center' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : 'minmax(0, 1.2fr) minmax(0, 1fr)',
+            gap: isMobile ? 32 : 80,
+            alignItems: 'center'
           }}>
             <div className="anim-fade-up" style={{ width: '100%' }}>
-              <div className="section-label" style={{ 
-                color: 'var(--eco-400)', 
+              <div className="section-label" style={{
+                color: 'var(--eco-400)',
                 textShadow: '0 2px 4px rgba(0,0,0,0.3)',
                 textAlign: isMobile || isTablet ? 'center' : 'left',
                 width: '100%',
@@ -94,10 +94,10 @@ export default function Products() {
                 Exceptional Packaging,<br />
                 <span style={{ color: 'var(--kraft-300)' }}>Zero Plastic Waste</span>
               </h1>
-              <p style={{ 
-                fontSize: 'clamp(16px, 2vw, 19px)', 
-                color: 'rgba(255,255,255,0.9)', 
-                maxWidth: isMobile || isTablet ? '100%' : 580, 
+              <p style={{
+                fontSize: 'clamp(16px, 2vw, 19px)',
+                color: 'rgba(255,255,255,0.9)',
+                maxWidth: isMobile || isTablet ? '100%' : 580,
                 lineHeight: 1.7,
                 textShadow: '0 2px 4px rgba(0,0,0,0.2)',
                 textAlign: isMobile || isTablet ? 'center' : 'left',
@@ -120,12 +120,12 @@ export default function Products() {
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 64 }}>
             {categories.map((cat, i) => (
-              <div 
-                key={cat.id} 
+              <div
+                key={cat.id}
                 className="anim-fade-up product-category-row"
-                style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: isMobile ? '1fr' : (i % 2 === 0 ? '1.2fr 0.8fr' : '0.8fr 1.2fr'), 
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : (i % 2 === 0 ? '1.2fr 0.8fr' : '0.8fr 1.2fr'),
                   gridAutoRows: 'auto',
                   gap: 0,
                   alignItems: 'stretch',
@@ -153,162 +153,162 @@ export default function Products() {
                   }
                 }}
               >
-                  {/* Image Section */}
-                  <div 
-                    className="product-gallery-item"
-                    style={{ 
-                      order: isMobile ? 1 : (i % 2 === 0 ? 1 : 2),
-                      height: isMobile ? '300px' : 'auto',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      cursor: 'pointer'
+                {/* Image Section */}
+                <div
+                  className="product-gallery-item"
+                  style={{
+                    order: isMobile ? 1 : (i % 2 === 0 ? 1 : 2),
+                    height: isMobile ? '300px' : 'auto',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <img
+                    src={cat.image}
+                    alt={cat.title}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      transition: 'transform 1s cubic-bezier(0.2, 0, 0, 1)'
                     }}
-                  >
-                    <img 
-                      src={cat.image} 
-                      alt={cat.title} 
-                      style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'cover',
-                        transition: 'transform 1s cubic-bezier(0.2, 0, 0, 1)'
-                      }}
-                      onMouseEnter={e => { if (!isMobile) e.target.style.transform = 'scale(1.1)'; }}
-                      onMouseLeave={e => { if (!isMobile) e.target.style.transform = 'scale(1)'; }}
-                    />
-                    
-                    {/* "Get a Quote" Overlay */}
-                    <div className="gallery-quote-btn">
-                      <MessageSquare size={isMobile ? 24 : 32} style={{ marginBottom: 4 }} />
-                      <span style={{ 
-                        fontSize: isMobile ? 18 : 22, 
-                        fontWeight: 700, 
-                        letterSpacing: '0.05em',
-                        textTransform: 'uppercase'
-                      }}>Get a Quote</span>
-                      <p style={{ 
-                        fontSize: isMobile ? 12 : 14, 
-                        opacity: 0.8,
-                        margin: 0
-                      }}>Click to inquire about {cat.title}</p>
-                    </div>
+                    onMouseEnter={e => { if (!isMobile) e.target.style.transform = 'scale(1.1)'; }}
+                    onMouseLeave={e => { if (!isMobile) e.target.style.transform = 'scale(1)'; }}
+                  />
 
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.6))',
-                      pointerEvents: 'none',
-                      zIndex: 1
-                    }} />
+                  {/* "Get a Quote" Overlay */}
+                  <div className="gallery-quote-btn">
+                    <MessageSquare size={isMobile ? 24 : 32} style={{ marginBottom: 4 }} />
+                    <span style={{
+                      fontSize: isMobile ? 18 : 22,
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase'
+                    }}>Get a Quote</span>
+                    <p style={{
+                      fontSize: isMobile ? 12 : 14,
+                      opacity: 0.8,
+                      margin: 0
+                    }}>Click to inquire about {cat.title}</p>
                   </div>
 
-                  {/* Content Section */}
-                  <div style={{ 
-                    order: isMobile ? 2 : (i % 2 === 0 ? 2 : 1),
-                    padding: isMobile ? '24px 20px' : isTablet ? '40px 48px' : '64px 80px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    position: 'relative',
-                    zIndex: 1,
-                    textAlign: isMobile ? 'center' : 'left'
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.6))',
+                    pointerEvents: 'none',
+                    zIndex: 1
+                  }} />
+                </div>
+
+                {/* Content Section */}
+                <div style={{
+                  order: isMobile ? 2 : (i % 2 === 0 ? 2 : 1),
+                  padding: isMobile ? '24px 20px' : isTablet ? '40px 48px' : '64px 80px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  zIndex: 1,
+                  textAlign: isMobile ? 'center' : 'left'
+                }}>
+                  {/* Decorative Background Glow */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '20%',
+                    left: '10%',
+                    width: '60%',
+                    height: '60%',
+                    background: `radial-gradient(circle, ${cat.color}15 0%, transparent 70%)`,
+                    filter: 'blur(50px)',
+                    zIndex: -1,
+                    pointerEvents: 'none'
+                  }} />
+
+                  <div style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: isMobile ? 11 : 14,
+                    fontWeight: 700,
+                    letterSpacing: '0.25em',
+                    textTransform: 'uppercase',
+                    color: cat.color,
+                    marginBottom: isMobile ? 8 : 16
                   }}>
-                    {/* Decorative Background Glow */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '20%',
-                      left: '10%',
-                      width: '60%',
-                      height: '60%',
-                      background: `radial-gradient(circle, ${cat.color}15 0%, transparent 70%)`,
-                      filter: 'blur(50px)',
-                      zIndex: -1,
-                      pointerEvents: 'none'
-                    }} />
+                    {cat.subtitle}
+                  </div>
+                  <h2 style={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontSize: isMobile ? '28px' : isTablet ? '40px' : '56px',
+                    color: 'var(--kraft-950)',
+                    fontWeight: 700,
+                    marginBottom: isMobile ? 12 : 24,
+                    lineHeight: 1.1
+                  }}>
+                    {cat.title}
+                  </h2>
+                  <p style={{
+                    fontSize: isMobile ? 14 : 19,
+                    color: 'var(--kraft-700)',
+                    lineHeight: 1.7,
+                    marginBottom: isMobile ? 20 : 32,
+                    maxWidth: isMobile ? '100%' : '95%'
+                  }}>
+                    {cat.description}
+                  </p>
 
-                    <div style={{ 
-                      fontFamily: "'Inter', sans-serif",
-                      fontSize: isMobile ? 11 : 14,
-                      fontWeight: 700,
-                      letterSpacing: '0.25em',
-                      textTransform: 'uppercase',
-                      color: cat.color,
-                      marginBottom: isMobile ? 8 : 16
-                    }}>
-                      {cat.subtitle}
-                    </div>
-                    <h2 style={{ 
-                      fontFamily: "'Playfair Display', serif", 
-                      fontSize: isMobile ? '28px' : isTablet ? '40px' : '56px', 
-                      color: 'var(--kraft-950)',
-                      fontWeight: 700,
-                      marginBottom: isMobile ? 12 : 24,
-                      lineHeight: 1.1
-                    }}>
-                      {cat.title}
-                    </h2>
-                    <p style={{ 
-                      fontSize: isMobile ? 14 : 19, 
-                      color: 'var(--kraft-700)', 
-                      lineHeight: 1.7, 
-                      marginBottom: isMobile ? 20 : 32,
-                      maxWidth: isMobile ? '100%' : '95%'
-                    }}>
-                      {cat.description}
-                    </p>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: isMobile ? 6 : 16,
+                    marginBottom: isMobile ? 24 : 48,
+                    justifyContent: isMobile ? 'center' : 'flex-start'
+                  }}>
+                    {cat.features.map(f => (
+                      <div key={f} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: 'var(--kraft-50)',
+                        padding: isMobile ? '5px 10px' : '12px 24px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: isMobile ? 11 : 16,
+                        fontWeight: 600,
+                        color: 'var(--kraft-800)',
+                        border: '1px solid var(--kraft-100)',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.02)'
+                      }}>
+                        <ShieldCheck size={isMobile ? 12 : 14} color="var(--eco-500)" />
+                        {f}
+                      </div>
+                    ))}
+                  </div>
 
-                    <div style={{ 
-                      display: 'flex', 
-                      flexWrap: 'wrap', 
-                      gap: isMobile ? 6 : 16, 
-                      marginBottom: isMobile ? 24 : 48,
-                      justifyContent: isMobile ? 'center' : 'flex-start'
-                    }}>
-                      {cat.features.map(f => (
-                        <div key={f} style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          background: 'var(--kraft-50)',
-                          padding: isMobile ? '5px 10px' : '12px 24px',
-                          borderRadius: 'var(--radius-full)',
-                          fontSize: isMobile ? 11 : 16,
-                          fontWeight: 600,
-                          color: 'var(--kraft-800)',
-                          border: '1px solid var(--kraft-100)',
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.02)'
-                        }}>
-                          <ShieldCheck size={isMobile ? 12 : 14} color="var(--eco-500)" />
-                          {f}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
-                      <Link 
-                        to={`/products/${cat.id}`} 
-                        className="btn-primary"
-                        style={{ 
-                          padding: isMobile ? '14px 28px' : '20px 48px',
-                          fontSize: isMobile ? 13 : 17,
-                          width: isMobile ? '100%' : 'auto',
-                          justifyContent: 'center',
-                          boxShadow: '0 15px 30px rgba(0,0,0,0.1)'
-                        }}
-                      >
-                        <span>Explore Collection</span>
-                        <ArrowRight size={isMobile ? 16 : 22} />
-                      </Link>
-                    </div>
+                  <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
+                    <Link
+                      to={`/products/${cat.id}`}
+                      className="btn-primary"
+                      style={{
+                        padding: isMobile ? '14px 28px' : '20px 48px',
+                        fontSize: isMobile ? 13 : 17,
+                        width: isMobile ? '100%' : 'auto',
+                        justifyContent: 'center',
+                        boxShadow: '0 15px 30px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <span>Explore Collection</span>
+                      <ArrowRight size={isMobile ? 16 : 22} />
+                    </Link>
                   </div>
                 </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="nature-section" style={{ 
-        background: 'var(--kraft-950)', 
+      <section className="nature-section" style={{
+        background: 'var(--kraft-950)',
         color: 'white',
         padding: isMobile ? '32px 0' : '96px 0'
       }}>
@@ -323,10 +323,10 @@ export default function Products() {
           pointerEvents: 'none',
         }} />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(3, 1fr)', 
-            gap: isMobile ? 32 : 40 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(3, 1fr)',
+            gap: isMobile ? 32 : 40
           }}>
             <div style={{ textAlign: 'center', padding: isMobile ? '0 4px' : '0' }}>
               <div style={{ width: isMobile ? 40 : 64, height: isMobile ? 40 : 64, background: 'rgba(255,255,255,0.05)', borderRadius: isMobile ? 12 : 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>

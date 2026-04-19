@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Leaf, Mail, Phone, MapPin, Globe, Heart } from 'lucide-react';
+import { Leaf, Mail, Mail as SubscribeIcon, Phone, MapPin, Globe, ArrowRight } from 'lucide-react';
 
-/* ── Custom Social Icons ── */
+/* ── Custom Social Icons to ensure reliability ── */
 const Instagram = ({ size = 24 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -25,6 +25,18 @@ const Linkedin = ({ size = 24 }) => (
   </svg>
 );
 
+const Twitter = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path>
+  </svg>
+);
+
+const Github = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+  </svg>
+);
+
 const shopLinks = [
   { label: 'Kraft Bags', to: '/products' },
   { label: 'F&B Gourmet', to: '/products' },
@@ -34,13 +46,16 @@ const shopLinks = [
 ];
 
 const policyLinks = [
-  { label: 'Privacy Policy', value: '/privacy' },
-  { label: 'Returns Policy', value: '/returns' },
-  { label: 'Shipping Terms', value: '/shipping' },
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms of Service', to: '/terms' },
+  { label: 'Returns Policy', to: '/returns' },
+  { label: 'Shipping Terms', to: '/shipping' },
+  { label: 'Accessibility', to: '/accessibility' },
 ];
 
 export default function Footer() {
   const [isMobile, setIsMobile] = useState(false);
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -49,111 +64,132 @@ export default function Footer() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    alert(`Thank you for subscribing, ${email}!`);
+    setEmail('');
+  };
+
   return (
     <footer style={{
+      background: 'linear-gradient(145deg, #1f140d 0%, #120b07 100%)',
+      color: 'white',
+      padding: isMobile ? '60px 24px 30px' : '100px 0 40px',
+      fontFamily: 'Inter, sans-serif',
       position: 'relative',
-      background: '#fafaf8',
-      color: 'var(--kraft-950)',
-      paddingTop: 100,
-      paddingBottom: 40,
-      borderTop: '2px solid var(--kraft-100)',
       overflow: 'hidden'
     }}>
-      {/* Background Texture */}
+      {/* Subtle paper texture overlay */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        backgroundImage: 'radial-gradient(var(--kraft-200) 0.5px, transparent 0.5px)',
-        backgroundSize: '24px 24px',
-        opacity: 0.3,
+        backgroundImage: 'url("/images/testimonial_bg_texture.png")',
+        backgroundSize: 'cover',
+        opacity: 0.05,
+        pointerEvents: 'none',
         zIndex: 0
       }} />
 
       <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-        {/* Pinterest Masonry Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: 32,
-          marginBottom: 80,
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
+          gap: isMobile ? 60 : 40,
+          marginBottom: 80
         }}>
-          {/* Card 1: Brand Identity */}
-          <div style={{
-            background: 'white',
-            padding: isMobile ? 32 : 48,
-            borderRadius: 40,
-            boxShadow: '0 20px 40px rgba(58, 36, 16, 0.04)',
-            border: '1px solid var(--kraft-100)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
+          {/* Logo & Info */}
+          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 5' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
               <div style={{
-                width: 60, height: 60,
+                width: 44, height: 44,
                 background: 'var(--eco-600)',
-                borderRadius: 20,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 10px 20px rgba(22, 163, 74, 0.2)'
+                borderRadius: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
-                <Leaf size={32} color="white" />
+                <Leaf size={24} color="white" />
               </div>
               <div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--kraft-950)', lineHeight: 1 }}>Nirmalyam</div>
-                <div style={{ fontSize: 13, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--eco-600)', fontWeight: 800, marginTop: 4 }}>Krafts</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'white', letterSpacing: '-0.5px' }}>Nirmalyam Krafts</div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.1em' }}>Premium Eco Packaging</div>
               </div>
             </div>
-            
-            <p style={{ fontSize: 22, lineHeight: 1.6, color: 'var(--kraft-700)', marginBottom: 40, fontWeight: 500 }}>
-              Pioneering the next generation of plastic-free luxury packaging for a conscious world.
+
+            <p style={{ 
+              fontSize: 16, 
+              lineHeight: 1.6, 
+              color: 'rgba(255,255,255,0.7)', 
+              marginBottom: 40, 
+              maxWidth: 400 
+            }}>
+              Pioneering the future of plastic-free luxury packaging through advanced kraft paper technology. Join thousands of brands shaping a greener tomorrow.
             </p>
 
-            <div style={{ display: 'flex', gap: 16 }}>
-              {[
-                { icon: Instagram, href: '#' },
-                { icon: Facebook, href: '#' },
-                { icon: Linkedin, href: '#' },
-              ].map(({ icon: Icon, href }, i) => (
-                <a key={i} href={href} 
-                  style={{
-                    width: 56, height: 56,
-                    borderRadius: '50%',
-                    background: 'var(--kraft-50)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--kraft-900)',
-                    textDecoration: 'none',
-                    transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            {/* Newsletter */}
+            <div>
+              <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: 'white' }}>Stay Updated</h4>
+              <form onSubmit={handleSubscribe} style={{ position: 'relative', maxWidth: 440 }}>
+                <div style={{
+                  display: 'flex',
+                  gap: 12,
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: 8,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <input 
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'white',
+                      padding: '8px 16px',
+                      fontSize: 15,
+                      outline: 'none'
+                    }}
+                    required
+                  />
+                  <button type="submit" style={{
+                    background: 'var(--eco-600)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 24px',
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s'
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15) translateY(-4px)'; e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.background = 'var(--kraft-50)'; e.currentTarget.style.color = 'var(--kraft-900)'; }}
-                >
-                  <Icon size={24} />
-                </a>
-              ))}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--eco-500)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--eco-600)'}
+                  >
+                    Subscribe
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>
+                  Get the latest updates on sustainable innovations and new collections.
+                </p>
+              </form>
             </div>
           </div>
 
-          {/* Card 2: Quick Links */}
-          <div style={{
-            background: 'white',
-            padding: isMobile ? 32 : 48,
-            borderRadius: 40,
-            boxShadow: '0 20px 40px rgba(58, 36, 16, 0.04)',
-            border: '1px solid var(--kraft-100)',
-          }}>
-            <h4 style={{ fontSize: 26, fontWeight: 800, color: 'var(--kraft-950)', marginBottom: 32, letterSpacing: '-0.5px' }}>Explore</h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Links Column 1 */}
+          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 3', paddingLeft: isMobile ? 0 : 40 }}>
+            <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 30, color: 'white' }}>Catalog</h4>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {shopLinks.map(link => (
                 <li key={link.label}>
                   <Link to={link.to} style={{
-                    fontSize: 22,
-                    color: 'var(--kraft-600)',
+                    fontSize: 16,
+                    color: 'rgba(255,255,255,0.6)',
                     textDecoration: 'none',
-                    fontWeight: 500,
-                    transition: 'all 0.3s',
-                    display: 'block'
+                    transition: 'color 0.3s'
                   }}
-                  onMouseEnter={e => { e.target.style.color = 'var(--eco-600)'; e.target.style.transform = 'translateX(10px)'; }}
-                  onMouseLeave={e => { e.target.style.color = 'var(--kraft-600)'; e.target.style.transform = 'translateX(0)'; }}
+                  onMouseEnter={e => e.target.style.color = 'white'}
+                  onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.6)'}
                   >
                     {link.label}
                   </Link>
@@ -162,76 +198,112 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Card 3: Contact Details */}
-          <div style={{
-            background: 'var(--kraft-950)',
-            padding: isMobile ? 32 : 48,
-            borderRadius: 40,
-            color: 'white',
-            boxShadow: '0 30px 60px rgba(0,0,0,0.15)',
-          }}>
-            <h4 style={{ fontSize: 26, fontWeight: 800, color: 'white', marginBottom: 32, letterSpacing: '-0.5px' }}>Let's Connect</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-              {[
-                { icon: MapPin, text: 'Pune & Mumbai', sub: 'Regional Distribution Hubs' },
-                { icon: Phone, text: '+91 98765 43210', sub: 'Direct Inquiries' },
-                { icon: Mail, text: 'hello@nirmalyam.com', sub: 'Bulk Quotations' },
-              ].map(({ icon: Icon, text, sub }) => (
-                <div key={text} style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                  <div style={{ 
-                    width: 52, height: 52, 
-                    background: 'rgba(255,255,255,0.08)', 
-                    borderRadius: 16, 
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0 
-                  }}>
-                    <Icon size={24} color="var(--eco-400)" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'white' }}>{text}</div>
-                    <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{sub}</div>
-                  </div>
-                </div>
+          {/* Links Column 2 */}
+          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 3' }}>
+            <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 30, color: 'white' }}>Company</h4>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {['About Us', 'Sustainability', 'Testimonials', 'Contact Us'].map(label => (
+                <li key={label}>
+                  <Link to={`/${label.toLowerCase().replace(' ', '-')}`} style={{
+                    fontSize: 16,
+                    color: 'rgba(255,255,255,0.6)',
+                    textDecoration: 'none',
+                    transition: 'color 0.3s'
+                  }}
+                  onMouseEnter={e => e.target.style.color = 'white'}
+                  onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.6)'}
+                  >
+                    {label}
+                  </Link>
+                </li>
               ))}
-            </div>
-            
-            <Link to="/contact" className="btn-primary" style={{ 
-              marginTop: 40, 
-              width: '100%', 
-              justifyContent: 'center',
-              padding: '20px',
-              fontSize: '18px',
-              background: 'var(--eco-600)',
-              color: 'white'
-            }}>
-              Get a Free Quote
-            </Link>
+            </ul>
           </div>
         </div>
 
-        {/* Bottom Credits */}
+        {/* Middle Level: Socials & Contact Info */}
         <div style={{
-          paddingTop: 40,
-          borderTop: '1px solid var(--kraft-200)',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: 40,
+          paddingBottom: 60,
+          borderBottom: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Follow Us:</span>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[
+                { icon: Instagram, color: '#E4405F' },
+                { icon: Facebook, color: '#1877F2' },
+                { icon: Linkedin, color: '#0A66C2' },
+                { icon: Twitter, color: '#1DA1F2' },
+                { icon: Github, color: '#333' }
+              ].map(({ icon: Icon, color }, i) => (
+                <a key={i} href="#" style={{
+                  width: 44, height: 44,
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white',
+                  transition: 'all 0.3s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = color; e.currentTarget.style.transform = 'translateY(-4px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  <Icon size={20} />
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 8 }}>Questions? Contact us:</div>
+            <a href="mailto:hello@nirmalyamkrafts.com" style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: 'var(--eco-400)',
+              textDecoration: 'none'
+            }}>
+              hello@nirmalyamkrafts.com
+            </a>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+              Response time: &lt; 2 business hours
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div style={{
+          paddingTop: 30,
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: 24,
+          gap: 20
         }}>
-          <p style={{ fontSize: 18, color: 'var(--kraft-500)', fontWeight: 500, textAlign: isMobile ? 'center' : 'left' }}>
-            © {new Date().getFullYear()} Nirmalyam Krafts. All rights reserved.
-          </p>
-          <div style={{ display: 'flex', gap: isMobile ? 16 : 32, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: isMobile ? 12 : 32, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+              © {new Date().getFullYear()} Nirmalyam Krafts Pro. All rights reserved.
+            </p>
             {policyLinks.map(link => (
-              <a key={link.label} href={link.value} style={{ fontSize: 16, color: 'var(--kraft-400)', textDecoration: 'none', fontWeight: 600 }}>
+              <Link key={link.label} to={link.to} style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
-          <p style={{ fontSize: 16, color: 'var(--kraft-500)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-            Made with <Heart size={18} color="#ff4d4d" fill="#ff4d4d" /> in India
-          </p>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }}></span>
+                All systems operational
+             </div>
+             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }}></div>
+             <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+                Last updated: 1 hour ago
+             </div>
+          </div>
         </div>
       </div>
     </footer>

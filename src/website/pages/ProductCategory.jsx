@@ -25,11 +25,13 @@ import {
 
 const categoryData = {
   ecocraft: {
-    title: 'Custom Printed Brown Kraft Bag',
-    image: '/images/products/ecocraft.png',
+    id: 'ecocraft',
+    title: 'Ecocraft Collection',
+    image: '/images/collection_ecocraft_vibrant.png',
     minOrder: '500 UNITS',
-    description: 'Our signature brown kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
-    longDescription: 'Crafted from sustainably sourced FSC-certified fibers, these bags are designed to elevate your brand\'s presence while honoring the planet.',
+    color: '#4ade80',
+    description: 'Our signature high-strength kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
+    longDescription: 'Crafted from sustainably sourced FSC-certified fibers, these bags are designed to elevate your brand\'s presence while honoring the planet. Featuring premium twisted paper handles and reinforced bottoms.',
     bullets: [
       { label: 'FSC Certified', icon: CheckCircle2 },
       { label: 'Biodegradable', icon: Leaf },
@@ -37,105 +39,157 @@ const categoryData = {
       { label: 'Soy-based Inks', icon: Droplets }
     ],
     specs: [
-      { label: 'Material', value: 'FSC Kraft Paper', icon: Layers },
+      { label: 'Material', value: 'High-Tensile Kraft', icon: Layers },
       { label: 'Weight Range', icon: Weight, value: '100 - 140 GSM' },
-      { label: 'Handle Types', icon: Settings, value: 'Twisted, Flat, Die-cut' },
-      { label: 'Printing', value: 'Soy Inks, 6 Colors', icon: Printer },
+      { label: 'Handle Types', icon: Settings, value: 'Twisted / Flat' },
+      { label: 'Printing', value: 'Up to 6 Colors', icon: Printer },
       { label: 'Capacity', value: '3kg - 12kg', icon: Scale },
-      { label: 'Min Order', icon: Package, value: '500 units' }
+      { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
     ],
     gallery: [
-      { 
-        title: 'Natural Brown Kraft', 
-        desc: 'The classic raw sustainable aesthetic',
-        image: '/images/generated/natural_brown_kraft_gallery_1775487935111.png'
-      },
-      { 
-        title: 'Bleached White Utility', 
-        desc: 'Clean, crisp premium finish',
-        image: '/images/generated/bleached_white_kraft_gallery_1775487963327.png'
-      },
-      { 
-        title: 'Custom Brand Print', 
-        desc: 'High-fidelity brand realization',
-        image: '/images/generated/custom_printed_kraft_gallery_1775487996087.png'
-      }
+      { title: 'Natural Texture', desc: 'Raw sustainable aesthetic', image: '/images/collection_ecocraft_vibrant.png' },
+      { title: 'Twisted Handle', desc: 'Ergonomic & Strong', image: '/images/natural_brown_paper_bags_vibrant.png' },
+      { title: 'Custom Printed', desc: 'High-fidelity branding', image: '/images/custom_printed_brown_vibrant.png' }
     ]
   },
   fnb: {
-    title: 'F&B Gourmet Paper Bag',
-    image: '/images/products/fnb.png',
+    id: 'fnb',
+    title: 'F&B Gourmet Bags',
+    image: '/images/collection_fnb_vibrant.png',
     minOrder: '1000 UNITS',
-    description: 'Specialized grease-resistant packaging for the food and beverage industry.',
-    longDescription: 'Developed for restaurateurs, our F&B line features food-grade barriers that resist oil and moisture without plastic laminates. Perfect for hot takeaways.',
+    color: '#f59e0b',
+    description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry.',
+    longDescription: 'Developed for restaurateurs, our F&B line features food-grade barriers that resist oil and moisture without plastic laminates. Perfect for cloud kitchens and bakeries.',
     bullets: [
       { label: 'FDA Approved', icon: CheckCircle2 },
       { label: 'Grease Resistant', icon: Droplets },
-      { label: 'Steam Vented', icon: Zap },
-      { label: 'Compostable', icon: Leaf }
+      { label: 'Moisture Barrier', icon: Zap },
+      { label: 'Eco-Ink Safe', icon: Leaf }
     ],
     specs: [
-      { label: 'Material', value: 'Oil-Resistant Paper', icon: Layers },
+      { label: 'Material', value: 'Greaseproof Paper', icon: Layers },
       { label: 'Weight Range', value: '70 - 110 GSM', icon: Weight },
-      { label: 'Features', value: 'Leak-proof, V-base', icon: Settings },
-      { label: 'Certification', value: 'FDA, BPI Approved', icon: ShieldCheck },
-      { label: 'Safety', value: 'PFAS & Chlorine-Free', icon: CheckCircle2 },
+      { label: 'Features', value: 'Oil-Resistant', icon: Settings },
+      { label: 'Certification', value: 'FDA Approved', icon: ShieldCheck },
+      { label: 'Food Safe', value: 'PFAS-Free', icon: CheckCircle2 },
       { label: 'Min Order', value: '1,000 units', icon: Package }
     ],
     gallery: [
-      { 
-        title: 'Pastry Sleeves', 
-        desc: 'Grease-proof artisan solutions',
-        image: '/images/generated/fnb_pastry_sleeves_1775488776952.png'
-      },
-      { 
-        title: 'Wide-Base Takeaway', 
-        desc: 'Engineered for restaurant delivery',
-        image: '/images/generated/fnb_wide_base_takeaway_1775488815145.png'
-      },
-      { 
-        title: 'Secure Delivery Pouch', 
-        desc: 'Tamper-evident food security',
-        image: '/images/generated/fnb_delivery_pouch_1775488853812.png'
-      }
+      { title: 'Pastry Sleeves', desc: 'Grease-proof solutions', image: '/images/collection_fnb_vibrant.png' },
+      { title: 'Gourmet Carry', desc: 'Premium restaurant bags', image: '/images/white_fb_bags_vibrant.png' },
+      { title: 'Bakery Special', desc: 'Crisp & Clean finish', image: '/images/fnb_colorful_bags_vibrant.png' }
     ]
   },
   luxury: {
-    title: 'Luxury Premium Kraft Bag',
-    image: '/images/products/luxury.png',
+    id: 'luxury',
+    title: 'Luxury Kraft Bags',
+    image: '/images/collection_luxury_vibrant.png',
     minOrder: '200 UNITS',
+    color: '#c09457',
     description: 'High-thickness boards and exquisite finishes that redefine paper packaging.',
-    longDescription: 'Our Luxury collection represents the pinnacle of sustainable packaging. Heavyweight boards provide a rigid silhouette, hand-finished with cotton ribbon handles.',
+    longDescription: 'Our Luxury collection represents the pinnacle of sustainable packaging. Heavyweight boards provide a rigid silhouette, hand-finished with cotton ribbon handles and custom foiling.',
     bullets: [
       { label: 'Extra Thick Board', icon: Crown },
       { label: 'Ribbon Handles', icon: Heart },
       { label: 'Foil Stamping', icon: Award },
-      { label: 'Hand Finished', icon: CheckCircle2 }
+      { label: 'Premium Finish', icon: CheckCircle2 }
     ],
     specs: [
-      { label: 'Material', value: 'Art Board / Double Kraft', icon: Layers },
+      { label: 'Material', value: 'Premium Art Board', icon: Layers },
       { label: 'Weight Range', value: '200 - 350 GSM', icon: Weight },
-      { label: 'Handles', value: 'Silk / Satin Ribbon', icon: Heart },
-      { label: 'Finishing', value: 'UV / Foil Stamping', icon: Award },
-      { label: 'Extra Detail', value: 'Eyelet reinforced', icon: Settings },
+      { label: 'Handles', value: 'Satin / Cotton', icon: Heart },
+      { label: 'Finishing', value: 'UV / Gold Foil', icon: Award },
+      { label: 'Refinement', value: 'Hand-Finished', icon: Settings },
       { label: 'Min Order', value: '200 units', icon: Package }
     ],
     gallery: [
-      { 
-        title: 'Matt Black & Gold', 
-        desc: 'Signature high-fashion aesthetic',
-        image: '/images/generated/luxury_matt_black_gold_1775488897962.png'
-      },
-      { 
-        title: 'Textured Ivory Silk', 
-        desc: 'Micro-textured premium unboxing',
-        image: '/images/generated/luxury_textured_ivory_1775488944535.png'
-      },
-      { 
-        title: 'Forest Green Satin', 
-        desc: 'Satin-lined exquisite finishing',
-        image: '/images/generated/luxury_forest_green_satin_1775488988571.png'
-      }
+      { title: 'Matt Gold Foil', desc: 'Signature aesthetic', image: '/images/collection_luxury_vibrant.png' },
+      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/luxury_colorful_premium_bags_vibrant.png' },
+      { title: 'Custom Branding', desc: 'Exquisite realization', image: '/images/luxury_paper_bag_vibrant.png' }
+    ]
+  },
+  pouches: {
+    id: 'pouches',
+    title: 'Eco-Pouches',
+    image: '/images/prod_pouches_paper.png',
+    minOrder: '500 UNITS',
+    color: '#1a4a2e',
+    description: 'Modern stand-up pouches with a premium matte paper texture for dry goods.',
+    longDescription: 'Our Eco-Pouches use a specialized paper-based laminate that provides a high-moisture barrier while maintaining a beautiful biological feel. Perfect for coffee, snacks, and nuts.',
+    bullets: [
+      { label: 'Resealable Zip', icon: Zap },
+      { label: 'Stand-up Base', icon: CheckCircle2 },
+      { label: 'High Barrier', icon: ShieldCheck },
+      { label: 'Matte Texture', icon: Layers }
+    ],
+    specs: [
+      { label: 'Material', value: 'Paper + Bio-Film', icon: Layers },
+      { label: 'Closure', value: 'Press-to-Close', icon: Settings },
+      { label: 'Barrier', value: 'Aroma-Proof', icon: ShieldCheck },
+      { label: 'Capacity', value: '100g - 2kg', icon: Scale },
+      { label: 'Certification', value: 'Sustainably Sourced', icon: Leaf },
+      { label: 'Min Order', value: '500 units', icon: Package }
+    ],
+    gallery: [
+      { title: 'Stand-up Pouch', desc: 'Retail-ready design', image: '/images/prod_pouches_paper.png' },
+      { title: 'Organic Feel', desc: 'Natural matte finish', image: '/images/eco_pouches_paper_grid.png' },
+      { title: 'Window Option', desc: 'Product visibility', image: '/images/prod_pouches_paper.png' }
+    ]
+  },
+  'flat-handle': {
+    id: 'flat-handle',
+    title: 'Flat Handle Bags',
+    image: '/images/prod_flat_paper.png',
+    minOrder: '2000 UNITS',
+    color: '#145c38',
+    description: 'Sturdy, economical retail solutions with a visible natural paper fiber texture.',
+    longDescription: 'The Flat Handle range is engineered for high-volume retail environments where strength and cost-efficiency are paramount. Features reinforced flat handles for maximum comfort.',
+    bullets: [
+      { label: 'Load Optimized', icon: Weight },
+      { label: 'Natural Kraft', icon: Leaf },
+      { label: 'Internal Reinforcement', icon: ShieldCheck },
+      { label: 'Recyclable Handle', icon: CheckCircle2 }
+    ],
+    specs: [
+      { label: 'Material', value: 'Heavy Virgin Kraft', icon: Layers },
+      { label: 'Handle', value: 'Recycled Flat Paper', icon: Settings },
+      { label: 'Load Test', value: 'Up to 10kg', icon: Scale },
+      { label: 'Base', value: 'Block-Bottomed', icon: Package },
+      { label: 'Finish', value: 'Natural Matte', icon: Zap },
+      { label: 'Min Order', value: '2,000 units', icon: Package }
+    ],
+    gallery: [
+      { title: 'Supermarket Carry', desc: 'High-volume solution', image: '/images/prod_flat_paper.png' },
+      { title: 'Retail Primary', desc: 'Cost-effective packaging', image: '/images/flat_handle_bags_paper_grid.png' },
+      { title: 'Bulk Capacity', desc: 'Engineered for strength', image: '/images/prod_flat_paper.png' }
+    ]
+  },
+  industrial: {
+    id: 'industrial',
+    title: 'Industrial Kraft Rolls',
+    image: '/images/prod_rolls_paper.png',
+    minOrder: '5 UNITS',
+    color: '#4a3728',
+    description: 'Heavy-duty industrial rolls designed for maximum protection and shipping.',
+    longDescription: 'Our industrial-grade kraft paper rolls are manufactured for superior tensile strength and puncture resistance. Ideal for inter-city shipping and bulk item protection.',
+    bullets: [
+      { label: 'Extra Duty', icon: ShieldCheck },
+      { label: 'Puncture Proof', icon: Zap },
+      { label: 'Moisture Safe', icon: Droplets },
+      { label: '100% Recycled', icon: Leaf }
+    ],
+    specs: [
+      { label: 'GSM Range', value: '120 - 240 GSM', icon: Weight },
+      { label: 'Width', value: 'Up to 2 meters', icon: Scale },
+      { label: 'Tensile Strength', value: 'Industrial Grade', icon: Zap },
+      { label: 'Composition', value: 'Recycled Kraft', icon: Layers },
+      { label: 'Application', value: 'Bulk Shipping', icon: Settings },
+      { label: 'Min Order', value: '5 Large Rolls', icon: Package }
+    ],
+    gallery: [
+      { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/industrial_rolls_paper_grid.png' },
+      { title: 'High GSM Roll', desc: 'Superior tensile strength', image: '/images/prod_rolls_paper.png' },
+      { title: 'Custom Length', desc: 'Tailored for logistics', image: '/images/prod_rolls_paper.png' }
     ]
   }
 };
@@ -175,61 +229,60 @@ export default function ProductCategory() {
         zIndex: 1000,
         width: isMobile ? '94%' : '90%',
         maxWidth: 720,
-        background: 'rgba(255, 255, 255, 0.8)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderRadius: isMobile ? '20px' : '28px',
-        padding: isMobile ? '8px 12px' : '10px 14px',
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderRadius: isMobile ? '20px' : '32px',
+        padding: isMobile ? '10px 14px' : '12px 16px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        boxShadow: '0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05)',
-        border: '1px solid rgba(255,255,255,0.4)',
-        animation: 'quoteFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)',
+        border: '1px solid rgba(255,255,255,0.5)',
+        animation: 'quoteFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 20 }}>
           <div style={{
-            width: isMobile ? 44 : 56, 
-            height: isMobile ? 44 : 56,
-            borderRadius: '50%',
+            width: isMobile ? 44 : 60, 
+            height: isMobile ? 44 : 60,
+            borderRadius: '16px',
             overflow: 'hidden',
-            background: 'var(--kraft-100)',
+            background: 'white',
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            flexShrink: 0
+            flexShrink: 0,
+            boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
           }}>
-            <img src={data.image} alt="" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
+            <img src={data.image} alt="" style={{ width: '85%', height: '85%', objectFit: 'contain' }} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: isMobile ? 9 : 11, fontWeight: 700, color: 'var(--eco-700)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Min Order: {data.minOrder}</div>
-            <div style={{ fontSize: isMobile ? 14 : 18, fontWeight: 700, color: 'var(--kraft-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.title}</div>
+            <div style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, color: data.color, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Min Order: {data.minOrder}</div>
+            <div style={{ fontSize: isMobile ? 15 : 20, fontWeight: 800, color: 'var(--kraft-950)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.title}</div>
           </div>
         </div>
-        <a 
-          href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link 
+          to="/contact"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 10,
-            background: '#1F4013',
+            background: 'var(--kraft-950)',
             color: 'white',
-            padding: isMobile ? '12px 16px' : '14px 24px',
-            borderRadius: isMobile ? '14px' : '18px',
-            fontWeight: 700,
-            fontSize: isMobile ? 13 : 15,
+            padding: isMobile ? '12px 20px' : '16px 32px',
+            borderRadius: isMobile ? '14px' : '20px',
+            fontWeight: 800,
+            fontSize: isMobile ? 13 : 16,
             textDecoration: 'none',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             marginLeft: 12
           }}
-          onMouseEnter={e => e.currentTarget.style.background = '#152b0d'}
-          onMouseLeave={e => e.currentTarget.style.background = '#1F4013'}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
         >
-          {isMobile ? <Phone size={18} fill="white" /> : <><Phone size={18} fill="white" /> Get Wholesale Price</>}
-        </a>
+          {isMobile ? 'Request Quote' : 'Request Wholesale Quote'} <ArrowRight size={18} />
+        </Link>
       </div>
 
       {/* ── Main Content ── */}
@@ -262,20 +315,29 @@ export default function ProductCategory() {
             alignItems: 'start' 
           }} className="category-hero-grid">
             {/* Image Section */}
-            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 100 }}>
+            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 120 }}>
               <div style={{
-                borderRadius: isMobile ? '24px' : '40px',
+                borderRadius: isMobile ? '32px' : '48px',
                 overflow: 'hidden',
                 aspectRatio: isMobile ? '4/3' : '1',
-                boxShadow: 'var(--shadow-xl)',
+                boxShadow: '0 40px 80px -20px rgba(58, 36, 16, 0.15)',
                 background: 'white',
                 border: '1px solid var(--kraft-100)',
                 padding: isMobile ? 24 : 60,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                position: 'relative'
               }}>
-                <img src={data.image} alt={data.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                {/* Decorative Pattern behind bag */}
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: 'radial-gradient(var(--kraft-100) 1px, transparent 1px)',
+                  backgroundSize: '24px 24px',
+                  opacity: 0.3
+                }} />
+                <img src={data.image} alt={data.title} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
               </div>
             </div>
 
@@ -300,48 +362,50 @@ export default function ProductCategory() {
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', flexWrap: isMobile ? 'wrap' : 'nowrap', gap: 16, marginBottom: 48 }}>
-                <a href={whatsappUrl} style={{ 
-                  flex: 1, 
+                <Link to="/contact" style={{ 
+                  flex: 1.5, 
                   minWidth: isMobile ? '100%' : 'auto',
-                  padding: isMobile ? '16px 20px' : '18px 24px', 
-                  background: '#2D5A27', 
+                  padding: isMobile ? '18px 24px' : '22px 32px', 
+                  background: 'var(--kraft-950)', 
                   color: 'white',
-                  borderRadius: 'var(--radius-lg)',
+                  borderRadius: '20px',
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
-                  gap: 10,
+                  gap: 12,
                   textDecoration: 'none',
-                  fontWeight: 700,
-                  fontSize: isMobile ? 15 : 16,
-                  transition: 'background 0.3s'
+                  fontWeight: 800,
+                  fontSize: isMobile ? 16 : 18,
+                  transition: 'all 0.3s',
+                  boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)'
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#1F4013'}
-                onMouseLeave={e => e.currentTarget.style.background = '#2D5A27'}
+                onMouseEnter={e => e.currentTarget.style.background = '#000'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--kraft-950)'}
                 >
-                   <Phone size={18} fill="white" /> WhatsApp Us
-                </a>
-                <Link to="/contact" style={{ 
+                   Get Wholesale Price <ArrowRight size={20} />
+                </Link>
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ 
                   flex: 1, 
                   minWidth: isMobile ? '100%' : 'auto',
-                  padding: isMobile ? '16px 20px' : '18px 24px', 
-                  background: '#EAE5D8', 
-                  color: '#1F4013', 
-                  borderRadius: 'var(--radius-lg)', 
+                  padding: isMobile ? '18px 24px' : '22px 32px', 
+                  background: 'white', 
+                  color: 'var(--kraft-950)', 
+                  borderRadius: '20px', 
                   textDecoration: 'none', 
-                  fontWeight: 700,
-                  fontSize: isMobile ? 15 : 16,
+                  fontWeight: 800,
+                  fontSize: isMobile ? 16 : 18,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 10,
-                  transition: 'background 0.3s'
+                  gap: 12,
+                  border: '1px solid var(--kraft-200)',
+                  transition: 'all 0.3s'
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#DED9C8'}
-                onMouseLeave={e => e.currentTarget.style.background = '#EAE5D8'}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--kraft-50)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'white'}
                 >
-                   <Zap size={18} /> Request Quote
-                </Link>
+                   <Phone size={18} fill="currentColor" /> WhatsApp
+                </a>
               </div>
 
               {/* Bullet Grid */}
