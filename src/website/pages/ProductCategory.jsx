@@ -47,9 +47,9 @@ const categoryData = {
       { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
     ],
     gallery: [
-      { title: 'Natural Texture', desc: 'Raw sustainable aesthetic', image: '/images/collection_ecocraft_vibrant.png' },
-      { title: 'Twisted Handle', desc: 'Ergonomic & Strong', image: '/images/natural_brown_paper_bags_vibrant.png' },
-      { title: 'Custom Printed', desc: 'High-fidelity branding', image: '/images/custom_printed_brown_vibrant.png' }
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/generated/ecocraft_gallery_1.png' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/generated/ecocraft_gallery_2.png' },
+      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/generated/ecocraft_gallery_3.png' }
     ]
   },
   fnb: {
@@ -75,9 +75,9 @@ const categoryData = {
       { label: 'Min Order', value: '1,000 units', icon: Package }
     ],
     gallery: [
-      { title: 'Pastry Sleeves', desc: 'Grease-proof solutions', image: '/images/collection_fnb_vibrant.png' },
-      { title: 'Gourmet Carry', desc: 'Premium restaurant bags', image: '/images/white_fb_bags_vibrant.png' },
-      { title: 'Bakery Special', desc: 'Crisp & Clean finish', image: '/images/fnb_colorful_bags_vibrant.png' }
+      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_gallery_1.png' },
+      { title: 'Pristine White collection', desc: 'Crisp & Clean finish', image: '/images/generated/fnb_gallery_2.png' },
+      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/generated/fnb_gallery_3.png' }
     ]
   },
   luxury: {
@@ -103,9 +103,9 @@ const categoryData = {
       { label: 'Min Order', value: '200 units', icon: Package }
     ],
     gallery: [
-      { title: 'Matt Gold Foil', desc: 'Signature aesthetic', image: '/images/collection_luxury_vibrant.png' },
-      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/luxury_colorful_premium_bags_vibrant.png' },
-      { title: 'Custom Branding', desc: 'Exquisite realization', image: '/images/luxury_paper_bag_vibrant.png' }
+      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/generated/luxury_gallery_1.png' },
+      { title: 'Artisanal Finish', desc: 'Hand-crafted excellence', image: '/images/generated/luxury_gallery_2.png' },
+      { title: 'Colorful Premium', desc: 'Signature luxury palette', image: '/images/generated/luxury_gallery_3.png' }
     ]
   },
   pouches: {
