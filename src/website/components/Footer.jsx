@@ -72,7 +72,7 @@ export default function Footer() {
 
   return (
     <footer style={{
-      background: 'linear-gradient(145deg, #1f140d 0%, #120b07 100%)',
+      background: 'linear-gradient(135deg, #8b5e3c 0%, #2b1b12 100%)',
       color: 'white',
       padding: isMobile ? '60px 24px 30px' : '100px 0 40px',
       fontFamily: 'Inter, sans-serif',
@@ -90,7 +90,7 @@ export default function Footer() {
         zIndex: 0
       }} />
 
-      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+      <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '100%', padding: isMobile ? '0 24px' : '0 80px' }}>
         <div style={{
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
@@ -98,7 +98,7 @@ export default function Footer() {
           marginBottom: 80
         }}>
           {/* Logo & Info */}
-          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 5' }}>
+          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
               <div style={{
                 width: 44, height: 44,
@@ -177,7 +177,7 @@ export default function Footer() {
           </div>
 
           {/* Links Column 1 */}
-          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 3', paddingLeft: isMobile ? 0 : 40 }}>
+          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 30, color: 'white' }}>Catalog</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {shopLinks.map(link => (
@@ -199,12 +199,17 @@ export default function Footer() {
           </div>
 
           {/* Links Column 2 */}
-          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 3' }}>
+          <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 30, color: 'white' }}>Company</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {['About Us', 'Sustainability', 'Testimonials', 'Contact Us'].map(label => (
-                <li key={label}>
-                  <Link to={`/${label.toLowerCase().replace(' ', '-')}`} style={{
+              {[
+                { label: 'About Us', to: '/about' },
+                { label: 'Sustainability', to: '/sustainability' },
+                { label: 'Testimonials', to: '/#testimonials' },
+                { label: 'Contact Us', to: '/contact#contact-form' }
+              ].map(link => (
+                <li key={link.label}>
+                  <Link to={link.to} style={{
                     fontSize: 16,
                     color: 'rgba(255,255,255,0.6)',
                     textDecoration: 'none',
@@ -213,7 +218,7 @@ export default function Footer() {
                   onMouseEnter={e => e.target.style.color = 'white'}
                   onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.6)'}
                   >
-                    {label}
+                    {link.label}
                   </Link>
                 </li>
               ))}

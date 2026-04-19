@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Leaf, Coffee, Crown, ShieldCheck, Zap, Globe, MessageSquare } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { ArrowRight, Leaf, Coffee, Crown, ShieldCheck, Zap, Globe, MessageSquare, Play, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 
 const categories = [
   {
@@ -9,6 +9,7 @@ const categories = [
     subtitle: 'Sustainable Everyday Packaging',
     description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, boutiques, and eco-conscious brands looking for durability and natural aesthetics.',
     image: '/images/collection_ecocraft_vibrant.png',
+    videoStill: '/images/generated/video_ecocraft.png',
     color: '#4ade80',
     features: ['100-140 GSM Kraft', 'Twisted Paper Handles', 'Eco-friendly Glues'],
   },
@@ -18,6 +19,7 @@ const categories = [
     subtitle: 'Safe for Food, Kind to Earth',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry. Designed to keep freshness in and plastics out.',
     image: '/images/collection_fnb_vibrant.png',
+    videoStill: '/images/generated/video_fnb.png',
     color: '#f59e0b',
     features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Heat Resistant'],
   },
@@ -27,6 +29,7 @@ const categories = [
     subtitle: 'Premium Unboxing experience',
     description: 'Elevate your brand with our luxury collection. High-thickness boards, premium textures, and exquisite finishes that redefine paper packaging.',
     image: '/images/collection_luxury_vibrant.png',
+    videoStill: '/images/generated/video_luxury.png',
     color: '#c09457',
     features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Cotton Ribbon Handles'],
   }
@@ -34,6 +37,7 @@ const categories = [
 
 export default function Products() {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [activeVideo, setActiveVideo] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -47,18 +51,18 @@ export default function Products() {
   return (
     <div style={{ minHeight: '100vh', paddingTop: isMobile ? 60 : 80, background: 'white' }}>
       {/* ── Page Hero ── */}
+      {/* ... keep hero as is ... */}
       <div className="page-hero" style={{
-        backgroundImage: 'url(/images/generated/products_hero_bg.png)',
+        backgroundImage: 'url(/images/generated/products_hero_branded_new.png)',
         backgroundSize: 'cover',
         backgroundPosition: isMobile ? 'center' : 'center right',
         position: 'relative',
         minHeight: isMobile ? '450px' : '550px',
         display: 'flex',
         alignItems: 'center',
-        marginTop: isMobile ? -60 : -80, // Offset root padding to keep hero full-bleed
+        marginTop: isMobile ? -60 : -80,
         overflow: 'hidden'
       }}>
-        {/* Dark overlay for readability - shifted left to show the bag on the right */}
         <div style={{
           position: 'absolute',
           inset: 0,
@@ -106,9 +110,6 @@ export default function Products() {
                 Explore our curated collections designed to meet the rigorous demands of modern commerce while staying true to our earth-first philosophy.
               </p>
             </div>
-
-            {/* Empty right column: Background image already shows the bag on the right */}
-            <div className="hidden lg:block h-full w-full" />
           </div>
         </div>
       </div>
@@ -137,61 +138,66 @@ export default function Products() {
                   transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   minHeight: isMobile ? 'auto' : '550px',
                   position: 'relative',
-                  animationDelay: `${i * 0.15}s`,
-                  marginBottom: isMobile ? 0 : 0
-                }}
-                onMouseEnter={e => {
-                  if (!isMobile) {
-                    e.currentTarget.style.transform = 'translateY(-15px)';
-                    e.currentTarget.style.boxShadow = '0 50px 100px rgba(26, 18, 8, 0.15)';
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isMobile) {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'var(--shadow-xl)';
-                  }
+                  animationDelay: `${i * 0.15}s`
                 }}
               >
-                {/* Image Section */}
+                {/* --- IMAGE / VIDEO SECTION --- */}
                 <div
                   className="product-gallery-item"
                   style={{
                     order: isMobile ? 1 : (i % 2 === 0 ? 1 : 2),
-                    height: isMobile ? '300px' : 'auto',
+                    height: isMobile ? '400px' : 'auto',
                     position: 'relative',
                     overflow: 'hidden',
-                    cursor: 'pointer'
                   }}
                 >
-                  <img
-                    src={cat.image}
-                    alt={cat.title}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      transition: 'transform 1s cubic-bezier(0.2, 0, 0, 1)'
-                    }}
-                    onMouseEnter={e => { if (!isMobile) e.target.style.transform = 'scale(1.1)'; }}
-                    onMouseLeave={e => { if (!isMobile) e.target.style.transform = 'scale(1)'; }}
-                  />
+                  {/* The Cinematic "Video" Still */}
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={e => {
+                    const img = e.currentTarget.querySelector('.story-img');
+                    if (img) img.style.transform = 'scale(1.1) translateX(10px)';
+                  }}
+                  onMouseLeave={e => {
+                    const img = e.currentTarget.querySelector('.story-img');
+                    if (img) img.style.transform = 'scale(1)';
+                  }}
+                  >
+                    <img
+                      className="story-img"
+                      src={cat.videoStill}
+                      alt={`${cat.title} Cinematic Story`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        transition: 'transform 8s ease'
+                      }}
+                    />
+
+
+                  </div>
 
                   {/* "Get a Quote" Overlay */}
-                  <div className="gallery-quote-btn">
+                  <Link to="/contact#contact-form" className="gallery-quote-btn" style={{ textDecoration: 'none', color: 'white' }}>
                     <MessageSquare size={isMobile ? 24 : 32} style={{ marginBottom: 4 }} />
                     <span style={{
                       fontSize: isMobile ? 18 : 22,
                       fontWeight: 700,
                       letterSpacing: '0.05em',
-                      textTransform: 'uppercase'
+                      textTransform: 'uppercase',
+                      color: 'white'
                     }}>Get a Quote</span>
                     <p style={{
                       fontSize: isMobile ? 12 : 14,
                       opacity: 0.8,
                       margin: 0
                     }}>Click to inquire about {cat.title}</p>
-                  </div>
+                  </Link>
 
                   <div style={{
                     position: 'absolute',

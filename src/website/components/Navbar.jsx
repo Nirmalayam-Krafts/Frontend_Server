@@ -101,7 +101,7 @@ export default function Navbar() {
                 fontSize: isMobile ? '20px' : '26px',
                 fontWeight: 900,
                 color: scrolled || !isHome ? '#000000' : isHome ? '#ffffff' : '#000000',
-                textShadow: !scrolled && isHome ? '0 4px 15px rgba(0,0,0,0.3)' : 'none',
+                textShadow: !scrolled && isHome ? '0 2px 8px rgba(0,0,0,0.6)' : 'none',
                 lineHeight: 1,
                 letterSpacing: '-0.01em'
               }}>
@@ -131,7 +131,7 @@ export default function Navbar() {
                       color: scrolled || !isHome
                         ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
                         : isActive ? 'var(--eco-400)' : 'white',
-                      textShadow: !scrolled && isHome ? '0 2px 10px rgba(0,0,0,0.2)' : 'none',
+                      textShadow: !scrolled && isHome ? '0 2px 8px rgba(0,0,0,0.8)' : 'none',
                       background: isActive
                         ? scrolled || !isHome ? 'rgba(22,163,74,0.06)' : 'rgba(255,255,255,0.12)'
                         : 'transparent',
@@ -191,6 +191,7 @@ export default function Navbar() {
                     color: scrolled || !isHome
                       ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
                       : isActive ? 'var(--eco-400)' : 'white',
+                    textShadow: !scrolled && isHome ? '0 2px 8px rgba(0,0,0,0.8)' : 'none',
                     background: isActive
                       ? scrolled || !isHome ? 'rgba(22,163,74,0.06)' : 'rgba(255,255,255,0.12)'
                       : 'transparent',
@@ -206,7 +207,7 @@ export default function Navbar() {
           {/* Right Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
-            <Link to="/contact" className="btn-primary" style={{
+            <Link to="/contact#contact-form" className="btn-primary" style={{
               padding: isMobile ? '10px 16px' : '14px 32px',
               fontSize: isMobile ? '13px' : '16px',
               borderRadius: '100px',

@@ -109,8 +109,7 @@ const whyCards = [
     id: 1,
     title: '12,000+',
     label: 'Indian Brands Joined',
-    image: '/images/why_brands.png',
-    video: 'https://player.vimeo.com/external/494252666.sd.mp4?s=40428d009265f242e82500c4c454e963&profile_id=165',
+    image: '/images/generated/luxury_vibrant_branded.png',
     icon: Users,
     accent: 'var(--eco-600)'
   },
@@ -118,8 +117,7 @@ const whyCards = [
     id: 2,
     title: '100%',
     label: 'On-Time Delivery',
-    image: '/images/why_delivery.png',
-    video: 'https://player.vimeo.com/external/459389133.sd.mp4?s=183f3f3f6111a43a6d4e2d27f8d6f5c80&profile_id=165',
+    image: '/images/generated/ecocraft_vibrant_branded.png',
     icon: Shield,
     accent: 'var(--kraft-500)'
   },
@@ -127,8 +125,7 @@ const whyCards = [
     id: 3,
     title: 'Artisanal',
     label: 'Craftsmanship Heritage',
-    image: '/images/why_artisans.png',
-    video: 'https://player.vimeo.com/external/517090025.sd.mp4?s=1a491f69201a4f028682e75e92701742&profile_id=165',
+    image: '/images/generated/artisan_nirmalyam_kraft_new.png',
     icon: Star,
     accent: '#f59e0b'
   },
@@ -136,8 +133,7 @@ const whyCards = [
     id: 4,
     title: 'Vibrant',
     label: 'Colorful Collections',
-    image: '/images/why_vibrant.png',
-    video: 'https://player.vimeo.com/external/371433846.sd.mp4?s=231da6469cf3680e92743846d03f0b24&profile_id=165',
+    image: '/images/generated/popup_bags_branded_new.png',
     icon: TrendingUp,
     accent: '#ec4899'
   },
@@ -191,7 +187,7 @@ export default function Home() {
     if (!popupName || !popupEmail) return;
 
     // Redirect to contact page with data
-    navigate('/contact', {
+    navigate('/contact#contact-form', {
       state: {
         name: popupName,
         email: popupEmail
@@ -336,7 +332,7 @@ export default function Home() {
                 Chat on WhatsApp
               </a>
 
-              <Link to="/contact" style={{
+              <Link to="/contact#contact-form" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 12,
@@ -652,7 +648,7 @@ export default function Home() {
             {/* Popup image */}
             <div style={{ height: 200, overflow: 'hidden', position: 'relative' }}>
               <img
-                src="/popup-bags.png"
+                src="/images/generated/popup_bags_branded_new.png"
                 alt="Nirmalyam kraft bags"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -1490,7 +1486,7 @@ export default function Home() {
             flexDirection: isMobile ? 'column' : 'row',
             alignItems: 'center'
           }}>
-            <Link to="/contact" className="btn-primary" style={{
+            <Link to="/contact#contact-form" className="btn-primary" style={{
               minWidth: isMobile ? '100%' : 260,
               padding: '18px 32px',
               fontSize: 16,

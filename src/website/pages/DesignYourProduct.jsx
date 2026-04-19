@@ -285,10 +285,10 @@ export default function DesignYourProduct() {
 
             {/* CTA */}
             <div style={{ display: 'flex', gap: 14 }}>
-              <Link to="/contact" className="btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '15px' }}>
+              <Link to="/contact#contact-form" className="btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '15px' }}>
                 <span>Request Sample with This Design</span>
               </Link>
-              <Link to="/contact" className="btn-secondary" style={{ padding: '15px 24px' }}>
+              <Link to="/contact#contact-form" className="btn-secondary" style={{ padding: '15px 24px' }}>
                 <Palette size={16} /> Custom Colors
               </Link>
             </div>

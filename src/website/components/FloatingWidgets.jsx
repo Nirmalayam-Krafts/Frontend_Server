@@ -4,17 +4,17 @@ import { Link } from 'react-router-dom';
 
 const carouselImages = [
   {
-    src: '/images/products/ecocraft.png',
+    src: '/images/generated/ecocraft_vibrant_branded.png',
     title: 'Ecocraft Collection',
     desc: 'Sustainable Everyday Packaging'
   },
   {
-    src: '/images/products/luxury.png',
+    src: '/images/generated/luxury_vibrant_branded.png',
     title: 'Luxury Kraft',
     desc: 'Premium Unboxing Experience'
   },
   {
-    src: '/images/products/fnb.png',
+    src: '/images/generated/popup_bags_branded_new.png',
     title: 'F&B Gourmet',
     desc: 'Safe for Food, Kind to Earth'
   }
