@@ -133,6 +133,10 @@ const Orders = () => {
   const [processingActionId, setProcessingActionId] = useState(null);
   const [completeActionId, setCompleteActionId] = useState(null);
 
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ amount: "", paymentMode: "cash", note: "" });
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
   const limit = 10;
 
   const { data, isLoading, refetch } = useGetAllOrders({
@@ -913,6 +917,37 @@ Delivery Address: ${report.deliveryAddress}
       });
     } finally {
       setCompleteActionId(null);
+    }
+  };
+
+  const handleRecordPayment = async (e) => {
+    e.preventDefault();
+    const amount = Number(paymentForm.amount);
+    if (!amount || amount <= 0) {
+      toast.error("Enter a valid payment amount");
+      return;
+    }
+    setPaymentLoading(true);
+    const loadingToast = toast.loading("Recording payment...");
+    try {
+      const response = await axiosInstance.post(`/orders/${selectedOrder.id}/payment`, {
+        amount,
+        paymentMode: paymentForm.paymentMode,
+        note: paymentForm.note.trim() || undefined,
+      });
+      if (response.data.success) {
+        toast.success(`₹${amount} recorded — ${response.data.data.paymentStatus}`, { id: loadingToast });
+        setShowPaymentModal(false);
+        setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
+        queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+        refetch();
+      } else {
+        toast.error(response.data?.message || "Payment failed", { id: loadingToast });
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to record payment", { id: loadingToast });
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -3663,6 +3698,17 @@ ${lines || "(See PDF for full BOM)"}
                     </Button>
                   )}
 
+                  {selectedOrder.orderStatusKey !== "CANCELLED" && selectedOrder.paymentStatusKey !== "PAID" && (
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-amber-600 px-4 py-2 hover:bg-amber-700"
+                      onClick={() => setShowPaymentModal(true)}
+                    >
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Record Payment
+                    </Button>
+                  )}
+
                   <Button
                     type="button"
                     variant="secondary"
@@ -3938,6 +3984,111 @@ ${lines || "(See PDF for full BOM)"}
           </motion.div>
         )}
       </div>
+
+      {/* ── Record Payment Modal ───────────────────────────────────── */}
+      <Modal
+        isOpen={showPaymentModal}
+        title="Record Payment"
+        onClose={() => {
+          setShowPaymentModal(false);
+          setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
+        }}
+      >
+        {selectedOrder && (
+          <form onSubmit={handleRecordPayment} className="space-y-5">
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Payment for {selectedOrder.customerName}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Invoice: <span className="font-semibold">₹{(selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                    {" · "}Paid so far: <span className="font-semibold text-emerald-700">₹{(selectedOrder.paidAmount || 0).toLocaleString()}</span>
+                    {" · "}Balance: <span className="font-semibold text-red-600">₹{Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)).toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Payment Amount (₹) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+                  placeholder="e.g. 5000"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Payment Mode
+                </label>
+                <select
+                  value={paymentForm.paymentMode}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMode: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="card">Card</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Note (optional)
+                </label>
+                <input
+                  type="text"
+                  value={paymentForm.note}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, note: e.target.value }))}
+                  placeholder="e.g. Advance payment via GPay"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1 rounded-2xl"
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 rounded-2xl bg-amber-600 hover:bg-amber-700"
+                disabled={paymentLoading}
+              >
+                {paymentLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                )}
+                Record Payment
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </Layout>
   );
 };
