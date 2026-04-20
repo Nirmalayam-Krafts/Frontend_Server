@@ -286,7 +286,7 @@ export default function ProductCategory() {
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ paddingTop: isMobile ? 40 : 120, paddingBottom: isMobile ? 60 : 100 }}>
+      <div style={{ paddingTop: isMobile ? 100 : 120, paddingBottom: isMobile ? 60 : 100 }}>
         <div className="container">
           {/* Breadcrumbs */}
           <div style={{ 
@@ -296,8 +296,8 @@ export default function ProductCategory() {
             gap: 8, 
             fontSize: 11, 
             fontWeight: 700, 
-            color: 'var(--kraft-400)', 
-            marginBottom: isMobile ? 12 : 40,
+            color: 'var(--kraft-600)', 
+            marginBottom: isMobile ? 24 : 40,
             textTransform: 'uppercase',
             letterSpacing: '0.12em'
           }}>
@@ -311,7 +311,7 @@ export default function ProductCategory() {
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: isMobile || isTablet ? '1fr' : '1fr 0.8fr', 
-            gap: isMobile ? 20 : 80, 
+            gap: isMobile ? 40 : 80, 
             alignItems: 'start' 
           }} className="category-hero-grid">
             {/* Image Section */}

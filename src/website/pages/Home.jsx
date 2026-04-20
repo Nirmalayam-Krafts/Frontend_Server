@@ -266,7 +266,7 @@ export default function Home() {
               fontFamily: "'Playfair Display', serif",
               fontSize: isMobile ? '24px' : '36px',
               fontWeight: 600,
-              color: 'var(--kraft-900)',
+              color: 'var(--kraft-950)',
               marginBottom: 8,
               lineHeight: 1.2
             }}>
@@ -294,16 +294,16 @@ export default function Home() {
               maxWidth: 580
             }}>
               Elevating brands through sustainable craftsmanship. <br />
-              <span style={{ color: 'var(--eco-600)' }}>Pure. Bold. Zero-waste.</span>
+              <span style={{ color: 'var(--eco-700)' }}>Pure. Bold. Zero-waste.</span>
             </p>
 
             <p style={{
               fontSize: isMobile ? 14 : 16,
-              color: 'var(--kraft-600)',
+              color: 'var(--kraft-950)',
               marginBottom: 40,
               lineHeight: 1.6,
               maxWidth: 500,
-              fontWeight: 500
+              fontWeight: 600
             }}>
               Specializing in ITC ECF paperboards and eco-friendly specialty papers. 
               We deliver high-performance packaging that ensures your products stay fresh and sustainably stunning.
@@ -1076,8 +1076,8 @@ export default function Home() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: isMobile ? 8 : 32
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: isMobile ? 16 : 32
           }} className="product-grid-3x3">
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury.png' },
@@ -1118,8 +1118,8 @@ export default function Home() {
                       position: 'absolute',
                       right: 20,
                       bottom: 20,
-                      width: 52,
-                      height: 52,
+                      width: isMobile ? 40 : 52,
+                      height: isMobile ? 40 : 52,
                       background: '#25D366',
                       borderRadius: '50%',
                       display: 'flex',
@@ -1133,15 +1133,15 @@ export default function Home() {
                     onClick={(e) => e.stopPropagation()}
                     className="wa-product-btn"
                   >
-                    <WhatsAppIcon size={26} />
+                    <WhatsAppIcon size={isMobile ? 20 : 26} />
                   </a>
                 </div>
                 <div style={{ padding: isMobile ? '20px 16px' : '32px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <span className="tag-chip" style={{ background: `${color}12`, color: color, fontSize: 13, padding: '6px 14px', fontWeight: 600, letterSpacing: '0.05em' }}>{cat}</span>
                   </div>
-                  <h3 style={{ fontSize: 24, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 12, fontFamily: "'Playfair Display', serif" }}>{name}</h3>
-                  <p style={{ fontSize: 16, color: 'var(--kraft-600)', lineHeight: 1.6 }}>{desc}</p>
+                  <h3 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 12, fontFamily: "'Playfair Display', serif" }}>{name}</h3>
+                  <p style={{ fontSize: isMobile ? 13 : 16, color: 'var(--kraft-700)', lineHeight: 1.6 }}>{desc}</p>
                 </div>
               </div>
             ))}

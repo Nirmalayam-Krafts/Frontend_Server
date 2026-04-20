@@ -100,8 +100,8 @@ export default function Navbar() {
                 fontFamily: "'Playfair Display', serif",
                 fontSize: isMobile ? '20px' : '26px',
                 fontWeight: 900,
-                color: scrolled || !isHome ? '#000000' : isHome ? '#ffffff' : '#000000',
-                textShadow: !scrolled && isHome ? '0 2px 8px rgba(0,0,0,0.6)' : 'none',
+                color: scrolled || !isHome ? '#000000' : isHome ? (isMobile ? '#000000' : '#ffffff') : '#000000',
+                textShadow: !scrolled && isHome && !isMobile ? '0 2px 8px rgba(0,0,0,0.6)' : 'none',
                 lineHeight: 1,
                 letterSpacing: '-0.01em'
               }}>
@@ -229,7 +229,7 @@ export default function Navbar() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: scrolled || !isHome ? 'var(--kraft-900)' : 'white',
+                color: scrolled || !isHome || isMobile ? 'var(--kraft-900)' : 'white',
               }}
               aria-label="Toggle menu"
             >
