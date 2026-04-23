@@ -10,7 +10,7 @@ import {
 } from "../../components/ui";
 import { LeadForm } from "../../components/forms";
 import { useUIStore } from "../../store";
-import { leadsAPI } from "../../services/api";
+
 import {
   Plus,
   Download,
@@ -43,9 +43,9 @@ import { useGetInventory } from "../../../../hook/inventory";
 import { useGetAllProducts } from "../../../../hook/Product";
 
 const FOLLOWUP_FLOW = [
-  { key: "first_followup", label: "First Follow-up", order: 1 },
-  { key: "second_followup", label: "Second Follow-up", order: 2 },
-  { key: "third_followup", label: "Third Follow-up", order: 3 },
+  { key: "first_followup", label: "First Follow-up", order: 1, dayLabel: "Day 1" },
+  { key: "second_followup", label: "Second Follow-up", order: 2, dayLabel: "Day 3" },
+  { key: "third_followup", label: "Third Follow-up", order: 3, dayLabel: "Day 7" },
 ];
 
 const initialOrderForm = {
@@ -155,6 +155,19 @@ const Leads = () => {
       };
     });
   }, [rawLeads]);
+
+  const getFollowupSourceLabel = (flowStatus) => {
+    if (!flowStatus?.done) return "";
+    if (flowStatus?.source === "worker") return "Auto Worker";
+    if (flowStatus?.source === "manual") return "Manual";
+    return "Completed";
+  };
+
+  const getFollowupChannelLabel = (flowStatus) => {
+    if (flowStatus?.channel === "whatsapp") return "WhatsApp";
+    if (flowStatus?.channel === "dashboard") return "Dashboard";
+    return "";
+  };
 
   const filteredLeads = useMemo(() => {
     return formattedLeads.filter((lead) => {
@@ -1513,6 +1526,9 @@ const Leads = () => {
                                   <p className="font-semibold text-gray-900">
                                     {flow.label}
                                   </p>
+                                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                                    {flowStatus?.stageDay ? `Day ${flowStatus.stageDay}` : flow.dayLabel}
+                                  </span>
                                 </div>
 
                                 <p className="mt-1 text-sm text-gray-500">
@@ -1520,6 +1536,18 @@ const Leads = () => {
                                     ? `Completed on ${new Date(flowStatus.updatedAt).toLocaleString()}`
                                     : "Pending follow-up"}
                                 </p>
+                                {isDone && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                      {getFollowupSourceLabel(flowStatus)}
+                                    </span>
+                                    {getFollowupChannelLabel(flowStatus) && (
+                                      <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-600 ring-1 ring-gray-200">
+                                        {getFollowupChannelLabel(flowStatus)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
                               <Button

@@ -80,6 +80,95 @@ const INITIAL_FORM = {
   product_category: '', quantity: '', requirement: '', location_area: '',
 };
 
+const FIELD_NAMES = ['name', 'email', 'phone', 'business_name', 'product_category', 'quantity', 'requirement'];
+
+const NAME_REGEX = /^[A-Za-z\s]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\d{7,15}$/;
+const BUSINESS_NAME_REGEX = /^[A-Za-z0-9&.,'()\-\s]+$/;
+
+const getWords = (value) => value.trim().split(/\s+/).filter(Boolean);
+
+const hasRepeatedCharacterRun = (value) => /(.)\1{4,}/.test(value);
+
+const hasSuspiciousSingleWord = (value) => {
+  const words = getWords(value);
+
+  if (words.length !== 1) return false;
+
+  const lettersOnlyWord = words[0].replace(/[^A-Za-z]/g, '');
+  const vowelCount = (lettersOnlyWord.match(/[aeiou]/gi) || []).length;
+
+  return lettersOnlyWord.length >= 10 && vowelCount < 2;
+};
+
+const isMeaningfulProjectText = (value) => {
+  const words = getWords(value);
+  const descriptiveWords = words.filter((word) => word.replace(/[^A-Za-z]/g, '').length >= 3);
+
+  return words.length >= 4 && descriptiveWords.length >= 3 && !hasRepeatedCharacterRun(value);
+};
+
+const validateField = (fieldName, value) => {
+  const trimmedValue = typeof value === 'string' ? value.trim() : value;
+
+  switch (fieldName) {
+    case 'name':
+      if (!trimmedValue) return 'Full Name is required.';
+      if (trimmedValue.length < 2) return 'Full Name must be at least 2 characters.';
+      if (!NAME_REGEX.test(trimmedValue)) return 'Full Name can contain only letters and spaces.';
+      return '';
+
+    case 'email':
+      if (!trimmedValue) return 'Corporate Email is required.';
+      if (!EMAIL_REGEX.test(trimmedValue)) return 'Enter a valid email address.';
+      return '';
+
+    case 'phone':
+      if (!trimmedValue) return 'Contact Number is required.';
+      if (!PHONE_REGEX.test(trimmedValue)) return 'Contact Number must be 7 to 15 digits.';
+      return '';
+
+    case 'business_name':
+      if (!trimmedValue) return 'Business Name is required.';
+      if (trimmedValue.length < 2) return 'Business Name must be at least 2 characters.';
+      if (!BUSINESS_NAME_REGEX.test(trimmedValue)) return 'Business Name contains invalid characters.';
+      if (hasRepeatedCharacterRun(trimmedValue) || hasSuspiciousSingleWord(trimmedValue)) {
+        return 'Enter a real business or brand name.';
+      }
+      return '';
+
+    case 'product_category':
+      if (!trimmedValue) return 'Please select a product.';
+      return '';
+
+    case 'quantity': {
+      if (!trimmedValue) return 'Est. Monthly Volume is required.';
+      const numericValue = Number(trimmedValue);
+      if (Number.isNaN(numericValue)) return 'Enter a valid monthly volume.';
+      if (numericValue < 100) return 'Est. Monthly Volume must be at least 100.';
+      return '';
+    }
+
+    case 'requirement':
+      if (!trimmedValue) return 'Project Details are required.';
+      if (trimmedValue.length < 20) return 'Project Details must be at least 20 characters.';
+      if (!isMeaningfulProjectText(trimmedValue)) {
+        return 'Add clearer project details with product type, quantity, size, branding, or timeline.';
+      }
+      return '';
+
+    default:
+      return '';
+  }
+};
+
+const validateForm = (formValues) =>
+  FIELD_NAMES.reduce((acc, fieldName) => {
+    acc[fieldName] = validateField(fieldName, formValues[fieldName]);
+    return acc;
+  }, {});
+
 const LOCATION_OPTIONS = [
   { value: '', label: 'Select your area...' },
   { label: '--- Pune Regions ---', value: '', disabled: true },
@@ -105,6 +194,8 @@ const LOCATION_OPTIONS = [
 export default function Contact() {
   const { axiosInstance } = useAuthContext();
   const [form, setForm] = useState(INITIAL_FORM);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -142,11 +233,43 @@ export default function Contact() {
     }
   }, [location]);
 
-  const handleChange = (e) =>
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const nextValue = name === 'phone' || name === 'quantity' ? value.replace(/\D/g, '') : value;
+    const nextForm = { ...form, [name]: nextValue };
+
+    setForm(nextForm);
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    setErrors((prev) => ({
+      ...prev,
+      [name]: validateField(name, nextValue),
+    }));
+    setError('');
+  };
+
+  const getFieldClassName = (fieldName, baseClassName = 'contact-input') => {
+    if (!touched[fieldName]) return baseClassName;
+    if (errors[fieldName]) return `${baseClassName} contact-input-invalid`;
+    if (String(form[fieldName] ?? '').trim()) return `${baseClassName} contact-input-valid`;
+    return baseClassName;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const nextErrors = validateForm(form);
+    const hasErrors = Object.values(nextErrors).some(Boolean);
+
+    setTouched(FIELD_NAMES.reduce((acc, fieldName) => {
+      acc[fieldName] = true;
+      return acc;
+    }, {}));
+    setErrors(nextErrors);
+
+    if (hasErrors) {
+      setError('Please correct the highlighted fields before submitting.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -154,11 +277,11 @@ export default function Contact() {
       const payload = {
         name: form.name.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
-        business_name: form.business_name.trim() || undefined,
-        product_category: form.product_category || undefined,
-        quantity: form.quantity.trim() || undefined,
-        requirement: form.requirement.trim() || undefined,
+        phone: form.phone.trim(),
+        business_name: form.business_name.trim(),
+        product_category: form.product_category,
+        quantity: form.quantity.trim(),
+        requirement: form.requirement.trim(),
       };
 
       const { data } = await axiosInstance.post(`/leads`, {
@@ -183,6 +306,8 @@ export default function Contact() {
     setSubmitted(false);
     setError('');
     setForm(INITIAL_FORM);
+    setErrors({});
+    setTouched({});
   };
 
   return (
@@ -383,43 +508,52 @@ export default function Contact() {
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                         <div className="input-group">
                           <label className="input-label">Full Name</label>
-                          <input className="contact-input" name="name" placeholder="E.g. Siddharth Malhotra" value={form.name} onChange={handleChange} required />
+                          <input className={getFieldClassName('name')} name="name" placeholder="E.g. Siddharth Malhotra" value={form.name} onChange={handleChange} required aria-invalid={Boolean(errors.name)} />
+                          {touched.name && errors.name && <span className="input-error">{errors.name}</span>}
                         </div>
                         <div className="input-group">
                           <label className="input-label">Corporate Email</label>
-                          <input className="contact-input" name="email" type="email" placeholder="name@company.com" value={form.email} onChange={handleChange} required />
+                          <input className={getFieldClassName('email')} name="email" type="email" placeholder="name@company.com" value={form.email} onChange={handleChange} required aria-invalid={Boolean(errors.email)} />
+                          {touched.email && errors.email && <span className="input-error">{errors.email}</span>}
                         </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                         <div className="input-group">
                           <label className="input-label">Contact Number</label>
-                          <input className="contact-input" name="phone" placeholder="+91 00000 00000" value={form.phone} onChange={handleChange} />
+                          <input className={getFieldClassName('phone')} name="phone" placeholder="+91 00000 00000" value={form.phone} onChange={handleChange} inputMode="numeric" maxLength={15} aria-invalid={Boolean(errors.phone)} />
+                          {touched.phone && errors.phone && <span className="input-error">{errors.phone}</span>}
                         </div>
                         <div className="input-group">
                           <label className="input-label">Business Name</label>
-                          <input className="contact-input" name="business_name" placeholder="Brand / Company Name" value={form.business_name} onChange={handleChange} />
+                          <input className={getFieldClassName('business_name')} name="business_name" placeholder="Brand / Company Name" value={form.business_name} onChange={handleChange} aria-invalid={Boolean(errors.business_name)} />
+                          {touched.business_name && errors.business_name && <span className="input-error">{errors.business_name}</span>}
+                          {!errors.business_name && <span className="input-helper">Use your brand or registered company name.</span>}
                         </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                         <div className="input-group">
                           <label className="input-label">Product of Interest</label>
-                          <select className="contact-input select-styled" name="product_category" value={form.product_category} onChange={handleChange}>
+                          <select className={getFieldClassName('product_category', 'contact-input select-styled')} name="product_category" value={form.product_category} onChange={handleChange} aria-invalid={Boolean(errors.product_category)}>
                             {PRODUCT_OPTIONS.map(({ value, label }) => (
                               <option key={value} value={value}>{label}</option>
                             ))}
                           </select>
+                          {touched.product_category && errors.product_category && <span className="input-error">{errors.product_category}</span>}
                         </div>
                         <div className="input-group">
                           <label className="input-label">Est. Monthly Volume</label>
-                          <input className="contact-input" name="quantity" type="number" placeholder="Min. 100 recommended" value={form.quantity} onChange={handleChange} />
+                          <input className={getFieldClassName('quantity')} name="quantity" type="number" placeholder="Min. 100 recommended" value={form.quantity} onChange={handleChange} min={100} inputMode="numeric" aria-invalid={Boolean(errors.quantity)} />
+                          {touched.quantity && errors.quantity && <span className="input-error">{errors.quantity}</span>}
                         </div>
                       </div>
 
                       <div className="input-group">
                         <label className="input-label">Project Details</label>
-                        <textarea className="contact-input" name="requirement" placeholder="Share specific dimensions, colors, or timeline needs..." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 140, resize: 'none', padding: '16px' }} />
+                        <textarea className={getFieldClassName('requirement')} name="requirement" placeholder="Share specific dimensions, colors, or timeline needs..." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 140, resize: 'none', padding: '16px' }} aria-invalid={Boolean(errors.requirement)} />
+                        {touched.requirement && errors.requirement && <span className="input-error">{errors.requirement}</span>}
+                        {!errors.requirement && <span className="input-helper">Example: need 2,000 luxury kraft bags with gold foil logo for a July launch.</span>}
                       </div>
 
                       <button type="submit" className="btn-primary" disabled={loading} style={{ 
@@ -558,10 +692,26 @@ export default function Contact() {
       </section>
 
       <style>{`
-        .input-group { display: flex; flexDirection: column; gap: 10px; }
-        .input-label { fontSize: 13px; fontWeight: 800; textTransform: uppercase; letterSpacing: 0.1em; color: var(--kraft-800); }
+        .input-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-width: 0;
+        }
+        .input-label {
+          display: block;
+          margin: 0;
+          font-size: 13px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          line-height: 1.45;
+          color: var(--kraft-800);
+        }
         .contact-input {
+          display: block;
           width: 100%;
+          min-height: 58px;
           padding: 18px 24px;
           background: var(--kraft-50);
           border: 1px solid var(--kraft-100);
@@ -571,14 +721,50 @@ export default function Contact() {
           color: var(--kraft-950);
           transition: all 0.3s ease;
           outline: none;
+          box-sizing: border-box;
         }
         .contact-input:focus {
           background: white;
           border-color: var(--kraft-600);
           box-shadow: 0 0 0 4px rgba(192, 148, 87, 0.1);
         }
+        textarea.contact-input {
+          min-height: 140px;
+          line-height: 1.6;
+        }
         .contact-input::placeholder { color: var(--kraft-300); }
-        .select-styled { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23C09457' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 20px center; padding-right: 50px; }
+        .contact-input-invalid {
+          border-color: #dc2626 !important;
+          box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1);
+        }
+        .contact-input-valid {
+          border-color: #16a34a !important;
+          box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.08);
+        }
+        .input-error {
+          display: block;
+          min-height: 18px;
+          color: #dc2626;
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.4;
+        }
+        .input-helper {
+          display: block;
+          min-height: 18px;
+          color: var(--kraft-400);
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.5;
+        }
+        .select-styled {
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23C09457' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 20px center;
+          padding-right: 50px;
+        }
       `}</style>
     </div>
   );
