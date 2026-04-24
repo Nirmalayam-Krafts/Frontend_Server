@@ -1,8 +1,4 @@
 import axios from "axios";
-import { mockLeads, mockInventory, mockOrders } from "../data/mockData";
-
-// Delay helper
-const delay = (ms = 500) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
@@ -476,213 +472,6 @@ export const dashboardAPI = {
   },
 };
 
-// Leads APIs
-export const leadsAPI = {
-  async getLeads(filters = {}) {
-    await delay();
-    let leads = [...mockLeads];
-
-    if (filters.status) {
-      leads = leads.filter((l) => l.status === filters.status);
-    }
-
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      leads = leads.filter(
-        (l) =>
-          l.name.toLowerCase().includes(search) ||
-          l.businessName.toLowerCase().includes(search),
-      );
-    }
-
-    return { success: true, data: leads, total: leads.length };
-  },
-
-  async getLead(id) {
-    await delay();
-    const lead = mockLeads.find((l) => l.id === parseInt(id));
-    if (!lead) {
-      return { success: false, error: "Lead not found" };
-    }
-    return { success: true, data: lead };
-  },
-
-  async createLead(data) {
-    await delay();
-    const newLead = {
-      id: mockLeads.length + 1,
-      ...data,
-      createdAt: new Date(),
-    };
-    mockLeads.unshift(newLead);
-    return { success: true, data: newLead };
-  },
-
-  async updateLead(id, data) {
-    await delay();
-    const index = mockLeads.findIndex((l) => l.id === parseInt(id));
-    if (index === -1) {
-      return { success: false, error: "Lead not found" };
-    }
-    mockLeads[index] = { ...mockLeads[index], ...data };
-    return { success: true, data: mockLeads[index] };
-  },
-
-  async deleteLead(id) {
-    await delay();
-    const index = mockLeads.findIndex((l) => l.id === parseInt(id));
-    if (index === -1) {
-      return { success: false, error: "Lead not found" };
-    }
-    const deleted = mockLeads.splice(index, 1)[0];
-    return { success: true, data: deleted };
-  },
-
-  async exportLeadsCSV() {
-    await delay();
-    const csv =
-      "name,business,product,status,date\n" +
-      mockLeads
-        .map(
-          (l) =>
-            `${l.name},${l.businessName},${l.productInterest},${l.status},${l.date}`,
-        )
-        .join("\n");
-    return { success: true, data: csv };
-  },
-};
-
-// Inventory APIs
-export const inventoryAPI = {
-  async getInventory(filters = {}) {
-    await delay();
-    let items = [...mockInventory];
-
-    if (filters.category) {
-      items = items.filter((i) => i.category === filters.category);
-    }
-
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      items = items.filter(
-        (i) =>
-          i.productName.toLowerCase().includes(search) ||
-          i.sku.toLowerCase().includes(search),
-      );
-    }
-
-    return { success: true, data: items, total: items.length };
-  },
-
-  async getItem(id) {
-    await delay();
-    const item = mockInventory.find((i) => i.id === parseInt(id));
-    if (!item) {
-      return { success: false, error: "Item not found" };
-    }
-    return { success: true, data: item };
-  },
-
-  async createItem(data) {
-    await delay();
-    const newItem = {
-      id: mockInventory.length + 1,
-      ...data,
-      createdAt: new Date(),
-    };
-    mockInventory.unshift(newItem);
-    return { success: true, data: newItem };
-  },
-
-  async updateItem(id, data) {
-    await delay();
-    const index = mockInventory.findIndex((i) => i.id === parseInt(id));
-    if (index === -1) {
-      return { success: false, error: "Item not found" };
-    }
-    mockInventory[index] = { ...mockInventory[index], ...data };
-    return { success: true, data: mockInventory[index] };
-  },
-
-  async deleteItem(id) {
-    await delay();
-    const index = mockInventory.findIndex((i) => i.id === parseInt(id));
-    if (index === -1) {
-      return { success: false, error: "Item not found" };
-    }
-    const deleted = mockInventory.splice(index, 1)[0];
-    return { success: true, data: deleted };
-  },
-
-  async getLowStockAlerts() {
-    await delay();
-    const alerts = mockInventory
-      .filter((i) => i.stockLevel < i.reorderPt)
-      .map((i) => ({
-        ...i,
-        threshold: i.reorderPt,
-      }));
-    return { success: true, data: alerts };
-  },
-};
-
-// Orders APIs
-export const ordersAPI = {
-  async getOrders(filters = {}) {
-    await delay();
-    let orders = [...mockOrders];
-
-    if (filters.status) {
-      orders = orders.filter((o) => o.status === filters.status);
-    }
-
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      orders = orders.filter(
-        (o) =>
-          o.id.toLowerCase().includes(search) ||
-          o.clientName.toLowerCase().includes(search),
-      );
-    }
-
-    return { success: true, data: orders, total: orders.length };
-  },
-
-  async getOrder(id) {
-    await delay();
-    const order = mockOrders.find((o) => o.id === id);
-    if (!order) {
-      return { success: false, error: "Order not found" };
-    }
-    return { success: true, data: order };
-  },
-
-  async createOrder(data) {
-    await delay();
-    const newOrder = {
-      id: `ORD-${Date.now()}`,
-      ...data,
-      createdAt: new Date(),
-    };
-    mockOrders.unshift(newOrder);
-    return { success: true, data: newOrder };
-  },
-
-  async updateOrder(id, data) {
-    await delay();
-    const index = mockOrders.findIndex((o) => o.id === id);
-    if (index === -1) {
-      return { success: false, error: "Order not found" };
-    }
-    mockOrders[index] = { ...mockOrders[index], ...data };
-    return { success: true, data: mockOrders[index] };
-  },
-
-  async getRecentOrders(limit = 4) {
-    await delay();
-    return { success: true, data: mockOrders.slice(0, limit) };
-  },
-};
 
 // Finance APIs
 export const financeAPI = {
@@ -725,11 +514,17 @@ export const financeAPI = {
     }
   },
 
-  // eslint-disable-next-line no-unused-vars
-  async getTransactions(_filters = {}) {
-    await delay();
-    let transactions = [];
-    return { success: true, data: transactions };
+  async getTransactions(filters = {}) {
+    try {
+      const params = {};
+      if (filters.type)  params.transactionType = filters.type;
+      if (filters.from)  params.from = filters.from;
+      if (filters.to)    params.to   = filters.to;
+      const response = await apiClient.get("/finance/transactions", { params });
+      return { success: true, data: getArrayPayload(response) };
+    } catch (error) {
+      return failureResponse(error, "Failed to load transactions");
+    }
   },
 };
 
@@ -779,43 +574,54 @@ export const analyticsAPI = {
       return failureResponse(error, "Failed to load revenue data");
     }
   },
-};
 
-// Auth APIs
-export const authAPI = {
-  async login(email, password) {
-    await delay(300);
-    if (email && password) {
+  async getAnalyticsSummary() {
+    try {
+      const [leadsRes, ordersRes, financeRes] = await Promise.all([
+        apiClient.get("/leads", { params: { page: 1, limit: 1000 } }),
+        apiClient.get("/orders", { params: { page: 1, limit: 1000 } }),
+        apiClient.get("/finance/stats"),
+      ]);
+
+      const leads  = getArrayPayload(leadsRes,  "leads");
+      const orders = getArrayPayload(ordersRes,  "orders");
+      const finance = getPayload(financeRes) || {};
+
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      const periodLeads = leads.filter((l) => l?.createdAt && new Date(l.createdAt) >= periodStart);
+
+      const totalRevenue    = toNumber(finance?.income);
+      const converted       = leads.filter((l) => String(l?.status || "") === "Converted").length;
+      const conversionRate  = leads.length ? Math.round((converted / leads.length) * 100) : 0;
+
+      const paidOrders      = orders.filter((o) => toNumber(o?.totalAmount) > 0);
+      const avgOrderValue   = paidOrders.length
+        ? Math.round(paidOrders.reduce((sum, o) => sum + toNumber(o.totalAmount), 0) / paidOrders.length)
+        : 0;
+
+      const prevPeriodStart = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+      const prevLeads = leads.filter((l) => {
+        const d = l?.createdAt ? new Date(l.createdAt) : null;
+        return d && d >= prevPeriodStart && d < periodStart;
+      });
+      const customerGrowth  = periodLeads.length - prevLeads.length;
+
+      const revenueTrend = Array.isArray(finance?.revenueTrend) ? finance.revenueTrend : [];
+      const prevRevenue  = toNumber(revenueTrend[revenueTrend.length - 2]?.total);
+
       return {
         success: true,
         data: {
-          token: "mock-jwt-token",
-          user: {
-            id: 1,
-            name: "Rajesh Kumar",
-            email,
-          },
+          totalRevenue: { value: formatCompactINR(totalRevenue), change: formatPercentChange(totalRevenue, prevRevenue) },
+          conversionRate: { value: `${conversionRate}%`, change: `+${Math.max(0, conversionRate - 25)}% vs avg` },
+          avgOrderValue: { value: formatCompactINR(avgOrderValue), change: `${paidOrders.length} paid orders` },
+          customerGrowth: { value: `${customerGrowth >= 0 ? "+" : ""}${customerGrowth}`, change: `${periodLeads.length} new this period` },
         },
       };
+    } catch (error) {
+      return failureResponse(error, "Failed to load analytics summary");
     }
-    return { success: false, error: "Invalid credentials" };
-  },
-
-  async getMe() {
-    await delay();
-    return {
-      success: true,
-      data: {
-        id: 1,
-        name: "Rajesh Kumar",
-        email: "rajesh@nirmalyam.com",
-        role: "admin",
-      },
-    };
-  },
-
-  async logout() {
-    await delay();
-    return { success: true };
   },
 };
+

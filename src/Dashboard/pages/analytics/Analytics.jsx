@@ -8,9 +8,16 @@ import {
   HorizontalBarChart,
 } from "../../components/charts";
 import { useUIStore } from "../../store";
-import { analyticsAPI } from "../../services/api";
+import { analyticsAPI, financeAPI } from "../../services/api";
 import { motion } from "framer-motion";
 import { BarChart3 } from "lucide-react";
+
+const DEFAULT_SUMMARY = {
+  totalRevenue:    { value: "—", change: "" },
+  conversionRate:  { value: "—", change: "" },
+  avgOrderValue:   { value: "—", change: "" },
+  customerGrowth:  { value: "—", change: "" },
+};
 
 const Analytics = () => {
   const showNotification = useUIStore((state) => state.showNotification);
@@ -21,32 +28,37 @@ const Analytics = () => {
     inventory: [],
     paperWeights: [],
   });
+  const [summary, setSummary] = useState(DEFAULT_SUMMARY);
+  const [financeData, setFinanceData] = useState({ income: 0, expense: 0, netProfit: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const [revenueRes, leadRes, inventoryRes, paperRes] = await Promise.all(
-          [
-            analyticsAPI.getRevenueData(),
-            analyticsAPI.getLeadConversionData(),
-            analyticsAPI.getInventoryUtilization(),
-            analyticsAPI.getPaperWeightData(),
-          ],
-        );
+        const [revenueRes, leadRes, inventoryRes, paperRes, summaryRes, financeRes] = await Promise.all([
+          analyticsAPI.getRevenueData(),
+          analyticsAPI.getLeadConversionData(),
+          analyticsAPI.getInventoryUtilization(),
+          analyticsAPI.getPaperWeightData(),
+          analyticsAPI.getAnalyticsSummary(),
+          financeAPI.getFinanceSummary(),
+        ]);
 
-        if (
-          revenueRes.success &&
-          leadRes.success &&
-          inventoryRes.success &&
-          paperRes.success
-        ) {
+        if (revenueRes.success && leadRes.success && inventoryRes.success && paperRes.success) {
           setAnalyticsData({
             revenue: revenueRes.data,
             leadConversion: leadRes.data,
             inventory: inventoryRes.data,
             paperWeights: paperRes.data,
+          });
+        }
+        if (summaryRes.success) setSummary(summaryRes.data);
+        if (financeRes.success) {
+          setFinanceData({
+            income:    financeRes.data.income    ?? 0,
+            expense:   financeRes.data.expense   ?? 0,
+            netProfit: financeRes.data.netProfit ?? 0,
           });
         }
       } catch (error) {
@@ -98,26 +110,10 @@ const Analytics = () => {
           transition={{ staggerChildren: 0.1 }}
         >
           {[
-            {
-              label: "Total Revenue",
-              value: "₹45.2L",
-              change: "+12.5% vs period",
-            },
-            {
-              label: "Lead Conversion",
-              value: "28%",
-              change: "+3.2% vs period",
-            },
-            {
-              label: "Avg Order Value",
-              value: "₹18.5K",
-              change: "+2.1% vs period",
-            },
-            {
-              label: "Customer Growth",
-              value: "+42",
-              change: "+8 new this period",
-            },
+            { label: "Total Revenue",    value: summary.totalRevenue.value,   change: summary.totalRevenue.change },
+            { label: "Lead Conversion",  value: summary.conversionRate.value,  change: summary.conversionRate.change },
+            { label: "Avg Order Value",  value: summary.avgOrderValue.value,   change: summary.avgOrderValue.change },
+            { label: "Customer Growth",  value: summary.customerGrowth.value,  change: summary.customerGrowth.change },
           ].map((stat, idx) => (
             <motion.div
               key={idx}
@@ -164,80 +160,79 @@ const Analytics = () => {
         >
           <Card>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Top Performing Categories
+              Inventory by Category
             </h3>
             <div className="space-y-3">
-              {[
-                { name: "Premium Leather", orders: 124, revenue: "₹8.2L" },
-                { name: "Eco-Friendly Kraft", orders: 98, revenue: "₹5.6L" },
-                { name: "Industrial Grade", orders: 76, revenue: "₹4.3L" },
-              ].map((cat, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {cat.name}
+              {analyticsData.inventory.length > 0 ? (
+                analyticsData.inventory.map((cat, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {cat.name}
+                      </p>
+                      <p className="text-xs text-gray-600">Stock distribution</p>
+                    </div>
+                    <p className="text-sm font-bold text-gray-900">
+                      {cat.value}%
                     </p>
-                    <p className="text-xs text-gray-600">{cat.orders} orders</p>
                   </div>
-                  <p className="text-sm font-bold text-gray-900">
-                    {cat.revenue}
-                  </p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">No inventory data</p>
+              )}
             </div>
           </Card>
 
           <Card>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Customer Segments
+              Lead Pipeline
             </h3>
             <div className="space-y-3">
-              {[
-                { segment: "Enterprise", count: 12, retention: "94%" },
-                { segment: "Mid-Market", count: 34, retention: "87%" },
-                { segment: "SMB", count: 89, retention: "76%" },
-              ].map((seg, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                >
-                  <div>
+              {analyticsData.leadConversion.length > 0 ? (
+                analyticsData.leadConversion.map((stage, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                  >
                     <p className="text-sm font-medium text-gray-900">
-                      {seg.segment}
+                      {stage.name}
                     </p>
-                    <p className="text-xs text-gray-600">
-                      {seg.count} customers
+                    <p className="text-sm font-bold text-primary-600">
+                      {stage.value}
                     </p>
                   </div>
-                  <p className="text-sm font-bold text-green-600">
-                    {seg.retention}
-                  </p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">No lead data</p>
+              )}
             </div>
           </Card>
 
           <Card>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Key Metrics
+              Finance Overview
             </h3>
             <div className="space-y-3">
               <div className="p-2 bg-gray-50 rounded">
-                <p className="text-xs text-gray-600">
-                  Avg Order Processing Time
+                <p className="text-xs text-gray-600">Total Income</p>
+                <p className="text-lg font-bold text-green-600">
+                  ₹{financeData.income.toLocaleString("en-IN")}
                 </p>
-                <p className="text-lg font-bold text-gray-900">2.4 days</p>
               </div>
               <div className="p-2 bg-gray-50 rounded">
-                <p className="text-xs text-gray-600">Fulfillment Rate</p>
-                <p className="text-lg font-bold text-green-600">98.2%</p>
+                <p className="text-xs text-gray-600">Total Expense</p>
+                <p className="text-lg font-bold text-red-500">
+                  ₹{financeData.expense.toLocaleString("en-IN")}
+                </p>
               </div>
               <div className="p-2 bg-gray-50 rounded">
-                <p className="text-xs text-gray-600">Repeat Customer Rate</p>
-                <p className="text-lg font-bold text-primary-600">67%</p>
+                <p className="text-xs text-gray-600">Net Profit</p>
+                <p className={`text-lg font-bold ${financeData.netProfit >= 0 ? "text-primary-600" : "text-red-600"}`}>
+                  ₹{financeData.netProfit.toLocaleString("en-IN")}
+                </p>
               </div>
             </div>
           </Card>

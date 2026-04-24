@@ -1,13 +1,21 @@
 import axios from "axios";
-import { useState, createContext, useContext, useMemo } from "react";
+import { useState, createContext, useContext, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext();
 
 export const AuthContextProvider = ({ children }) => {
+  const navigate = useNavigate();
+
   const [notificationOn, setNotificationOn] = useState(() => {
     const saved = localStorage.getItem("inventoryNotificationOn");
     return saved ? JSON.parse(saved) : true;
   });
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("adminToken");
+    navigate("/dashboard/login", { replace: true });
+  }, [navigate]);
 
   const axiosInstance = useMemo(() => {
     const instance = axios.create({
@@ -24,8 +32,20 @@ export const AuthContextProvider = ({ children }) => {
       return config;
     });
 
+    // Auto-logout on 401 (expired or invalid token)
+    instance.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error?.response?.status === 401) {
+          localStorage.removeItem("adminToken");
+          navigate("/dashboard/login", { replace: true });
+        }
+        return Promise.reject(error);
+      }
+    );
+
     return instance;
-  }, []);
+  }, [navigate]);
 
   const handleSetNotification = (value) => {
     setNotificationOn(value);
@@ -36,6 +56,7 @@ export const AuthContextProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         axiosInstance,
+        logout,
         notificationOn,
         setNotificationOn: handleSetNotification,
       }}
