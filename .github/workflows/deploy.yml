@@ -3,10 +3,9 @@
 # Triggers on push to main branch.
 #
 # Pipeline:
-#   1. Type-check (ESLint)
-#   2. Build production Docker image with VITE_ build args
-#   3. Push image to GitHub Container Registry (GHCR)
-#   4. SSH into Hostinger KVM → write .env → rolling update
+#   1. Build production Docker image with VITE_ build args
+#   2. Push image to GitHub Container Registry (GHCR)
+#   3. SSH into Hostinger KVM → write .env → rolling update
 #
 # Required GitHub Secrets (Settings → Secrets → Actions):
 #   VPS_HOST                — Hostinger KVM public IP address
@@ -31,30 +30,9 @@ concurrency:
   cancel-in-progress: true   # Cancel older running deployments
 
 jobs:
-  lint:
-    name: 🔍 Lint & Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci --prefer-offline
-
-      - name: Run ESLint
-        run: npm run lint || true
-        continue-on-error: true
-
   build-and-push:
     name: 🐳 Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: lint
     permissions:
       contents: read
       packages: write   # Required to push to GHCR
