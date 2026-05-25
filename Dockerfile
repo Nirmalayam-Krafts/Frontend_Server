@@ -38,7 +38,7 @@ RUN npm install --legacy-peer-deps
 
 # Copy source and build
 COPY . .
-RUN NODE_ENV=production npx vite build
+RUN NODE_OPTIONS="--max-old-space-size=2048" NODE_ENV=production npx vite build
 
 # Verify build output exists
 RUN test -d /app/dist && echo "✅ Build successful" || (echo "❌ Build failed: dist/ not found" && exit 1)
