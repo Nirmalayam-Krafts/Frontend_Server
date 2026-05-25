@@ -34,7 +34,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
 
 # Install dependencies first (cached layer if package.json unchanged)
 COPY package*.json ./
-RUN npm ci --prefer-offline
+RUN npm install --legacy-peer-deps
 
 # Copy source and build
 COPY . .
