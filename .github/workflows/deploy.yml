@@ -28,7 +28,9 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          npm install react-is --legacy-peer-deps
 
       - name: Build Vite SPA on runner
         run: npm run build
@@ -101,4 +103,4 @@ jobs:
             echo "✅ Frontend deployed."
             docker compose -f docker-compose.production.yml ps frontend
         env:
-          FRONTEND_IMAGE: ghcr.io/nirmalayam-krafts/frontend-server:${{ github.sha }}
+          FRONTEND_IMAGE: ghcr.io/nirmalayam-krafts/frontend-server:latest
