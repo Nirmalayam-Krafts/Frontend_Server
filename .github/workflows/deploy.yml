@@ -1,53 +1,51 @@
-# ================================================================
-# Nirmalayam Krafts — Frontend Server CI/CD Pipeline
-# Triggers on push to main branch.
-#
-# Pipeline:
-#   1. Build production Docker image with VITE_ build args
-#   2. Push image to GitHub Container Registry (GHCR)
-#   3. SSH into Hostinger KVM → write .env → rolling update
-#
-# Required GitHub Secrets (Settings → Secrets → Actions):
-#   VPS_HOST                — Hostinger KVM public IP address
-#   VPS_USER                — SSH deploy user (e.g. deploy)
-#   VPS_SSH_KEY             — Private SSH key (PEM, no passphrase)
-#   VPS_DEPLOY_PATH         — Absolute deploy path (e.g. /opt/nirmalyam)
-#   VITE_API_BASE_URL       — Backend API base URL baked at build time
-#                             (e.g. /api — proxied by Nginx on same host)
-#   VITE_APP_NAME           — (Optional) App display name
-# ================================================================
-
 name: 🚀 Deploy Frontend
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:   # Allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 concurrency:
   group: deploy-frontend-${{ github.ref }}
-  cancel-in-progress: true   # Cancel older running deployments
+  cancel-in-progress: true
 
 jobs:
   build-and-push:
-    name: 🐳 Build & Push Docker Image
+    name: 🐳 Build Vite + Push Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write   # Required to push to GHCR
-    outputs:
-      image-tag: ${{ steps.meta.outputs.version }}
-      image-full: ${{ steps.meta.outputs.tags }}
+      packages: write
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Vite SPA on runner
+        run: npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
+          VITE_ENVIRONMENT: production
+          VITE_ENABLE_MOCK_API: "false"
+          VITE_ENABLE_ANALYTICS: "false"
+          VITE_ENABLE_NOTIFICATIONS: "true"
+
+      - name: Verify dist/ was created
+        run: ls -la dist/
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          install: true
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -56,35 +54,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/frontend-server
-          tags: |
-            type=sha,prefix=,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push production image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # Bake VITE_ environment variables into the static bundle at build time.
-          # These are NOT secrets — they are embedded in the JavaScript bundle.
-          build-args: |
-            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
-            VITE_APP_NAME=${{ secrets.VITE_APP_NAME }}
-            VITE_ENVIRONMENT=production
-            VITE_ENABLE_MOCK_API=false
-            VITE_ENABLE_ANALYTICS=false
-            VITE_ENABLE_NOTIFICATIONS=true
-          # Enable layer caching for faster subsequent builds
+          tags: |
+            ghcr.io/nirmalayam-krafts/frontend-server:${{ github.sha }}
+            ghcr.io/nirmalayam-krafts/frontend-server:latest
           cache-from: type=gha
-          cache-to:   type=gha,mode=max
+          cache-to: type=gha,mode=max
 
   deploy:
     name: 🌐 Deploy to Hostinger KVM
@@ -95,42 +75,30 @@ jobs:
       url: http://187.127.169.86
 
     steps:
-      - name: SSH → Pull image and rolling-update frontend container
+      - name: SSH → Pull image and rolling-update frontend
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.VPS_HOST }}
+          host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key:      ${{ secrets.VPS_SSH_KEY }}
-          port:     22
-          # Pass image reference as an env var (not inline in script)
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
           envs: FRONTEND_IMAGE
-          script_stop: true   # Abort on first error
+          script_stop: true
           script: |
             set -euo pipefail
-            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
-            cd "$DEPLOY_PATH"
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
 
-            echo "📦 Updating FRONTEND_IMAGE in .env..."
-            # Update only the FRONTEND_IMAGE line in .env safely
             if grep -q "^FRONTEND_IMAGE=" .env; then
               sed -i "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${FRONTEND_IMAGE}|" .env
             else
               echo "FRONTEND_IMAGE=${FRONTEND_IMAGE}" >> .env
             fi
 
-            echo "⬇️  Pulling new frontend image..."
             docker compose -f docker-compose.production.yml pull frontend
-
-            echo "🔄 Rolling update — frontend only..."
             docker compose -f docker-compose.production.yml up -d \
-              --no-deps \
-              --force-recreate \
-              frontend
-
-            echo "🧹 Removing dangling images..."
+              --no-deps --force-recreate frontend
             docker image prune -f --filter "until=24h" || true
-
-            echo "✅ Frontend deployment complete."
+            echo "✅ Frontend deployed."
             docker compose -f docker-compose.production.yml ps frontend
         env:
-          FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/frontend-server:${{ github.sha }}
+          FRONTEND_IMAGE: ghcr.io/nirmalayam-krafts/frontend-server:${{ github.sha }}
