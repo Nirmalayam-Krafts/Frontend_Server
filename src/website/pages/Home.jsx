@@ -1496,7 +1496,7 @@ export default function Home() {
               fontWeight: 700,
               background: 'linear-gradient(135deg, #c09457 0%, #8b5e34 100%)',
               color: 'white',
-              border: 'none',
+              border: '2px solid rgba(255,255,255,0.6)',
               borderRadius: '100px',
               textDecoration: 'none',
               justifyContent: 'center',
