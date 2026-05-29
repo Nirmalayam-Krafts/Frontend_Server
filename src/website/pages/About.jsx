@@ -412,11 +412,15 @@ export default function About() {
 
       {/* ── CTA ── */}
       <section style={{
-        padding: isMobile ? '140px var(--container-gutter)' : '200px var(--container-gutter)',
+        paddingTop: isMobile ? '100px' : '140px',
+        paddingBottom: isMobile ? '120px' : '160px',
+        paddingLeft: 'var(--container-gutter)',
+        paddingRight: 'var(--container-gutter)',
         textAlign: 'center',
         background: 'var(--ink-950)',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        minHeight: isMobile ? '450px' : '500px',
       }}>
         <div style={{
           position: 'absolute',
@@ -430,7 +434,7 @@ export default function About() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to bottom, transparent, rgba(14,9,4,0.9))',
+          background: 'linear-gradient(to bottom, rgba(14,9,4,0.4) 0%, transparent 30%, transparent 70%, rgba(14,9,4,0.7) 100%)',
           zIndex: 1
         }} />
 
