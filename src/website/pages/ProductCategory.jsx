@@ -311,19 +311,19 @@ export default function ProductCategory() {
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: isMobile || isTablet ? '1fr' : '1fr 0.8fr', 
-            gap: isMobile ? 40 : 80, 
+            gap: isMobile ? 32 : 80, 
             alignItems: 'start' 
           }} className="category-hero-grid">
             {/* Image Section */}
             <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 120 }}>
               <div style={{
-                borderRadius: isMobile ? '32px' : '48px',
+                borderRadius: isMobile ? '24px' : '48px',
                 overflow: 'hidden',
-                aspectRatio: isMobile ? '4/3' : '1',
+                aspectRatio: isMobile ? '5/4' : '1',
                 boxShadow: '0 40px 80px -20px rgba(58, 36, 16, 0.15)',
                 background: 'white',
                 border: '1px solid var(--kraft-100)',
-                padding: isMobile ? 24 : 60,
+                padding: isMobile ? 16 : 60,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
