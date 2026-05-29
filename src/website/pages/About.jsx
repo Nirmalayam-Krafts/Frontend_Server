@@ -447,8 +447,33 @@ export default function About() {
             }}>
               Join the Nirmalyam <br /><span className="text-gradient">Eco-Legacy</span>
             </h2>
-            <Link to="/contact" className="btn-primary" style={{ padding: '22px 64px', fontSize: '18px', borderRadius: '100px' }}>
-              Consult an Expert <ArrowRight size={22} style={{ marginLeft: 12 }} />
+            <Link to="/contact" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: isMobile ? '14px 32px' : '22px 64px',
+              fontSize: isMobile ? '15px' : '18px',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+              color: 'white',
+              border: '2px solid rgba(255,255,255,0.5)',
+              borderRadius: '100px',
+              textDecoration: 'none',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)';
+              e.currentTarget.style.borderColor = 'white';
+              e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.4)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+            }}
+            >
+              Get a Quote <ArrowRight size={isMobile ? 18 : 22} />
             </Link>
           </div>
         </div>

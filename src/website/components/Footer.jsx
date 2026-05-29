@@ -90,7 +90,7 @@ export default function Footer() {
         zIndex: 0
       }} />
 
-      <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '100%', padding: isMobile ? '0 24px' : '0 80px' }}>
+      <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '100%', padding: isMobile ? '0' : '0 80px', boxSizing: 'border-box' }}>
         <div style={{
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
@@ -115,11 +115,12 @@ export default function Footer() {
             </div>
 
             <p style={{ 
-              fontSize: 16, 
+              fontSize: isMobile ? 14 : 16, 
               lineHeight: 1.6, 
               color: 'rgba(255,255,255,0.7)', 
               marginBottom: 40, 
-              maxWidth: 400 
+              maxWidth: '100%',
+              wordWrap: 'break-word'
             }}>
               Pioneering the future of plastic-free luxury packaging through advanced kraft paper technology. Join thousands of brands shaping a greener tomorrow.
             </p>
@@ -127,9 +128,10 @@ export default function Footer() {
             {/* Newsletter */}
             <div>
               <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: 'white' }}>Stay Updated</h4>
-              <form onSubmit={handleSubscribe} style={{ position: 'relative', maxWidth: 440 }}>
+              <form onSubmit={handleSubscribe} style={{ position: 'relative', maxWidth: '100%' }}>
                 <div style={{
                   display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
                   gap: 12,
                   background: 'rgba(255,255,255,0.05)',
                   padding: 8,
@@ -148,7 +150,8 @@ export default function Footer() {
                       color: 'white',
                       padding: '8px 16px',
                       fontSize: 15,
-                      outline: 'none'
+                      outline: 'none',
+                      minWidth: 0
                     }}
                     required
                   />
@@ -161,7 +164,9 @@ export default function Footer() {
                     fontWeight: 600,
                     fontSize: 14,
                     cursor: 'pointer',
-                    transition: 'all 0.3s'
+                    transition: 'all 0.3s',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--eco-500)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--eco-600)'}

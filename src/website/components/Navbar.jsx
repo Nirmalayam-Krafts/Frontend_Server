@@ -207,24 +207,26 @@ export default function Navbar() {
           {/* Right Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
-            <Link to="/contact#contact-form" className="btn-primary" style={{
-              padding: isMobile ? '10px 16px' : '12px 28px',
-              fontSize: isMobile ? '13px' : '15px',
-              borderRadius: '100px',
-              background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
-              color: 'white',
-              boxShadow: '0 4px 16px rgba(26, 18, 8, 0.25)',
-              fontWeight: 700,
-              textDecoration: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: isMobile ? 0 : 8,
-              transition: 'all 0.3s ease',
-              border: '1px solid rgba(192, 148, 87, 0.3)',
-            }}>
-              <span style={{ display: isMobile ? 'none' : 'inline' }}>Get a Quote</span>
-              <ArrowRight size={isMobile ? 18 : 16} />
-            </Link>
+            {!isMobile && (
+              <Link to="/contact#contact-form" style={{
+                padding: '12px 28px',
+                fontSize: '15px',
+                borderRadius: '100px',
+                background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                color: 'white',
+                boxShadow: '0 4px 16px rgba(26, 18, 8, 0.25)',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                transition: 'all 0.3s ease',
+                border: '1px solid rgba(192, 148, 87, 0.3)',
+              }}>
+                Get a Quote
+                <ArrowRight size={16} />
+              </Link>
+            )}
 
             {/* Hamburger */}
             <button
@@ -279,10 +281,10 @@ export default function Navbar() {
                 style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
-                  padding: '18px 24px',
-                  borderRadius: '18px',
+                  padding: '16px 20px',
+                  borderRadius: '14px',
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: '20px',
+                  fontSize: '17px',
                   fontWeight: 700,
                   textDecoration: 'none',
                   color: isActive ? 'var(--eco-700)' : 'var(--kraft-950)',
@@ -296,6 +298,29 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+
+            {/* Mobile CTA */}
+            <Link
+              to="/contact#contact-form"
+              onClick={() => setMobileOpen(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '16px 20px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '17px',
+                textDecoration: 'none',
+                marginTop: 8,
+                border: '1px solid rgba(192, 148, 87, 0.3)',
+              }}
+            >
+              Get a Quote <ArrowRight size={18} />
+            </Link>
           </div>
         </div>
       )}
