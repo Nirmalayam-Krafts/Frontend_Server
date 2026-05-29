@@ -691,8 +691,17 @@ export default function Home() {
                     placeholder="Your Name"
                     value={popupName}
                     onChange={e => setPopupName(e.target.value)}
-                    className="input-field"
-                    style={{ fontSize: 14, border: '2px solid var(--kraft-300)', borderRadius: 10 }}
+                    style={{ 
+                      fontSize: 14, 
+                      width: '100%',
+                      padding: '14px 18px',
+                      background: 'white',
+                      border: '2px solid var(--kraft-400)', 
+                      borderRadius: 10,
+                      fontFamily: "'Inter', sans-serif",
+                      color: 'var(--kraft-900)',
+                      outline: 'none',
+                    }}
                     required
                   />
                   <input
@@ -700,8 +709,17 @@ export default function Home() {
                     placeholder="Email Address"
                     value={popupEmail}
                     onChange={e => setPopupEmail(e.target.value)}
-                    className="input-field"
-                    style={{ fontSize: 14, border: '2px solid var(--kraft-300)', borderRadius: 10 }}
+                    style={{ 
+                      fontSize: 14, 
+                      width: '100%',
+                      padding: '14px 18px',
+                      background: 'white',
+                      border: '2px solid var(--kraft-400)', 
+                      borderRadius: 10,
+                      fontFamily: "'Inter', sans-serif",
+                      color: 'var(--kraft-900)',
+                      outline: 'none',
+                    }}
                     required
                   />
                   <button

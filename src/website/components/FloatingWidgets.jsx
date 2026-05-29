@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, X, ChevronRight, ChevronLeft, ShoppingBag } from 'lucide-react';
+import { MapPin, X, ChevronRight, ChevronLeft, ChevronUp, ShoppingBag } from 'lucide-react';
 
 /* ── WhatsApp SVG icon ── */
 function WhatsAppIcon({ size = 24 }) {
@@ -71,20 +71,56 @@ export default function FloatingWidgets() {
     setCurrentIndex((prev) => (prev - 1 + carouselImages.length) % carouselImages.length);
   };
 
+  // Show "Go to Top" only after scrolling
+  const [showGoTop, setShowGoTop] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => setShowGoTop(window.scrollY > 400);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <>
-      {/* ── Google Maps FAB (Bottom Right, above WhatsApp) ── */}
+      {/* ── Go to Top (Mobile only) ── */}
+      {isMobile && showGoTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          style={{
+            position: 'fixed',
+            bottom: '180px',
+            right: '16px',
+            zIndex: 99,
+            width: '44px',
+            height: '44px',
+            background: 'var(--kraft-950)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+            transition: 'all 0.3s ease',
+            cursor: 'pointer',
+            border: '2px solid rgba(192, 148, 87, 0.4)',
+            animation: 'fadeInUp 0.3s ease',
+          }}
+        >
+          <ChevronUp size={20} />
+        </button>
+      )}
+
+      {/* ── Google Maps FAB ── */}
       <a
         href="https://maps.google.com/?q=Nirmalyam+Krafts+Bengaluru"
         target="_blank"
         rel="noreferrer"
         style={{
           position: 'fixed',
-          bottom: isMobile ? '104px' : '116px',
+          bottom: isMobile ? '120px' : '116px',
           right: isMobile ? '16px' : '24px',
           zIndex: 99,
-          width: isMobile ? '48px' : '56px',
-          height: isMobile ? '48px' : '56px',
+          width: isMobile ? '56px' : '56px',
+          height: isMobile ? '56px' : '56px',
           background: 'white',
           borderRadius: '50%',
           display: 'flex',
@@ -93,7 +129,7 @@ export default function FloatingWidgets() {
           boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           cursor: 'pointer',
-          padding: isMobile ? '10px' : '12px',
+          padding: '12px',
           border: '2px solid rgba(192, 148, 87, 0.3)',
         }}
         onMouseEnter={(e) => {
@@ -112,18 +148,18 @@ export default function FloatingWidgets() {
         />
       </a>
 
-      {/* ── WhatsApp FAB (Bottom Right, circular icon only) ── */}
+      {/* ── WhatsApp FAB ── */}
       <a
         href="https://wa.me/919876543210"
         target="_blank"
         rel="noreferrer"
         style={{
           position: 'fixed',
-          bottom: isMobile ? '40px' : '44px',
+          bottom: isMobile ? '48px' : '44px',
           right: isMobile ? '16px' : '24px',
           zIndex: 99,
-          width: isMobile ? '48px' : '56px',
-          height: isMobile ? '48px' : '56px',
+          width: isMobile ? '56px' : '56px',
+          height: isMobile ? '56px' : '56px',
           background: '#25D366',
           borderRadius: '50%',
           display: 'flex',
@@ -145,7 +181,7 @@ export default function FloatingWidgets() {
           e.currentTarget.style.boxShadow = '0 8px 24px rgba(37, 211, 102, 0.4)';
         }}
       >
-        <WhatsAppIcon size={isMobile ? 22 : 26} />
+        <WhatsAppIcon size={isMobile ? 26 : 26} />
       </a>
 
       {/* ── Welcome Promo Modal (Bottom Right) ── */}
