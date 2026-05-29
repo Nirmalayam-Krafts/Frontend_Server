@@ -869,7 +869,8 @@ export default function Home() {
           <div style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(clamp(260px, 45%, 320px), 1fr))',
-            gap: isMobile ? 12 : 28
+            gap: isMobile ? 10 : 28,
+            padding: isMobile ? '0 4px' : 0
           }}>
             {whyCards.map((card, idx) => (
               <div
@@ -930,14 +931,14 @@ export default function Home() {
                 {/* Glass Plate */}
                 <div style={{
                   position: 'absolute',
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  padding: isMobile ? '16px' : '24px',
+                  bottom: isMobile ? 10 : 20,
+                  left: isMobile ? 10 : 20,
+                  right: isMobile ? 10 : 20,
+                  padding: isMobile ? '12px' : '24px',
                   background: 'rgba(255,255,255,0.08)',
                   backdropFilter: 'blur(25px) saturate(160%)',
                   WebkitBackdropFilter: 'blur(25px) saturate(160%)',
-                  borderRadius: isMobile ? 12 : 20,
+                  borderRadius: isMobile ? 10 : 20,
                   border: '1px solid rgba(255,255,255,0.1)',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -947,21 +948,23 @@ export default function Home() {
                 }} className="glass-plate">
                   <div>
                     <div style={{
-                      fontSize: isMobile ? 20 : 34,
+                      fontSize: isMobile ? 18 : 34,
                       fontWeight: 700,
                       color: 'white',
-                      marginBottom: 4,
+                      marginBottom: 2,
                       fontFamily: "'Playfair Display', serif",
-                      letterSpacing: '-0.02em'
+                      letterSpacing: '-0.02em',
+                      lineHeight: 1.1
                     }}>
                       {card.title}
                     </div>
                     <div style={{
-                      fontSize: isMobile ? 10 : 14,
+                      fontSize: isMobile ? 8 : 14,
                       color: 'rgba(255,255,255,0.7)',
                       fontWeight: 600,
                       letterSpacing: '0.04em',
-                      textTransform: 'uppercase'
+                      textTransform: 'uppercase',
+                      lineHeight: 1.3
                     }}>
                       {card.label}
                     </div>
@@ -969,17 +972,18 @@ export default function Home() {
 
                   {/* Circular Icon Badge */}
                   <div style={{
-                    width: isMobile ? 32 : 48,
-                    height: isMobile ? 32 : 48,
+                    width: isMobile ? 28 : 48,
+                    height: isMobile ? 28 : 48,
                     borderRadius: '50%',
                     background: 'white',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                    transition: 'transform 0.3s'
+                    transition: 'transform 0.3s',
+                    flexShrink: 0
                   }} className="icon-badge">
-                    <card.icon size={isMobile ? 16 : 22} color={card.accent || "#0a0f0c"} />
+                    <card.icon size={isMobile ? 14 : 22} color={card.accent || "#0a0f0c"} />
                   </div>
                 </div>
               </div>
