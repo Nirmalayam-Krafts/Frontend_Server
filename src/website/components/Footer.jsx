@@ -289,7 +289,7 @@ export default function Footer() {
           paddingTop: 30,
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           alignItems: 'center',
           gap: 20
         }}>
@@ -302,17 +302,6 @@ export default function Footer() {
                 {link.label}
               </Link>
             ))}
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }}></span>
-                All systems operational
-             </div>
-             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }}></div>
-             <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-                Last updated: 1 hour ago
-             </div>
           </div>
         </div>
       </div>
