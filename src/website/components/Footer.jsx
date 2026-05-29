@@ -38,9 +38,9 @@ const Github = ({ size = 24 }) => (
 );
 
 const shopLinks = [
-  { label: 'Kraft Bags', to: '/products' },
-  { label: 'F&B Gourmet', to: '/products' },
-  { label: 'Luxury Kraft', to: '/products' },
+  { label: 'Kraft Bags', to: '/products/ecocraft' },
+  { label: 'F&B Gourmet', to: '/products/fnb' },
+  { label: 'Luxury Kraft', to: '/products/luxury' },
   { label: 'Eco-Pouches', to: '/products' },
   { label: 'Custom Mailers', to: '/products' },
 ];
