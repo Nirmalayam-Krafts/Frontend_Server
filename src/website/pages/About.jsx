@@ -412,7 +412,7 @@ export default function About() {
 
       {/* ── CTA ── */}
       <section style={{
-        padding: isMobile ? '120px var(--container-gutter)' : '180px var(--container-gutter)',
+        padding: isMobile ? '80px var(--container-gutter)' : '140px var(--container-gutter)',
         textAlign: 'center',
         background: 'var(--ink-950)',
         position: 'relative',
