@@ -263,7 +263,6 @@ export default function Navbar() {
               position: 'absolute',
               top: 0,
               right: 0,
-              height: '100%',
               width: 300,
               background: 'var(--kraft-50)',
               boxShadow: 'var(--shadow-xl)',
@@ -272,31 +271,126 @@ export default function Navbar() {
               flexDirection: 'column',
               gap: 4,
               animation: 'slideInLeft 0.3s ease',
+              border: '1px solid rgba(192, 148, 87, 0.2)',
+              borderRight: 'none',
+              borderTop: 'none',
+              borderBottomLeftRadius: '24px',
             }}
           >
             {navLinks.map((link) => (
-              <NavLink
-                key={link.label}
-                to={link.to}
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '16px 20px',
-                  borderRadius: '14px',
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: '17px',
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  color: isActive ? 'var(--eco-700)' : 'var(--kraft-950)',
-                  background: isActive ? 'rgba(22,163,74,0.1)' : 'white',
-                  border: '1px solid',
-                  borderColor: isActive ? 'var(--eco-200)' : 'var(--kraft-100)',
-                  transition: 'all 0.3s ease',
-                  boxShadow: isActive ? '0 10px 20px rgba(22,163,74,0.06)' : 'none'
-                })}
-              >
-                {link.label}
-              </NavLink>
+              link.children ? (
+                <div key={link.label}>
+                  {/* Products toggle */}
+                  <button
+                    onClick={() => setProductsOpen(!productsOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      padding: '16px 20px',
+                      borderRadius: '14px',
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: '17px',
+                      fontWeight: 700,
+                      color: location.pathname.startsWith('/products') ? 'var(--eco-700)' : 'var(--kraft-950)',
+                      background: location.pathname.startsWith('/products') ? 'rgba(22,163,74,0.1)' : 'white',
+                      border: '1px solid',
+                      borderColor: location.pathname.startsWith('/products') ? 'var(--eco-200)' : 'var(--kraft-100)',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    {link.label}
+                    <ChevronDown size={16} style={{ 
+                      transform: productsOpen ? 'rotate(180deg)' : 'none', 
+                      transition: 'transform 0.3s',
+                      color: 'var(--kraft-400)'
+                    }} />
+                  </button>
+                  {/* Sub-menu */}
+                  <div style={{
+                    maxHeight: productsOpen ? '300px' : '0',
+                    overflow: 'hidden',
+                    transition: 'max-height 0.3s ease',
+                  }}>
+                    <div style={{ 
+                      padding: '8px 0 4px 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                    }}>
+                      {link.children.map((child) => (
+                        <NavLink
+                          key={child.label}
+                          to={child.to}
+                          style={({ isActive }) => ({
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: '15px',
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                            color: isActive ? 'var(--eco-700)' : 'var(--kraft-700)',
+                            background: isActive ? 'rgba(22,163,74,0.06)' : 'transparent',
+                            transition: 'all 0.2s ease',
+                            borderLeft: isActive ? '3px solid var(--eco-500)' : '3px solid transparent',
+                          })}
+                        >
+                          <ShoppingBag size={14} />
+                          {child.label}
+                        </NavLink>
+                      ))}
+                      <NavLink
+                        to="/products"
+                        end
+                        style={({ isActive }) => ({
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          fontFamily: "'Inter', sans-serif",
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          color: 'var(--kraft-500)',
+                          transition: 'all 0.2s ease',
+                          borderLeft: '3px solid transparent',
+                        })}
+                      >
+                        View All Products →
+                      </NavLink>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <NavLink
+                  key={link.label}
+                  to={link.to}
+                  style={({ isActive }) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '16px 20px',
+                    borderRadius: '14px',
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: '17px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    color: isActive ? 'var(--eco-700)' : 'var(--kraft-950)',
+                    background: isActive ? 'rgba(22,163,74,0.1)' : 'white',
+                    border: '1px solid',
+                    borderColor: isActive ? 'var(--eco-200)' : 'var(--kraft-100)',
+                    transition: 'all 0.3s ease',
+                    boxShadow: isActive ? '0 10px 20px rgba(22,163,74,0.06)' : 'none'
+                  })}
+                >
+                  {link.label}
+                </NavLink>
+              )
             ))}
 
             {/* Mobile CTA */}
