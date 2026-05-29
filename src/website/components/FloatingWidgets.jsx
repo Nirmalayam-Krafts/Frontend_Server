@@ -64,27 +64,27 @@ export default function FloatingWidgets() {
 
   return (
     <>
-      {/* ── Directions FAB (Bottom Left) ── */}
+      {/* ── Google Maps FAB (Bottom Right, above WhatsApp) ── */}
       <a
         href="https://maps.google.com/?q=Nirmalyam+Krafts+Bengaluru"
         target="_blank"
         rel="noreferrer"
         style={{
           position: 'fixed',
-          bottom: isMobile ? '16px' : '24px',
-          left: isMobile ? '16px' : '24px',
+          bottom: isMobile ? '104px' : '116px',
+          right: isMobile ? '16px' : '24px',
           zIndex: 99,
           width: isMobile ? '48px' : '56px',
           height: isMobile ? '48px' : '56px',
           background: 'white',
-          borderRadius: isMobile ? '12px' : '16px',
+          borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           cursor: 'pointer',
-          padding: isMobile ? '8px' : '10px'
+          padding: isMobile ? '10px' : '12px'
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
@@ -102,25 +102,23 @@ export default function FloatingWidgets() {
         />
       </a>
 
-      {/* ── WhatsApp FAB (Bottom Right) ── */}
+      {/* ── WhatsApp FAB (Bottom Right, circular icon only) ── */}
       <a
         href="https://wa.me/919876543210"
         target="_blank"
         rel="noreferrer"
         style={{
           position: 'fixed',
-          bottom: isMobile ? '16px' : '24px',
+          bottom: isMobile ? '40px' : '44px',
           right: isMobile ? '16px' : '24px',
           zIndex: 99,
+          width: isMobile ? '48px' : '56px',
           height: isMobile ? '48px' : '56px',
-          width: isMobile ? '48px' : 'auto',
-          padding: isMobile ? '0' : '0 24px',
           background: '#25D366',
-          borderRadius: isMobile ? '50%' : '30px',
+          borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '10px',
           color: 'white',
           boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -128,7 +126,7 @@ export default function FloatingWidgets() {
           textDecoration: 'none'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.05) translateY(-4px)';
+          e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
           e.currentTarget.style.boxShadow = '0 12px 30px rgba(37, 211, 102, 0.5)';
         }}
         onMouseLeave={(e) => {
@@ -136,8 +134,7 @@ export default function FloatingWidgets() {
           e.currentTarget.style.boxShadow = '0 8px 24px rgba(37, 211, 102, 0.4)';
         }}
       >
-        <MessageCircle size={isMobile ? 24 : 24} fill="white" />
-        {!isMobile && <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '0.02em' }}>WhatsApp</span>}
+        <MessageCircle size={isMobile ? 22 : 26} fill="white" />
       </a>
 
       {/* ── Welcome Promo Modal (Bottom Right) ── */}
