@@ -1486,23 +1486,65 @@ export default function Home() {
             flexDirection: isMobile ? 'column' : 'row',
             alignItems: 'center'
           }}>
-            <Link to="/contact#contact-form" className="btn-primary" style={{
+            <Link to="/contact#contact-form" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
               minWidth: isMobile ? '100%' : 260,
               padding: '18px 32px',
               fontSize: 16,
-              background: 'var(--kraft-600)',
-              justifyContent: 'center'
-            }}>
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #c09457 0%, #8b5e34 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '100px',
+              textDecoration: 'none',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 8px 24px rgba(139, 94, 52, 0.3)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #d4a76a 0%, #a0724a 100%)';
+              e.currentTarget.style.transform = 'translateY(-3px)';
+              e.currentTarget.style.boxShadow = '0 12px 32px rgba(139, 94, 52, 0.4)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #c09457 0%, #8b5e34 100%)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 94, 52, 0.3)';
+            }}
+            >
               Request a Free Quote <ArrowRight size={18} />
             </Link>
-            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="btn-secondary" style={{
+            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
               minWidth: isMobile ? '100%' : 260,
               padding: '17px 32px',
               fontSize: 16,
+              fontWeight: 700,
+              background: 'transparent',
               color: 'white',
-              borderColor: 'rgba(255,255,255,0.4)',
-              justifyContent: 'center'
-            }}>
+              border: '2px solid rgba(255,255,255,0.5)',
+              borderRadius: '100px',
+              textDecoration: 'none',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.8)';
+              e.currentTarget.style.transform = 'translateY(-3px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+            >
               Chat on WhatsApp <WhatsAppIcon size={18} />
             </a>
           </div>
