@@ -692,7 +692,7 @@ export default function Home() {
                     value={popupName}
                     onChange={e => setPopupName(e.target.value)}
                     className="input-field"
-                    style={{ fontSize: 14 }}
+                    style={{ fontSize: 14, border: '2px solid var(--kraft-300)', borderRadius: 10 }}
                     required
                   />
                   <input
@@ -701,7 +701,7 @@ export default function Home() {
                     value={popupEmail}
                     onChange={e => setPopupEmail(e.target.value)}
                     className="input-field"
-                    style={{ fontSize: 14 }}
+                    style={{ fontSize: 14, border: '2px solid var(--kraft-300)', borderRadius: 10 }}
                     required
                   />
                   <button
@@ -712,18 +712,26 @@ export default function Home() {
                       justifyContent: 'center',
                       gap: 8,
                       padding: '14px',
-                      background: '#1a4a2e',
+                      background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
                       color: 'white',
-                      border: 'none',
+                      border: '2px solid rgba(192, 148, 87, 0.3)',
                       borderRadius: 10,
                       fontWeight: 700,
                       fontSize: 15,
                       cursor: 'pointer',
-                      transition: 'background 0.2s',
+                      transition: 'all 0.3s ease',
                       marginTop: 4,
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#145c38'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#1a4a2e'}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.6)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(26, 18, 8, 0.2)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.3)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                   >
                     <Send size={16} /> Get Custom Quote
                   </button>
