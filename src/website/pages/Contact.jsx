@@ -738,7 +738,7 @@ export default function Contact() {
           min-height: 58px;
           padding: 18px 24px;
           background: var(--kraft-50);
-          border: 1px solid var(--kraft-100);
+          border: 2px solid var(--kraft-300);
           border-radius: 16px;
           font-size: 16px;
           font-weight: 500;
