@@ -88,7 +88,7 @@ export default function FloatingWidgets() {
           style={{
             position: 'fixed',
             bottom: '180px',
-            right: '16px',
+            right: '22px',
             zIndex: 99,
             width: '44px',
             height: '44px',
