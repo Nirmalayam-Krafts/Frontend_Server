@@ -297,7 +297,7 @@ export default function ProductCategory() {
             fontSize: 11, 
             fontWeight: 700, 
             color: 'var(--kraft-600)', 
-            marginBottom: isMobile ? 24 : 40,
+            marginBottom: isMobile ? 12 : 40,
             textTransform: 'uppercase',
             letterSpacing: '0.12em'
           }}>
@@ -315,7 +315,7 @@ export default function ProductCategory() {
             alignItems: 'start' 
           }} className="category-hero-grid">
             {/* Image Section */}
-            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 120, marginBottom: isMobile ? 16 : 0 }}>
+            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: isMobile || isTablet ? 0 : 120, marginBottom: isMobile ? 16 : 0 }}>
               <div style={{
                 borderRadius: isMobile ? '24px' : '48px',
                 overflow: 'hidden',
