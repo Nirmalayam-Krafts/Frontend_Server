@@ -221,7 +221,7 @@ export default function Navbar() {
                 alignItems: 'center',
                 gap: 8,
                 transition: 'all 0.3s ease',
-                border: '1px solid rgba(192, 148, 87, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.6)',
               }}>
                 Get a Quote
                 <ArrowRight size={16} />

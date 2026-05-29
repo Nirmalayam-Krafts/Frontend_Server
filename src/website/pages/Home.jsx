@@ -323,10 +323,19 @@ export default function Home() {
                 fontWeight: 700,
                 textDecoration: 'none',
                 boxShadow: '0 10px 30px rgba(37,211,102,0.3)',
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                border: '2px solid rgba(255,255,255,0.5)',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+                e.currentTarget.style.borderColor = 'white';
+                e.currentTarget.style.boxShadow = '0 16px 40px rgba(37,211,102,0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+                e.currentTarget.style.boxShadow = '0 10px 30px rgba(37,211,102,0.3)';
+              }}
               >
                 <WhatsAppIcon size={22} />
                 Chat on WhatsApp
@@ -1193,7 +1202,34 @@ export default function Home() {
               Our commitment to the planet goes beyond products. Explore how we're leading the waste-free transformation across India.
             </p>
           </div>
-          <Link to="/sustainability" className="btn-primary" style={{ padding: '18px 48px', minWidth: 240, justifyContent: 'center', fontSize: 16, background: 'var(--eco-600)', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+          <Link to="/sustainability" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '18px 48px',
+            minWidth: 240,
+            justifyContent: 'center',
+            fontSize: 16,
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+            color: 'white',
+            border: '2px solid rgba(255,255,255,0.5)',
+            borderRadius: '100px',
+            textDecoration: 'none',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)';
+            e.currentTarget.style.borderColor = 'white';
+            e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.4)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+            e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+          }}
+          >
             Our Sustainability <Leaf size={20} />
           </Link>
         </div>

@@ -636,7 +636,7 @@ export default function ProductCategory() {
               margin: '0 auto'
             }} className="cta-buttons">
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
-                background: 'var(--eco-600)',
+                background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
                 color: 'white',
                 padding: '18px 32px',
                 borderRadius: '20px',
@@ -647,10 +647,19 @@ export default function ProductCategory() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 10
+                gap: 10,
+                border: '2px solid rgba(255,255,255,0.4)',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.borderColor = 'white';
+                e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.3)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
               >
                 <Phone size={20} fill="white" /> Wholesale Inquiry
               </a>

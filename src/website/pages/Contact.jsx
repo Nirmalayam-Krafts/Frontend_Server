@@ -557,13 +557,36 @@ export default function Contact() {
                         {!errors.requirement && <span className="input-helper">Example: need 2,000 luxury kraft bags with gold foil logo for a July launch.</span>}
                       </div>
 
-                      <button type="submit" className="btn-primary" disabled={loading} style={{ 
+                      <button type="submit" disabled={loading} style={{ 
                         width: '100%', 
                         padding: '20px', 
-                        justifyContent: 'center', 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 10,
                         fontSize: 18,
-                        boxShadow: '0 15px 30px rgba(26, 18, 8, 0.15)'
-                      }}>
+                        fontWeight: 700,
+                        background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                        color: 'white',
+                        border: '2px solid rgba(192, 148, 87, 0.4)',
+                        borderRadius: '100px',
+                        cursor: loading ? 'wait' : 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 15px 30px rgba(26, 18, 8, 0.15)',
+                      }}
+                      onMouseEnter={e => {
+                        if (!loading) {
+                          e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+                          e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.8)';
+                          e.currentTarget.style.boxShadow = '0 20px 40px rgba(26, 18, 8, 0.25)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.4)';
+                        e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
+                      }}
+                      >
                         {loading ? 'Processing Your Request...' : 'Initialize Consultation'} <Send size={20} />
                       </button>
                     </form>

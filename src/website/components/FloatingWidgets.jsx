@@ -93,7 +93,8 @@ export default function FloatingWidgets() {
           boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           cursor: 'pointer',
-          padding: isMobile ? '10px' : '12px'
+          padding: isMobile ? '10px' : '12px',
+          border: '2px solid rgba(192, 148, 87, 0.3)',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
@@ -132,7 +133,8 @@ export default function FloatingWidgets() {
           boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           cursor: 'pointer',
-          textDecoration: 'none'
+          textDecoration: 'none',
+          border: '2px solid rgba(255, 255, 255, 0.5)',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
