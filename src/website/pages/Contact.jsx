@@ -368,7 +368,8 @@ export default function Contact() {
       {/* ── Contact Channels: Floating Experience ── */}
       <section style={{ 
         background: 'white',
-        marginTop: -60,
+        marginTop: 0,
+        paddingTop: 40,
         position: 'relative',
         zIndex: 10,
         paddingBottom: 60
