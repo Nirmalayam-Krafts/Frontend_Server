@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Leaf, Menu, X, ShoppingBag, User, ChevronDown, MessageCircle } from 'lucide-react';
+import { Leaf, Menu, X, ShoppingBag, User, ChevronDown, ArrowRight } from 'lucide-react';
 
 const navLinks = [
   { label: 'Home', to: '/' },
@@ -208,15 +208,22 @@ export default function Navbar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
             <Link to="/contact#contact-form" className="btn-primary" style={{
-              padding: isMobile ? '10px 16px' : '14px 32px',
-              fontSize: isMobile ? '13px' : '16px',
+              padding: isMobile ? '10px 16px' : '12px 28px',
+              fontSize: isMobile ? '13px' : '15px',
               borderRadius: '100px',
-              background: 'var(--eco-600)',
-              boxShadow: '0 8px 20px rgba(34, 197, 94, 0.2)',
-              fontWeight: 700
+              background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+              color: 'white',
+              boxShadow: '0 4px 16px rgba(26, 18, 8, 0.25)',
+              fontWeight: 700,
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: isMobile ? 0 : 8,
+              transition: 'all 0.3s ease',
+              border: '1px solid rgba(192, 148, 87, 0.3)',
             }}>
-              <span style={{ display: isMobile ? 'none' : 'inline' }}>Consult Expert</span>
-              <MessageCircle size={isMobile ? 20 : 18} style={{ marginLeft: isMobile ? 0 : 10 }} />
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>Get a Quote</span>
+              <ArrowRight size={isMobile ? 18 : 16} />
             </Link>
 
             {/* Hamburger */}
