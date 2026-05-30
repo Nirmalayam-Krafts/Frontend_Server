@@ -216,7 +216,7 @@ export default function ProductCategory() {
   );
 
   const whatsappMessage = `Hi Nirmalyam Krafts, I'm interested in the ${data.title} collection. Could you please share the price list and sample details?`;
-  const whatsappUrl = `https://wa.me/919876543210?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = `https://wa.me/15551790437?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
