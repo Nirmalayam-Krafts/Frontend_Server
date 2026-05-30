@@ -81,14 +81,14 @@ export default function FloatingWidgets() {
 
   return (
     <>
-      {/* ── Go to Top (Mobile only) ── */}
-      {isMobile && showGoTop && (
+      {/* ── Go to Top ── */}
+      {showGoTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           style={{
             position: 'fixed',
-            bottom: '180px',
-            right: '22px',
+            bottom: isMobile ? '180px' : '188px',
+            right: isMobile ? '22px' : '30px',
             zIndex: 99,
             width: '44px',
             height: '44px',
@@ -103,6 +103,18 @@ export default function FloatingWidgets() {
             cursor: 'pointer',
             border: '2px solid rgba(192, 148, 87, 0.4)',
             animation: 'fadeInUp 0.3s ease',
+          }}
+          onMouseEnter={(e) => {
+            if (!isMobile) {
+              e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isMobile) {
+              e.currentTarget.style.transform = 'scale(1) translateY(0)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+            }
           }}
         >
           <ChevronUp size={20} />
