@@ -56,7 +56,7 @@ const categoryData = {
     id: 'fnb',
     title: 'F&B Gourmet Bags',
     image: '/images/collection_fnb_vibrant.png',
-    minOrder: '1000 UNITS',
+    minOrder: '100 UNITS',
     color: '#f59e0b',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry.',
     longDescription: 'Developed for restaurateurs, our F&B line features food-grade barriers that resist oil and moisture without plastic laminates. Perfect for cloud kitchens and bakeries.',
