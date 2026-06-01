@@ -50,7 +50,6 @@ const policyLinks = [
   { label: 'Terms of Service', to: '/terms' },
   { label: 'Returns Policy', to: '/returns' },
   { label: 'Shipping Terms', to: '/shipping' },
-  { label: 'Accessibility', to: '/accessibility' },
 ];
 
 export default function Footer() {

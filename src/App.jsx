@@ -12,6 +12,10 @@ import Contact from "./website/pages/Contact";
 import ProductCategory from "./website/pages/ProductCategory";
 import FloatingWidgets from "./website/components/FloatingWidgets";
 import NotFound from "./website/pages/NotFound";
+import PrivacyPolicy from "./website/pages/PrivacyPolicy";
+import TermsOfService from "./website/pages/TermsOfService";
+import ReturnsPolicy from "./website/pages/ReturnsPolicy";
+import ShippingTerms from "./website/pages/ShippingTerms";
 import { Toaster } from "react-hot-toast";
 
 /* Dashboard */
@@ -104,10 +108,10 @@ function AppLayout() {
           <Route path="/dashboard/signup" element={<Signup />} />
 
           {/* Policy / Extra Pages */}
-          <Route path="/privacy" element={<NotFound />} />
-          <Route path="/returns" element={<NotFound />} />
-          <Route path="/shipping" element={<NotFound />} />
-          <Route path="/terms" element={<NotFound />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/returns" element={<ReturnsPolicy />} />
+          <Route path="/shipping" element={<ShippingTerms />} />
+          <Route path="/terms" element={<TermsOfService />} />
 
           {/* Protected Dashboard Routes */}
           <Route
