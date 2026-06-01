@@ -288,8 +288,31 @@ export const Navbar = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef(null);
   const { data: notifData } = useGetNotifications();
-  const notifications = notifData?.notifications || [];
-  const unreadCount = notifData?.unreadCount || 0;
+  const allNotifications = notifData?.notifications || [];
+
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem("dismissedNotifications");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const visibleNotifications = allNotifications.filter(
+    (n) => !dismissedIds.has(n.id)
+  );
+  const visibleUnreadCount = visibleNotifications.filter((n) => n.unread).length;
+
+  const handleMarkAllAsRead = () => {
+    const allIds = allNotifications.map((n) => n.id);
+    const newDismissed = new Set([...dismissedIds, ...allIds]);
+    setDismissedIds(newDismissed);
+    localStorage.setItem(
+      "dismissedNotifications",
+      JSON.stringify([...newDismissed])
+    );
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -353,7 +376,7 @@ export const Navbar = () => {
               className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50"
             >
               <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
+              {visibleUnreadCount > 0 && (
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
@@ -368,15 +391,18 @@ export const Navbar = () => {
                 >
                   <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 flex justify-between items-center">
                     <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
-                    {unreadCount > 0 && (
-                      <span className="text-xs font-semibold text-emerald-600">
-                        {unreadCount} unread
-                      </span>
+                    {visibleNotifications.length > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                      >
+                        Mark all as read
+                      </button>
                     )}
                   </div>
                   <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                    {notifications.length > 0 ? (
-                      notifications.map((n) => (
+                    {visibleNotifications.length > 0 ? (
+                      visibleNotifications.map((n) => (
                         <div key={n.id} className={`p-4 hover:bg-gray-50 transition-colors ${n.unread ? "bg-emerald-50/30" : ""}`}>
                           <div className="flex justify-between items-start gap-2">
                             <h4 className="font-semibold text-xs text-gray-900">{n.title}</h4>
@@ -386,7 +412,10 @@ export const Navbar = () => {
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-xs text-gray-500">No notifications</div>
+                      <div className="p-6 text-center">
+                        <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-xs text-gray-500">All caught up! No new notifications.</p>
+                      </div>
                     )}
                   </div>
                 </motion.div>
