@@ -1,0 +1,106 @@
+name: 🚀 Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: 🐳 Build Vite + Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          npm install --legacy-peer-deps
+          npm install react-is --legacy-peer-deps
+
+      - name: Build Vite SPA on runner
+        run: npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
+          VITE_ENVIRONMENT: production
+          VITE_ENABLE_MOCK_API: "false"
+          VITE_ENABLE_ANALYTICS: "false"
+          VITE_ENABLE_NOTIFICATIONS: "true"
+
+      - name: Verify dist/ was created
+        run: ls -la dist/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/nirmalayam-krafts/frontend-server:${{ github.sha }}
+            ghcr.io/nirmalayam-krafts/frontend-server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: 🌐 Deploy to Hostinger KVM
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: production
+      url: http://187.127.169.86
+
+    steps:
+      - name: SSH → Pull image and rolling-update frontend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          envs: FRONTEND_IMAGE
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+
+            if grep -q "^FRONTEND_IMAGE=" .env; then
+              sed -i "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${FRONTEND_IMAGE}|" .env
+            else
+              echo "FRONTEND_IMAGE=${FRONTEND_IMAGE}" >> .env
+            fi
+
+            docker compose -f docker-compose.production.yml pull frontend
+            docker compose -f docker-compose.production.yml up -d \
+              --no-deps --force-recreate frontend
+            docker image prune -f --filter "until=24h" || true
+            echo "✅ Frontend deployed."
+            docker compose -f docker-compose.production.yml ps frontend
+        env:
+          FRONTEND_IMAGE: ghcr.io/nirmalayam-krafts/frontend-server:latest
