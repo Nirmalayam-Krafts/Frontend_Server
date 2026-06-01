@@ -561,7 +561,7 @@ export default function PrivacyPolicy() {
                 fontWeight: 700,
                 background: 'linear-gradient(135deg, var(--eco-600) 0%, var(--eco-700) 100%)',
                 color: 'white',
-                border: 'none',
+                border: '2px solid rgba(255,255,255,0.5)',
                 borderRadius: '100px',
                 textDecoration: 'none',
                 transition: 'all 0.3s ease',
