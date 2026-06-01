@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
+import { useGetNotifications } from "../../../../hook/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Sidebar = () => {
@@ -286,29 +287,9 @@ export const Navbar = () => {
   const profileRef = useRef(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef(null);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "New Lead Received",
-      description: "Amit Sharma from GreenPackaging has submitted a new inquiry.",
-      time: "5 mins ago",
-      unread: true,
-    },
-    {
-      id: 2,
-      title: "Low Stock Alert",
-      description: "Kraft Paper 180 GSM is below reorder point (15 rolls remaining).",
-      time: "2 hours ago",
-      unread: true,
-    },
-    {
-      id: 3,
-      title: "Order Confirmed",
-      description: "Order #ORD-2026-894 for Eco Bags has been successfully confirmed.",
-      time: "1 day ago",
-      unread: false,
-    },
-  ]);
+  const { data: notifData } = useGetNotifications();
+  const notifications = notifData?.notifications || [];
+  const unreadCount = notifData?.unreadCount || 0;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -372,7 +353,7 @@ export const Navbar = () => {
               className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50"
             >
               <Bell className="h-5 w-5" />
-              {notifications.some(n => n.unread) && (
+              {unreadCount > 0 && (
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
@@ -387,13 +368,10 @@ export const Navbar = () => {
                 >
                   <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 flex justify-between items-center">
                     <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
-                    {notifications.some(n => n.unread) && (
-                      <button 
-                        onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-                      >
-                        Mark all as read
-                      </button>
+                    {unreadCount > 0 && (
+                      <span className="text-xs font-semibold text-emerald-600">
+                        {unreadCount} unread
+                      </span>
                     )}
                   </div>
                   <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
