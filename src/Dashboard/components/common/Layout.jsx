@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUIStore, useAuthStore } from "../../store";
 import {
@@ -283,6 +283,19 @@ export const Navbar = () => {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const profile = data?.data || data || user || {};
   const initials = useMemo(() => {
@@ -330,7 +343,7 @@ export const Navbar = () => {
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
           </button>
 
-          <div className="relative">
+          <div className="relative" ref={profileRef}>
             <button
               onClick={() => setProfileOpen((prev) => !prev)}
               className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-2 py-2 pr-3 transition hover:bg-gray-50"
