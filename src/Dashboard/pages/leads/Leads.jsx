@@ -1029,6 +1029,7 @@ const Leads = () => {
             setShowModal(false);
             setEditingLead(null);
           }}
+          size="md"
         >
           <LeadForm
             initialData={editingLead}

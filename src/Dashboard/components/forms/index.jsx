@@ -94,10 +94,14 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
         error={errors.status?.message}
         {...register("status")}
       />
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" loading={loading}>
-          {initialData ? "Update Lead" : "Add Lead"}
-        </Button>
+      <div className="flex gap-3 pt-5 border-t border-gray-100">
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:opacity-90 transition disabled:opacity-50"
+        >
+          {loading ? "Saving..." : initialData ? "Update Lead" : "Add Lead"}
+        </button>
       </div>
     </form>
   );
