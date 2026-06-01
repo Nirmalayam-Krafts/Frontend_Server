@@ -16,7 +16,6 @@ import PrivacyPolicy from "./website/pages/PrivacyPolicy";
 import TermsOfService from "./website/pages/TermsOfService";
 import ReturnsPolicy from "./website/pages/ReturnsPolicy";
 import ShippingTerms from "./website/pages/ShippingTerms";
-import AccessibilityPage from "./website/pages/AccessibilityPage";
 import { Toaster } from "react-hot-toast";
 
 /* Dashboard */
@@ -113,7 +112,6 @@ function AppLayout() {
           <Route path="/returns" element={<ReturnsPolicy />} />
           <Route path="/shipping" element={<ShippingTerms />} />
           <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/accessibility" element={<AccessibilityPage />} />
 
           {/* Protected Dashboard Routes */}
           <Route
