@@ -279,6 +279,7 @@ export const Navbar = () => {
   const { data } = useCurrentUser();
   const navigate = useNavigate();
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -301,7 +302,9 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-md">
+    <nav className={`sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-md transition-all duration-300 ${
+      sidebarOpen ? "md:ml-72" : ""
+    }`}>
       <div className="flex items-center justify-between px-4 py-4 md:px-6">
         <div className="flex items-center gap-3 md:gap-4">
           <button
