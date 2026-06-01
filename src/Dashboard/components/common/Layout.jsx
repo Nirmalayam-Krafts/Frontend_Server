@@ -284,11 +284,39 @@ export const Navbar = () => {
   const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: "New Lead Received",
+      description: "Amit Sharma from GreenPackaging has submitted a new inquiry.",
+      time: "5 mins ago",
+      unread: true,
+    },
+    {
+      id: 2,
+      title: "Low Stock Alert",
+      description: "Kraft Paper 180 GSM is below reorder point (15 rolls remaining).",
+      time: "2 hours ago",
+      unread: true,
+    },
+    {
+      id: 3,
+      title: "Order Confirmed",
+      description: "Order #ORD-2026-894 for Eco Bags has been successfully confirmed.",
+      time: "1 day ago",
+      unread: false,
+    },
+  ]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setProfileOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -338,10 +366,55 @@ export const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3 md:gap-4">
-          <button className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-          </button>
+          <div className="relative" ref={notificationsRef}>
+            <button 
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+              className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50"
+            >
+              <Bell className="h-5 w-5" />
+              {notifications.some(n => n.unread) && (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {notificationsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+                >
+                  <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 flex justify-between items-center">
+                    <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
+                    {notifications.some(n => n.unread) && (
+                      <button 
+                        onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                    {notifications.length > 0 ? (
+                      notifications.map((n) => (
+                        <div key={n.id} className={`p-4 hover:bg-gray-50 transition-colors ${n.unread ? "bg-emerald-50/30" : ""}`}>
+                          <div className="flex justify-between items-start gap-2">
+                            <h4 className="font-semibold text-xs text-gray-900">{n.title}</h4>
+                            <span className="text-[10px] text-gray-400 whitespace-nowrap">{n.time}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">{n.description}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-gray-500">No notifications</div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <div className="relative" ref={profileRef}>
             <button
