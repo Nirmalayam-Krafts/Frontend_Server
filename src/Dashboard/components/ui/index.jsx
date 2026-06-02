@@ -21,7 +21,7 @@ export const Button = ({
     secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
     danger: "bg-red-600 text-white hover:bg-red-700",
     outline: "border border-gray-300 text-gray-900 hover:bg-gray-50",
-  };
+  }
 
   const sizes = {
     sm: "px-3 py-1.5 text-sm",
