@@ -190,7 +190,7 @@ const Finance = () => {
         {/* KPI Cards */}
         {!isLoading && !isError && data && (
           <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+            className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ staggerChildren: 0.1 }}
@@ -218,6 +218,24 @@ const Finance = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
+                      Total Revenue
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      ₹{data?.income?.toLocaleString?.() ?? 0}
+                    </p>
+                  </div>
+                  <div className="bg-emerald-500 w-12 h-12 rounded-lg flex items-center justify-center text-white">
+                    <DollarSign className="w-6 h-6" />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card className="hover:shadow-md hover:scale-105 transition-transform">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
                       Pending Dues
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
@@ -231,7 +249,7 @@ const Finance = () => {
               </Card>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <Card className="hover:shadow-md hover:scale-105 transition-transform">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -243,13 +261,13 @@ const Finance = () => {
                     </p>
                   </div>
                   <div className="bg-blue-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                    <DollarSign className="w-6 h-6" />
+                    <ShoppingBag className="w-6 h-6" />
                   </div>
                 </div>
               </Card>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
               <Card className="hover:shadow-md hover:scale-105 transition-transform">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
