@@ -43,8 +43,7 @@ const formatCompactINR = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    notation: "compact",
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   }).format(amount || 0);
 
 const formatPercentChange = (current, previous) => {
