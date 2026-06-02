@@ -241,12 +241,13 @@ const Dashboard = () => {
       try {
         setLoading(true);
 
-        const [leadsRes, ordersRes, inventoryRes, lowStockRes, productsRes] = await Promise.all([
+        const [leadsRes, ordersRes, inventoryRes, lowStockRes, productsRes, financeRes] = await Promise.all([
           axiosInstance.get("/leads", { params: { page: 1, limit: 1000 } }),
           axiosInstance.get("/orders", { params: { page: 1, limit: 1000 } }),
           axiosInstance.get("/inventory/all"),
           axiosInstance.get("/inventory/alerts/low-stock"),
           axiosInstance.get("/products"),
+          axiosInstance.get("/finance/stats"),
         ]);
 
         const leads = normalizeArray(leadsRes?.data?.data, "leads");
@@ -254,6 +255,7 @@ const Dashboard = () => {
         const inventory = normalizeArray(inventoryRes?.data?.data);
         const lowStock = normalizeArray(lowStockRes?.data?.data);
         const products = normalizeArray(productsRes?.data?.data);
+        const financeStats = financeRes?.data?.data ?? financeRes?.data ?? {};
 
         const now = new Date();
         const thisMonth = monthStart(now);
@@ -275,19 +277,12 @@ const Dashboard = () => {
         );
         const pendingOrders = orders.filter((order) => String(order?.orderStatus || "") === "Pending").length;
 
-        const thisMonthRevenue = orders
-          .filter((order) => {
-            const d = order?.createdAt ? new Date(order.createdAt) : null;
-            return d && d >= thisMonth && d < nextMonth;
-          })
-          .reduce((sum, order) => sum + toNumber(order?.totalAmount), 0);
+        // Use backend-aggregated monthly revenue for consistency with Finance page
+        const thisMonthRevenue = toNumber(financeStats?.monthlyRevenue);
 
-        const prevMonthRevenue = orders
-          .filter((order) => {
-            const d = order?.createdAt ? new Date(order.createdAt) : null;
-            return d && d >= prevMonth && d < thisMonth;
-          })
-          .reduce((sum, order) => sum + toNumber(order?.totalAmount), 0);
+        // Calculate previous month change from revenue trend
+        const revenueTrend = Array.isArray(financeStats?.revenueTrend) ? financeStats.revenueTrend : [];
+        const prevMonthRevenue = revenueTrend.length >= 2 ? toNumber(revenueTrend[revenueTrend.length - 2]?.total) : 0;
 
         const kpiData = [
           {
@@ -326,8 +321,21 @@ const Dashboard = () => {
 
         setKpis(kpiData);
         setRecentEnquiries(mapRecentEnquiries(leads));
+        // Use backend revenue trend for chart consistency with Finance/Analytics
+        const backendRevenue = revenueTrend.length > 0
+          ? revenueTrend.map((item) => {
+              let label = item.month || "";
+              if (label.includes("-")) {
+                const parts = label.split("-");
+                const monthIdx = parseInt(parts[1], 10) - 1;
+                label = MONTH_LABELS[monthIdx] || label;
+              }
+              return { month: label, revenue: Math.round(toNumber(item.total)) };
+            })
+          : buildRevenueSeries(orders);
+
         setChartData({
-          revenue: buildRevenueSeries(orders),
+          revenue: backendRevenue,
           leadConversion: buildLeadFunnel(leads),
           inventory: buildInventoryDistribution(inventory),
           paperWeights: buildPaperWeightSeries(products, inventory),
