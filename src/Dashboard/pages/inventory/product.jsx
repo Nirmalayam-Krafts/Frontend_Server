@@ -40,7 +40,7 @@ const Product = () => {
         String(item?.name || "").toLowerCase().includes(query) ||
         String(item?.category || "").toLowerCase().includes(query) ||
         String(item?.sku || "").toLowerCase().includes(query) ||
-        String(item?.bagType || "").toLowerCase().includes(query);
+        String(item?.bagType || "").toLowerCase().includes(query)
       );
     });
   }, [products, search]);
