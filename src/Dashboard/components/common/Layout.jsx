@@ -42,7 +42,7 @@ export const Sidebar = () => {
       label: "Inventory",
       path: "/inventory",
       children: [
-        // eslint-disable-next-line no-undef
+         
         { icon: Package, label: "Stock", path: "/inventory" },
         { icon: Box, label: "Raw Materials", path: "/rawmaterial" },
         { icon: Box, label: "Products", path: "/Product" },
