@@ -60,12 +60,12 @@ export default function Login() {
       footerText={
         <p className="text-sm text-on-surface-variant text-center mt-1">
           Don&apos;t have an account?{" "}
-          <Link
+          {/* <Link
             to="/dashboard/signup"
             className="text-primary font-semibold hover:underline"
           >
             Sign up
-          </Link>
+          </Link> */}
         </p>
       }
     />

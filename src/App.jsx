@@ -86,7 +86,7 @@ function AppLayout() {
 
           {/* Auth Routes */}
           <Route path="/dashboard/login" element={<Login />} />
-          <Route path="/dashboard/signup" element={<Signup />} />
+          {/* <Route path="/dashboard/signup" element={<Signup />} /> */}
 
           {/* Policy / Extra Pages */}
           <Route path="/privacy" element={<NotFound />} />
