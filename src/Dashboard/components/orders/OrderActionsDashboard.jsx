@@ -18,27 +18,48 @@ import {
 
 const OrderActionsDashboard = ({
   orders = [],
+  globalStats = null,
   onViewOrder,
   onProcessOrder,
   onCompleteOrder,
   onCreateQuotation,
 }) => {
-  // Calculate order metrics
-  const totalOrders = orders.length;
-  const pendingOrders = orders.filter((o) => o.orderStatusKey === "PENDING").length;
-  const confirmedOrders = orders.filter((o) => o.orderStatusKey === "CONFIRMED").length;
-  const processingOrders = orders.filter((o) => o.orderStatusKey === "PROCESSING").length;
-  const completedOrders = orders.filter((o) => o.orderStatusKey === "COMPLETED").length;
+  // Use global stats from backend when available, fall back to page-local counts
+  const hasGlobal = globalStats && typeof globalStats === "object";
 
-  const pendingQuotations = orders.filter((o) => {
-    const hasQuotation =
-      !!o?.quotation?.quotationNumber ||
-      ["sent", "approved"].includes(String(o?.quotation?.status || "").toLowerCase());
-    return o?.orderStatusKey === "PENDING" && !hasQuotation;
-  }).length;
-  const totalRevenue = orders
-    .filter((o) => o.orderStatusKey === "COMPLETED")
-    .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  const totalOrders = hasGlobal
+    ? (globalStats.totalOrders || 0)
+    : orders.length;
+  const pendingOrders = hasGlobal
+    ? (globalStats.statusCounts?.Pending || 0)
+    : orders.filter((o) => o.orderStatusKey === "PENDING").length;
+  const confirmedOrders = hasGlobal
+    ? (globalStats.statusCounts?.Confirmed || 0)
+    : orders.filter((o) => o.orderStatusKey === "CONFIRMED").length;
+  const processingOrders = hasGlobal
+    ? (globalStats.statusCounts?.Processing || 0)
+    : orders.filter((o) => o.orderStatusKey === "PROCESSING").length;
+  const completedOrders = hasGlobal
+    ? (globalStats.statusCounts?.Completed || 0)
+    : orders.filter((o) => o.orderStatusKey === "COMPLETED").length;
+
+  const pendingQuotations = hasGlobal
+    ? (globalStats.pendingQuotations || 0)
+    : orders.filter((o) => {
+        const hasQuotation =
+          !!o?.quotation?.quotationNumber ||
+          ["sent", "approved"].includes(String(o?.quotation?.status || "").toLowerCase());
+        return o?.orderStatusKey === "PENDING" && !hasQuotation;
+      }).length;
+
+  const totalRevenue = hasGlobal
+    ? (globalStats.completedRevenue || 0)
+    : orders
+        .filter((o) => o.orderStatusKey === "COMPLETED")
+        .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+
+  const totalPaid = hasGlobal ? (globalStats.totalPaid || 0) : 0;
+  const pendingDues = hasGlobal ? (globalStats.pendingDues || 0) : 0;
 
   const actionCards = [
     {
