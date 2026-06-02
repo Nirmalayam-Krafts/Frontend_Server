@@ -49,7 +49,7 @@ export const Sidebar = () => {
       ],
     },
     { icon: ShoppingCart, label: "Orders", path: "/orders" },
-    // { icon: FileText, label: "Finance", path: "/finance" },
+    { icon: FileText, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
