@@ -274,11 +274,12 @@ const Orders = () => {
     });
   }, [rawOrders]);
 
-  const totalOrders = pagination?.total || formattedOrders.length;
-  const pendingCount = rawOrders.filter((o) => o.orderStatus === "Pending").length;
-  const processingCount = rawOrders.filter((o) => o.orderStatus === "Processing").length;
-  const completedCount = rawOrders.filter((o) => o.orderStatus === "Completed").length;
-  const partialPaidCount = rawOrders.filter(
+  const totalOrders = orderStats?.totalOrders ?? pagination?.total ?? formattedOrders.length;
+  const pendingCount = orderStats?.statusCounts?.Pending ?? rawOrders.filter((o) => o.orderStatus === "Pending").length;
+  const processingCount = orderStats?.statusCounts?.Processing ?? rawOrders.filter((o) => o.orderStatus === "Processing").length;
+  const completedCount = orderStats?.statusCounts?.Completed ?? rawOrders.filter((o) => o.orderStatus === "Completed").length;
+  const confirmedCount = orderStats?.statusCounts?.Confirmed ?? rawOrders.filter((o) => o.orderStatus === "Confirmed").length;
+  const partialPaidCount = orderStats?.paymentCounts?.["Partial Paid"] ?? rawOrders.filter(
     (o) => o.paymentStatus === "Partial Paid"
   ).length;
 
@@ -1759,9 +1760,7 @@ ${lines || "(See PDF for full BOM)"}
     return "bg-blue-500";
   };
 
-  const confirmedCount = rawOrders.filter(
-    (o) => o.orderStatus === "Confirmed"
-  ).length;
+  // confirmedCount is already computed globally at the top of the component
   return (
     <Layout>
       <div className="space-y-6">
@@ -1899,7 +1898,8 @@ ${lines || "(See PDF for full BOM)"}
         {/* Dashboard View */}
         {viewMode === "dashboard" && (
           <OrderActionsDashboard
-            orders={rawOrders}
+            orders={formattedOrders}
+            globalStats={orderStats}
             onViewOrder={(filter) => {
               setViewMode("table");
               if (filter === "PENDING") {
