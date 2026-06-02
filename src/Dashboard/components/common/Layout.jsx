@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUIStore, useAuthStore } from "../../store";
 import {
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
+import { useGetNotifications } from "../../../../hook/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Sidebar = () => {
@@ -279,9 +280,54 @@ export const Navbar = () => {
   const { data } = useCurrentUser();
   const navigate = useNavigate();
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
+  const { data: notifData } = useGetNotifications();
+  const allNotifications = notifData?.notifications || [];
+
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem("dismissedNotifications");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const visibleNotifications = allNotifications.filter(
+    (n) => !dismissedIds.has(n.id)
+  );
+  const visibleUnreadCount = visibleNotifications.filter((n) => n.unread).length;
+
+  const handleMarkAllAsRead = () => {
+    const allIds = allNotifications.map((n) => n.id);
+    const newDismissed = new Set([...dismissedIds, ...allIds]);
+    setDismissedIds(newDismissed);
+    localStorage.setItem(
+      "dismissedNotifications",
+      JSON.stringify([...newDismissed])
+    );
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const profile = data?.data || data || user || {};
   const initials = useMemo(() => {
@@ -301,7 +347,9 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-md">
+    <nav className={`sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-md transition-all duration-300 ${
+      sidebarOpen ? "md:ml-72" : ""
+    }`}>
       <div className="flex items-center justify-between px-4 py-4 md:px-6">
         <div className="flex items-center gap-3 md:gap-4">
           <button
@@ -322,12 +370,60 @@ export const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3 md:gap-4">
-          <button className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-          </button>
+          <div className="relative" ref={notificationsRef}>
+            <button 
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+              className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50"
+            >
+              <Bell className="h-5 w-5" />
+              {visibleUnreadCount > 0 && (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </button>
 
-          <div className="relative">
+            <AnimatePresence>
+              {notificationsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+                >
+                  <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 flex justify-between items-center">
+                    <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
+                    {visibleNotifications.length > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                    {visibleNotifications.length > 0 ? (
+                      visibleNotifications.map((n) => (
+                        <div key={n.id} className={`p-4 hover:bg-gray-50 transition-colors ${n.unread ? "bg-emerald-50/30" : ""}`}>
+                          <div className="flex justify-between items-start gap-2">
+                            <h4 className="font-semibold text-xs text-gray-900">{n.title}</h4>
+                            <span className="text-[10px] text-gray-400 whitespace-nowrap">{n.time}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">{n.description}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center">
+                        <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-xs text-gray-500">All caught up! No new notifications.</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="relative" ref={profileRef}>
             <button
               onClick={() => setProfileOpen((prev) => !prev)}
               className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-2 py-2 pr-3 transition hover:bg-gray-50"

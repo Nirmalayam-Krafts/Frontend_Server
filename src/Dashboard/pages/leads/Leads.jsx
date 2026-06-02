@@ -172,10 +172,10 @@ const Leads = () => {
   const filteredLeads = useMemo(() => {
     return formattedLeads.filter((lead) => {
       const matchesSearch =
-        lead.name.toLowerCase().includes(search.toLowerCase()) ||
-        lead.businessName.toLowerCase().includes(search.toLowerCase()) ||
-        lead.email.toLowerCase().includes(search.toLowerCase()) ||
-        lead.phone.toLowerCase().includes(search.toLowerCase());
+        String(lead.name).toLowerCase().includes(search.toLowerCase()) ||
+        String(lead.businessName).toLowerCase().includes(search.toLowerCase()) ||
+        String(lead.email).toLowerCase().includes(search.toLowerCase()) ||
+        String(lead.phone).toLowerCase().includes(search.toLowerCase());
 
       const matchesStatus =
         statusFilter === "All" || lead.statusLabel === statusFilter;
@@ -1029,6 +1029,7 @@ const Leads = () => {
             setShowModal(false);
             setEditingLead(null);
           }}
+          size="md"
         >
           <LeadForm
             initialData={editingLead}

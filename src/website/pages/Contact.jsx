@@ -18,9 +18,9 @@ const contacts = [
   {
     icon: Phone,
     title: 'Call Us',
-    value: '+91 98765 43210',
+    value: '+1 (555) 179-0437',
     sub: 'Mon – Sat, 9 AM – 7 PM IST',
-    href: 'tel:+919876543210',
+    href: 'tel:+15551790437',
     color: 'var(--kraft-600)',
     bg: 'rgba(192,148,87,0.1)',
   },
@@ -29,7 +29,7 @@ const contacts = [
     title: 'WhatsApp',
     value: 'Chat for Instant Quote',
     sub: 'Usually replies in under 5 minutes',
-    href: 'https://wa.me/919876543210',
+    href: 'https://wa.me/15551790437?text=Hi%20',
     color: '#25d366',
     bg: 'rgba(37,211,102,0.08)',
   },
@@ -368,7 +368,8 @@ export default function Contact() {
       {/* ── Contact Channels: Floating Experience ── */}
       <section style={{ 
         background: 'white',
-        marginTop: -60,
+        marginTop: 0,
+        paddingTop: 40,
         position: 'relative',
         zIndex: 10,
         paddingBottom: 60
@@ -556,13 +557,36 @@ export default function Contact() {
                         {!errors.requirement && <span className="input-helper">Example: need 2,000 luxury kraft bags with gold foil logo for a July launch.</span>}
                       </div>
 
-                      <button type="submit" className="btn-primary" disabled={loading} style={{ 
+                      <button type="submit" disabled={loading} style={{ 
                         width: '100%', 
                         padding: '20px', 
-                        justifyContent: 'center', 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 10,
                         fontSize: 18,
-                        boxShadow: '0 15px 30px rgba(26, 18, 8, 0.15)'
-                      }}>
+                        fontWeight: 700,
+                        background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                        color: 'white',
+                        border: '2px solid rgba(192, 148, 87, 0.4)',
+                        borderRadius: '100px',
+                        cursor: loading ? 'wait' : 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 15px 30px rgba(26, 18, 8, 0.15)',
+                      }}
+                      onMouseEnter={e => {
+                        if (!loading) {
+                          e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+                          e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.8)';
+                          e.currentTarget.style.boxShadow = '0 20px 40px rgba(26, 18, 8, 0.25)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.4)';
+                        e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
+                      }}
+                      >
                         {loading ? 'Processing Your Request...' : 'Initialize Consultation'} <Send size={20} />
                       </button>
                     </form>
@@ -714,7 +738,7 @@ export default function Contact() {
           min-height: 58px;
           padding: 18px 24px;
           background: var(--kraft-50);
-          border: 1px solid var(--kraft-100);
+          border: 2px solid var(--kraft-300);
           border-radius: 16px;
           font-size: 16px;
           font-weight: 500;

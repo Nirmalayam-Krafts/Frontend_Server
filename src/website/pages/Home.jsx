@@ -311,7 +311,7 @@ export default function Home() {
 
             {/* Buttons */}
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{
+              <a href="https://wa.me/15551790437?text=Hi%20" target="_blank" rel="noreferrer" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 12,
@@ -323,10 +323,19 @@ export default function Home() {
                 fontWeight: 700,
                 textDecoration: 'none',
                 boxShadow: '0 10px 30px rgba(37,211,102,0.3)',
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                border: '2px solid rgba(255,255,255,0.5)',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+                e.currentTarget.style.borderColor = 'white';
+                e.currentTarget.style.boxShadow = '0 16px 40px rgba(37,211,102,0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+                e.currentTarget.style.boxShadow = '0 10px 30px rgba(37,211,102,0.3)';
+              }}
               >
                 <WhatsAppIcon size={22} />
                 Chat on WhatsApp
@@ -682,8 +691,17 @@ export default function Home() {
                     placeholder="Your Name"
                     value={popupName}
                     onChange={e => setPopupName(e.target.value)}
-                    className="input-field"
-                    style={{ fontSize: 14 }}
+                    style={{ 
+                      fontSize: 14, 
+                      width: '100%',
+                      padding: '14px 18px',
+                      background: 'white',
+                      border: '2px solid var(--kraft-400)', 
+                      borderRadius: 10,
+                      fontFamily: "'Inter', sans-serif",
+                      color: 'var(--kraft-900)',
+                      outline: 'none',
+                    }}
                     required
                   />
                   <input
@@ -691,8 +709,17 @@ export default function Home() {
                     placeholder="Email Address"
                     value={popupEmail}
                     onChange={e => setPopupEmail(e.target.value)}
-                    className="input-field"
-                    style={{ fontSize: 14 }}
+                    style={{ 
+                      fontSize: 14, 
+                      width: '100%',
+                      padding: '14px 18px',
+                      background: 'white',
+                      border: '2px solid var(--kraft-400)', 
+                      borderRadius: 10,
+                      fontFamily: "'Inter', sans-serif",
+                      color: 'var(--kraft-900)',
+                      outline: 'none',
+                    }}
                     required
                   />
                   <button
@@ -703,18 +730,26 @@ export default function Home() {
                       justifyContent: 'center',
                       gap: 8,
                       padding: '14px',
-                      background: '#1a4a2e',
+                      background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
                       color: 'white',
-                      border: 'none',
+                      border: '2px solid rgba(192, 148, 87, 0.3)',
                       borderRadius: 10,
                       fontWeight: 700,
                       fontSize: 15,
                       cursor: 'pointer',
-                      transition: 'background 0.2s',
+                      transition: 'all 0.3s ease',
                       marginTop: 4,
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#145c38'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#1a4a2e'}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.6)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(26, 18, 8, 0.2)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.3)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                   >
                     <Send size={16} /> Get Custom Quote
                   </button>
@@ -869,7 +904,8 @@ export default function Home() {
           <div style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(clamp(260px, 45%, 320px), 1fr))',
-            gap: isMobile ? 12 : 28
+            gap: isMobile ? 10 : 28,
+            padding: isMobile ? '0 4px' : 0
           }}>
             {whyCards.map((card, idx) => (
               <div
@@ -930,14 +966,14 @@ export default function Home() {
                 {/* Glass Plate */}
                 <div style={{
                   position: 'absolute',
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  padding: isMobile ? '16px' : '24px',
+                  bottom: isMobile ? 10 : 20,
+                  left: isMobile ? 10 : 20,
+                  right: isMobile ? 10 : 20,
+                  padding: isMobile ? '12px' : '24px',
                   background: 'rgba(255,255,255,0.08)',
                   backdropFilter: 'blur(25px) saturate(160%)',
                   WebkitBackdropFilter: 'blur(25px) saturate(160%)',
-                  borderRadius: isMobile ? 12 : 20,
+                  borderRadius: isMobile ? 10 : 20,
                   border: '1px solid rgba(255,255,255,0.1)',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -947,21 +983,23 @@ export default function Home() {
                 }} className="glass-plate">
                   <div>
                     <div style={{
-                      fontSize: isMobile ? 20 : 34,
+                      fontSize: isMobile ? 18 : 34,
                       fontWeight: 700,
                       color: 'white',
-                      marginBottom: 4,
+                      marginBottom: 2,
                       fontFamily: "'Playfair Display', serif",
-                      letterSpacing: '-0.02em'
+                      letterSpacing: '-0.02em',
+                      lineHeight: 1.1
                     }}>
                       {card.title}
                     </div>
                     <div style={{
-                      fontSize: isMobile ? 10 : 14,
+                      fontSize: isMobile ? 8 : 14,
                       color: 'rgba(255,255,255,0.7)',
                       fontWeight: 600,
                       letterSpacing: '0.04em',
-                      textTransform: 'uppercase'
+                      textTransform: 'uppercase',
+                      lineHeight: 1.3
                     }}>
                       {card.label}
                     </div>
@@ -969,17 +1007,18 @@ export default function Home() {
 
                   {/* Circular Icon Badge */}
                   <div style={{
-                    width: isMobile ? 32 : 48,
-                    height: isMobile ? 32 : 48,
+                    width: isMobile ? 28 : 48,
+                    height: isMobile ? 28 : 48,
                     borderRadius: '50%',
                     background: 'white',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                    transition: 'transform 0.3s'
+                    transition: 'transform 0.3s',
+                    flexShrink: 0
                   }} className="icon-badge">
-                    <card.icon size={isMobile ? 16 : 22} color={card.accent || "#0a0f0c"} />
+                    <card.icon size={isMobile ? 14 : 22} color={card.accent || "#0a0f0c"} />
                   </div>
                 </div>
               </div>
@@ -1111,7 +1150,7 @@ export default function Home() {
 
                   {/* WhatsApp Floating Button */}
                   <a
-                    href={`https://wa.me/919876543210?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
+                    href={`https://wa.me/15551790437?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
                     target="_blank"
                     rel="noreferrer"
                     style={{
@@ -1189,7 +1228,34 @@ export default function Home() {
               Our commitment to the planet goes beyond products. Explore how we're leading the waste-free transformation across India.
             </p>
           </div>
-          <Link to="/sustainability" className="btn-primary" style={{ padding: '18px 48px', minWidth: 240, justifyContent: 'center', fontSize: 16, background: 'var(--eco-600)', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+          <Link to="/sustainability" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '18px 48px',
+            minWidth: 240,
+            justifyContent: 'center',
+            fontSize: 16,
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+            color: 'white',
+            border: '2px solid rgba(255,255,255,0.5)',
+            borderRadius: '100px',
+            textDecoration: 'none',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)';
+            e.currentTarget.style.borderColor = 'white';
+            e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.4)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+            e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+          }}
+          >
             Our Sustainability <Leaf size={20} />
           </Link>
         </div>
@@ -1486,23 +1552,67 @@ export default function Home() {
             flexDirection: isMobile ? 'column' : 'row',
             alignItems: 'center'
           }}>
-            <Link to="/contact#contact-form" className="btn-primary" style={{
+            <Link to="/contact#contact-form" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
               minWidth: isMobile ? '100%' : 260,
               padding: '18px 32px',
               fontSize: 16,
-              background: 'var(--kraft-600)',
-              justifyContent: 'center'
-            }}>
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #c09457 0%, #8b5e34 100%)',
+              color: 'white',
+              border: '2px solid rgba(255,255,255,0.6)',
+              borderRadius: '100px',
+              textDecoration: 'none',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 8px 24px rgba(139, 94, 52, 0.3)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #d4a76a 0%, #a0724a 100%)';
+              e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
+              e.currentTarget.style.boxShadow = '0 16px 40px rgba(139, 94, 52, 0.5)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #c09457 0%, #8b5e34 100%)';
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 94, 52, 0.3)';
+            }}
+            >
               Request a Free Quote <ArrowRight size={18} />
             </Link>
-            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="btn-secondary" style={{
+            <a href="https://wa.me/15551790437?text=Hi%20" target="_blank" rel="noreferrer" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
               minWidth: isMobile ? '100%' : 260,
               padding: '17px 32px',
               fontSize: 16,
+              fontWeight: 700,
+              background: 'transparent',
               color: 'white',
-              borderColor: 'rgba(255,255,255,0.4)',
-              justifyContent: 'center'
-            }}>
+              border: '2px solid rgba(255,255,255,0.5)',
+              borderRadius: '100px',
+              textDecoration: 'none',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+              e.currentTarget.style.borderColor = 'white';
+              e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
+              e.currentTarget.style.boxShadow = '0 12px 32px rgba(255,255,255,0.15)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            >
               Chat on WhatsApp <WhatsAppIcon size={18} />
             </a>
           </div>

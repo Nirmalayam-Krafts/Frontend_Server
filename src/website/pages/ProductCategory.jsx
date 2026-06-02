@@ -216,7 +216,7 @@ export default function ProductCategory() {
   );
 
   const whatsappMessage = `Hi Nirmalyam Krafts, I'm interested in the ${data.title} collection. Could you please share the price list and sample details?`;
-  const whatsappUrl = `https://wa.me/919876543210?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = `https://wa.me/15551790437?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
@@ -286,7 +286,7 @@ export default function ProductCategory() {
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ paddingTop: isMobile ? 100 : 120, paddingBottom: isMobile ? 60 : 100 }}>
+      <div style={{ paddingTop: isMobile ? 80 : 120, paddingBottom: isMobile ? 60 : 100 }}>
         <div className="container">
           {/* Breadcrumbs */}
           <div style={{ 
@@ -297,7 +297,7 @@ export default function ProductCategory() {
             fontSize: 11, 
             fontWeight: 700, 
             color: 'var(--kraft-600)', 
-            marginBottom: isMobile ? 24 : 40,
+            marginBottom: isMobile ? 12 : 40,
             textTransform: 'uppercase',
             letterSpacing: '0.12em'
           }}>
@@ -311,19 +311,19 @@ export default function ProductCategory() {
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: isMobile || isTablet ? '1fr' : '1fr 0.8fr', 
-            gap: isMobile ? 40 : 80, 
+            gap: isMobile ? 48 : 80, 
             alignItems: 'start' 
           }} className="category-hero-grid">
             {/* Image Section */}
-            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: 120 }}>
+            <div style={{ position: isMobile || isTablet ? 'relative' : 'sticky', top: isMobile || isTablet ? 0 : 120, marginBottom: isMobile ? 16 : 0 }}>
               <div style={{
-                borderRadius: isMobile ? '32px' : '48px',
+                borderRadius: isMobile ? '24px' : '48px',
                 overflow: 'hidden',
-                aspectRatio: isMobile ? '4/3' : '1',
+                aspectRatio: isMobile ? '5/4' : '1',
                 boxShadow: '0 40px 80px -20px rgba(58, 36, 16, 0.15)',
                 background: 'white',
                 border: '1px solid var(--kraft-100)',
-                padding: isMobile ? 24 : 60,
+                padding: isMobile ? 16 : 60,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -636,7 +636,7 @@ export default function ProductCategory() {
               margin: '0 auto'
             }} className="cta-buttons">
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
-                background: 'var(--eco-600)',
+                background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
                 color: 'white',
                 padding: '18px 32px',
                 borderRadius: '20px',
@@ -647,10 +647,19 @@ export default function ProductCategory() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 10
+                gap: 10,
+                border: '2px solid rgba(255,255,255,0.4)',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.borderColor = 'white';
+                e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.3)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
               >
                 <Phone size={20} fill="white" /> Wholesale Inquiry
               </a>
