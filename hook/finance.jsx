@@ -9,8 +9,7 @@ export const useGetFinance = () => {
         queryKey: ["getFinanceData"],
         queryFn: async () => {
             const res = await axiosInstance.get("/finance/stats");
-            console.log("res data",res);
-            return res.data;
+            return res.data?.data ?? res.data;
         },
     });
 

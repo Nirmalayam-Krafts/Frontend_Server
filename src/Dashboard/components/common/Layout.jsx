@@ -23,7 +23,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
 import { useGetNotifications } from "../../../../hook/notifications";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query"
 
 export const Sidebar = () => {
   const location = useLocation();
@@ -42,7 +42,7 @@ export const Sidebar = () => {
       label: "Inventory",
       path: "/inventory",
       children: [
-        // eslint-disable-next-line no-undef
+         
         { icon: Package, label: "Stock", path: "/inventory" },
         { icon: Box, label: "Raw Materials", path: "/rawmaterial" },
         { icon: Box, label: "Products", path: "/Product" },

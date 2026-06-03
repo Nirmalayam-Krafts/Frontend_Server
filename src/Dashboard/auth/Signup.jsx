@@ -12,7 +12,7 @@ export default function Signup() {
   const queryClient = useQueryClient()
   const handleSignup = async (data) => {
     const loadingToast = toast.loading("Creating account...");
-    // eslint-disable-next-line react-hooks/rules-of-hooks
+     
     try {
       const payload = {
         name: data.name?.trim(),

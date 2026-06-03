@@ -43,8 +43,7 @@ const formatCompactINR = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    notation: "compact",
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   }).format(amount || 0);
 
 const formatPercentChange = (current, previous) => {
@@ -95,9 +94,9 @@ const classifyPaperBucket = (text) => {
 const buildLeadFunnel = (leads) => {
   const total = leads.length;
   const contacted = leads.filter((lead) =>
-    ["Contacted", "Interested", "Converted"].includes(String(lead?.status || ""))
+    ["CONTACTED", "INTERESTED", "CONVERTED"].includes(String(lead?.status || "").toUpperCase())
   ).length;
-  const converted = leads.filter((lead) => String(lead?.status || "") === "Converted").length;
+  const converted = leads.filter((lead) => String(lead?.status || "").toUpperCase() === "CONVERTED").length;
 
   return [
     { name: "Total Leads", value: total },
@@ -214,7 +213,7 @@ const buildLeadSource = (leads) => {
   }, {});
 
   const total = leads.length || 0;
-  const converted = leads.filter((lead) => String(lead?.status || "") === "Converted").length;
+  const converted = leads.filter((lead) => String(lead?.status || "").toUpperCase() === "CONVERTED").length;
 
   return {
     conversionRate: `${total ? Math.round((converted / total) * 100) : 0}%`,
@@ -248,7 +247,7 @@ const buildTodaysGoal = (orders) => {
   });
 
   const progressedOrders = todaysOrders.filter((order) =>
-    ["Confirmed", "Processing", "Completed", "Delivered"].includes(String(order?.orderStatus || ""))
+    ["CONFIRMED", "PROCESSING", "COMPLETED", "DELIVERED"].includes(String(order?.orderStatus || "").toUpperCase())
   );
 
   const percentage = todaysOrders.length
@@ -591,8 +590,8 @@ export const analyticsAPI = {
       const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       const periodLeads = leads.filter((l) => l?.createdAt && new Date(l.createdAt) >= periodStart);
 
-      const totalRevenue    = toNumber(finance?.income);
-      const converted       = leads.filter((l) => String(l?.status || "") === "Converted").length;
+      const totalRevenue    = toNumber(finance?.monthlyRevenue);
+      const converted       = leads.filter((l) => String(l?.status || "").toUpperCase() === "CONVERTED").length;
       const conversionRate  = leads.length ? Math.round((converted / leads.length) * 100) : 0;
 
       const paidOrders      = orders.filter((o) => toNumber(o?.totalAmount) > 0);

@@ -37,10 +37,10 @@ const Product = () => {
     return products.filter((item) => {
       const query = search.toLowerCase();
       return (
-        item?.name?.toLowerCase().includes(query) ||
-        item?.category?.toLowerCase().includes(query) ||
-        item?.sku?.toLowerCase().includes(query) ||
-        item?.bagType?.toLowerCase().includes(query)
+        String(item?.name || "").toLowerCase().includes(query) ||
+        String(item?.category || "").toLowerCase().includes(query) ||
+        String(item?.sku || "").toLowerCase().includes(query) ||
+        String(item?.bagType || "").toLowerCase().includes(query)
       );
     });
   }, [products, search]);

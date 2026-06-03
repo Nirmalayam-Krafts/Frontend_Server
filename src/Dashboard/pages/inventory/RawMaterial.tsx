@@ -324,10 +324,10 @@ const RawMaterial = () => {
 
     return rawMaterials.filter((item: IRawMaterial) => {
       return (
-        item?.name?.toLowerCase().includes(q) ||
-        item?.code?.toLowerCase().includes(q) ||
-        item?.type?.toLowerCase().includes(q) ||
-        item?.color?.toLowerCase().includes(q)
+        String(item?.name || "").toLowerCase().includes(q) ||
+        String(item?.code || "").toLowerCase().includes(q) ||
+        String(item?.type || "").toLowerCase().includes(q) ||
+        String(item?.color || "").toLowerCase().includes(q)
       );
     });
   }, [rawMaterials, search]);

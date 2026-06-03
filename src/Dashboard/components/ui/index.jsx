@@ -7,10 +7,10 @@ export const Button = ({
   children,
   variant = "primary",
   size = "md",
-  icon: Icon,
-  loading,
-  disabled,
-  className,
+  icon: Icon = null,
+  loading = false,
+  disabled = false,
+  className = "",
   ...props
 }) => {
   const baseStyles =
@@ -21,7 +21,7 @@ export const Button = ({
     secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
     danger: "bg-red-600 text-white hover:bg-red-700",
     outline: "border border-gray-300 text-gray-900 hover:bg-gray-50",
-  };
+  }
 
   const sizes = {
     sm: "px-3 py-1.5 text-sm",
@@ -54,7 +54,7 @@ export const Card = ({ children, className, ...props }) => (
   </div>
 );
 
-export const Badge = ({ children, variant = "primary", className }) => {
+export const Badge = ({ children, variant = "primary", className = "" }) => {
   const variants = {
     primary: "bg-primary-100 text-primary-700",
     secondary: "bg-secondary-100 text-secondary-700",
@@ -76,7 +76,7 @@ export const Badge = ({ children, variant = "primary", className }) => {
   );
 };
 
-export const Input = ({ label, error, icon: Icon, ...props }) => (
+export const Input = ({ label = null, error = null, icon: Icon = null, ...props }) => (
   <div className="w-full">
     {label && (
       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -102,7 +102,7 @@ export const Input = ({ label, error, icon: Icon, ...props }) => (
   </div>
 );
 
-export const Select = ({ label, options, error, ...props }) => (
+export const Select = ({ label = null, options = [], error = null, ...props }) => (
   <div className="w-full">
     {label && (
       <label className="block text-sm font-medium text-gray-700 mb-1">

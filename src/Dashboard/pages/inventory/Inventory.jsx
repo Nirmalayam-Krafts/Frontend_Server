@@ -221,9 +221,10 @@ const Inventory = () => {
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      const searchLower = search.toLowerCase();
       const matchesSearch =
-        item.productName?.toLowerCase().includes(search.toLowerCase()) ||
-        item.sku?.toLowerCase().includes(search.toLowerCase());
+        String(item?.productName || "").toLowerCase().includes(searchLower) ||
+        String(item?.sku || "").toLowerCase().includes(searchLower);
 
       const matchesCategory =
         categoryFilter === "All" || item.category === categoryFilter;

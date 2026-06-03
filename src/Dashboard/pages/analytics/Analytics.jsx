@@ -110,7 +110,7 @@ const Analytics = () => {
           transition={{ staggerChildren: 0.1 }}
         >
           {[
-            { label: "Total Revenue",    value: summary.totalRevenue.value,   change: summary.totalRevenue.change },
+            { label: "Monthly Revenue",    value: summary.totalRevenue.value,   change: summary.totalRevenue.change },
             { label: "Lead Conversion",  value: summary.conversionRate.value,  change: summary.conversionRate.change },
             { label: "Avg Order Value",  value: summary.avgOrderValue.value,   change: summary.avgOrderValue.change },
             { label: "Customer Growth",  value: summary.customerGrowth.value,  change: summary.customerGrowth.change },
