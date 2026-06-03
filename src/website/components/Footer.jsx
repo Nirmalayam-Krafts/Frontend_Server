@@ -31,9 +31,10 @@ const Twitter = ({ size = 24 }) => (
   </svg>
 );
 
-const Github = ({ size = 24 }) => (
+const Youtube = ({ size = 24 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
+    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
   </svg>
 );
 
@@ -99,18 +100,15 @@ export default function Footer() {
           {/* Logo & Info */}
           <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-              <div style={{
-                width: 44, height: 44,
-                background: 'var(--eco-600)',
-                borderRadius: 12,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}>
-                <Leaf size={24} color="white" />
-              </div>
-              <div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: 'white', letterSpacing: '-0.5px' }}>Nirmalyam Krafts</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.1em' }}>Premium Eco Packaging</div>
-              </div>
+              <img 
+                src="/Nirmalyam%20Logo-modified.png" 
+                alt="Nirmalyam Krafts Logo" 
+                style={{ 
+                  height: '76px', 
+                  width: 'auto', 
+                  objectFit: 'contain'
+                }} 
+              />
             </div>
 
             <p style={{ 
@@ -248,7 +246,7 @@ export default function Footer() {
                 { icon: Facebook, color: '#1877F2' },
                 { icon: Linkedin, color: '#0A66C2' },
                 { icon: Twitter, color: '#1DA1F2' },
-                { icon: Github, color: '#333' }
+                { icon: Youtube, color: '#FF0000' }
               ].map(({ icon: Icon, color }, i) => (
                 <a key={i} href="#" style={{
                   width: 44, height: 44,

@@ -78,36 +78,17 @@ export default function Navbar() {
           boxSizing: 'border-box'
         }}>
           {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
-            <div style={{
-              width: isMobile ? 36 : 44,
-              height: isMobile ? 36 : 44,
-              background: 'linear-gradient(135deg, #000000 0%, #1a1208 100%)',
-              borderRadius: '12px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
-              flexShrink: 0
-            }}>
-              <Leaf size={isMobile ? 18 : 22} color="white" />
-            </div>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              whiteSpace: 'nowrap'
-            }}>
-              <span style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: isMobile ? '20px' : '26px',
-                fontWeight: 900,
-                color: scrolled || !isHome ? '#000000' : isHome ? (isMobile ? '#000000' : '#ffffff') : '#000000',
-                textShadow: !scrolled && isHome && !isMobile ? '0 2px 8px rgba(0,0,0,0.6)' : 'none',
-                lineHeight: 1,
-                letterSpacing: '-0.01em'
-              }}>
-                Nirmalyam Krafts
-              </span>
-            </div>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0 }}>
+            <img 
+              src="/Nirmalyam%20Logo-modified.png" 
+              alt="Nirmalyam Krafts Logo" 
+              style={{ 
+                height: isMobile ? '56px' : '72px', 
+                width: 'auto', 
+                objectFit: 'contain',
+                transition: 'all 0.3s ease'
+              }} 
+            />
           </Link>
 
           {/* Desktop Nav */}

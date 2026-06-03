@@ -81,15 +81,13 @@ export const Sidebar = () => {
             <div className="border-b border-emerald-100 px-6 pb-5 pt-6">
               <div className="mb-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg">
-                    <Leaf className="h-6 w-6" />
-                  </div>
-
+                  <img 
+                    src="/Nirmalyam%20Logo-modified.png" 
+                    alt="Nirmalyam Logo" 
+                    className="h-16 w-auto object-contain" 
+                  />
                   <div>
-                    <h1 className="text-lg font-bold tracking-tight text-gray-900">
-                      Nirmalyam
-                    </h1>
-                    <p className="text-xs font-medium text-emerald-700">
+                    <p className="text-[10px] font-bold tracking-wider text-emerald-700 uppercase leading-none">
                       Admin Portal
                     </p>
                   </div>

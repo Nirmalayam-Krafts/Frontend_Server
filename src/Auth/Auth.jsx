@@ -74,8 +74,16 @@ export default function AuthView({
         ></div>
 
         <div className="relative z-10 max-w-lg text-white">
-          <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8 border border-white/20">
-            <Leaf size={32} className="text-emerald-400" />
+          <div className="mb-8">
+            <img 
+              src="/Nirmalyam%20Logo-modified.png" 
+              alt="Nirmalyam Krafts Logo" 
+              style={{ 
+                height: '96px', 
+                width: 'auto', 
+                objectFit: 'contain'
+              }} 
+            />
           </div>
 
           <h1 className="text-5xl font-black font-headline mb-6 leading-tight">

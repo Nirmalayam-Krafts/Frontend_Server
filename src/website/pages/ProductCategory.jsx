@@ -28,7 +28,7 @@ const categoryData = {
     id: 'ecocraft',
     title: 'Ecocraft Collection',
     image: '/images/collection_ecocraft_vibrant.png',
-    minOrder: '500 UNITS',
+    minOrder: '100 UNITS',
     color: '#4ade80',
     description: 'Our signature high-strength kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
     longDescription: 'Crafted from sustainably sourced FSC-certified fibers, these bags are designed to elevate your brand\'s presence while honoring the planet. Featuring premium twisted paper handles and reinforced bottoms.',
@@ -72,7 +72,7 @@ const categoryData = {
       { label: 'Features', value: 'Oil-Resistant', icon: Settings },
       { label: 'Certification', value: 'FDA Approved', icon: ShieldCheck },
       { label: 'Food Safe', value: 'PFAS-Free', icon: CheckCircle2 },
-      { label: 'Min Order', value: '1,000 units', icon: Package }
+      { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_gallery_1.png' },
@@ -84,7 +84,7 @@ const categoryData = {
     id: 'luxury',
     title: 'Luxury Kraft Bags',
     image: '/images/collection_luxury_vibrant.png',
-    minOrder: '200 UNITS',
+    minOrder: '100 UNITS',
     color: '#c09457',
     description: 'High-thickness boards and exquisite finishes that redefine paper packaging.',
     longDescription: 'Our Luxury collection represents the pinnacle of sustainable packaging. Heavyweight boards provide a rigid silhouette, hand-finished with cotton ribbon handles and custom foiling.',
@@ -100,7 +100,7 @@ const categoryData = {
       { label: 'Handles', value: 'Satin / Cotton', icon: Heart },
       { label: 'Finishing', value: 'UV / Gold Foil', icon: Award },
       { label: 'Refinement', value: 'Hand-Finished', icon: Settings },
-      { label: 'Min Order', value: '200 units', icon: Package }
+      { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/generated/luxury_gallery_1.png' },
@@ -112,7 +112,7 @@ const categoryData = {
     id: 'pouches',
     title: 'Eco-Pouches',
     image: '/images/prod_pouches_paper.png',
-    minOrder: '500 UNITS',
+    minOrder: '100 UNITS',
     color: '#1a4a2e',
     description: 'Modern stand-up pouches with a premium matte paper texture for dry goods.',
     longDescription: 'Our Eco-Pouches use a specialized paper-based laminate that provides a high-moisture barrier while maintaining a beautiful biological feel. Perfect for coffee, snacks, and nuts.',
@@ -128,7 +128,7 @@ const categoryData = {
       { label: 'Barrier', value: 'Aroma-Proof', icon: ShieldCheck },
       { label: 'Capacity', value: '100g - 2kg', icon: Scale },
       { label: 'Certification', value: 'Sustainably Sourced', icon: Leaf },
-      { label: 'Min Order', value: '500 units', icon: Package }
+      { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Stand-up Pouch', desc: 'Retail-ready design', image: '/images/prod_pouches_paper.png' },
@@ -140,7 +140,7 @@ const categoryData = {
     id: 'flat-handle',
     title: 'Flat Handle Bags',
     image: '/images/prod_flat_paper.png',
-    minOrder: '2000 UNITS',
+    minOrder: '100 UNITS',
     color: '#145c38',
     description: 'Sturdy, economical retail solutions with a visible natural paper fiber texture.',
     longDescription: 'The Flat Handle range is engineered for high-volume retail environments where strength and cost-efficiency are paramount. Features reinforced flat handles for maximum comfort.',
@@ -156,7 +156,7 @@ const categoryData = {
       { label: 'Load Test', value: 'Up to 10kg', icon: Scale },
       { label: 'Base', value: 'Block-Bottomed', icon: Package },
       { label: 'Finish', value: 'Natural Matte', icon: Zap },
-      { label: 'Min Order', value: '2,000 units', icon: Package }
+      { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Supermarket Carry', desc: 'High-volume solution', image: '/images/prod_flat_paper.png' },
@@ -168,7 +168,7 @@ const categoryData = {
     id: 'industrial',
     title: 'Industrial Kraft Rolls',
     image: '/images/prod_rolls_paper.png',
-    minOrder: '5 UNITS',
+    minOrder: '100 UNITS',
     color: '#4a3728',
     description: 'Heavy-duty industrial rolls designed for maximum protection and shipping.',
     longDescription: 'Our industrial-grade kraft paper rolls are manufactured for superior tensile strength and puncture resistance. Ideal for inter-city shipping and bulk item protection.',
@@ -184,7 +184,7 @@ const categoryData = {
       { label: 'Tensile Strength', value: 'Industrial Grade', icon: Zap },
       { label: 'Composition', value: 'Recycled Kraft', icon: Layers },
       { label: 'Application', value: 'Bulk Shipping', icon: Settings },
-      { label: 'Min Order', value: '5 Large Rolls', icon: Package }
+      { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/industrial_rolls_paper_grid.png' },
