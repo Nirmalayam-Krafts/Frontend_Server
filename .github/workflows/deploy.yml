@@ -77,6 +77,19 @@ jobs:
       url: http://187.127.169.86
 
     steps:
+      - name: Checkout source (to get docker-compose.production.yml)
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.production.yml to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          port:     22
+          source:   "docker-compose.production.yml"
+          target:   ${{ secrets.VPS_DEPLOY_PATH }}
+
       - name: SSH → Pull image and rolling-update frontend
         uses: appleboy/ssh-action@v1.0.3
         with:
