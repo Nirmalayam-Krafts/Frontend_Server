@@ -76,7 +76,7 @@ export default function AuthView({
         <div className="relative z-10 max-w-lg text-white">
           <div className="mb-8">
             <img 
-              src="/Nirmalyam%20Logo-modified.png" 
+              src="/Nirmalyam_Logo-removebg-preview.png" 
               alt="Nirmalyam Krafts Logo" 
               style={{ 
                 height: '96px', 

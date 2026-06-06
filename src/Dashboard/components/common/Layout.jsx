@@ -82,7 +82,7 @@ export const Sidebar = () => {
               <div className="mb-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <img 
-                    src="/Nirmalyam%20Logo-modified.png" 
+                    src="/Nirmalyam_Logo-removebg-preview.png" 
                     alt="Nirmalyam Logo" 
                     className="h-16 w-auto object-contain" 
                   />
