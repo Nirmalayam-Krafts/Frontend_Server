@@ -64,7 +64,9 @@ export default function Navbar() {
           backdropFilter: scrolled || !isHome ? 'blur(20px)' : 'none',
           boxShadow: scrolled ? 'var(--shadow-sm)' : 'none',
           borderBottom: scrolled ? '1px solid rgba(192, 148, 87, 0.15)' : 'none',
-          padding: scrolled ? '10px 0' : '18px 0',
+          padding: isMobile
+            ? (scrolled ? '6px 0' : '12px 0')
+            : (scrolled ? '10px 0' : '18px 0'),
         }}
       >
         <div className="container" style={{
@@ -83,7 +85,9 @@ export default function Navbar() {
               src="/Nirmalyam_Logo-removebg-preview.png" 
               alt="Nirmalyam Krafts Logo" 
               style={{ 
-                height: isMobile ? '56px' : '72px', 
+                height: isMobile
+                  ? (scrolled ? '64px' : '78px')
+                  : (scrolled ? '80px' : '100px'), 
                 width: 'auto', 
                 objectFit: 'contain',
                 transition: 'all 0.3s ease'

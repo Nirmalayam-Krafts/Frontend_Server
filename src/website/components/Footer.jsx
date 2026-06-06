@@ -102,10 +102,10 @@ export default function Footer() {
           <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
               <img 
-                src="/Nirmalyam_Logo-removebg-preview.png" 
+                src="/Nirmalyam Logo-modified.png" 
                 alt="Nirmalyam Krafts Logo" 
                 style={{ 
-                  height: '76px', 
+                  height: '130px', 
                   width: 'auto', 
                   objectFit: 'contain'
                 }} 
