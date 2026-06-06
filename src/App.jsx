@@ -11,6 +11,7 @@ import Sustainability from "./website/pages/Sustainability";
 import Contact from "./website/pages/Contact";
 import ProductCategory from "./website/pages/ProductCategory";
 import FloatingWidgets from "./website/components/FloatingWidgets";
+import PromotionalPopup from "./website/components/PromotionalPopup";
 import NotFound from "./website/pages/NotFound";
 import PrivacyPolicy from "./website/pages/PrivacyPolicy";
 import TermsOfService from "./website/pages/TermsOfService";
@@ -194,6 +195,7 @@ function AppLayout() {
 
       {!isDashboardRoute && <Footer />}
       {!isDashboardRoute && <FloatingWidgets />}
+      {!isDashboardRoute && <PromotionalPopup />}
 
       {notification && (
         <Toast

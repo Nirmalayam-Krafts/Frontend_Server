@@ -471,7 +471,7 @@ export default function Contact() {
                     </div>
                     <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--kraft-950)', marginBottom: 16 }}>Message Sent</h2>
                     <p style={{ color: 'var(--kraft-600)', fontSize: 18, marginBottom: 40, lineHeight: 1.6 }}>
-                      Thank you for choosing Nirmalyam. An expert consultant will review your specifications and reach out within 60 minutes.
+                      Thank you for choosing Nirmalyam. Our team will review your specifications and reach out within 60 minutes.
                     </p>
                     <button onClick={handleReset} className="btn-primary" style={{ margin: '0 auto' }}>Send Another Inquiry</button>
                   </div>
@@ -485,10 +485,10 @@ export default function Contact() {
                         marginBottom: 12,
                         letterSpacing: '-0.02em'
                       }}>
-                        Consult an Expert
+                        Request a Quote
                       </h2>
                       <p style={{ fontSize: 16, color: 'var(--kraft-500)', maxWidth: 450, lineHeight: 1.6 }}>
-                        Tell us about your brand requirements. We provide complimentary technical consulting and sample kits for serious inquiries.
+                        Tell us about your brand requirements. We provide complimentary design support and sample kits for serious inquiries.
                       </p>
                     </div>
 
@@ -587,7 +587,7 @@ export default function Contact() {
                         e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
                       }}
                       >
-                        {loading ? 'Processing Your Request...' : 'Initialize Consultation'} <Send size={20} />
+                        {loading ? 'Processing Your Request...' : 'Request a Quote'} <Send size={20} />
                       </button>
                     </form>
                   </>
@@ -607,7 +607,7 @@ export default function Contact() {
                }}>
                  <img 
                    src="/images/generated/contact_consulting.png" 
-                   alt="Nirmalyam Consulting" 
+                   alt="Nirmalyam Custom Packaging Support" 
                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                  />
                  <div style={{
@@ -626,7 +626,7 @@ export default function Contact() {
 
                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
                  {[
-                   { label: 'Consultation', value: '1 Business Hour', icon: Clock },
+                   { label: 'Response Time', value: '1 Business Hour', icon: Clock },
                    { label: 'Global Standard', value: 'ISO 9001:2015', icon: ShieldCheck },
                    { label: 'Logistics', value: 'PAN India Fleet', icon: Send },
                  ].map(({ label, value, icon: Icon }) => (
