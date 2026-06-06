@@ -1,0 +1,70 @@
+# ================================================================
+# Nirmalayam Krafts — Frontend + Backend Stack
+# Joins the EXISTING nirmalyam-network created by the WA module.
+# MongoDB and Redis are already running — no new containers needed.
+# ================================================================
+
+networks:
+  # Declare the existing network as external so Docker Compose
+  # joins it rather than attempting to create a new one.
+  nirmalyam-network:
+    external: true
+    name: nirmalyam-network
+
+services:
+
+  # ──────────────────────────────────────────────────────────────
+  # Backend — Express 5 + TypeScript
+  # Connects to the already-running nirmalyam-mongodb container
+  # over the shared nirmalyam-network bridge.
+  # ──────────────────────────────────────────────────────────────
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/nirmalayam-krafts/backend-server:latest}
+    container_name: nirmalyam-backend
+    restart: unless-stopped
+    env_file:
+      - .env.backend          # Written by CI/CD on every deploy
+    environment:
+      NODE_ENV: production
+      PORT: "3010"
+    networks:
+      - nirmalyam-network
+    # NO ports: block — only reachable internally through Nginx proxy on port 80
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 25s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ──────────────────────────────────────────────────────────────
+  # Frontend — React 19 SPA served by Nginx
+  # /api/* proxied internally to backend:3010
+  # ──────────────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/nirmalayam-krafts/frontend-server:latest}
+    container_name: nirmalyam-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - nirmalyam-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
