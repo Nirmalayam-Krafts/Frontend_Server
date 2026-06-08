@@ -87,14 +87,10 @@ export default function Navbar() {
           right: 0,
           zIndex: 1000,
           transition: 'top 0.3s ease, background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease',
-          background: scrolled
-            ? 'rgba(253, 249, 243, 0.96)'
-            : isHome
-              ? 'transparent'
-              : 'rgba(253, 249, 243, 0.96)',
-          backdropFilter: scrolled || !isHome ? 'blur(20px)' : 'none',
-          boxShadow: scrolled ? 'var(--shadow-sm)' : 'none',
-          borderBottom: scrolled ? '1px solid rgba(192, 148, 87, 0.15)' : 'none',
+          background: 'rgba(253, 249, 243, 0.96)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: scrolled ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+          borderBottom: '1px solid rgba(192, 148, 87, 0.15)',
           padding: isMobile
             ? (scrolled ? '6px 0' : '12px 0')
             : (scrolled ? '10px 0' : '18px 0'),
