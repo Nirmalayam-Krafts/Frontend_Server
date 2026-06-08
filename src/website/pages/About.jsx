@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Leaf, Heart, Globe, Users, Award, ArrowRight, Mail, Phone, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import PagePopup from '../components/PagePopup';
 
 /* ── Values ── */
 const values = [
@@ -16,7 +17,7 @@ const visionaries = [
     role: 'Managing Director',
     email: 'rajesh@nirmalyamkrafts.com',
     phone: '+91 98765 43210',
-    desc: 'With over 20 years of experience in sustainable manufacturing, Rajesh leads the vision of making plastic-free packaging accessible to all.',
+    desc: 'With over 20 years of experience in sustainable manufacturing, Rajesh leads the vision of making plastic-free packaging highly affordable and accessible to all brands.',
     image: '/images/generated/owner_1.png'
   },
   {
@@ -95,8 +96,8 @@ export default function About() {
                 marginBottom: 28,
                 lineHeight: 1.05
               }}>
-                Artisanal Spirit,<br />
-                <span style={{ color: 'var(--kraft-300)' }}>Future-Proof Purity</span>
+                Factory Rates,<br />
+                <span style={{ color: '#4ade80' }}>Unbeatable Value</span>
               </h1>
               <p style={{
                 fontSize: isMobile ? '18px' : '22px',
@@ -105,8 +106,8 @@ export default function About() {
                 lineHeight: 1.8,
                 margin: isMobile || isTablet ? '0 auto' : '0'
               }}>
-                {isMobile ? "Pioneers in premium packaging — luxury that honors our earth through meticulous craftsmanship." :
-                  "Pioneers in premium, zero-waste packaging. We believe true luxury shouldn't cost the earth, but rather honor its preservation through meticulous craftsmanship."}
+                {isMobile ? "India's most affordable premium packaging — luxury that honors our earth at wholesale factory rates." :
+                  "Pioneers in premium, zero-waste packaging. We believe true luxury shouldn't cost the earth or your business, which is why we offer our bags at the lowest direct-from-factory rates in India."}
               </p>
             </div>
 
@@ -117,7 +118,7 @@ export default function About() {
               margin: isMobile || isTablet ? '60px auto 0' : '0'
             }}>
               <img
-                src="/images/generated/about_hero_branded.png"
+                src="/images/new/VibrantCOlers.png"
                 alt="Nirmalyam Kraft Artisan Collection"
                 style={{
                   width: '100%',
@@ -158,7 +159,7 @@ export default function About() {
                   zIndex: -1
                 }} />
                 <img
-                  src="/images/generated/artisan_nirmalyam_kraft.png"
+                  src="/images/new/TYPES.png"
                   alt="Artisan Crafting Nirmalyam Kraft Bag"
                   style={{
                     width: '100%',
@@ -308,7 +309,7 @@ export default function About() {
             <div className="anim-fade-up-slow" style={{ order: isMobile || isTablet ? 1 : 0 }}>
               <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-3xl)', boxShadow: 'var(--shadow-2xl)' }}>
                 <img 
-                  src="/images/generated/quality_nirmalyam_branded.png" 
+                  src="/images/new/VibrantCOlers.png" 
                   alt="Quality Assurance - Nirmalyam Kraft Colorful Bags" 
                   style={{
                     width: '100%',
@@ -482,6 +483,9 @@ export default function About() {
           </div>
         </div>
       </section>
+
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="about" />
 
       <style>{`
         @keyframes pulse {

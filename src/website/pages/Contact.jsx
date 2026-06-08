@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Mail, Phone, MapPin, MessageCircle, Clock, Send, Check, AlertCircle, Plus, Minus, ShieldCheck } from 'lucide-react';
 import { useAuthContext } from '../../context/Adminauth';
 import { useQueryClient } from '@tanstack/react-query';
+import PagePopup from '../components/PagePopup';
 
 /* ── Quick info cards ── */
 const contacts = [
@@ -18,9 +19,9 @@ const contacts = [
   {
     icon: Phone,
     title: 'Call Us',
-    value: '+1 (555) 179-0437',
+    value: '+91 90490 01299',
     sub: 'Mon – Sat, 9 AM – 7 PM IST',
-    href: 'tel:+15551790437',
+    href: 'tel:+919049001299',
     color: 'var(--kraft-600)',
     bg: 'rgba(192,148,87,0.1)',
   },
@@ -29,7 +30,7 @@ const contacts = [
     title: 'WhatsApp',
     value: 'Chat for Instant Quote',
     sub: 'Usually replies in under 5 minutes',
-    href: 'https://wa.me/15551790437?text=Hi%20',
+    href: 'https://wa.me/919049001299?text=Hi%20',
     color: '#25d366',
     bg: 'rgba(37,211,102,0.08)',
   },
@@ -348,8 +349,8 @@ export default function Contact() {
               lineHeight: 1.05,
               textShadow: '0 10px 30px rgba(0,0,0,0.5)'
             }}>
-              Your Vision,<br />
-              <span style={{ color: 'var(--kraft-300)' }}>Our Craftsmanship</span>
+              Factory Pricing,<br />
+              <span style={{ color: '#4ade80' }}>Unbeatable Rates</span>
             </h1>
             <p style={{
               fontSize: 'clamp(17px, 2.5vw, 22px)',
@@ -359,7 +360,7 @@ export default function Contact() {
               margin: isMobile || isTablet ? '0 auto' : '0',
               fontWeight: 400
             }}>
-              Connect with India's leading sustainable packaging experts. From custom dimensions to high-end finishes, we build the bags that define your brand.
+              Connect with India's most affordable sustainable packaging team. Get direct factory-wholesale pricing on custom designs and bulk orders.
             </p>
           </div>
         </div>
@@ -471,7 +472,7 @@ export default function Contact() {
                     </div>
                     <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--kraft-950)', marginBottom: 16 }}>Message Sent</h2>
                     <p style={{ color: 'var(--kraft-600)', fontSize: 18, marginBottom: 40, lineHeight: 1.6 }}>
-                      Thank you for choosing Nirmalyam. An expert consultant will review your specifications and reach out within 60 minutes.
+                      Thank you for choosing Nirmalyam. We will review your specifications and reach out within 60 minutes.
                     </p>
                     <button onClick={handleReset} className="btn-primary" style={{ margin: '0 auto' }}>Send Another Inquiry</button>
                   </div>
@@ -485,10 +486,10 @@ export default function Contact() {
                         marginBottom: 12,
                         letterSpacing: '-0.02em'
                       }}>
-                        Consult an Expert
+                        Get a Cheap Bulk Quote
                       </h2>
                       <p style={{ fontSize: 16, color: 'var(--kraft-500)', maxWidth: 450, lineHeight: 1.6 }}>
-                        Tell us about your brand requirements. We provide complimentary technical consulting and sample kits for serious inquiries.
+                        Best wholesale price matching guaranteed! Tell us your brand requirements and we will provide the most affordable direct factory quotation.
                       </p>
                     </div>
 
@@ -587,7 +588,7 @@ export default function Contact() {
                         e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
                       }}
                       >
-                        {loading ? 'Processing Your Request...' : 'Initialize Consultation'} <Send size={20} />
+                        {loading ? 'Processing Your Request...' : 'Submit Inquiry'} <Send size={20} />
                       </button>
                     </form>
                   </>
@@ -607,7 +608,7 @@ export default function Contact() {
                }}>
                  <img 
                    src="/images/generated/contact_consulting.png" 
-                   alt="Nirmalyam Consulting" 
+                   alt="Nirmalyam Packaging" 
                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                  />
                  <div style={{
@@ -626,7 +627,7 @@ export default function Contact() {
 
                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
                  {[
-                   { label: 'Consultation', value: '1 Business Hour', icon: Clock },
+                   { label: 'Response Time', value: '1 Business Hour', icon: Clock },
                    { label: 'Global Standard', value: 'ISO 9001:2015', icon: ShieldCheck },
                    { label: 'Logistics', value: 'PAN India Fleet', icon: Send },
                  ].map(({ label, value, icon: Icon }) => (
@@ -790,6 +791,9 @@ export default function Contact() {
           padding-right: 50px;
         }
       `}</style>
+
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="contact" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Leaf, Coffee, Crown, ShieldCheck, Zap, Globe, MessageSquare, Play, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import PagePopup from '../components/PagePopup';
 
 const categories = [
   {
@@ -11,7 +12,8 @@ const categories = [
     image: '/images/collection_ecocraft_vibrant.png',
     videoStill: '/images/generated/video_ecocraft.png',
     color: '#4ade80',
-    features: ['100-140 GSM Kraft', 'Twisted Paper Handles', 'Eco-friendly Glues'],
+    features: ['100-140 GSM Kraft', 'Twisted Paper Handles', 'Super Budget Friendly'],
+    priceBadge: 'From ₹2/Bag'
   },
   {
     id: 'fnb',
@@ -21,7 +23,8 @@ const categories = [
     image: '/images/collection_fnb_vibrant.png',
     videoStill: '/images/generated/video_fnb.png',
     color: '#f59e0b',
-    features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Heat Resistant'],
+    features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Lowest Wholesale Cost'],
+    priceBadge: 'Bulk Factory Rates'
   },
   {
     id: 'luxury',
@@ -31,7 +34,8 @@ const categories = [
     image: '/images/collection_luxury_vibrant.png',
     videoStill: '/images/generated/video_luxury.png',
     color: '#c09457',
-    features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Cotton Ribbon Handles'],
+    features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Highly Affordable Rates'],
+    priceBadge: 'Low Wholesale Prices'
   }
 ];
 
@@ -96,7 +100,7 @@ export default function Products() {
                 textAlign: isMobile || isTablet ? 'center' : 'left'
               }}>
                 Exceptional Packaging,<br />
-                <span style={{ color: 'var(--kraft-300)' }}>Zero Plastic Waste</span>
+                <span style={{ color: '#4ade80' }}>Factory Wholesale Pricing</span>
               </h1>
               <p style={{
                 fontSize: 'clamp(16px, 2vw, 19px)',
@@ -233,15 +237,36 @@ export default function Products() {
                   }} />
 
                   <div style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: isMobile ? 11 : 14,
-                    fontWeight: 700,
-                    letterSpacing: '0.25em',
-                    textTransform: 'uppercase',
-                    color: cat.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    justifyContent: isMobile ? 'center' : 'flex-start',
                     marginBottom: isMobile ? 8 : 16
                   }}>
-                    {cat.subtitle}
+                    <span style={{
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: isMobile ? 11 : 14,
+                      fontWeight: 700,
+                      letterSpacing: '0.25em',
+                      textTransform: 'uppercase',
+                      color: cat.color,
+                    }}>
+                      {cat.subtitle}
+                    </span>
+                    {cat.priceBadge && (
+                      <span style={{
+                        background: '#22c55e',
+                        color: 'white',
+                        fontSize: '10px',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontWeight: 900,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {cat.priceBadge}
+                      </span>
+                    )}
                   </div>
                   <h2 style={{
                     fontFamily: "'Playfair Display', serif",
@@ -358,6 +383,9 @@ export default function Products() {
           </div>
         </div>
       </section>
+
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="products" />
 
     </div>
   );

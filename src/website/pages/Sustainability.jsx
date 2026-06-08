@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Leaf, TreePine, Droplets, Truck, Recycle, Check, ArrowRight } from 'lucide-react';
+import { Leaf, TreePine, Droplets, Truck, Recycle, Check, ArrowRight, Cog } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import PagePopup from '../components/PagePopup';
 
 /* ── Green Print steps ── */
 const greenPrint = [
-  { icon: TreePine, title: 'Ethical Sourcing', desc: 'We source kraft paper from managed forests where for every tree harvested, three are planted.', image: '/images/generated/managed_forest.png' },
+  { icon: Cog, title: 'Manufacturing Excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/generated/managed_forest.png' },
   { icon: Droplets, title: 'Non-Toxic Printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.', image: '/images/generated/eco_inks.png' },
   { icon: Truck, title: 'Efficient Transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.', image: '/images/generated/step_efficient_transit_1775638398608.png' },
   { icon: Recycle, title: '100% Compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.', image: '/images/generated/step_compostable_1775638415138.png' },
@@ -21,7 +22,7 @@ const paperBenefits = [
   { title: '90 Day Biodegradation', desc: 'Breaks down naturally without leaving microplastics, returning nutrients to the soil.' },
   { icon: Recycle, title: 'Infinite Recyclability', desc: 'Paper fibers can be recycled up to 7 times, making it a circular economy champion.' },
   { title: 'Renewable Resource', desc: 'Sourced from FSC forests, ensuring a net-positive impact on global tree cover.' },
-  { title: 'Premium Branding', desc: 'Offers a tactile, luxurious feel that plastic simply cannot replicate.' }
+  { title: 'Affordable Branding', desc: 'Offers a tactile, premium branding experience at the lowest wholesale cost per bag.' }
 ];
 
 /* ── Success Stories ── */
@@ -38,7 +39,7 @@ const caseStudies = [
     transformation: 'Eco-Friendly Fulfillment',
     result: 'Reduced logistical carbon footprint by 22% through optimized kraft carton transit.',
     features: ['Reduced Volumetric Weight', 'Biodegradable Fillers', 'Circular Supply Chain'],
-    image: '/images/generated/case_study_2.png'
+    image: '/images/new/ECO.png'
   }
 ];
 
@@ -103,8 +104,8 @@ export default function Sustainability() {
               lineHeight: 1.8,
               margin: isMobile || isTablet ? '0 auto' : '0'
             }}>
-              {isMobile ? "Discover how our 'Green Print' is reshaping the future of packaging through circular resource management." : 
-              "We don't just make bags; we engineer environmental solutions. Discover how our 'Green Print' is reshaping the future of packaging through circular resource management."}
+              {isMobile ? "Discover affordable eco packaging solutions. Going green doesn't have to be expensive with our wholesale pricing." : 
+              "Going green doesn't have to break your budget. Discover how we manufacture the most affordable, plastic-free custom packaging in India at direct wholesale rates."}
             </p>
           </div>
         </div>
@@ -436,6 +437,9 @@ export default function Sustainability() {
           </div>
         </div>
       </section>
+
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="sustainability" />
     </div>
   );
 }

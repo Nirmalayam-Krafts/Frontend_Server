@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Package, Palette, Layers, Eye, RotateCcw, Download, Share2, Leaf } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import PagePopup from '../components/PagePopup';
 
 const bagTypes = [
   { id: 'ecocraft', label: 'Ecocraft Standard', desc: 'Tall, robust bags perfect for retail and daily carry.', color: 'var(--eco-600)' },
@@ -295,6 +296,9 @@ export default function DesignYourProduct() {
           </div>
         </div>
       </div>
+
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="designyourproduct" />
     </div>
   );
 }

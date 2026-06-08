@@ -48,23 +48,49 @@ export default function Navbar() {
 
   return (
     <>
+      {/* Top Banner for Affordability */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '40px',
+        background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: isMobile ? '11px' : '13px',
+        fontWeight: 700,
+        zIndex: 1001,
+        fontFamily: "'Inter', sans-serif",
+        boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+        padding: '0 12px',
+        boxSizing: 'border-box',
+        transition: 'transform 0.3s ease',
+        transform: scrolled ? 'translateY(-40px)' : 'translateY(0)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
+          <span style={{ background: '#f59e0b', color: '#1e1b4b', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', textTransform: 'uppercase', fontWeight: 900 }}>Lowest Price Guarantee</span>
+          <span>India's Most Affordable Custom Kraft Bags — Direct Wholesale Factory Rates!</span>
+        </div>
+      </div>
+
       <nav
         style={{
           position: 'fixed',
-          top: 0,
+          top: scrolled ? 0 : '40px',
           left: 0,
           right: 0,
           zIndex: 1000,
-          transition: 'background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease',
+          transition: 'top 0.3s ease, background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease',
           background: scrolled
             ? 'rgba(253, 249, 243, 0.96)'
-            : isHome
-              ? 'transparent'
-              : 'rgba(253, 249, 243, 0.96)',
-          backdropFilter: scrolled || !isHome ? 'blur(20px)' : 'none',
-          boxShadow: scrolled ? 'var(--shadow-sm)' : 'none',
-          borderBottom: scrolled ? '1px solid rgba(192, 148, 87, 0.15)' : 'none',
-          padding: scrolled ? '10px 0' : '18px 0',
+            : 'rgba(253, 249, 243, 0.96)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: scrolled ? 'var(--shadow-sm)' : '0 1px 3px rgba(0,0,0,0.05)',
+          borderBottom: '1px solid rgba(192, 148, 87, 0.15)',
+          padding: scrolled ? '6px 0' : '8px 0',
         }}
       >
         <div className="container" style={{
@@ -78,17 +104,27 @@ export default function Navbar() {
           boxSizing: 'border-box'
         }}>
           {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0 }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', flexShrink: 0 }}>
             <img 
               src="/Nirmalyam_Logo-removebg-preview.png" 
               alt="Nirmalyam Krafts Logo" 
               style={{ 
-                height: isMobile ? '56px' : '72px', 
+                height: isMobile ? '64px' : '88px', 
                 width: 'auto', 
                 objectFit: 'contain',
                 transition: 'all 0.3s ease'
               }} 
             />
+            <span style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: isMobile ? '18px' : '24px',
+              fontWeight: 700,
+              color: 'var(--kraft-950)',
+              letterSpacing: '-0.5px',
+              display: isMobile ? 'none' : 'block'
+            }}>
+              Nirmalyam Krafts
+            </span>
           </Link>
 
           {/* Desktop Nav */}
@@ -109,12 +145,10 @@ export default function Navbar() {
                       fontSize: '15px',
                       fontWeight: 700,
                       textDecoration: 'none',
-                      color: scrolled || !isHome
-                        ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
-                        : isActive ? 'var(--eco-400)' : 'white',
-                      textShadow: !scrolled && isHome ? '0 2px 8px rgba(0,0,0,0.8)' : 'none',
+                      color: isActive ? 'var(--eco-700)' : 'var(--kraft-800)',
+                      textShadow: 'none',
                       background: isActive
-                        ? scrolled || !isHome ? 'rgba(22,163,74,0.06)' : 'rgba(255,255,255,0.12)'
+                        ? 'rgba(22,163,74,0.06)' 
                         : 'transparent',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     })}
@@ -169,12 +203,10 @@ export default function Navbar() {
                     fontSize: '15px',
                     fontWeight: 700,
                     textDecoration: 'none',
-                    color: scrolled || !isHome
-                      ? isActive ? 'var(--eco-700)' : 'var(--kraft-800)'
-                      : isActive ? 'var(--eco-400)' : 'white',
-                    textShadow: !scrolled && isHome ? '0 2px 8px rgba(0,0,0,0.8)' : 'none',
+                    color: isActive ? 'var(--eco-700)' : 'var(--kraft-800)',
+                    textShadow: 'none',
                     background: isActive
-                      ? scrolled || !isHome ? 'rgba(22,163,74,0.06)' : 'rgba(255,255,255,0.12)'
+                      ? 'rgba(22,163,74,0.06)' 
                       : 'transparent',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   })}

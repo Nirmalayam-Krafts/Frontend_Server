@@ -22,6 +22,7 @@ import {
   FileText,
   Weight
 } from 'lucide-react';
+import PagePopup from '../components/PagePopup';
 
 const categoryData = {
   ecocraft: {
@@ -47,15 +48,15 @@ const categoryData = {
       { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
     ],
     gallery: [
-      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/generated/ecocraft_gallery_1.png' },
-      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/generated/ecocraft_gallery_2.png' },
-      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/generated/ecocraft_gallery_3.png' }
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/new/eco1.png' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/new/eco2.png' },
+      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/new/eco3.png' }
     ]
   },
   fnb: {
     id: 'fnb',
     title: 'F&B Gourmet Bags',
-    image: '/images/collection_fnb_vibrant.png',
+    image: '/images/fnb_main_brown.png',
     minOrder: '100 UNITS',
     color: '#f59e0b',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry.',
@@ -75,15 +76,15 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_gallery_1.png' },
-      { title: 'Pristine White collection', desc: 'Crisp & Clean finish', image: '/images/generated/fnb_gallery_2.png' },
-      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/generated/fnb_gallery_3.png' }
+      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_wide_base_takeaway_1775488815145.png' },
+      { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/generated/fnb_pastry_sleeves_1775488776952.png' },
+      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/generated/fnb_delivery_pouch_1775488853812.png' }
     ]
   },
   luxury: {
     id: 'luxury',
     title: 'Luxury Kraft Bags',
-    image: '/images/collection_luxury_vibrant.png',
+    image: '/images/prod_luxury_premium.png',
     minOrder: '100 UNITS',
     color: '#c09457',
     description: 'High-thickness boards and exquisite finishes that redefine paper packaging.',
@@ -103,9 +104,9 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/generated/luxury_gallery_1.png' },
-      { title: 'Artisanal Finish', desc: 'Hand-crafted excellence', image: '/images/generated/luxury_gallery_2.png' },
-      { title: 'Colorful Premium', desc: 'Signature luxury palette', image: '/images/generated/luxury_gallery_3.png' }
+      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/new/lux1.png' },
+      { title: 'Artisanal Finish', desc: 'Hand-crafted excellence', image: '/images/new/lux2.png' },
+      { title: 'Colorful Premium', desc: 'Signature luxury palette', image: '/images/new/lux3.png' }
     ]
   },
   pouches: {
@@ -167,7 +168,7 @@ const categoryData = {
   industrial: {
     id: 'industrial',
     title: 'Industrial Kraft Rolls',
-    image: '/images/prod_rolls_paper.png',
+    image: '/images/factory_rolls_main.png',
     minOrder: '100 UNITS',
     color: '#4a3728',
     description: 'Heavy-duty industrial rolls designed for maximum protection and shipping.',
@@ -187,9 +188,9 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/industrial_rolls_paper_grid.png' },
-      { title: 'High GSM Roll', desc: 'Superior tensile strength', image: '/images/prod_rolls_paper.png' },
-      { title: 'Custom Length', desc: 'Tailored for logistics', image: '/images/prod_rolls_paper.png' }
+      { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/factory_rolls_gallery1.png' },
+      { title: 'High GSM Roll', desc: 'Superior tensile strength', image: '/images/factory_rolls_gallery2.png' },
+      { title: 'Custom Length', desc: 'Tailored for logistics', image: '/images/factory_rolls_gallery3.png' }
     ]
   }
 };
@@ -216,7 +217,7 @@ export default function ProductCategory() {
   );
 
   const whatsappMessage = `Hi Nirmalyam Krafts, I'm interested in the ${data.title} collection. Could you please share the price list and sample details?`;
-  const whatsappUrl = `https://wa.me/15551790437?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = `https://wa.me/919049001299?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
@@ -715,6 +716,9 @@ export default function ProductCategory() {
           transform: scale(1.1) !important;
         }
       `}</style>
+
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="products" />
     </div>
   );
 }

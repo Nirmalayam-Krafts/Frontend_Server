@@ -7,6 +7,7 @@ import {
   TrendingUp, Users, X, MessageCircle, Send, MapPin
 } from 'lucide-react';
 import { KraftBagSVG } from '../components/KraftsBags';
+import PagePopup from '../components/PagePopup';
 
 /* ── WhatsApp SVG icon ── */
 function WhatsAppIcon({ size = 18 }) {
@@ -78,28 +79,31 @@ const categories = [
     title: 'Ecocraft Bags',
     desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
     icon: Package,
-    image: '/images/collection_ecocraft_vibrant.png',
+    image: '/images/new/ECOHEAD.png',
     color: '#4ade80',
     bg: '#f0fdf4',
     to: '/products#ecocraft',
+    priceBadge: 'From ₹2/Bag'
   },
   {
     title: 'F&B Gourmet Bags',
     desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
     icon: Zap,
-    image: '/images/collection_fnb_vibrant.png',
+    image: '/images/new/F&B.png',
     color: '#f59e0b',
     bg: '#fffbeb',
     to: '/products#fnb',
+    priceBadge: 'Bulk Factory Discount'
   },
   {
     title: 'Luxury Bags',
     desc: 'High-finish, elegant packaging for premium retail, jewelry, and exclusive gifting.',
     icon: Award,
-    image: '/images/collection_luxury_vibrant.png',
+    image: '/images/new/LUXHEADFIXED.png',
     color: '#c09457',
     bg: '#fdf9f3',
     to: '/products#luxury',
+    priceBadge: 'Low Wholesale Rates'
   },
 ];
 
@@ -115,17 +119,17 @@ const whyCards = [
   },
   {
     id: 2,
-    title: '100%',
-    label: 'On-Time Delivery',
-    image: '/images/generated/ecocraft_vibrant_branded.png',
+    title: 'Lowest Price',
+    label: 'Guaranteed Factory Rates',
+    image: '/images/new/100DElivery.png',
     icon: Shield,
-    accent: 'var(--kraft-500)'
+    accent: '#22c55e'
   },
   {
     id: 3,
     title: 'Artisanal',
     label: 'Craftsmanship Heritage',
-    image: '/images/generated/artisan_nirmalyam_kraft_new.png',
+    image: '/images/new/ARTISION.png',
     icon: Star,
     accent: '#f59e0b'
   },
@@ -133,7 +137,7 @@ const whyCards = [
     id: 4,
     title: 'Vibrant',
     label: 'Colorful Collections',
-    image: '/images/generated/popup_bags_branded_new.png',
+    image: '/images/new/VibrantCOlers.png',
     icon: TrendingUp,
     accent: '#ec4899'
   },
@@ -142,10 +146,14 @@ const whyCards = [
 export default function Home() {
   const navigate = useNavigate();
   const [activeTestimonial, setActiveTestimonial] = useState(0);
-  const [popupOpen, setPopupOpen] = useState(false);
-  const [popupName, setPopupName] = useState('');
-  const [popupEmail, setPopupEmail] = useState('');
+  const [activeHeroImage, setActiveHeroImage] = useState(0);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+  const heroImages = [
+    '/images/new/HERO1.png',
+    '/images/new/HERO2.png',
+    '/images/new/HERO3.png'
+  ];
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -153,10 +161,8 @@ export default function Home() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  /* ── 6-second popup timer + Reveal Observer ── */
+  /* ── Reveal Observer ── */
   useEffect(() => {
-    const timer = setTimeout(() => setPopupOpen(true), 12000); // 12 seconds
-
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -169,7 +175,6 @@ export default function Home() {
     revealed.forEach(el => observer.observe(el));
 
     return () => {
-      clearTimeout(timer);
       observer.disconnect();
     };
   }, []);
@@ -182,22 +187,13 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  const handlePopupSubmit = (e) => {
-    e.preventDefault();
-    if (!popupName || !popupEmail) return;
-
-    // Redirect to contact page with data
-    navigate('/contact#contact-form', {
-      state: {
-        name: popupName,
-        email: popupEmail
-      }
-    });
-
-    setPopupOpen(false);
-    setPopupName('');
-    setPopupEmail('');
-  };
+  // Auto-cycle hero images
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveHeroImage(prev => (prev + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [heroImages.length]);
 
   const prev = () => setActiveTestimonial(p => (p - 1 + testimonials.length) % testimonials.length);
   const next = () => setActiveTestimonial(p => (p + 1) % testimonials.length);
@@ -214,15 +210,29 @@ export default function Home() {
         alignItems: 'center',
         paddingTop: isMobile ? 80 : 0
       }}>
-        {/* Main Background Image - Colorful bags hanging from tree */}
+      {/* Main Background Image - Cycling hero images */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/images/luxury_hero.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }} />
+          overflow: 'hidden'
+        }}>
+          {heroImages.map((image, idx) => (
+            <div
+              key={idx}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                opacity: idx === activeHeroImage ? 1 : 0,
+                transition: 'opacity 0.8s ease-in-out',
+                zIndex: idx === activeHeroImage ? 1 : 0
+              }}
+            />
+          ))}
+        </div>
 
         {/* Sophisticated Overlays */}
         <div style={{
@@ -250,16 +260,16 @@ export default function Home() {
                gap: 8,
                padding: '8px 20px',
                borderRadius: '100px',
-               border: '1px solid var(--eco-600)',
-               color: 'var(--eco-700)',
+               border: '1px solid #16a34a',
+               color: '#15803d',
                fontSize: 12,
                fontWeight: 700,
                letterSpacing: '0.15em',
                textTransform: 'uppercase',
-               background: 'rgba(34, 197, 94, 0.05)',
+               background: 'rgba(22, 163, 74, 0.08)',
                marginBottom: 24,
             }}>
-              <Leaf size={14} /> Sustainable Solutions
+              <Leaf size={14} /> Wholesale Factory Rates
             </div>
 
             <h2 style={{
@@ -270,7 +280,7 @@ export default function Home() {
               marginBottom: 8,
               lineHeight: 1.2
             }}>
-              The Future of Eco Packaging
+              India's Most Affordable Eco Packaging
             </h2>
 
             <h1 style={{
@@ -282,7 +292,7 @@ export default function Home() {
               lineHeight: 0.95,
               letterSpacing: '-1px'
             }}>
-              Nirmalyam Kraft
+              Nirmalyam Krafts
             </h1>
 
             <p style={{
@@ -294,7 +304,7 @@ export default function Home() {
               maxWidth: 580
             }}>
               Elevating brands through sustainable craftsmanship. <br />
-              <span style={{ color: 'var(--eco-700)' }}>Pure. Bold. Zero-waste.</span>
+              <span style={{ color: 'var(--eco-700)' }}>Factory Pricing. Unbeatable Savings. Zero-waste.</span>
             </p>
 
             <p style={{
@@ -306,12 +316,12 @@ export default function Home() {
               fontWeight: 600
             }}>
               Specializing in ITC ECF paperboards and eco-friendly specialty papers. 
-              We deliver high-performance packaging that ensures your products stay fresh and sustainably stunning.
+              We offer high-performance packaging at the cheapest wholesale rates, ensuring your business stays both green and profitable.
             </p>
 
             {/* Buttons */}
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <a href="https://wa.me/15551790437?text=Hi%20" target="_blank" rel="noreferrer" style={{
+              <a href="https://wa.me/919049001299?text=Hi%20" target="_blank" rel="noreferrer" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 12,
@@ -606,159 +616,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════════════ 6-SECOND POPUP ══════════════════ */}
-      {popupOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            background: 'rgba(10,6,2,0.55)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 24,
-            animation: 'fadeIn 0.3s ease',
-          }}
-          onClick={e => { if (e.target === e.currentTarget) setPopupOpen(false); }}
-        >
-          <div style={{
-            background: 'white',
-            borderRadius: 20,
-            width: '100%',
-            maxWidth: 500,
-            overflow: 'hidden',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.22)',
-            animation: 'fadeInUp 0.35s ease',
-            position: 'relative',
-          }}>
-            {/* Close btn */}
-            <button
-              onClick={() => setPopupOpen(false)}
-              style={{
-                position: 'absolute',
-                top: 14, right: 14,
-                width: 30, height: 30,
-                borderRadius: '50%',
-                background: 'rgba(0,0,0,0.12)',
-                border: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer',
-                zIndex: 1,
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.22)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}
-            >
-              <X size={14} color="white" />
-            </button>
-
-            {/* Popup image */}
-            <div style={{ height: 200, overflow: 'hidden', position: 'relative' }}>
-              <img
-                src="/images/generated/popup_bags_branded_new.png"
-                alt="Nirmalyam kraft bags"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35) 100%)',
-              }} />
-            </div>
-
-            {/* Content */}
-            <div style={{ padding: '28px 32px 32px' }}>
-              <>
-                <h2 style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: '#1a1208',
-                  marginBottom: 8,
-                }}>
-                  Looking for a Quote?
-                </h2>
-                <p style={{ fontSize: 14, color: '#7a6a55', marginBottom: 22, lineHeight: 1.6 }}>
-                  Get custom pricing for your sustainable packaging needs.
-                  We usually reply within 2 hours!
-                </p>
-
-                <form onSubmit={handlePopupSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <input
-                    type="text"
-                    placeholder="Your Name"
-                    value={popupName}
-                    onChange={e => setPopupName(e.target.value)}
-                    style={{ 
-                      fontSize: 14, 
-                      width: '100%',
-                      padding: '14px 18px',
-                      background: 'white',
-                      border: '2px solid var(--kraft-400)', 
-                      borderRadius: 10,
-                      fontFamily: "'Inter', sans-serif",
-                      color: 'var(--kraft-900)',
-                      outline: 'none',
-                    }}
-                    required
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email Address"
-                    value={popupEmail}
-                    onChange={e => setPopupEmail(e.target.value)}
-                    style={{ 
-                      fontSize: 14, 
-                      width: '100%',
-                      padding: '14px 18px',
-                      background: 'white',
-                      border: '2px solid var(--kraft-400)', 
-                      borderRadius: 10,
-                      fontFamily: "'Inter', sans-serif",
-                      color: 'var(--kraft-900)',
-                      outline: 'none',
-                    }}
-                    required
-                  />
-                  <button
-                    type="submit"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      padding: '14px',
-                      background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
-                      color: 'white',
-                      border: '2px solid rgba(192, 148, 87, 0.3)',
-                      borderRadius: 10,
-                      fontWeight: 700,
-                      fontSize: 15,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      marginTop: 4,
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.6)';
-                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(26, 18, 8, 0.2)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'none';
-                      e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.3)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
-                  >
-                    <Send size={16} /> Get Custom Quote
-                  </button>
-                </form>
-              </>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ══════════════════ PAGE POPUP ══════════════════ */}
+      <PagePopup pageType="home" />
 
       {/* ══════════════════ CATEGORIES ══════════════════ */}
       <section
@@ -793,7 +652,7 @@ export default function Home() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28 }}>
-            {categories.map(({ title, desc, icon: Icon, image, color, bg, to }) => (
+            {categories.map(({ title, desc, icon: Icon, image, color, bg, to, priceBadge }) => (
               <Link
                 key={title}
                 to={to}
@@ -817,6 +676,23 @@ export default function Home() {
                     }}>
                       <Icon size={24} color={color} />
                     </div>
+                    {priceBadge && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 20, right: 20,
+                        background: '#22c55e',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        boxShadow: '0 4px 10px rgba(34,197,94,0.3)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {priceBadge}
+                      </div>
+                    )}
                   </div>
                   <div style={{ padding: '32px 32px 40px' }}>
                     <h3 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12, color: 'var(--kraft-900)', fontFamily: "'Playfair Display', serif" }}>{title}</h3>
@@ -1107,9 +983,9 @@ export default function Home() {
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }} className="anim-fade-up">
             <div className="section-label" style={{ letterSpacing: '0.2em' }}>Our Products</div>
-            <h2 className="section-title">Premium Paper Packaging</h2>
+            <h2 className="section-title">Wholesale Kraft Packaging</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', opacity: 0.85 }}>
-              Precision-crafted sustainable solutions designed to elevate your brand's unboxing experience.
+              India's most budget-friendly, high-quality packaging options. Premium look, factory rates.
             </p>
           </div>
 
@@ -1119,13 +995,12 @@ export default function Home() {
             gap: isMobile ? 16 : 32
           }} className="product-grid-3x3">
             {[
-              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury.png' },
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/prod_fnb.png' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches_paper.png' },
-              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper.png' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/prod_rolls_paper.png' },
-              { name: 'Custom Brand Mailers', cat: 'Custom', desc: 'Secure, branded kraft mailers that elevate the unboxing experience.', color: '#ec4899', image: '/images/prod_mailers_paper.png' },
-            ].map(({ name, cat, desc, color, image }, idx) => (
+              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.png', badge: 'Affordable Rates' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/fnb_main_brown.png', badge: 'Wholesale Deal' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches_vbottom.png', badge: 'Budget Option' },
+              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper_colored.png', badge: 'From ₹2.50/pc' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/factory_rolls_main.png', badge: 'Cheapest in India' },
+            ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"
                 style={{
                   padding: 0,
@@ -1150,7 +1025,7 @@ export default function Home() {
 
                   {/* WhatsApp Floating Button */}
                   <a
-                    href={`https://wa.me/15551790437?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
+                    href={`https://wa.me/919049001299?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
                     target="_blank"
                     rel="noreferrer"
                     style={{
@@ -1176,8 +1051,9 @@ export default function Home() {
                   </a>
                 </div>
                 <div style={{ padding: isMobile ? '20px 16px' : '32px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <span className="tag-chip" style={{ background: `${color}12`, color: color, fontSize: 13, padding: '6px 14px', fontWeight: 600, letterSpacing: '0.05em' }}>{cat}</span>
+                    {badge && <span style={{ background: '#22c55e', color: 'white', fontSize: 11, padding: '4px 10px', borderRadius: '4px', fontWeight: 700, textTransform: 'uppercase' }}>{badge}</span>}
                   </div>
                   <h3 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 12, fontFamily: "'Playfair Display', serif" }}>{name}</h3>
                   <p style={{ fontSize: isMobile ? 13 : 16, color: 'var(--kraft-700)', lineHeight: 1.6 }}>{desc}</p>
@@ -1262,13 +1138,14 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
+      {/*
       <section id="testimonials" style={{
         position: 'relative',
         padding: isMobile ? '40px 24px' : '60px 24px',
         overflow: 'hidden',
         background: '#f4ece1',
       }}>
-        {/* Paper Texture Background */}
+        // Paper Texture Background
         <div style={{
           position: 'absolute',
           inset: 0,
@@ -1318,7 +1195,7 @@ export default function Home() {
             minHeight: isMobile ? 300 : 440,
             paddingTop: isMobile ? 40 : 50
           }}>
-            {/* Main Slider Area */}
+            // Main Slider Area
             {testimonials.map((t, idx) => {
               const isActive = idx === activeTestimonial;
               const isPrev = idx === (activeTestimonial - 1 + testimonials.length) % testimonials.length;
@@ -1369,7 +1246,7 @@ export default function Home() {
                     color: 'var(--kraft-950)',
                     position: 'relative'
                   }}>
-                    {/* Floating Profile Image */}
+                    // Floating Profile Image
                     <div style={{
                       width: isMobile ? 80 : 120,
                       height: isMobile ? 80 : 120,
@@ -1415,7 +1292,7 @@ export default function Home() {
               );
             })}
 
-            {/* Navigation Buttons */}
+            // Navigation Buttons
             {!isMobile && (
               <>
                 <button onClick={prev} style={{
@@ -1466,7 +1343,7 @@ export default function Home() {
           </div>
 
 
-          {/* Dots */}
+          // Dots
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 64 }}>
             {testimonials.map((_, i) => (
               <button key={i} onClick={() => setActiveTestimonial(i)} style={{
@@ -1482,6 +1359,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      */}
 
       {/* ══════════════════ CTA ══════════════════ */}
       {/* ══════════════════ CTA ══════════════════ */}
@@ -1541,7 +1419,7 @@ export default function Home() {
             margin: '0 auto 32px',
             lineHeight: 1.5
           }}>
-            Get a free custom quote from our experts — usually within 2 business hours.
+            Get a free custom quote from our team — usually within 2 business hours.
             Sustainable choices made simple.
           </p>
           <div style={{
@@ -1583,7 +1461,7 @@ export default function Home() {
             >
               Request a Free Quote <ArrowRight size={18} />
             </Link>
-            <a href="https://wa.me/15551790437?text=Hi%20" target="_blank" rel="noreferrer" style={{
+            <a href="https://wa.me/919049001299?text=Hi%20" target="_blank" rel="noreferrer" style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 10,

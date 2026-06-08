@@ -4,20 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 const bags = [
   {
     id: 1,
-    image: '/images/bag_vibrant.png',
-    title: 'Artisan Collection',
+    image: '/images/new/HERO1.png',
+    title: 'Sustainable Packaging',
     color: '#eab308'
   },
   {
     id: 2,
-    image: '/images/bag_luxury.png',
-    title: 'Elite Series',
+    image: '/images/new/HERO2.png',
+    title: 'Premium Quality',
     color: '#c09457'
   },
   {
     id: 3,
-    image: '/images/bag_eco.png',
-    title: 'Eco Signature',
+    image: '/images/new/HERO3.png',
+    title: 'Eco Friendly',
     color: '#16a34a'
   }
 ];
