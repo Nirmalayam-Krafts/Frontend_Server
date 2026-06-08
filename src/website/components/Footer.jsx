@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Leaf, Mail, Mail as SubscribeIcon, Phone, MapPin, Globe, ArrowRight } from 'lucide-react';
+import { CONFIG } from '../config';
 
 /* ── Custom Social Icons to ensure reliability ── */
 const Instagram = ({ size = 24 }) => (
@@ -101,10 +102,10 @@ export default function Footer() {
           <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
               <img 
-                src="/Nirmalyam_Logo-removebg-preview.png" 
+                src="/Nirmalyam Logo-modified.png" 
                 alt="Nirmalyam Krafts Logo" 
                 style={{ 
-                  height: '76px', 
+                  height: '130px', 
                   width: 'auto', 
                   objectFit: 'contain'
                 }} 
@@ -207,7 +208,7 @@ export default function Footer() {
               {[
                 { label: 'About Us', to: '/about' },
                 { label: 'Sustainability', to: '/sustainability' },
-                { label: 'Testimonials', to: '/#testimonials' },
+                ...(CONFIG.SHOW_TESTIMONIALS ? [{ label: 'Testimonials', to: '/#testimonials' }] : []),
                 { label: 'Contact Us', to: '/contact#contact-form' }
               ].map(link => (
                 <li key={link.label}>
@@ -242,15 +243,15 @@ export default function Footer() {
             <span style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Follow Us:</span>
             <div style={{ display: 'flex', gap: 12 }}>
               {[
-                { icon: Instagram, color: '#E4405F' },
-                { icon: Facebook, color: '#1877F2' },
-                { icon: Linkedin, color: '#0A66C2' },
-                { icon: Twitter, color: '#1DA1F2' },
-                { icon: Youtube, color: '#FF0000' }
-              ].map(({ icon: Icon, color }, i) => (
-                <a key={i} href="#" style={{
-                  width: 44, height: 44,
-                  borderRadius: 12,
+                { icon: Instagram, color: '#E4405F', url: 'https://www.instagram.com/nirmalyamkrafts' },
+                { icon: Facebook, color: '#1877F2', url: 'https://www.facebook.com/nirmalyamkrafts' },
+                { icon: Linkedin, color: '#0A66C2', url: 'https://www.linkedin.com/company/nirmalyamkrafts' },
+                { icon: Twitter, color: '#1DA1F2', url: 'https://x.com/nirmalyamkrafts' },
+                { icon: Youtube, color: '#FF0000', url: 'https://www.youtube.com/@nirmalyamkrafts' }
+              ].map(({ icon: Icon, color, url }, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{
+                  width: 52, height: 52,
+                  borderRadius: 14,
                   background: 'rgba(255,255,255,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: 'white',
@@ -259,7 +260,7 @@ export default function Footer() {
                 onMouseEnter={e => { e.currentTarget.style.background = color; e.currentTarget.style.transform = 'translateY(-4px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                 >
-                  <Icon size={20} />
+                  <Icon size={28} />
                 </a>
               ))}
             </div>

@@ -40,8 +40,11 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    setMobileOpen(false);
-    setProductsOpen(false);
+    const timer = setTimeout(() => {
+      setMobileOpen(false);
+      setProductsOpen(false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [location]);
 
   const isHome = location.pathname === '/';
@@ -86,11 +89,15 @@ export default function Navbar() {
           transition: 'top 0.3s ease, background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease',
           background: scrolled
             ? 'rgba(253, 249, 243, 0.96)'
-            : 'rgba(253, 249, 243, 0.96)',
-          backdropFilter: 'blur(20px)',
-          boxShadow: scrolled ? 'var(--shadow-sm)' : '0 1px 3px rgba(0,0,0,0.05)',
-          borderBottom: '1px solid rgba(192, 148, 87, 0.15)',
-          padding: scrolled ? '6px 0' : '8px 0',
+            : isHome
+              ? 'transparent'
+              : 'rgba(253, 249, 243, 0.96)',
+          backdropFilter: scrolled || !isHome ? 'blur(20px)' : 'none',
+          boxShadow: scrolled ? 'var(--shadow-sm)' : 'none',
+          borderBottom: scrolled ? '1px solid rgba(192, 148, 87, 0.15)' : 'none',
+          padding: isMobile
+            ? (scrolled ? '6px 0' : '12px 0')
+            : (scrolled ? '10px 0' : '18px 0'),
         }}
       >
         <div className="container" style={{
@@ -109,7 +116,9 @@ export default function Navbar() {
               src="/Nirmalyam_Logo-removebg-preview.png" 
               alt="Nirmalyam Krafts Logo" 
               style={{ 
-                height: isMobile ? '64px' : '88px', 
+                height: isMobile
+                  ? (scrolled ? '64px' : '78px')
+                  : (scrolled ? '80px' : '100px'), 
                 width: 'auto', 
                 objectFit: 'contain',
                 transition: 'all 0.3s ease'

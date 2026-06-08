@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { KraftBagSVG } from '../components/KraftsBags';
 import PagePopup from '../components/PagePopup';
+import { CONFIG } from '../config';
 
 /* ── WhatsApp SVG icon ── */
 function WhatsAppIcon({ size = 18 }) {
@@ -1138,228 +1139,228 @@ export default function Home() {
       </section>
 
       {/* ══════════════════ TESTIMONIALS ══════════════════ */}
-      {/*
-      <section id="testimonials" style={{
-        position: 'relative',
-        padding: isMobile ? '40px 24px' : '60px 24px',
-        overflow: 'hidden',
-        background: '#f4ece1',
-      }}>
-        // Paper Texture Background
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: 'url("/images/testimonial_bg_texture.png")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          opacity: 0.4,
-          zIndex: 0
-        }} />
-
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <div className="section-label" style={{
-              color: 'var(--kraft-600)',
-              letterSpacing: '3px',
-              textTransform: 'uppercase',
-              fontSize: '14px',
-              fontWeight: 800
-            }}>
-              Testimonials
-            </div>
-            <h2 className="section-title" style={{
-              color: 'var(--kraft-950)',
-              fontSize: 'clamp(36px, 5vw, 64px)',
-              fontWeight: 800,
-              letterSpacing: '-1px',
-              marginBottom: 16
-            }}>
-              The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>Legacy</span>
-            </h2>
-            <div style={{
-              width: 80,
-              height: 4,
-              background: 'var(--eco-600)',
-              margin: '0 auto',
-              borderRadius: 2
-            }} />
-          </div>
-
+      {CONFIG.SHOW_TESTIMONIALS && (
+        <section id="testimonials" style={{
+          position: 'relative',
+          padding: isMobile ? '40px 24px' : '60px 24px',
+          overflow: 'hidden',
+          background: '#f4ece1',
+        }}>
+          {/* Paper Texture Background */}
           <div style={{
-            maxWidth: 1400,
-            margin: '0 auto',
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: isMobile ? 300 : 440,
-            paddingTop: isMobile ? 40 : 50
-          }}>
-            // Main Slider Area
-            {testimonials.map((t, idx) => {
-              const isActive = idx === activeTestimonial;
-              const isPrev = idx === (activeTestimonial - 1 + testimonials.length) % testimonials.length;
-              const isNext = idx === (activeTestimonial + 1) % testimonials.length;
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'url("/images/testimonial_bg_texture.png")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: 0.4,
+            zIndex: 0
+          }} />
 
-              if (!isActive && !isPrev && !isNext) return null;
-
-              let offset = '0';
-              let scale = 1;
-              let opacity = 1;
-              let zIndex = 2;
-              let blur = '0px';
-
-              if (isPrev) {
-                offset = '-110%';
-                scale = 0.8;
-                opacity = 0.3;
-                zIndex = 1;
-                blur = '4px';
-              } else if (isNext) {
-                offset = '110%';
-                scale = 0.8;
-                opacity = 0.3;
-                zIndex = 1;
-                blur = '4px';
-              }
-
-              return (
-                <div key={idx} style={{
-                  position: 'absolute',
-                  width: '100%',
-                  maxWidth: isMobile ? 'calc(100% - 32px)' : 850,
-                  transform: `translateX(${offset}) scale(${scale})`,
-                  opacity,
-                  zIndex,
-                  filter: `blur(${blur})`,
-                  transition: 'all 0.8s cubic-bezier(0.23, 1, 0.32, 1)',
-                  pointerEvents: isActive ? 'auto' : 'none',
-                }}>
-                  <div className="glass-card" style={{
-                    padding: isMobile ? '50px 24px 30px' : '70px 60px 60px',
-                    textAlign: 'center',
-                    background: 'rgba(255,255,255,0.85)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(165, 126, 93, 0.2)',
-                    boxShadow: '0 20px 50px -10px rgba(58, 36, 16, 0.1)',
-                    borderRadius: 40,
-                    color: 'var(--kraft-950)',
-                    position: 'relative'
-                  }}>
-                    // Floating Profile Image
-                    <div style={{
-                      width: isMobile ? 80 : 120,
-                      height: isMobile ? 80 : 120,
-                      position: 'absolute',
-                      top: 0,
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      borderRadius: '50%',
-                      border: '6px solid white',
-                      overflow: 'hidden',
-                      boxShadow: '0 15px 30px rgba(0,0,0,0.1)',
-                      background: 'var(--kraft-100)',
-                      zIndex: 10
-                    }}>
-                      <img src={t.image} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-
-                    <div style={{ marginBottom: 24 }}>
-                      <div style={{ fontSize: isMobile ? 22 : 32, fontWeight: 800, color: 'var(--kraft-950)' }}>{t.name}</div>
-                      <div style={{ fontSize: isMobile ? 14 : 16, color: 'var(--kraft-500)', fontWeight: 600, marginTop: 8 }}>
-                        {t.role} • {t.location}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
-                      {Array.from({ length: t.rating }).map((_, i) => (
-                        <Star key={i} size={isMobile ? 20 : 26} fill="#fbbf24" color="#fbbf24" />
-                      ))}
-                    </div>
-
-                    <p style={{
-                      fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: isMobile ? 20 : 28,
-                      lineHeight: 1.4,
-                      color: 'var(--kraft-900)',
-                      fontStyle: 'italic',
-                      fontWeight: 500
-                    }}>
-                      {t.text}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-
-            // Navigation Buttons
-            {!isMobile && (
-              <>
-                <button onClick={prev} style={{
-                  position: 'absolute',
-                  left: -120,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 84, height: 84,
-                  borderRadius: '50%',
-                  background: 'white',
-                  border: '1px solid var(--kraft-200)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: 'var(--kraft-900)',
-                  transition: 'all 0.3s',
-                  zIndex: 10,
-                  boxShadow: '0 10px 20px rgba(0,0,0,0.05)'
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
-                >
-                  <ChevronLeft size={40} />
-                </button>
-
-                <button onClick={next} style={{
-                  position: 'absolute',
-                  right: -120,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 84, height: 84,
-                  borderRadius: '50%',
-                  background: 'white',
-                  border: '1px solid var(--kraft-200)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: 'var(--kraft-900)',
-                  transition: 'all 0.3s',
-                  zIndex: 10,
-                  boxShadow: '0 10px 20px rgba(0,0,0,0.05)'
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
-                >
-                  <ChevronRight size={40} />
-                </button>
-              </>
-            )}
-          </div>
-
-
-          // Dots
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 64 }}>
-            {testimonials.map((_, i) => (
-              <button key={i} onClick={() => setActiveTestimonial(i)} style={{
-                width: i === activeTestimonial ? 40 : 12,
-                height: 12,
-                borderRadius: 6,
-                background: i === activeTestimonial ? 'var(--eco-600)' : 'var(--kraft-200)',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+          <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ textAlign: 'center', marginBottom: 64 }}>
+              <div className="section-label" style={{
+                color: 'var(--kraft-600)',
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                fontSize: '14px',
+                fontWeight: 800
+              }}>
+                Testimonials
+              </div>
+              <h2 className="section-title" style={{
+                color: 'var(--kraft-950)',
+                fontSize: 'clamp(36px, 5vw, 64px)',
+                fontWeight: 800,
+                letterSpacing: '-1px',
+                marginBottom: 16
+              }}>
+                The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>Legacy</span>
+              </h2>
+              <div style={{
+                width: 80,
+                height: 4,
+                background: 'var(--eco-600)',
+                margin: '0 auto',
+                borderRadius: 2
               }} />
-            ))}
+            </div>
+
+            <div style={{
+              maxWidth: 1400,
+              margin: '0 auto',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: isMobile ? 300 : 440,
+              paddingTop: isMobile ? 40 : 50
+            }}>
+              {/* Main Slider Area */}
+              {testimonials.map((t, idx) => {
+                const isActive = idx === activeTestimonial;
+                const isPrev = idx === (activeTestimonial - 1 + testimonials.length) % testimonials.length;
+                const isNext = idx === (activeTestimonial + 1) % testimonials.length;
+
+                if (!isActive && !isPrev && !isNext) return null;
+
+                let offset = '0';
+                let scale = 1;
+                let opacity = 1;
+                let zIndex = 2;
+                let blur = '0px';
+
+                if (isPrev) {
+                  offset = '-110%';
+                  scale = 0.8;
+                  opacity = 0.3;
+                  zIndex = 1;
+                  blur = '4px';
+                } else if (isNext) {
+                  offset = '110%';
+                  scale = 0.8;
+                  opacity = 0.3;
+                  zIndex = 1;
+                  blur = '4px';
+                }
+
+                return (
+                  <div key={idx} style={{
+                    position: 'absolute',
+                    width: '100%',
+                    maxWidth: isMobile ? 'calc(100% - 32px)' : 850,
+                    transform: `translateX(${offset}) scale(${scale})`,
+                    opacity,
+                    zIndex,
+                    filter: `blur(${blur})`,
+                    transition: 'all 0.8s cubic-bezier(0.23, 1, 0.32, 1)',
+                    pointerEvents: isActive ? 'auto' : 'none',
+                  }}>
+                    <div className="glass-card" style={{
+                      padding: isMobile ? '50px 24px 30px' : '70px 60px 60px',
+                      textAlign: 'center',
+                      background: 'rgba(255,255,255,0.85)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(165, 126, 93, 0.2)',
+                      boxShadow: '0 20px 50px -10px rgba(58, 36, 16, 0.1)',
+                      borderRadius: 40,
+                      color: 'var(--kraft-950)',
+                      position: 'relative'
+                    }}>
+                      {/* Floating Profile Image */}
+                      <div style={{
+                        width: isMobile ? 80 : 120,
+                        height: isMobile ? 80 : 120,
+                        position: 'absolute',
+                        top: 0,
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        borderRadius: '50%',
+                        border: '6px solid white',
+                        overflow: 'hidden',
+                        boxShadow: '0 15px 30px rgba(0,0,0,0.1)',
+                        background: 'var(--kraft-100)',
+                        zIndex: 10
+                      }}>
+                        <img src={t.image} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+
+                      <div style={{ marginBottom: 24 }}>
+                        <div style={{ fontSize: isMobile ? 22 : 32, fontWeight: 800, color: 'var(--kraft-950)' }}>{t.name}</div>
+                        <div style={{ fontSize: isMobile ? 14 : 16, color: 'var(--kraft-500)', fontWeight: 600, marginTop: 8 }}>
+                          {t.role} • {t.location}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
+                        {Array.from({ length: t.rating }).map((_, i) => (
+                          <Star key={i} size={isMobile ? 20 : 26} fill="#fbbf24" color="#fbbf24" />
+                        ))}
+                      </div>
+
+                      <p style={{
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: isMobile ? 20 : 28,
+                        lineHeight: 1.4,
+                        color: 'var(--kraft-900)',
+                        fontStyle: 'italic',
+                        fontWeight: 500
+                      }}>
+                        {t.text}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Navigation Buttons */}
+              {!isMobile && (
+                <>
+                  <button onClick={prev} style={{
+                    position: 'absolute',
+                    left: -120,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 84, height: 84,
+                    borderRadius: '50%',
+                    background: 'white',
+                    border: '1px solid var(--kraft-200)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: 'var(--kraft-900)',
+                    transition: 'all 0.3s',
+                    zIndex: 10,
+                    boxShadow: '0 10px 20px rgba(0,0,0,0.05)'
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+                  >
+                    <ChevronLeft size={40} />
+                  </button>
+
+                  <button onClick={next} style={{
+                    position: 'absolute',
+                    right: -120,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 84, height: 84,
+                    borderRadius: '50%',
+                    background: 'white',
+                    border: '1px solid var(--kraft-200)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: 'var(--kraft-900)',
+                    transition: 'all 0.3s',
+                    zIndex: 10,
+                    boxShadow: '0 10px 20px rgba(0,0,0,0.05)'
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--eco-600)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = 'var(--kraft-900)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+                  >
+                    <ChevronRight size={40} />
+                  </button>
+                </>
+              )}
+            </div>
+
+
+            {/* Dots */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 64 }}>
+              {testimonials.map((_, i) => (
+                <button key={i} onClick={() => setActiveTestimonial(i)} style={{
+                  width: i === activeTestimonial ? 40 : 12,
+                  height: 12,
+                  borderRadius: 6,
+                  background: i === activeTestimonial ? 'var(--eco-600)' : 'var(--kraft-200)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                }} />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
-      */}
+        </section>
+      )}
 
       {/* ══════════════════ CTA ══════════════════ */}
       {/* ══════════════════ CTA ══════════════════ */}
