@@ -57,24 +57,26 @@ export default function Navbar() {
         top: 0,
         left: 0,
         right: 0,
-        height: '40px',
+        height: isMobile ? 'auto' : '40px',
+        minHeight: isMobile ? '46px' : '40px',
         background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
         color: 'white',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: isMobile ? '11px' : '13px',
+        fontSize: isMobile ? '10px' : '13px',
         fontWeight: 700,
         zIndex: 1001,
         fontFamily: "'Inter', sans-serif",
         boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-        padding: '0 12px',
+        padding: isMobile ? '6px 12px' : '0 12px',
         boxSizing: 'border-box',
         transition: 'transform 0.3s ease',
-        transform: scrolled ? 'translateY(-40px)' : 'translateY(0)',
+        transform: scrolled ? (isMobile ? 'translateY(-60px)' : 'translateY(-40px)') : 'translateY(0)',
+        lineHeight: 1.3,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
-          <span style={{ background: '#f59e0b', color: '#1e1b4b', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', textTransform: 'uppercase', fontWeight: 900 }}>Lowest Price Guarantee</span>
+          <span style={{ background: '#f59e0b', color: '#1e1b4b', padding: '1px 6px', borderRadius: '4px', fontSize: '9px', textTransform: 'uppercase', fontWeight: 900 }}>Lowest Price Guarantee</span>
           <span>India's Most Affordable Custom Kraft Bags — Direct Wholesale Factory Rates!</span>
         </div>
       </div>
@@ -82,7 +84,7 @@ export default function Navbar() {
       <nav
         style={{
           position: 'fixed',
-          top: scrolled ? 0 : '40px',
+          top: scrolled ? 0 : (isMobile ? '46px' : '40px'),
           left: 0,
           right: 0,
           zIndex: 1000,
