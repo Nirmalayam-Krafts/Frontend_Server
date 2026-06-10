@@ -312,7 +312,7 @@ export default function Contact() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: isMobile ? 60 : 80, background: 'white' }}>
+    <div className="site-page-container" style={{ minHeight: '100vh', background: 'white' }}>
       {/* ── Page Hero: Cinematic Atmosphere ── */}
       <div className="page-hero" style={{
         backgroundImage: 'url(/images/generated/contact_hero_bg.png)',

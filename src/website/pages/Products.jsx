@@ -53,7 +53,7 @@ export default function Products() {
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: isMobile ? 60 : 80, background: 'white' }}>
+    <div className="site-page-container" style={{ minHeight: '100vh', background: 'white' }}>
       {/* ── Page Hero ── */}
       {/* ... keep hero as is ... */}
       <div className="page-hero" style={{
@@ -64,7 +64,7 @@ export default function Products() {
         minHeight: isMobile ? '450px' : '550px',
         display: 'flex',
         alignItems: 'center',
-        marginTop: isMobile ? -60 : -80,
+        marginTop: isMobile ? '-126px' : '-148px',
         overflow: 'hidden'
       }}>
         <div style={{

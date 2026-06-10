@@ -881,3 +881,14 @@ h6 {
     gap: 40px;
   }
 }
+
+/* ─── Page spacing for fixed header ─── */
+.site-page-container {
+  padding-top: 148px !important;
+}
+
+@media (max-width: 1024px) {
+  .site-page-container {
+    padding-top: 126px !important;
+  }
+}

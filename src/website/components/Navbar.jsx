@@ -94,8 +94,8 @@ export default function Navbar() {
           boxShadow: scrolled ? 'var(--shadow-md)' : 'var(--shadow-sm)',
           borderBottom: '1px solid rgba(192, 148, 87, 0.15)',
           padding: isMobile
-            ? (scrolled ? '6px 0' : '12px 0')
-            : (scrolled ? '10px 0' : '18px 0'),
+            ? (scrolled ? '4px 0' : '8px 0')
+            : (scrolled ? '6px 0' : '12px 0'),
         }}
       >
         <div className="container" style={{
@@ -115,8 +115,8 @@ export default function Navbar() {
               alt="Nirmalyam Krafts Logo" 
               style={{ 
                 height: isMobile
-                  ? (scrolled ? '64px' : '78px')
-                  : (scrolled ? '80px' : '100px'), 
+                  ? (scrolled ? '52px' : '64px')
+                  : (scrolled ? '68px' : '84px'), 
                 width: 'auto', 
                 objectFit: 'contain',
                 transition: 'all 0.3s ease'

@@ -70,7 +70,7 @@ export default function AccountSpace() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--kraft-50)', paddingTop: 80 }}>
+    <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
 
       {/* ── Page hero ── */}
       <div style={{

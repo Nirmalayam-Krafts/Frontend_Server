@@ -209,7 +209,7 @@ export default function Home() {
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
-        paddingTop: isMobile ? 80 : 0
+        paddingTop: isMobile ? '126px' : '148px'
       }}>
       {/* Main Background Image - Cycling hero images */}
         <div style={{

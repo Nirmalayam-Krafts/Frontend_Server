@@ -121,7 +121,7 @@ export default function PrivacyPolicy() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 80, background: 'var(--kraft-50)' }}>
+    <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
 
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{

@@ -35,7 +35,7 @@ export default function DesignYourProduct() {
   const bag = bagTypes.find(b => b.id === selectedBag);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--kraft-50)', paddingTop: 80 }}>
+    <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
 
       {/* Hero */}
       <div className="page-hero">

@@ -135,14 +135,15 @@ export default function PromotionalPopup() {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 2000,
+        zIndex: 99999,
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         background: 'rgba(14, 9, 4, 0.45)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
-        padding: '20px',
+        padding: '40px 20px',
+        overflowY: 'auto',
         animation: 'fadeIn 0.3s ease-out',
       }}
     >
@@ -161,6 +162,7 @@ export default function PromotionalPopup() {
           fontFamily: "'Inter', sans-serif",
           boxSizing: 'border-box',
           animation: 'scaleUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          margin: 'auto',
         }}
       >
         {/* Top Decorative Line */}

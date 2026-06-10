@@ -64,7 +64,7 @@ export default function ReturnsPolicy() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 80, background: 'var(--kraft-50)' }}>
+    <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
       {/* Hero */}
       <div className="page-hero" style={{
         position: 'relative', minHeight: isMobile ? '400px' : isTablet ? '420px' : '480px',
