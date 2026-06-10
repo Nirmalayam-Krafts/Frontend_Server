@@ -64,7 +64,6 @@ const initialManualOrderForm = {
   productCategory: "",
   source: "Manual Order",
   bagSize: "",
-  color: "",
   quantity: "",
   length: "",
   width: "",
@@ -437,7 +436,6 @@ const Orders = () => {
   };
 
   const analyzeInventoryMatches = (order) => {
-    const orderColor = normalizeText(order?.orderDetails?.color);
     const orderSize = normalizeText(order?.orderDetails?.bagSize);
 
     const sameDimensionItems = inventoryItems.filter((item) =>
@@ -445,22 +443,13 @@ const Orders = () => {
     );
 
     const exactMatches = sameDimensionItems.filter((item) => {
-      const itemColor = normalizeText(item?.bagColor);
       const itemSize = normalizeText(item?.bagSizeLabel);
-      return itemColor === orderColor && itemSize === orderSize;
+      return itemSize === orderSize;
     });
 
-    const sizeMatchedColorDifferent = sameDimensionItems.filter((item) => {
-      const itemColor = normalizeText(item?.bagColor);
-      const itemSize = normalizeText(item?.bagSizeLabel);
-      return itemSize === orderSize && itemColor !== orderColor;
-    });
+    const sizeMatchedColorDifferent = [];
 
-    const colorMatchedSizeDifferent = sameDimensionItems.filter((item) => {
-      const itemColor = normalizeText(item?.bagColor);
-      const itemSize = normalizeText(item?.bagSizeLabel);
-      return itemColor === orderColor && itemSize !== orderSize;
-    });
+    const colorMatchedSizeDifferent = [];
 
     const nearDimensionMatches = inventoryItems.filter((item) => {
       const inv = getInventoryDimensions(item);
@@ -1047,14 +1036,12 @@ Delivery Address: ${report.deliveryAddress}
 
   const findExactInventoryLineForOrder = (order) => {
     const orderProductId = String(order?.orderDetails?.productId || "").trim();
-    const orderColor = normalizeText(order?.orderDetails?.color);
     const orderSize = normalizeText(order?.orderDetails?.bagSize);
 
     const candidates = inventoryItems.filter((item) => {
       if (!isSameDimension(item, order)) return false;
-      const itemColor = normalizeText(item?.bagColor || item?.color);
       const itemSize = normalizeText(item?.bagSizeLabel || item?.bagSize);
-      return itemColor === orderColor && itemSize === orderSize;
+      return itemSize === orderSize;
     });
 
     if (!candidates.length) return null;
@@ -1325,7 +1312,7 @@ Delivery Address: ${report.deliveryAddress}
       head: [["Specification", ""]],
       body: [
         ["Product", order.productCategory || "—"],
-        ["Bag size / Color", `${order.orderDetails?.bagSize || "—"} / ${order.orderDetails?.color || "—"}`],
+        ["Bag size", `${order.orderDetails?.bagSize || "—"}`],
         ["Quantity", String(order.orderDetails?.quantity ?? "—")],
         [
           "Dimensions (L × W × H)",
@@ -1491,7 +1478,6 @@ ${lines || "(See PDF for full BOM)"}
       !manualOrderForm.phone ||
       !manualOrderForm.productCategory ||
       !manualOrderForm.bagSize ||
-      !manualOrderForm.color ||
       !manualOrderForm.quantity ||
       !manualOrderForm.length ||
       !manualOrderForm.width ||
@@ -1605,7 +1591,6 @@ ${lines || "(See PDF for full BOM)"}
       status: "done",
       meta: {
         bagSize: order?.orderDetails?.bagSize || "—",
-        color: order?.orderDetails?.color || "—",
         quantity: order?.orderDetails?.quantity || 0,
         dimensions: `${order?.orderDetails?.dimensions?.length || 0} × ${order?.orderDetails?.dimensions?.width || 0
           } × ${order?.orderDetails?.dimensions?.height || 0} ${order?.orderDetails?.dimensions?.unit || "inch"
@@ -1939,7 +1924,7 @@ ${lines || "(See PDF for full BOM)"}
           className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto]"
         >
           <Input
-            placeholder="Search by customer, business, phone, email, bag size, or color..."
+            placeholder="Search by customer, business, phone, email, or bag size..."
             icon={Search}
             value={search}
             onChange={(e) => {
@@ -2073,12 +2058,6 @@ ${lines || "(See PDF for full BOM)"}
                               <span className="text-gray-500">Size:</span>
                               <span className="font-semibold text-gray-900">
                                 {order.orderDetails?.bagSize || "—"}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-500">Color:</span>
-                              <span className="font-semibold text-gray-900">
-                                {order.orderDetails?.color || "—"}
                               </span>
                             </div>
                             {order.orderDetails?.length && order.orderDetails?.width && (
@@ -2352,13 +2331,6 @@ ${lines || "(See PDF for full BOM)"}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 />
                 <input
-                  type="text"
-                  value={manualOrderForm.color}
-                  onChange={(e) => handleFormChange("color", e.target.value)}
-                  placeholder="Color"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
                   type="number"
                   min="1"
                   value={manualOrderForm.quantity}
@@ -2581,13 +2553,6 @@ ${lines || "(See PDF for full BOM)"}
                       <p className="text-xs font-semibold text-gray-500">Bag Size</p>
                       <p className="mt-1 font-semibold text-gray-900">
                         {availabilityOrder.orderDetails?.bagSize || "—"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-xs font-semibold text-gray-500">Color</p>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {availabilityOrder.orderDetails?.color || "—"}
                       </p>
                     </div>
 

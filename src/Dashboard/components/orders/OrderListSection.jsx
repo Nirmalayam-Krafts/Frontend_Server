@@ -11,7 +11,6 @@ import {
   Package,
   Loader2,
   Mail,
-  Palette,
   Phone,
   RefreshCw,
   Ruler,
@@ -160,10 +159,6 @@ export default function OrderListSection({
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
                       <ShoppingBag className="h-3.5 w-3.5" />
                       Size {order.orderDetails?.bagSize || "—"}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
-                      <Palette className="h-3.5 w-3.5" />
-                      Color {order.orderDetails?.color || "—"}
                     </span>
                   </div>
 

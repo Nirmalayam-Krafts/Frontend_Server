@@ -12,7 +12,6 @@ import {
   Mail,
   MapPin,
   Package,
-  Palette,
   Phone,
   RefreshCw,
   Ruler,
@@ -209,11 +208,6 @@ export default function OrderDetail({ order }) {
                 icon={ShoppingBag}
                 label="Bag Size"
                 value={order.orderDetails?.bagSize || "Not added"}
-              />
-              <DetailBlock
-                icon={Palette}
-                label="Color"
-                value={order.orderDetails?.color || "Not added"}
               />
               <DetailBlock
                 icon={Package}
