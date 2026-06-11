@@ -58,10 +58,10 @@ export default function DesignYourProduct() {
 
       {/* Configurator layout */}
       <div className="container" style={{ padding: '48px 24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 32, alignItems: 'start' }}>
+        <div className="configurator-grid" style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 32, alignItems: 'start' }}>
 
           {/* ── Controls Panel ── */}
-          <div style={{
+          <div className="configurator-controls" style={{
             background: 'white',
             borderRadius: 'var(--radius-xl)',
             border: '1px solid var(--kraft-100)',
@@ -285,7 +285,7 @@ export default function DesignYourProduct() {
             </div>
 
             {/* CTA */}
-            <div style={{ display: 'flex', gap: 14 }}>
+            <div className="configurator-actions" style={{ display: 'flex', gap: 14 }}>
               <Link to="/contact#contact-form" className="btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '15px' }}>
                 <span>Request Sample with This Design</span>
               </Link>
@@ -296,6 +296,24 @@ export default function DesignYourProduct() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 991px) {
+          .configurator-grid {
+            grid-template-columns: 1fr !important;
+            display: flex !important;
+            flex-direction: column-reverse !important;
+          }
+          .configurator-controls {
+            position: static !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .configurator-actions {
+            flex-direction: column !important;
+          }
+        }
+      `}</style>
 
       {/* ══════════════════ PAGE POPUP ══════════════════ */}
       <PagePopup pageType="designyourproduct" />

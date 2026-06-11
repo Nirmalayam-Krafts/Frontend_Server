@@ -680,7 +680,7 @@ h6 {
 
 /* ─── Nature Textures ─── */
 .bg-texture-wood {
-  background-image: url('/wood-texture.png');
+  background-image: url('/wood-texture.webp');
   background-repeat: repeat;
   background-size: 500px;
 }
@@ -693,7 +693,7 @@ h6 {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url('/leaf-pattern.png');
+  background-image: url('/leaf-pattern.webp');
   background-repeat: repeat;
   background-size: 250px;
   opacity: 0.05;
@@ -703,7 +703,7 @@ h6 {
 
 .bg-texture-tree {
   position: relative;
-  background-image: linear-gradient(rgba(253, 249, 243, 0.85), rgba(253, 249, 243, 0.85)), url('/tree-texture.png');
+  background-image: linear-gradient(rgba(253, 249, 243, 0.85), rgba(253, 249, 243, 0.85)), url('/tree-texture.webp');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -717,7 +717,7 @@ h6 {
 .nature-layer-wood {
   position: absolute;
   inset: 0;
-  background-image: url('/wood-texture.png');
+  background-image: url('/wood-texture.webp');
   background-size: 600px;
   opacity: 0.04;
   pointer-events: none;
@@ -727,7 +727,7 @@ h6 {
 .nature-layer-leaf {
   position: absolute;
   inset: 0;
-  background-image: url('/leaf-pattern.png');
+  background-image: url('/leaf-pattern.webp');
   background-repeat: repeat;
   background-size: 300px;
   opacity: 0.03;
@@ -881,14 +881,3 @@ h6 {
     gap: 40px;
   }
 }
-
-/* ─── Page spacing for fixed header ─── */
-.site-page-container {
-  padding-top: 148px !important;
-}
-
-@media (max-width: 1024px) {
-  .site-page-container {
-    padding-top: 126px !important;
-  }
-}

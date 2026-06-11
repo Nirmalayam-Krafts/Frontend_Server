@@ -84,7 +84,7 @@ export default function Footer() {
       <div style={{
         position: 'absolute',
         inset: 0,
-        backgroundImage: 'url("/images/testimonial_bg_texture.png")',
+        backgroundImage: 'url("/images/testimonial_bg_texture.webp")',
         backgroundSize: 'cover',
         opacity: 0.05,
         pointerEvents: 'none',
@@ -102,7 +102,7 @@ export default function Footer() {
           <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
               <img 
-                src="/Nirmalyam Logo-modified.png" 
+                src="/Nirmalyam Logo-modified.webp" 
                 alt="Nirmalyam Krafts Logo" 
                 style={{ 
                   height: '130px', 

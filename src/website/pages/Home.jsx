@@ -52,7 +52,7 @@ const testimonials = [
     name: 'Sarah Merchant',
     location: 'Mumbai, MH',
     role: 'Boutique Owner',
-    image: '/images/avatar_1.png',
+    image: '/images/avatar_1.webp',
     text: '"The print quality on our custom bags exceeded expectations. Our customers frequently compliment the premium feel, which perfectly aligns with our brand\'s eco-conscious values."',
     rating: 5,
   },
@@ -60,7 +60,7 @@ const testimonials = [
     name: 'Rajesh Kumar',
     location: 'Pune, MH',
     role: 'Bakery Founder',
-    image: '/images/avatar_2.png',
+    image: '/images/avatar_2.webp',
     text: '"Finally found a supplier that understands the needs of a small bakery. The low MOQ and fast turnaround helped us manage our inventory easily without large upfront costs."',
     rating: 5,
   },
@@ -68,7 +68,7 @@ const testimonials = [
     name: 'Aditi Sharma',
     location: 'Bangalore, KA',
     role: 'Corporate Manager',
-    image: '/images/avatar_3.png',
+    image: '/images/avatar_3.webp',
     text: '"Efficient delivery even to our Tier 2 city locations across India. Nirmalyam has become our primary packaging partner for all our wholesale and retail operations."',
     rating: 5,
   },
@@ -80,7 +80,7 @@ const categories = [
     title: 'Ecocraft Bags',
     desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
     icon: Package,
-    image: '/images/new/ECOHEAD.png',
+    image: '/images/newGen/bottomVSlider.png',
     color: '#4ade80',
     bg: '#f0fdf4',
     to: '/products#ecocraft',
@@ -90,7 +90,7 @@ const categories = [
     title: 'F&B Gourmet Bags',
     desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
     icon: Zap,
-    image: '/images/new/F&B.png',
+    image: '/images/new/F&B.webp',
     color: '#f59e0b',
     bg: '#fffbeb',
     to: '/products#fnb',
@@ -100,7 +100,7 @@ const categories = [
     title: 'Luxury Bags',
     desc: 'High-finish, elegant packaging for premium retail, jewelry, and exclusive gifting.',
     icon: Award,
-    image: '/images/new/LUXHEADFIXED.png',
+    image: '/images/new/LUXHEADFIXED.webp',
     color: '#c09457',
     bg: '#fdf9f3',
     to: '/products#luxury',
@@ -114,7 +114,7 @@ const whyCards = [
     id: 1,
     title: '12,000+',
     label: 'Indian Brands Joined',
-    image: '/images/generated/luxury_vibrant_branded.png',
+    image: '/images/generated/luxury_vibrant_branded.webp',
     icon: Users,
     accent: 'var(--eco-600)'
   },
@@ -122,7 +122,7 @@ const whyCards = [
     id: 2,
     title: 'Lowest Price',
     label: 'Guaranteed Factory Rates',
-    image: '/images/new/100DElivery.png',
+    image: '/images/newGen/LOWESTPRICE.jpeg',
     icon: Shield,
     accent: '#22c55e'
   },
@@ -130,7 +130,7 @@ const whyCards = [
     id: 3,
     title: 'Artisanal',
     label: 'Craftsmanship Heritage',
-    image: '/images/new/ARTISION.png',
+    image: '/images/new/ARTISION.webp',
     icon: Star,
     accent: '#f59e0b'
   },
@@ -138,7 +138,7 @@ const whyCards = [
     id: 4,
     title: 'Vibrant',
     label: 'Colorful Collections',
-    image: '/images/new/VibrantCOlers.png',
+    image: '/images/new/VibrantCOlers.webp',
     icon: TrendingUp,
     accent: '#ec4899'
   },
@@ -151,9 +151,9 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
 
   const heroImages = [
-    '/images/new/HERO1.png',
-    '/images/new/HERO2.png',
-    '/images/new/HERO3.png'
+    '/images/new/HERO1.webp',
+    '/images/newGen/BOTTOMvF.jpeg',
+    '/images/new/HERO3.webp'
   ];
 
   useEffect(() => {
@@ -274,9 +274,8 @@ export default function Home() {
               <Leaf size={14} /> Wholesale Factory Rates
             </div>
 
-            <h2 style={{
+            <h2 className="hero-h2" style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: isMobile ? '24px' : '36px',
               fontWeight: 600,
               color: 'var(--kraft-950)',
               marginBottom: 8,
@@ -285,9 +284,8 @@ export default function Home() {
               India's Most Affordable Eco Packaging
             </h2>
 
-            <h1 style={{
+            <h1 className="hero-h1" style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: 'clamp(40px, 6vw, 84px)',
               fontWeight: 900,
               color: 'var(--kraft-950)',
               marginBottom: 20,
@@ -297,8 +295,7 @@ export default function Home() {
               Nirmalyam Krafts
             </h1>
 
-            <p style={{
-              fontSize: isMobile ? 17 : 20,
+            <p className="hero-subtitle" style={{
               fontWeight: 600,
               color: 'var(--kraft-800)',
               marginBottom: 16,
@@ -309,8 +306,7 @@ export default function Home() {
               <span style={{ color: 'var(--eco-700)' }}>Factory Pricing. Unbeatable Savings. Zero-waste.</span>
             </p>
 
-            <p style={{
-              fontSize: isMobile ? 14 : 16,
+            <p className="hero-description" style={{
               color: 'var(--kraft-950)',
               marginBottom: 40,
               lineHeight: 1.6,
@@ -322,7 +318,7 @@ export default function Home() {
             </p>
 
             {/* Buttons */}
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <div className="hero-buttons-container" style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
               <a href="https://wa.me/919049001299?text=Hi%20" target="_blank" rel="noreferrer" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -429,13 +425,7 @@ export default function Home() {
                 }
               }
             }}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-              justifyContent: 'center',
-              alignItems: 'start',
-              gap: isMobile ? '32px 16px' : '48px',
-            }}
+            className="logos-grid"
           >
             {/* Make in India */}
             <motion.div
@@ -453,7 +443,7 @@ export default function Home() {
             >
               <div style={{ marginBottom: 20 }}>
                 <motion.img
-                  src="/images/make_in_india_lion.png"
+                  src="/images/make_in_india_lion.webp"
                   alt="Make in India"
                   style={{ height: isMobile ? 48 : 80, width: 'auto' }}
                   whileHover={{ scale: 1.1 }}
@@ -625,7 +615,7 @@ export default function Home() {
       <section
         className="section-padding nature-section"
         style={{
-          backgroundImage: 'url(/images/collections-bg.png)',
+          backgroundImage: 'url(/images/collections-bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
@@ -714,7 +704,7 @@ export default function Home() {
       <section
         className="why-nirmalyam-section anim-reveal"
         style={{
-          background: 'linear-gradient(rgba(58, 36, 16, 0.88), rgba(58, 36, 16, 0.92)), url("/images/why_factory_bg.png")',
+          background: 'linear-gradient(rgba(58, 36, 16, 0.88), rgba(58, 36, 16, 0.92)), url("/images/why_factory_bg.webp")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           position: 'relative',
@@ -779,7 +769,7 @@ export default function Home() {
           </div>
 
           {/* 4-Card Grid */}
-          <div style={{
+          <div className="why-cards-grid" style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(clamp(260px, 45%, 320px), 1fr))',
             gap: isMobile ? 10 : 28,
@@ -936,6 +926,43 @@ export default function Home() {
             transform: translateY(0);
           }
 
+          .logos-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 48px;
+            justify-content: center;
+            align-items: start;
+          }
+          @media (max-width: 1024px) {
+            .logos-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 32px 16px !important;
+            }
+          }
+          @media (max-width: 480px) {
+            .logos-grid {
+              grid-template-columns: 1fr !important;
+              gap: 32px !important;
+            }
+          }
+
+          @media (max-width: 640px) {
+            .why-cards-grid {
+              grid-template-columns: 1fr !important;
+            }
+            .product-grid-3x3 {
+              grid-template-columns: 1fr !important;
+            }
+            .hero-buttons-container {
+              flex-direction: column !important;
+              align-items: stretch !important;
+            }
+            .hero-buttons-container > * {
+              width: 100% !important;
+              justify-content: center !important;
+            }
+          }
+
           @media (min-width: 1024px) {
             .product-grid-3x3 {
               grid-template-columns: repeat(3, 1fr) !important;
@@ -950,6 +977,66 @@ export default function Home() {
 
           .product-card:hover .prod-img {
             transform: scale(1.08);
+          }
+
+          /* Responsive Hero Typography */
+          .hero-h2 {
+            font-size: 36px;
+          }
+          .hero-h1 {
+            font-size: clamp(32px, 6vw, 84px);
+          }
+          .hero-subtitle {
+            font-size: 20px;
+          }
+          .hero-description {
+            font-size: 16px;
+          }
+
+          @media (max-width: 1024px) {
+            .hero-h2 {
+              font-size: 24px;
+            }
+            .hero-subtitle {
+              font-size: 16px;
+            }
+            .hero-description {
+              font-size: 14px;
+              margin-bottom: 30px !important;
+            }
+          }
+          @media (max-width: 768px) {
+            .hero-h2 {
+              font-size: 18px;
+            }
+            .hero-h1 {
+              font-size: clamp(24px, 8vw, 42px);
+              margin-bottom: 12px !important;
+            }
+            .hero-subtitle {
+              font-size: 14px;
+            }
+            .hero-description {
+              font-size: 12px;
+            }
+          }
+          @media (max-width: 480px) {
+            .hero-h2 {
+              font-size: 15px;
+              margin-bottom: 6px !important;
+            }
+            .hero-h1 {
+              font-size: 26px;
+              margin-bottom: 8px !important;
+            }
+            .hero-subtitle {
+              font-size: 12px;
+              margin-bottom: 10px !important;
+            }
+            .hero-description {
+              font-size: 11px;
+              margin-bottom: 24px !important;
+            }
           }
         `}</style>
       </section>
@@ -997,11 +1084,11 @@ export default function Home() {
             gap: isMobile ? 16 : 32
           }} className="product-grid-3x3">
             {[
-              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.png', badge: 'Affordable Rates' },
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/fnb_main_brown.png', badge: 'Wholesale Deal' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches_vbottom.png', badge: 'Budget Option' },
-              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper_colored.png', badge: 'From ₹2.50/pc' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/factory_rolls_main.png', badge: 'Cheapest in India' },
+              { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.webp', badge: 'Affordable Rates' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/fnb_main_brown.webp', badge: 'Wholesale Deal' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches_vbottom.webp', badge: 'Budget Option' },
+              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper_colored.webp', badge: 'From ₹2.50/pc' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/newGen/rolls.jpeg', badge: 'Cheapest in India' },
             ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"
                 style={{
@@ -1084,7 +1171,7 @@ export default function Home() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("/images/sustainability_cta_bg.png")',
+          backgroundImage: 'url("/images/sustainability_cta_bg.webp")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.6,
@@ -1151,7 +1238,7 @@ export default function Home() {
           <div style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage: 'url("/images/testimonial_bg_texture.png")',
+            backgroundImage: 'url("/images/testimonial_bg_texture.webp")',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             opacity: 0.4,
@@ -1376,7 +1463,7 @@ export default function Home() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("/images/eco_cta_bg.png")',
+          backgroundImage: 'url("/images/eco_cta_bg.webp")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.65,

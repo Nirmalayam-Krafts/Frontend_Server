@@ -18,7 +18,7 @@ const visionaries = [
     email: 'rajesh@nirmalyamkrafts.com',
     phone: '+91 98765 43210',
     desc: 'With over 20 years of experience in sustainable manufacturing, Rajesh leads the vision of making plastic-free packaging highly affordable and accessible to all brands.',
-    image: '/images/generated/owner_1.png'
+    image: '/images/generated/owner_1.webp'
   },
   {
     name: 'Anjali Nair',
@@ -26,7 +26,7 @@ const visionaries = [
     email: 'anjali@nirmalyamkrafts.com',
     phone: '+91 98765 43211',
     desc: 'Anjali is the creative force behind our premium designs, ensuring that sustainability never comes at the cost of brand elegance.',
-    image: '/images/generated/owner_2.png'
+    image: '/images/generated/owner_2.webp'
   }
 ];
 
@@ -54,7 +54,7 @@ export default function About() {
 
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{
-        backgroundImage: 'url(/images/generated/about_hero_wood.png)',
+        backgroundImage: 'url(/images/generated/about_hero_wood.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -118,7 +118,7 @@ export default function About() {
               margin: isMobile || isTablet ? '60px auto 0' : '0'
             }}>
               <img
-                src="/images/new/VibrantCOlers.png"
+                src="/images/new/VibrantCOlers.webp"
                 alt="Nirmalyam Kraft Artisan Collection"
                 style={{
                   width: '100%',
@@ -159,7 +159,7 @@ export default function About() {
                   zIndex: -1
                 }} />
                 <img
-                  src="/images/new/TYPES.png"
+                  src="/images/new/TYPES.webp"
                   alt="Artisan Crafting Nirmalyam Kraft Bag"
                   style={{
                     width: '100%',
@@ -309,7 +309,7 @@ export default function About() {
             <div className="anim-fade-up-slow" style={{ order: isMobile || isTablet ? 1 : 0 }}>
               <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-3xl)', boxShadow: 'var(--shadow-2xl)' }}>
                 <img 
-                  src="/images/new/VibrantCOlers.png" 
+                  src="/images/new/VibrantCOlers.webp" 
                   alt="Quality Assurance - Nirmalyam Kraft Colorful Bags" 
                   style={{
                     width: '100%',
@@ -426,7 +426,7 @@ export default function About() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/images/generated/cta_forest_bg.png)',
+          backgroundImage: 'url(/images/generated/cta_forest_bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.4

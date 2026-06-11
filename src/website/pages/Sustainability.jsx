@@ -5,10 +5,10 @@ import PagePopup from '../components/PagePopup';
 
 /* ── Green Print steps ── */
 const greenPrint = [
-  { icon: Cog, title: 'Manufacturing Excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/generated/managed_forest.png' },
-  { icon: Droplets, title: 'Non-Toxic Printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.', image: '/images/generated/eco_inks.png' },
-  { icon: Truck, title: 'Efficient Transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.', image: '/images/generated/step_efficient_transit_1775638398608.png' },
-  { icon: Recycle, title: '100% Compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.', image: '/images/generated/step_compostable_1775638415138.png' },
+  { icon: Cog, title: 'Manufacturing Excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/generated/managed_forest.webp' },
+  { icon: Droplets, title: 'Non-Toxic Printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.', image: '/images/generated/eco_inks.webp' },
+  { icon: Truck, title: 'Efficient Transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.', image: '/images/generated/step_efficient_transit_1775638398608.webp' },
+  { icon: Recycle, title: '100% Compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.', image: '/images/generated/step_compostable_1775638415138.webp' },
 ];
 
 /* ── Laws & Benefits ── */
@@ -32,14 +32,14 @@ const caseStudies = [
     transformation: '100% Plastic to Paper Transition',
     result: '15% increase in premium brand perception and 2 tons of plastic eliminated annually.',
     features: ['Enhanced Customer Unboxing', 'Sustainable Luxury Branding', 'Zero-Plastic Packaging'],
-    image: '/images/generated/colorful_bags_branded_v2.png'
+    image: '/images/generated/colorful_bags_branded_v2.webp'
   },
   {
     client: 'Urban Organics',
     transformation: 'Eco-Friendly Fulfillment',
     result: 'Reduced logistical carbon footprint by 22% through optimized kraft carton transit.',
     features: ['Reduced Volumetric Weight', 'Biodegradable Fillers', 'Circular Supply Chain'],
-    image: '/images/new/ECO.png'
+    image: '/images/new/ECO.webp'
   }
 ];
 
@@ -58,7 +58,7 @@ export default function Sustainability() {
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{
-        backgroundImage: 'url(/images/generated/forest_hero.png)',
+        backgroundImage: 'url(/images/generated/forest_hero.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -289,7 +289,7 @@ export default function Sustainability() {
                   borderRadius: 'var(--radius-3xl)',
                   zIndex: -1
                 }} />
-                <img src="/images/generated/laws_eco.png" alt="Eco Laws" style={{ width: '100%', borderRadius: 'var(--radius-2xl)', boxShadow: 'var(--shadow-2xl)' }} />
+                <img src="/images/generated/laws_eco.webp" alt="Eco Laws" style={{ width: '100%', borderRadius: 'var(--radius-2xl)', boxShadow: 'var(--shadow-2xl)' }} />
               </div>
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function Sustainability() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/images/generated/cta_forest_bg.png)',
+          backgroundImage: 'url(/images/generated/cta_forest_bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.3

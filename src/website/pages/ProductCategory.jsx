@@ -28,7 +28,7 @@ const categoryData = {
   ecocraft: {
     id: 'ecocraft',
     title: 'Ecocraft Collection',
-    image: '/images/collection_ecocraft_vibrant.png',
+    image: '/images/newGen/BOTTOMV.jpeg',
     minOrder: '100 UNITS',
     color: '#4ade80',
     description: 'Our signature high-strength kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
@@ -48,15 +48,15 @@ const categoryData = {
       { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
     ],
     gallery: [
-      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/new/eco1.png' },
-      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/new/eco2.png' },
-      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/new/eco3.png' }
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/new/eco1.webp' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/new/eco2.webp' },
+      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/new/eco3.webp' }
     ]
   },
   fnb: {
     id: 'fnb',
     title: 'F&B Gourmet Bags',
-    image: '/images/fnb_main_brown.png',
+    image: '/images/newGen/bottomVFB.jpeg',
     minOrder: '100 UNITS',
     color: '#f59e0b',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry.',
@@ -76,15 +76,15 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_wide_base_takeaway_1775488815145.png' },
-      { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/generated/fnb_pastry_sleeves_1775488776952.png' },
-      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/generated/fnb_delivery_pouch_1775488853812.png' }
+      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_wide_base_takeaway_1775488815145.webp' },
+      { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/generated/fnb_pastry_sleeves_1775488776952.webp' },
+      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/generated/fnb_delivery_pouch_1775488853812.webp' }
     ]
   },
   luxury: {
     id: 'luxury',
     title: 'Luxury Kraft Bags',
-    image: '/images/prod_luxury_premium.png',
+    image: '/images/prod_luxury_premium.webp',
     minOrder: '100 UNITS',
     color: '#c09457',
     description: 'High-thickness boards and exquisite finishes that redefine paper packaging.',
@@ -104,15 +104,15 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/new/lux1.png' },
-      { title: 'Artisanal Finish', desc: 'Hand-crafted excellence', image: '/images/new/lux2.png' },
-      { title: 'Colorful Premium', desc: 'Signature luxury palette', image: '/images/new/lux3.png' }
+      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/new/lux1.webp' },
+      { title: 'Artisanal Finish', desc: 'Hand-crafted excellence', image: '/images/new/lux2.webp' },
+      { title: 'Colorful Premium', desc: 'Signature luxury palette', image: '/images/new/lux3.webp' }
     ]
   },
   pouches: {
     id: 'pouches',
     title: 'Eco-Pouches',
-    image: '/images/prod_pouches_paper.png',
+    image: '/images/prod_pouches_paper.webp',
     minOrder: '100 UNITS',
     color: '#1a4a2e',
     description: 'Modern stand-up pouches with a premium matte paper texture for dry goods.',
@@ -132,15 +132,15 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Stand-up Pouch', desc: 'Retail-ready design', image: '/images/prod_pouches_paper.png' },
+      { title: 'Stand-up Pouch', desc: 'Retail-ready design', image: '/images/prod_pouches_paper.webp' },
       { title: 'Organic Feel', desc: 'Natural matte finish', image: '/images/eco_pouches_paper_grid.png' },
-      { title: 'Window Option', desc: 'Product visibility', image: '/images/prod_pouches_paper.png' }
+      { title: 'Window Option', desc: 'Product visibility', image: '/images/prod_pouches_paper.webp' }
     ]
   },
   'flat-handle': {
     id: 'flat-handle',
     title: 'Flat Handle Bags',
-    image: '/images/prod_flat_paper.png',
+    image: '/images/prod_flat_paper.webp',
     minOrder: '100 UNITS',
     color: '#145c38',
     description: 'Sturdy, economical retail solutions with a visible natural paper fiber texture.',
@@ -160,15 +160,15 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Supermarket Carry', desc: 'High-volume solution', image: '/images/prod_flat_paper.png' },
+      { title: 'Supermarket Carry', desc: 'High-volume solution', image: '/images/prod_flat_paper.webp' },
       { title: 'Retail Primary', desc: 'Cost-effective packaging', image: '/images/flat_handle_bags_paper_grid.png' },
-      { title: 'Bulk Capacity', desc: 'Engineered for strength', image: '/images/prod_flat_paper.png' }
+      { title: 'Bulk Capacity', desc: 'Engineered for strength', image: '/images/prod_flat_paper.webp' }
     ]
   },
   industrial: {
     id: 'industrial',
     title: 'Industrial Kraft Rolls',
-    image: '/images/factory_rolls_main.png',
+    image: '/images/factory_rolls_main.webp',
     minOrder: '100 UNITS',
     color: '#4a3728',
     description: 'Heavy-duty industrial rolls designed for maximum protection and shipping.',
@@ -188,9 +188,9 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/factory_rolls_gallery1.png' },
-      { title: 'High GSM Roll', desc: 'Superior tensile strength', image: '/images/factory_rolls_gallery2.png' },
-      { title: 'Custom Length', desc: 'Tailored for logistics', image: '/images/factory_rolls_gallery3.png' }
+      { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/factory_rolls_gallery1.webp' },
+      { title: 'High GSM Roll', desc: 'Superior tensile strength', image: '/images/factory_rolls_gallery2.webp' },
+      { title: 'Custom Length', desc: 'Tailored for logistics', image: '/images/factory_rolls_gallery3.webp' }
     ]
   }
 };
@@ -412,7 +412,7 @@ export default function ProductCategory() {
               {/* Bullet Grid */}
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: '1fr 1fr', 
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
                 gap: isMobile ? 12 : '20px 24px', 
                 marginBottom: isMobile ? 40 : 64 
               }}>
@@ -458,7 +458,7 @@ export default function ProductCategory() {
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, var(--kraft-200), transparent)' }} />
                 </div>
                 
-                <div style={{ 
+                <div className="specs-grid" style={{ 
                   display: 'grid', 
                   gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', 
                   gap: isMobile ? 12 : 16
@@ -705,6 +705,17 @@ export default function ProductCategory() {
           .category-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
           .cta-buttons { flex-direction: column !important; align-items: stretch !important; }
           .cta-buttons > * { text-align: center !important; }
+        }
+        @media (max-width: 768px) {
+          .gallery-grid {
+            grid-template-columns: 1fr !important;
+            gap: 24px !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .specs-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
         .gallery-grid div:hover .gallery-overlay {
           opacity: 1 !important;

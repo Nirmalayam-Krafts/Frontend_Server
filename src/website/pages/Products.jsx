@@ -9,8 +9,8 @@ const categories = [
     title: 'Ecocraft Collection',
     subtitle: 'Sustainable Everyday Packaging',
     description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, boutiques, and eco-conscious brands looking for durability and natural aesthetics.',
-    image: '/images/collection_ecocraft_vibrant.png',
-    videoStill: '/images/generated/video_ecocraft.png',
+    image: '/images/newGen/BOTTOMV.jpeg',
+    videoStill: '/images/generated/video_ecocraft.webp',
     color: '#4ade80',
     features: ['100-140 GSM Kraft', 'Twisted Paper Handles', 'Super Budget Friendly'],
     priceBadge: 'From ₹2/Bag'
@@ -20,8 +20,8 @@ const categories = [
     title: 'F&B Gourmet Bags',
     subtitle: 'Safe for Food, Kind to Earth',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry. Designed to keep freshness in and plastics out.',
-    image: '/images/collection_fnb_vibrant.png',
-    videoStill: '/images/generated/video_fnb.png',
+    image: '/images/newGen/bottomVFB.jpeg',
+    videoStill: '/images/generated/video_fnb.webp',
     color: '#f59e0b',
     features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Lowest Wholesale Cost'],
     priceBadge: 'Bulk Factory Rates'
@@ -31,8 +31,8 @@ const categories = [
     title: 'Luxury Kraft Bags',
     subtitle: 'Premium Unboxing experience',
     description: 'Elevate your brand with our luxury collection. High-thickness boards, premium textures, and exquisite finishes that redefine paper packaging.',
-    image: '/images/collection_luxury_vibrant.png',
-    videoStill: '/images/generated/video_luxury.png',
+    image: '/images/collection_luxury_vibrant.webp',
+    videoStill: '/images/generated/video_luxury.webp',
     color: '#c09457',
     features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Highly Affordable Rates'],
     priceBadge: 'Low Wholesale Prices'
@@ -57,7 +57,7 @@ export default function Products() {
       {/* ── Page Hero ── */}
       {/* ... keep hero as is ... */}
       <div className="page-hero" style={{
-        backgroundImage: 'url(/images/generated/products_hero_branded_new.png)',
+        backgroundImage: 'url(/images/generated/products_hero_branded_new.webp)',
         backgroundSize: 'cover',
         backgroundPosition: isMobile ? 'center' : 'center right',
         position: 'relative',
@@ -346,7 +346,7 @@ export default function Products() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/tree-texture.png)',
+          backgroundImage: 'url(/tree-texture.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.1,
