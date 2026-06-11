@@ -16,13 +16,24 @@ function WhatsAppIcon({ size = 18 }) {
 export default function PagePopup({ pageType = 'home' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isSmallMobile = windowWidth < 480;
+  const isTablet = windowWidth < 1024;
 
   // Define popup content based on page type with layout type
   const popupConfigs = {
     home: {
       title: 'Get Your Custom Quote',
       message: "Let's discuss your sustainable packaging needs. Chat with us on WhatsApp!",
-      image: '/images/generated/popup_bags_branded_new.png',
+      image: '/images/generated/popup_bags_branded_new.webp',
       accentColor: '#c09457',
       delay: 3000,
       layout: 'corner_bubble',
@@ -30,7 +41,7 @@ export default function PagePopup({ pageType = 'home' }) {
     products: {
       title: 'Explore Our Collections',
       message: 'Discover the perfect eco-friendly packaging for your brand. Chat with our team!',
-      image: '/images/collection_ecocraft_vibrant.png',
+      image: '/images/newGen/BOTTOMV.jpeg',
       accentColor: '#4ade80',
       delay: 3000,
       layout: 'bottom_floating_bar',
@@ -38,7 +49,7 @@ export default function PagePopup({ pageType = 'home' }) {
     about: {
       title: 'Learn Our Story',
       message: "Passionate about sustainable manufacturing? Let's connect and share our journey.",
-      image: '/images/generated/about_hero_wood.png',
+      image: '/images/generated/about_hero_wood.webp',
       accentColor: '#22c55e',
       delay: 3000,
       layout: 'left_slide_panel',
@@ -54,7 +65,7 @@ export default function PagePopup({ pageType = 'home' }) {
     sustainability: {
       title: 'Go Green Together',
       message: "Ready to eliminate plastic waste? Let's create a sustainable solution for you.",
-      image: '/images/eco_cta_bg.png',
+      image: '/images/eco_cta_bg.webp',
       accentColor: '#22c55e',
       delay: 3000,
       layout: 'organic_corner_card',
@@ -94,8 +105,8 @@ export default function PagePopup({ pageType = 'home' }) {
         className="nirmalyam-corner-bubble-wrapper"
         style={{
           position: 'fixed',
-          bottom: '24px',
-          left: '24px',
+          bottom: isMobile ? '16px' : '24px',
+          left: isMobile ? '16px' : '24px',
           zIndex: 99999,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
@@ -105,8 +116,8 @@ export default function PagePopup({ pageType = 'home' }) {
           <button
             onClick={() => setIsCollapsed(false)}
             style={{
-              width: '64px',
-              height: '64px',
+              width: isMobile ? '56px' : '64px',
+              height: isMobile ? '56px' : '64px',
               borderRadius: '50%',
               background: '#25D366',
               border: 'none',
@@ -122,7 +133,7 @@ export default function PagePopup({ pageType = 'home' }) {
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             title="Chat with us"
           >
-            <WhatsAppIcon size={28} />
+            <WhatsAppIcon size={isMobile ? 24 : 28} />
           </button>
         ) : (
           /* Expandable Premium Card */
@@ -132,10 +143,12 @@ export default function PagePopup({ pageType = 'home' }) {
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '20px',
-              width: '320px',
+              borderRadius: '16px',
+              width: isSmallMobile ? '260px' : isMobile ? '280px' : isTablet ? '290px' : '300px',
+              maxWidth: 'calc(100vw - 32px)',
+              maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 80px)',
+              overflowY: 'auto',
               boxShadow: '0 20px 48px rgba(0, 0, 0, 0.35)',
-              overflow: 'hidden',
               animation: 'nirmalyamPopIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
               position: 'relative',
               color: 'white',
@@ -145,10 +158,10 @@ export default function PagePopup({ pageType = 'home' }) {
             <div
               style={{
                 position: 'absolute',
-                top: '12px',
-                right: '12px',
+                top: '10px',
+                right: '10px',
                 display: 'flex',
-                gap: '8px',
+                gap: '6px',
                 zIndex: 10,
               }}
             >
@@ -158,9 +171,9 @@ export default function PagePopup({ pageType = 'home' }) {
                   background: 'rgba(255, 255, 255, 0.1)',
                   border: 'none',
                   color: 'white',
-                  borderRadius: '6px',
+                  borderRadius: '4px',
                   padding: '2px 6px',
-                  fontSize: '11px',
+                  fontSize: '10px',
                   cursor: 'pointer',
                   fontWeight: '600',
                   transition: 'background 0.2s',
@@ -173,8 +186,8 @@ export default function PagePopup({ pageType = 'home' }) {
               <button
                 onClick={handleClose}
                 style={{
-                  width: '24px',
-                  height: '24px',
+                  width: '20px',
+                  height: '20px',
                   borderRadius: '50%',
                   background: 'rgba(255, 255, 255, 0.15)',
                   border: 'none',
@@ -187,12 +200,12 @@ export default function PagePopup({ pageType = 'home' }) {
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)')}
               >
-                <X size={12} color="white" />
+                <X size={10} color="white" />
               </button>
             </div>
 
             {/* Mini Header Image */}
-            <div style={{ height: '100px', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ height: isMobile ? '70px' : '85px', overflow: 'hidden', position: 'relative' }}>
               <img
                 src={config.image}
                 alt="Chat support"
@@ -208,11 +221,11 @@ export default function PagePopup({ pageType = 'home' }) {
             </div>
 
             {/* Text & Button */}
-            <div style={{ padding: '16px 20px 20px' }}>
+            <div style={{ padding: isMobile ? '10px 14px 14px' : '14px 16px 16px' }}>
               <span
                 style={{
                   color: config.accentColor,
-                  fontSize: '11px',
+                  fontSize: isMobile ? '9px' : '10px',
                   textTransform: 'uppercase',
                   fontWeight: '700',
                   letterSpacing: '1px',
@@ -223,10 +236,10 @@ export default function PagePopup({ pageType = 'home' }) {
               <h3
                 style={{
                   fontFamily: "'Playfair Display', serif",
-                  fontSize: '18px',
+                  fontSize: isMobile ? '14px' : '16px',
                   fontWeight: '700',
                   color: '#ffffff',
-                  margin: '4px 0 8px 0',
+                  margin: '4px 0 6px 0',
                   lineHeight: '1.2',
                 }}
               >
@@ -234,10 +247,10 @@ export default function PagePopup({ pageType = 'home' }) {
               </h3>
               <p
                 style={{
-                  fontSize: '13px',
+                  fontSize: isMobile ? '11px' : '12px',
                   color: '#bdae9e',
-                  lineHeight: '1.5',
-                  margin: '0 0 16px 0',
+                  lineHeight: '1.4',
+                  margin: isMobile ? '0 0 12px 0' : '0 0 16px 0',
                 }}
               >
                 {config.message}
@@ -251,14 +264,14 @@ export default function PagePopup({ pageType = 'home' }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  padding: '12px 20px',
+                  gap: '6px',
+                  padding: isMobile ? '8px 12px' : '10px 16px',
                   background: '#25D366',
                   color: 'white',
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   textDecoration: 'none',
                   fontWeight: '700',
-                  fontSize: '14px',
+                  fontSize: isMobile ? '12px' : '13px',
                   transition: 'all 0.2s ease',
                   boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)',
                 }}
@@ -271,7 +284,7 @@ export default function PagePopup({ pageType = 'home' }) {
                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 211, 102, 0.25)';
                 }}
               >
-                <WhatsAppIcon size={16} /> Chat on WhatsApp
+                <WhatsAppIcon size={14} /> Chat on WhatsApp
               </a>
             </div>
           </div>
@@ -299,12 +312,6 @@ export default function PagePopup({ pageType = 'home' }) {
               box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
             }
           }
-          @media (max-width: 768px) {
-            .nirmalyam-corner-bubble-wrapper {
-              left: 16px !important;
-              bottom: 16px !important;
-            }
-          }
         `}</style>
       </div>
     );
@@ -317,7 +324,7 @@ export default function PagePopup({ pageType = 'home' }) {
         className="nirmalyam-bottom-floating-bar-wrapper"
         style={{
           position: 'fixed',
-          bottom: '24px',
+          bottom: isMobile ? '16px' : '24px',
           left: '50%',
           transform: 'translateX(-50%)',
           width: 'calc(100% - 48px)',
@@ -334,7 +341,7 @@ export default function PagePopup({ pageType = 'home' }) {
             borderRadius: '16px',
             border: '1px solid rgba(0, 0, 0, 0.08)',
             boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
-            padding: '12px 20px',
+            padding: isMobile ? '10px 14px' : '12px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -343,11 +350,11 @@ export default function PagePopup({ pageType = 'home' }) {
           }}
         >
           {/* Left info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px', flex: 1 }}>
             <div
               style={{
-                width: '44px',
-                height: '44px',
+                width: isMobile ? '36px' : '44px',
+                height: isMobile ? '36px' : '44px',
                 borderRadius: '8px',
                 overflow: 'hidden',
                 flexShrink: 0,
@@ -364,7 +371,7 @@ export default function PagePopup({ pageType = 'home' }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span
                   style={{
-                    fontSize: '10px',
+                    fontSize: isMobile ? '9px' : '10px',
                     fontWeight: '700',
                     color: '#c09457',
                     background: '#FAF6F0',
@@ -376,12 +383,12 @@ export default function PagePopup({ pageType = 'home' }) {
                   Factory wholesale
                 </span>
               </div>
-              <h4 style={{ margin: '2px 0 0 0', fontSize: '15px', fontWeight: '700', color: '#1a1208' }}>
+              <h4 style={{ margin: '2px 0 0 0', fontSize: isMobile ? '13px' : '15px', fontWeight: '700', color: '#1a1208' }}>
                 {config.title}
               </h4>
               <p
                 className="bottom-bar-desc-text"
-                style={{ margin: 0, fontSize: '12px', color: '#6e5d4f', fontWeight: '500' }}
+                style={{ margin: 0, fontSize: isMobile ? '11px' : '12px', color: '#6e5d4f', fontWeight: '500' }}
               >
                 {config.message}
               </p>
@@ -389,7 +396,7 @@ export default function PagePopup({ pageType = 'home' }) {
           </div>
 
           {/* Right actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <a
               href={whatsappUrl}
               target="_blank"
@@ -398,13 +405,13 @@ export default function PagePopup({ pageType = 'home' }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '9px 16px',
+                padding: isMobile ? '8px 12px' : '9px 16px',
                 background: '#25D366',
                 color: 'white',
                 borderRadius: '8px',
                 textDecoration: 'none',
                 fontWeight: '700',
-                fontSize: '13px',
+                fontSize: isMobile ? '11px' : '13px',
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
@@ -416,13 +423,13 @@ export default function PagePopup({ pageType = 'home' }) {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <WhatsAppIcon size={14} /> Chat Now
+              <WhatsAppIcon size={isMobile ? 12 : 14} /> Chat Now
             </a>
             <button
               onClick={handleClose}
               style={{
-                width: '32px',
-                height: '32px',
+                width: isMobile ? '28px' : '32px',
+                height: isMobile ? '28px' : '32px',
                 borderRadius: '8px',
                 background: 'rgba(0,0,0,0.04)',
                 border: 'none',
@@ -435,7 +442,7 @@ export default function PagePopup({ pageType = 'home' }) {
               onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
             >
-              <X size={14} color="#1a1208" />
+              <X size={isMobile ? 12 : 14} color="#1a1208" />
             </button>
           </div>
         </div>
@@ -475,9 +482,10 @@ export default function PagePopup({ pageType = 'home' }) {
         className="nirmalyam-left-slide-wrapper"
         style={{
           position: 'fixed',
-          top: '50%',
-          left: '24px',
-          transform: 'translateY(-50%)',
+          top: isMobile ? 'auto' : '50%',
+          bottom: isMobile ? '16px' : 'auto',
+          left: isMobile ? '16px' : '24px',
+          transform: isMobile ? 'none' : 'translateY(-50%)',
           zIndex: 99999,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
@@ -485,11 +493,15 @@ export default function PagePopup({ pageType = 'home' }) {
         <div
           style={{
             background: '#FAF6F0',
-            borderLeft: '4px solid #c09457',
-            borderRadius: '0 16px 16px 0',
-            width: '280px',
+            borderLeft: isMobile ? 'none' : '4px solid #c09457',
+            borderBottom: isMobile ? '4px solid #c09457' : 'none',
+            borderRadius: isMobile ? '16px' : '0 16px 16px 0',
+            width: isSmallMobile ? '260px' : isMobile ? '280px' : '280px',
+            maxWidth: 'calc(100vw - 32px)',
+            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 80px)',
+            overflowY: 'auto',
             boxShadow: '8px 8px 32px rgba(26, 18, 8, 0.12)',
-            padding: '24px',
+            padding: isMobile ? '16px 20px' : '24px',
             position: 'relative',
             animation: 'nirmalyamSlideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
@@ -520,7 +532,7 @@ export default function PagePopup({ pageType = 'home' }) {
 
           <span
             style={{
-              fontSize: '11px',
+              fontSize: isMobile ? '10px' : '11px',
               fontWeight: '700',
               color: '#c09457',
               textTransform: 'uppercase',
@@ -534,10 +546,10 @@ export default function PagePopup({ pageType = 'home' }) {
           <h3
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: '20px',
+              fontSize: isMobile ? '16px' : '20px',
               fontWeight: '700',
               color: '#1a1208',
-              margin: '0 0 10px 0',
+              margin: '0 0 6px 0',
               lineHeight: '1.2',
             }}
           >
@@ -545,10 +557,10 @@ export default function PagePopup({ pageType = 'home' }) {
           </h3>
           <p
             style={{
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               color: '#6e5d4f',
               lineHeight: '1.5',
-              margin: '0 0 20px 0',
+              margin: isMobile ? '0 0 14px 0' : '0 0 20px 0',
               fontWeight: '500',
             }}
           >
@@ -564,13 +576,13 @@ export default function PagePopup({ pageType = 'home' }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              padding: '12px 16px',
+              padding: isMobile ? '10px 14px' : '12px 16px',
               background: '#25D366',
               color: 'white',
               borderRadius: '8px',
               textDecoration: 'none',
               fontWeight: '700',
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               transition: 'all 0.2s ease',
               boxShadow: '0 4px 10px rgba(37, 211, 102, 0.15)',
             }}
@@ -625,8 +637,8 @@ export default function PagePopup({ pageType = 'home' }) {
         className="nirmalyam-system-notification-wrapper"
         style={{
           position: 'fixed',
-          top: '24px',
-          right: '24px',
+          top: isMobile ? '16px' : '24px',
+          right: isMobile ? '16px' : '24px',
           zIndex: 99999,
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         }}
@@ -639,8 +651,9 @@ export default function PagePopup({ pageType = 'home' }) {
             border: '1px solid rgba(0, 0, 0, 0.06)',
             boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
             borderRadius: '14px',
-            width: '340px',
-            padding: '12px 16px',
+            width: isSmallMobile ? '260px' : isMobile ? '280px' : isTablet ? '290px' : '340px',
+            maxWidth: 'calc(100vw - 32px)',
+            padding: isMobile ? '10px 14px' : '12px 16px',
             position: 'relative',
             animation: 'nirmalyamSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
@@ -661,12 +674,12 @@ export default function PagePopup({ pageType = 'home' }) {
               >
                 <WhatsAppIcon size={11} />
               </div>
-              <span style={{ fontSize: '11px', fontWeight: '600', color: '#8e8e93', letterSpacing: '0.5px' }}>
+              <span style={{ fontSize: isMobile ? '10px' : '11px', fontWeight: '600', color: '#8e8e93', letterSpacing: '0.5px' }}>
                 NIRMALYAM SUPPORT
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: '#8e8e93' }}>now</span>
+              <span style={{ fontSize: isMobile ? '10px' : '11px', color: '#8e8e93' }}>now</span>
               <button
                 onClick={handleClose}
                 style={{
@@ -686,10 +699,10 @@ export default function PagePopup({ pageType = 'home' }) {
 
           {/* Body content */}
           <div style={{ marginBottom: '10px' }}>
-            <h4 style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: '700', color: '#1c1c1e' }}>
+            <h4 style={{ margin: '0 0 2px 0', fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: '#1c1c1e' }}>
               {config.title}
             </h4>
-            <p style={{ margin: 0, fontSize: '13px', color: '#3a3a3c', lineHeight: '1.4' }}>
+            <p style={{ margin: 0, fontSize: isMobile ? '11px' : '13px', color: '#3a3a3c', lineHeight: '1.4' }}>
               {config.message}
             </p>
           </div>
@@ -704,11 +717,11 @@ export default function PagePopup({ pageType = 'home' }) {
               alignItems: 'center',
               justifyContent: 'center',
               width: '100%',
-              padding: '8px',
+              padding: isMobile ? '6px' : '8px',
               background: '#25D366',
               color: 'white',
               borderRadius: '8px',
-              fontSize: '13px',
+              fontSize: isMobile ? '11px' : '13px',
               fontWeight: '700',
               textDecoration: 'none',
               textAlign: 'center',
@@ -755,8 +768,8 @@ export default function PagePopup({ pageType = 'home' }) {
         className="nirmalyam-organic-card-wrapper"
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: isMobile ? '16px' : '24px',
+          right: isMobile ? '16px' : '24px',
           zIndex: 99999,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
@@ -766,9 +779,12 @@ export default function PagePopup({ pageType = 'home' }) {
             background: 'linear-gradient(135deg, #18331a 0%, #0c1a0d 100%)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '24px 8px 24px 24px',
-            width: '300px',
+            width: isSmallMobile ? '260px' : isMobile ? '280px' : isTablet ? '290px' : '300px',
+            maxWidth: 'calc(100vw - 32px)',
+            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 80px)',
+            overflowY: 'auto',
             boxShadow: '0 16px 40px rgba(12, 26, 13, 0.35)',
-            padding: '24px',
+            padding: isMobile ? '16px 20px' : '24px',
             position: 'relative',
             color: 'white',
             animation: 'nirmalyamSlideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -805,7 +821,7 @@ export default function PagePopup({ pageType = 'home' }) {
               alignItems: 'center',
               gap: '6px',
               color: '#4ade80',
-              fontSize: '11px',
+              fontSize: isMobile ? '10px' : '11px',
               fontWeight: '700',
               textTransform: 'uppercase',
               letterSpacing: '1px',
@@ -818,10 +834,10 @@ export default function PagePopup({ pageType = 'home' }) {
           <h3
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: '20px',
+              fontSize: isMobile ? '16px' : '20px',
               fontWeight: '700',
               color: '#ffffff',
-              margin: '0 0 10px 0',
+              margin: '0 0 6px 0',
               lineHeight: '1.2',
             }}
           >
@@ -830,10 +846,10 @@ export default function PagePopup({ pageType = 'home' }) {
 
           <p
             style={{
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               color: '#a9bfa9',
               lineHeight: '1.5',
-              margin: '0 0 20px 0',
+              margin: isMobile ? '0 0 14px 0' : '0 0 20px 0',
               fontWeight: '500',
             }}
           >
@@ -849,13 +865,13 @@ export default function PagePopup({ pageType = 'home' }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              padding: '12px 20px',
+              padding: isMobile ? '10px 16px' : '12px 20px',
               background: '#ffffff',
               color: '#0c1a0d',
               borderRadius: '12px',
               textDecoration: 'none',
               fontWeight: '700',
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               transition: 'all 0.2s ease',
               boxShadow: '0 4px 12px rgba(255, 255, 255, 0.15)',
             }}
@@ -905,8 +921,8 @@ export default function PagePopup({ pageType = 'home' }) {
         className="nirmalyam-creative-widget-wrapper"
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: isMobile ? '16px' : '24px',
+          right: isMobile ? '16px' : '24px',
           zIndex: 99999,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
@@ -916,9 +932,12 @@ export default function PagePopup({ pageType = 'home' }) {
             background: '#121212',
             border: '1px solid #c09457',
             borderRadius: '16px',
-            width: '320px',
+            width: isSmallMobile ? '260px' : isMobile ? '280px' : isTablet ? '290px' : '320px',
+            maxWidth: 'calc(100vw - 32px)',
+            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 80px)',
+            overflowY: 'auto',
             boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45)',
-            padding: '22px',
+            padding: isMobile ? '16px 20px' : '22px',
             position: 'relative',
             color: 'white',
             animation: 'nirmalyamSlideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -929,10 +948,10 @@ export default function PagePopup({ pageType = 'home' }) {
             style={{
               position: 'absolute',
               top: '-10px',
-              left: '20px',
+              left: isMobile ? '16px' : '20px',
               background: '#c09457',
               color: '#121212',
-              fontSize: '9px',
+              fontSize: isMobile ? '8px' : '9px',
               fontWeight: '800',
               textTransform: 'uppercase',
               padding: '2px 8px',
@@ -972,10 +991,10 @@ export default function PagePopup({ pageType = 'home' }) {
             <h3
               style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: '19px',
+                fontSize: isMobile ? '15px' : '19px',
                 fontWeight: '700',
                 color: '#ffffff',
-                margin: '0 0 8px 0',
+                margin: '0 0 6px 0',
                 lineHeight: '1.2',
               }}
             >
@@ -983,10 +1002,10 @@ export default function PagePopup({ pageType = 'home' }) {
             </h3>
             <p
               style={{
-                fontSize: '13px',
+                fontSize: isMobile ? '12px' : '13px',
                 color: '#a0a0a0',
                 lineHeight: '1.5',
-                margin: '0 0 18px 0',
+                margin: isMobile ? '0 0 14px 0' : '0 0 18px 0',
                 fontWeight: '500',
               }}
             >
@@ -1002,13 +1021,13 @@ export default function PagePopup({ pageType = 'home' }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                padding: '12px 20px',
+                padding: isMobile ? '10px 16px' : '12px 20px',
                 background: '#c09457',
                 color: '#121212',
                 borderRadius: '8px',
                 textDecoration: 'none',
                 fontWeight: '700',
-                fontSize: '13px',
+                fontSize: isMobile ? '12px' : '13px',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 4px 12px rgba(192, 148, 87, 0.2)',
               }}

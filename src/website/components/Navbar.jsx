@@ -111,7 +111,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', flexShrink: 0 }}>
             <img 
-              src="/Nirmalyam_Logo-removebg-preview.png" 
+              src="/Nirmalyam_Logo-removebg-preview.webp" 
               alt="Nirmalyam Krafts Logo" 
               style={{ 
                 height: isMobile

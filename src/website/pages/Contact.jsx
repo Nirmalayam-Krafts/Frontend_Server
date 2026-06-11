@@ -315,7 +315,7 @@ export default function Contact() {
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'white' }}>
       {/* ── Page Hero: Cinematic Atmosphere ── */}
       <div className="page-hero" style={{
-        backgroundImage: 'url(/images/generated/contact_hero_bg.png)',
+        backgroundImage: 'url(/images/generated/contact_hero_bg.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -607,7 +607,7 @@ export default function Contact() {
                  boxShadow: 'var(--shadow-xl)'
                }}>
                  <img 
-                   src="/images/generated/contact_consulting.png" 
+                   src="/images/generated/contact_consulting.webp" 
                    alt="Nirmalyam Packaging" 
                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                  />

@@ -13,17 +13,17 @@ import { Link } from 'react-router-dom';
 
 const carouselImages = [
   {
-    src: '/images/generated/ecocraft_vibrant_branded.png',
+    src: '/images/generated/ecocraft_vibrant_branded.webp',
     title: 'Ecocraft Collection',
     desc: 'Sustainable Everyday Packaging'
   },
   {
-    src: '/images/generated/luxury_vibrant_branded.png',
+    src: '/images/generated/luxury_vibrant_branded.webp',
     title: 'Luxury Kraft',
     desc: 'Premium Unboxing Experience'
   },
   {
-    src: '/images/generated/popup_bags_branded_new.png',
+    src: '/images/generated/popup_bags_branded_new.webp',
     title: 'F&B Gourmet',
     desc: 'Safe for Food, Kind to Earth'
   }
@@ -32,13 +32,16 @@ const carouselImages = [
 export default function FloatingWidgets() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth < 1024;
 
   useEffect(() => {
     // Show on every refresh
@@ -200,15 +203,19 @@ export default function FloatingWidgets() {
       {showWelcome && (
         <div style={{
           position: 'fixed',
-          bottom: isMobile ? '80px' : '100px',
+          bottom: isMobile ? '70px' : '90px',
           left: isMobile ? '50%' : 'auto',
           right: isMobile ? 'auto' : '24px',
           transform: isMobile ? 'translateX(-50%)' : 'none',
           zIndex: 100,
-          width: isMobile ? 'calc(100vw - 32px)' : '420px',
+          width: windowWidth < 480 ? '290px' : windowWidth < 768 ? '320px' : windowWidth < 1024 ? '340px' : '360px',
+          maxWidth: '92vw',
+          maxHeight: isMobile ? 'calc(100vh - 200px)' : 'calc(100vh - 260px)',
           background: 'white',
-          borderRadius: isMobile ? '20px' : '24px',
+          borderRadius: isMobile ? '16px' : '20px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
           overflow: 'hidden',
           animation: isMobile ? 'fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
@@ -229,11 +236,11 @@ export default function FloatingWidgets() {
             onClick={closeWelcome}
             style={{
               position: 'absolute',
-              top: '12px',
-              right: '12px',
-              zIndex: 10,
-              width: '32px',
-              height: '32px',
+              top: isMobile ? '8px' : '12px',
+              right: isMobile ? '8px' : '12px',
+              zIndex: 110,
+              width: isMobile ? '28px' : '32px',
+              height: isMobile ? '28px' : '32px',
               borderRadius: '50%',
               background: 'rgba(0,0,0,0.5)',
               border: 'none',
@@ -245,93 +252,102 @@ export default function FloatingWidgets() {
               backdropFilter: 'blur(4px)'
             }}
           >
-            <X size={18} />
+            <X size={isMobile ? 14 : 18} />
           </button>
 
-          <div style={{ position: 'relative', height: isMobile ? '160px' : '220px', overflow: 'hidden' }}>
-            {carouselImages.map((img, i) => (
-              <div
-                key={i}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: currentIndex === i ? 1 : 0,
-                  transition: 'opacity 0.6s ease-in-out',
-                }}
-              >
-                <img src={img.src} alt={img.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)'
-                }} />
-                <div style={{
-                  position: 'absolute',
-                  bottom: '16px',
-                  left: '16px',
-                  color: 'white'
-                }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{img.title}</div>
-                  <div style={{ fontSize: 11, opacity: 0.8 }}>{img.desc}</div>
+          {/* Scrollable Container */}
+          <div style={{
+            overflowY: 'auto',
+            flex: 1,
+            borderRadius: 'inherit',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <div style={{ position: 'relative', height: isMobile ? '120px' : '160px', overflow: 'hidden', flexShrink: 0 }}>
+              {carouselImages.map((img, i) => (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: currentIndex === i ? 1 : 0,
+                    transition: 'opacity 0.6s ease-in-out',
+                  }}
+                >
+                  <img src={img.src} alt={img.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)'
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: isMobile ? '12px' : '16px',
+                    left: isMobile ? '12px' : '16px',
+                    color: 'white'
+                  }}>
+                    <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{img.title}</div>
+                    <div style={{ fontSize: isMobile ? 9 : 11, opacity: 0.8 }}>{img.desc}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
-            <button onClick={prevSlide} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
-              <ChevronLeft size={16} />
-            </button>
-            <button onClick={nextSlide} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <div style={{ padding: isMobile ? '20px' : '24px' }}>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 20 : 24, color: '#1a1208', marginBottom: isMobile ? 8 : 12 }}>
-              Eco-Luxury Packaging
-            </h3>
-            <p style={{ fontSize: isMobile ? 13 : 14, color: '#6f5b46', lineHeight: 1.6, marginBottom: isMobile ? 16 : 20 }}>
-              Specializing in <strong>Ecocraft</strong>, <strong>Luxury Kraft</strong>, and <strong>F&B Gourmet</strong> collections. 
-              {isMobile ? '' : ' Custom branding available for all sizes.'}
-            </p>
-
-            <div style={{
-              background: '#fffaf4',
-              border: '1px solid #efe3d5',
-              borderRadius: '12px',
-              padding: isMobile ? '10px 14px' : '12px 16px',
-              marginBottom: isMobile ? 16 : 20,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12
-            }}>
-              <ShoppingBag size={isMobile ? 18 : 20} color="#8b5e34" />
-              <div>
-                <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: '#8b5e34', textTransform: 'uppercase' }}>Minimum Order</div>
-                <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#1a1208' }}>Starting from just 100 Units</div>
-              </div>
+              <button onClick={prevSlide} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
+                <ChevronLeft size={14} />
+              </button>
+              <button onClick={nextSlide} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
+                <ChevronRight size={14} />
+              </button>
             </div>
 
-            <Link
-              to="/products"
-              onClick={closeWelcome}
-              style={{
+            <div style={{ padding: isMobile ? '16px' : '20px' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 18 : 21, color: '#1a1208', marginBottom: isMobile ? 6 : 8 }}>
+                Eco-Luxury Packaging
+              </h3>
+              <p style={{ fontSize: isMobile ? 12 : 13, color: '#6f5b46', lineHeight: 1.5, marginBottom: isMobile ? 12 : 16 }}>
+                Specializing in <strong>Ecocraft</strong>, <strong>Luxury Kraft</strong>, and <strong>F&B Gourmet</strong> collections. 
+                {isMobile ? '' : ' Custom branding available.'}
+              </p>
+
+              <div style={{
+                background: '#fffaf4',
+                border: '1px solid #efe3d5',
+                borderRadius: '10px',
+                padding: isMobile ? '8px 12px' : '10px 14px',
+                marginBottom: isMobile ? 12 : 16,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                width: '100%',
-                padding: '14px',
-                background: 'linear-gradient(180deg, #16a34a 0%, #15803d 100%)',
-                color: 'white',
-                borderRadius: '12px',
-                textDecoration: 'none',
-                fontWeight: 700,
-                fontSize: 15,
-                boxShadow: '0 8px 20px rgba(22, 163, 74, 0.2)'
-              }}
-            >
-              Explore Collections <ChevronRight size={18} />
-            </Link>
+                gap: 10
+              }}>
+                <ShoppingBag size={isMobile ? 16 : 18} color="#8b5e34" />
+                <div>
+                  <div style={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, color: '#8b5e34', textTransform: 'uppercase' }}>Minimum Order</div>
+                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 700, color: '#1a1208' }}>Starting from just 100 Units</div>
+                </div>
+              </div>
+
+              <Link
+                to="/products"
+                onClick={closeWelcome}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  width: '100%',
+                  padding: isMobile ? '11px 14px' : '13px',
+                  background: 'linear-gradient(180deg, #16a34a 0%, #15803d 100%)',
+                  color: 'white',
+                  borderRadius: '10px',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  fontSize: isMobile ? 13 : 14,
+                  boxShadow: '0 8px 20px rgba(22, 163, 74, 0.2)'
+                }}
+              >
+                Explore Collections <ChevronRight size={16} />
+              </Link>
+            </div>
           </div>
         </div>
       )}
