@@ -24,6 +24,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -47,6 +48,30 @@ export default function Navbar() {
     return () => clearTimeout(timer);
   }, [location]);
 
+  useEffect(() => {
+    if (location.pathname === '/') {
+      setShowBanner(true);
+      const timer = setTimeout(() => {
+        setShowBanner(false);
+      }, 9000); // 9 seconds
+      return () => clearTimeout(timer);
+    } else {
+      setShowBanner(false);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const isBannerVisible = showBanner && !scrolled;
+    const height = isBannerVisible ? (isMobile ? '44px' : '40px') : '0px';
+    document.documentElement.style.setProperty('--banner-height', height);
+  }, [showBanner, scrolled, isMobile]);
+
+  useEffect(() => {
+    return () => {
+      document.documentElement.style.removeProperty('--banner-height');
+    };
+  }, []);
+
   const isHome = location.pathname === '/';
 
   return (
@@ -57,8 +82,8 @@ export default function Navbar() {
         top: 0,
         left: 0,
         right: 0,
-        height: isMobile ? 'auto' : '40px',
-        minHeight: isMobile ? '46px' : '40px',
+        height: isMobile ? '44px' : '40px',
+        minHeight: isMobile ? '44px' : '40px',
         background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
         color: 'white',
         display: 'flex',
@@ -69,10 +94,10 @@ export default function Navbar() {
         zIndex: 1001,
         fontFamily: "'Inter', sans-serif",
         boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-        padding: isMobile ? '6px 12px' : '0 12px',
+        padding: isMobile ? '4px 12px' : '0 12px',
         boxSizing: 'border-box',
-        transition: 'transform 0.3s ease',
-        transform: scrolled ? (isMobile ? 'translateY(-60px)' : 'translateY(-40px)') : 'translateY(0)',
+        transition: 'transform 0.3s ease-in-out',
+        transform: (showBanner && !scrolled) ? 'translateY(0)' : 'translateY(-100%)',
         lineHeight: 1.3,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
@@ -84,11 +109,11 @@ export default function Navbar() {
       <nav
         style={{
           position: 'fixed',
-          top: scrolled ? 0 : (isMobile ? '46px' : '40px'),
+          top: 'var(--banner-height, 0px)',
           left: 0,
           right: 0,
           zIndex: 1000,
-          transition: 'top 0.3s ease, background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease',
+          transition: 'top 0.3s ease-in-out, background 0.4s ease, box-shadow 0.4s ease, padding 0.3s ease',
           background: 'rgba(253, 249, 243, 0.96)',
           backdropFilter: 'blur(20px)',
           boxShadow: scrolled ? 'var(--shadow-md)' : 'var(--shadow-sm)',
