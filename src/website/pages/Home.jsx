@@ -90,7 +90,7 @@ const categories = [
     title: 'F&B Gourmet Bags',
     desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
     icon: Zap,
-    image: '/images/new/F&B.webp',
+    image: '/images/new/V_Bottom_Bag4.webp',
     color: '#f59e0b',
     bg: '#fffbeb',
     to: '/products#fnb',
@@ -655,8 +655,26 @@ export default function Home() {
                   onMouseEnter={e => e.currentTarget.style.borderColor = color}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--kraft-100)'}
                 >
-                  <div style={{ height: 280, overflow: 'hidden', position: 'relative' }}>
-                    <img src={image} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{
+                    height: 280,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    background: title === 'F&B Gourmet Bags' ? '#ffffff' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img
+                      src={image}
+                      alt={title}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: title === 'F&B Gourmet Bags' ? 'contain' : 'cover',
+                        transform: title === 'F&B Gourmet Bags' ? 'scale(1.5)' : 'none',
+                        transition: 'transform 0.4s ease'
+                      }}
+                    />
                     <div style={{
                       position: 'absolute',
                       top: 20, left: 20,
@@ -1086,10 +1104,10 @@ export default function Home() {
           }} className="product-grid-3x3">
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.webp', badge: 'Affordable Rates' },
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/fnb_main_brown.webp', badge: 'Wholesale Deal' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/prod_pouches_vbottom.webp', badge: 'Budget Option' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/V_Bottom_Bag3.webp', badge: 'Wholesale Deal' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/new/V_Bottom_Bag5.webp', badge: 'Budget Option' },
               { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper_colored.webp', badge: 'From ₹2.50/pc' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/newGen/rolls.jpeg', badge: 'Cheapest in India' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/new/KraftRoll_New.webp', badge: 'Cheapest in India' },
             ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"
                 style={{

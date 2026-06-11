@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const bags = [
   {
     id: 1,
-    image: '/images/new/HERO1.webp',
+    image: '/images/new/V_Bottom_Bag2.webp',
     title: 'Sustainable Packaging',
     color: '#eab308'
   },

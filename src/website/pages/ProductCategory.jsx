@@ -41,9 +41,9 @@ const categoryData = {
     ],
     specs: [
       { label: 'Material', value: 'High-Tensile Kraft', icon: Layers },
-      { label: 'Weight Range', icon: Weight, value: '100 - 140 GSM' },
+      { label: 'Weight Range', icon: Weight, value: '80 - 140 GSM' },
       { label: 'Handle Types', icon: Settings, value: 'Twisted / Flat' },
-      { label: 'Printing', value: 'Up to 6 Colors', icon: Printer },
+      // { label: 'Printing', value: 'Brown & White Colors', icon: Printer },
       { label: 'Capacity', value: '3kg - 12kg', icon: Scale },
       { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
     ],
