@@ -210,6 +210,7 @@ export default function Home() {
         display: 'flex',
         alignItems: 'center',
         paddingTop: `calc(${isMobile ? '82px' : '108px'} + var(--banner-height, 0px))`,
+        paddingBottom: isMobile ? '80px' : '120px',
         transition: 'padding-top 0.3s ease-in-out'
       }}>
       {/* Main Background Image - Cycling hero images */}

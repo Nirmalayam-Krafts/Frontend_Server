@@ -101,10 +101,10 @@ export default function ShippingTerms() {
         <div className="container" style={{ maxWidth: '1440px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 20, maxWidth: 900, margin: '0 auto' }}>
             {[
-              { value: '₹5K+', label: 'Free Shipping' },
-              { value: '30+', label: 'Countries' },
-              { value: '2-7', label: 'Days Domestic' },
-              { value: '100%', label: 'Eco Packaging' }
+              // { value: '₹5K+', label: 'Free Shipping' },
+              // { value: '30+', label: 'Countries' },
+              // { value: '2-7', label: 'Days Domestic' },
+              // { value: '100%', label: 'Eco Packaging' }
             ].map((item, i) => (
               <div key={i} className="anim-fade-up" style={{ animationDelay: `${i * 0.1}s`, background: 'white', borderRadius: 'var(--radius-lg)', padding: '24px 16px', border: '1px solid var(--kraft-100)', textAlign: 'center', transition: 'all 0.3s ease' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
