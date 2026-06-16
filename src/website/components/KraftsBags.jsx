@@ -16,7 +16,7 @@ const bags = [
   },
   {
     id: 3,
-    image: '/images/new/HERO3.webp',
+    image: '/images/new/V_Bottom_Bag4.webp',
     title: 'Eco Friendly',
     color: '#16a34a'
   }
