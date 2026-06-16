@@ -48,9 +48,9 @@ const categoryData = {
       { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
     ],
     gallery: [
-      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/new/eco1.webp' },
-      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/new/eco2.webp' },
-      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/new/eco3.webp' }
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/new/V_BottomBag6.webp' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/new/V_Bottom_Bag5.webp' },
+      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/new/V_Bottom_Bag4.webp' }
     ]
   },
   fnb: {
@@ -76,9 +76,9 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/generated/fnb_wide_base_takeaway_1775488815145.webp' },
-      { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/generated/fnb_pastry_sleeves_1775488776952.webp' },
-      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/generated/fnb_delivery_pouch_1775488853812.webp' }
+      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/new/V_BottomBag6.webp' },
+      { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/new/V_Bottom_Bag7.webp' },
+      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/new/V_Bottom_Bag4.webp' }
     ]
   },
   luxury: {

@@ -80,7 +80,7 @@ const categories = [
     title: 'Ecocraft Bags',
     desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
     icon: Package,
-    image: '/images/newGen/bottomVSlider.png',
+    image: '/images/new/V_BottomBag6.webp',
     color: '#4ade80',
     bg: '#f0fdf4',
     to: '/products#ecocraft',
