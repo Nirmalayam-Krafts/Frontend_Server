@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Leaf, Recycle, Package, Zap,
   Star, ChevronLeft, ChevronRight, Award, Shield,
-  TrendingUp, Users, X, MessageCircle, Send, MapPin
+  TrendingUp, Users, X, MessageCircle, Send, MapPin,
+  Palette
 } from 'lucide-react';
 import { KraftBagSVG } from '../components/KraftsBags';
 import PagePopup from '../components/PagePopup';
@@ -112,10 +113,10 @@ const categories = [
 const whyCards = [
   {
     id: 1,
-    title: '12,000+',
-    label: 'Indian Brands Joined',
-    image: '/images/generated/luxury_vibrant_branded.webp',
-    icon: Users,
+    title: 'Custom Design',
+    label: 'Bespoke Branding & Printing',
+    image: '/images/why_printing.webp',
+    icon: Palette,
     accent: 'var(--eco-600)'
   },
   {
@@ -138,7 +139,7 @@ const whyCards = [
     id: 4,
     title: 'Vibrant',
     label: 'Colorful Collections',
-    image: '/images/new/VibrantCOlers.webp',
+    image: '/images/new/V_BottomBag6.webp',
     icon: TrendingUp,
     accent: '#ec4899'
   },

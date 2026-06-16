@@ -292,7 +292,7 @@ export default function PromotionalPopup() {
               lineHeight: 1.5,
               marginBottom: '24px'
             }}>
-              Join 12,000+ brands. Get <strong>10% off</strong> your first wholesale order and receive a complimentary packaging sample kit.
+              Get <strong>10% off</strong> your first wholesale order and receive a complimentary packaging sample kit.
             </p>
 
             {error && (
