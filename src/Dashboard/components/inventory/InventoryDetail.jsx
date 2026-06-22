@@ -18,6 +18,8 @@ import { Badge } from "../ui";
 const InventoryDetail = ({ item, onClose }) => {
   if (!item) return null;
 
+  const isRoll = item.category === "KRAFT_ROLL" || String(item.productName || "").toLowerCase().includes("roll");
+
   const stockLevel = Number(item.stockLevel || 0);
   const reservedQuantity = Number(item.reservedQuantity || 0);
   const availableForSale = Math.max(0, stockLevel - reservedQuantity);
@@ -172,28 +174,64 @@ const InventoryDetail = ({ item, onClose }) => {
                 <span className="font-semibold text-gray-900">{item.bagType}</span>
               </div>
             )}
-            {item.bagColor && (
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">Color</span>
-                <span className="font-semibold text-gray-900">{item.bagColor}</span>
-              </div>
-            )}
-            {item.bagSizeLabel && (
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">Size Label</span>
-                <span className="font-semibold text-gray-900">{item.bagSizeLabel}</span>
-              </div>
-            )}
-            {item.dimensions && (
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600 flex items-center gap-1">
-                  <Ruler className="w-4 h-4" />
-                  Dimensions
-                </span>
-                <span className="font-semibold text-gray-900">
-                  {item.dimensions.length} × {item.dimensions.width} × {item.dimensions.height} {item.dimensions.unit}
-                </span>
-              </div>
+            {isRoll ? (
+              <>
+                {item.gsm && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">GSM</span>
+                    <span className="font-semibold text-gray-900">{item.gsm}</span>
+                  </div>
+                )}
+                {item.weight && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Weight</span>
+                    <span className="font-semibold text-gray-900">{item.weight} kg</span>
+                  </div>
+                )}
+                {item.lengthInMeters && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Length</span>
+                    <span className="font-semibold text-gray-900">{item.lengthInMeters} m</span>
+                  </div>
+                )}
+                {item.dimensions && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <Ruler className="w-4 h-4" />
+                      Width
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {item.dimensions.width} {item.dimensions.unit}
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {item.bagColor && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Color</span>
+                    <span className="font-semibold text-gray-900">{item.bagColor}</span>
+                  </div>
+                )}
+                {item.bagSizeLabel && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Size Label</span>
+                    <span className="font-semibold text-gray-900">{item.bagSizeLabel}</span>
+                  </div>
+                )}
+                {item.dimensions && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <Ruler className="w-4 h-4" />
+                      Dimensions
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {item.dimensions.length} × {item.dimensions.width} × {item.dimensions.height} {item.dimensions.unit}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-between items-center py-2">
               <span className="text-sm text-gray-600">Status</span>

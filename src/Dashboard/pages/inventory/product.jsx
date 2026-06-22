@@ -350,8 +350,9 @@ const Product = () => {
                         </td>
 
                         <td className="px-4 py-4 text-sm text-gray-700">
-                          {item?.dimensions?.length} × {item?.dimensions?.width} ×{" "}
-                          {item?.dimensions?.height} {item?.dimensions?.unit}
+                          {item?.category?.toLowerCase().includes("roll")
+                            ? `Width ${item?.dimensions?.width || 0} ${item?.dimensions?.unit || "inch"}`
+                            : `${item?.dimensions?.length || 0} × ${item?.dimensions?.width || 0} × ${item?.dimensions?.height || 0} ${item?.dimensions?.unit || "inch"}`}
                         </td>
 
                         <td className="px-4 py-4 text-sm font-semibold text-gray-900">
@@ -500,30 +501,73 @@ const Product = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Length</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedProduct?.dimensions?.length}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Width</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedProduct?.dimensions?.width}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Height</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedProduct?.dimensions?.height}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold text-gray-500">Unit</p>
-                        <p className="mt-1 font-semibold text-gray-900">
-                          {selectedProduct?.dimensions?.unit}
-                        </p>
-                      </div>
+                      {selectedProduct?.category?.toLowerCase().includes("roll") ? (
+                        <>
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Width</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedProduct?.dimensions?.width}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Unit</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedProduct?.dimensions?.unit}
+                            </p>
+                          </div>
+                          {selectedProduct?.gsm && (
+                            <div className="rounded-xl bg-gray-50 p-3">
+                              <p className="text-xs font-semibold text-gray-500">GSM</p>
+                              <p className="mt-1 font-semibold text-gray-900">
+                                {selectedProduct?.gsm}
+                              </p>
+                            </div>
+                          )}
+                          {selectedProduct?.weight && (
+                            <div className="rounded-xl bg-gray-50 p-3">
+                              <p className="text-xs font-semibold text-gray-500">Weight (kg)</p>
+                              <p className="mt-1 font-semibold text-gray-900">
+                                {selectedProduct?.weight}
+                              </p>
+                            </div>
+                          )}
+                          {selectedProduct?.lengthInMeters && (
+                            <div className="rounded-xl bg-gray-50 p-3">
+                              <p className="text-xs font-semibold text-gray-500">Length (m)</p>
+                              <p className="mt-1 font-semibold text-gray-900">
+                                {selectedProduct?.lengthInMeters}
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Length</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedProduct?.dimensions?.length}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Width</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedProduct?.dimensions?.width}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Height</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedProduct?.dimensions?.height}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">Unit</p>
+                            <p className="mt-1 font-semibold text-gray-900">
+                              {selectedProduct?.dimensions?.unit}
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 

@@ -12,9 +12,10 @@ const PRODUCT_CATEGORY_OPTIONS = [
   "Pharmacy Bag",
   "Bakery Bag",
   "Custom Bag",
+  "Kraft Rolls",
 ];
 
-const BAG_TYPE_OPTIONS = ["flat", "gusset", "handle", "box", "custom"];
+const BAG_TYPE_OPTIONS = ["flat", "gusset", "handle", "box", "custom", "none"];
 const DIMENSION_UNIT_OPTIONS = ["inch", "cm", "mm", "ft"];
 const PRICING_MODE_OPTIONS = ["calculated", "fixed"];
 const USAGE_TYPE_OPTIONS = ["fixed", "dimension_based"];
@@ -55,6 +56,9 @@ const getInitialState = (initialData = null) => {
       },
       rawMaterials: [{ ...defaultMaterial }],
       isActive: true,
+      gsm: "",
+      weight: "",
+      lengthInMeters: "",
     };
   }
 
@@ -93,12 +97,19 @@ const getInitialState = (initialData = null) => {
           }))
         : [{ ...defaultMaterial }],
     isActive: initialData?.isActive ?? true,
+    gsm: initialData?.gsm || "",
+    weight: initialData?.weight || "",
+    lengthInMeters: initialData?.lengthInMeters || "",
   };
 };
 
 const ProductForm = ({ initialData = null, onSubmit }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(getInitialState(initialData));
+
+  const isRoll = useMemo(() => {
+    return String(formData.category || "").toLowerCase().includes("roll");
+  }, [formData.category]);
 
   const { data: rawMaterialResponse, isLoading } = useGetAllRawMaterials();
 
@@ -192,7 +203,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       ...prev,
       rawMaterials:
         prev.rawMaterials.length === 1
-          ? [{ ...defaultMaterial }]
+          ? (isRoll ? [] : [{ ...defaultMaterial }])
           : prev.rawMaterials.filter((_, i) => i !== index),
     }));
   };
@@ -210,11 +221,11 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       category: formData.category.trim(),
       sku: formData.sku.trim(),
       description: formData.description.trim(),
-      bagType: formData.bagType,
+      bagType: isRoll ? "none" : formData.bagType,
       dimensions: {
-        length: Number(formData.dimensions.length),
+        length: isRoll ? 0 : Number(formData.dimensions.length),
         width: Number(formData.dimensions.width),
-        height: Number(formData.dimensions.height),
+        height: isRoll ? 0 : Number(formData.dimensions.height),
         unit: formData.dimensions.unit,
       },
       basePrice: Number(formData.basePrice || 0),
@@ -226,17 +237,23 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
         printingCostPerBag: Number(formData.estimationConfig.printingCostPerBag || 0),
         marginPercent: Number(formData.estimationConfig.marginPercent || 0),
       },
-      rawMaterials: formData.rawMaterials.map((item) => ({
-        rawMaterialId: item.rawMaterialId || null,
-        rawMaterialName: item.rawMaterialName.trim(),
-        rawMaterialType: item.rawMaterialType.trim(),
-        usageType: item.usageType,
-        requiredQuantityPerBag: Number(item.requiredQuantityPerBag || 0),
-        unit: item.unit,
-        wastagePercent: Number(item.wastagePercent || 0),
-        notes: item.notes?.trim() || "",
-      })),
+      rawMaterials: formData.rawMaterials
+        .filter((item) => !isRoll || item.rawMaterialId || item.rawMaterialName.trim())
+        .map((item) => ({
+          rawMaterialId: item.rawMaterialId || null,
+          rawMaterialName: item.rawMaterialName.trim(),
+          rawMaterialType: item.rawMaterialType.trim(),
+          usageType: item.usageType,
+          requiredQuantityPerBag: Number(item.requiredQuantityPerBag || 0),
+          unit: item.unit,
+          wastagePercent: Number(item.wastagePercent || 0),
+          notes: item.notes?.trim() || "",
+        })),
       isActive: formData.isActive,
+      gsm: isRoll ? Number(formData.gsm) : undefined,
+      weight: isRoll && formData.weight ? Number(formData.weight) : undefined,
+      lengthInMeters: isRoll && formData.lengthInMeters ? Number(formData.lengthInMeters) : undefined,
+      unit: isRoll ? "kg" : undefined,
     };
 
     onSubmit(payload);
@@ -267,7 +284,14 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             </label>
             <select
               value={formData.category}
-              onChange={(e) => updateField("category", e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  category: val,
+                  bagType: val.toLowerCase().includes("roll") ? "none" : (prev.bagType === "none" ? "custom" : prev.bagType),
+                }));
+              }}
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
               required
             >
@@ -300,6 +324,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
               value={formData.bagType}
               onChange={(e) => updateField("bagType", e.target.value)}
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              disabled={isRoll}
             >
               {BAG_TYPE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -317,28 +342,77 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
               rows={3}
               value={formData.description}
               onChange={(e) => updateField("description", e.target.value)}
-              placeholder="Strong kraft bag with custom handle and premium finish"
+              placeholder={isRoll ? "High quality kraft roll for wrapping and packaging" : "Strong kraft bag with custom handle and premium finish"}
               className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
             />
           </div>
+
+          {isRoll && (
+            <>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  GSM <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.gsm}
+                  onChange={(e) => updateField("gsm", e.target.value)}
+                  placeholder="120"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Weight (kg)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.weight}
+                  onChange={(e) => updateField("weight", e.target.value)}
+                  placeholder="50"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Length in Meters
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.lengthInMeters}
+                  onChange={(e) => updateField("lengthInMeters", e.target.value)}
+                  placeholder="1000"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 p-4">
-        <h3 className="mb-4 text-sm font-bold text-gray-900">Bag Dimensions</h3>
+        <h3 className="mb-4 text-sm font-bold text-gray-900">{isRoll ? "Roll Dimensions" : "Bag Dimensions"}</h3>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">Length</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.dimensions.length}
-              onChange={(e) => updateDimension("length", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-              required
-            />
-          </div>
+          {!isRoll && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Length</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.dimensions.length}
+                onChange={(e) => updateDimension("length", e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                required={!isRoll}
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">Width</label>
@@ -352,17 +426,19 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">Height</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.dimensions.height}
-              onChange={(e) => updateDimension("height", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-              required
-            />
-          </div>
+          {!isRoll && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Height</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.dimensions.height}
+                onChange={(e) => updateDimension("height", e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                required={!isRoll}
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">Unit</label>
@@ -606,7 +682,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Required Quantity / Bag
+                    {isRoll ? "Required Quantity / kg" : "Required Quantity / Bag"}
                   </label>
                   <input
                     type="number"
@@ -615,7 +691,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                     onChange={(e) =>
                       updateMaterial(index, "requiredQuantityPerBag", e.target.value)
                     }
-                    placeholder="2.4"
+                    placeholder={isRoll ? "1.0" : "2.4"}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
                     required
                   />

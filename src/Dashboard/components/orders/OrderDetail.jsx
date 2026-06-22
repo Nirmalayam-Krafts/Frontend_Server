@@ -88,8 +88,10 @@ export default function OrderDetail({ order }) {
   const paymentProgress = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0;
 
   const dimensions = order.orderDetails?.dimensions || {};
-  const dimensionLabel =
-    Number(dimensions.length || 0) || Number(dimensions.width || 0) || Number(dimensions.height || 0)
+  const isRoll = order.productCategory?.toLowerCase().includes("roll");
+  const dimensionLabel = isRoll
+    ? `Width: ${Number(dimensions.width || 0)} ${dimensions.unit || "inch"}`
+    : Number(dimensions.length || 0) || Number(dimensions.width || 0) || Number(dimensions.height || 0)
       ? `${Number(dimensions.length || 0)} x ${Number(dimensions.width || 0)} x ${Number(dimensions.height || 0)} ${dimensions.unit || "inch"}`
       : "Not added";
 
@@ -204,15 +206,23 @@ export default function OrderDetail({ order }) {
               <p className="mt-1 text-lg font-bold text-emerald-900">{order.productCategory}</p>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <DetailBlock
-                icon={ShoppingBag}
-                label="Bag Size"
-                value={order.orderDetails?.bagSize || "Not added"}
-              />
+              {!isRoll ? (
+                <DetailBlock
+                  icon={ShoppingBag}
+                  label="Bag Size"
+                  value={order.orderDetails?.bagSize || "Not added"}
+                />
+              ) : (
+                <DetailBlock
+                  icon={Package}
+                  label="GSM"
+                  value={order.orderDetails?.gsm || "Not added"}
+                />
+              )}
               <DetailBlock
                 icon={Package}
                 label="Quantity"
-                value={`${order.orderDetails?.quantity || 0} pcs`}
+                value={`${order.orderDetails?.quantity || 0} ${isRoll ? "kg" : "pcs"}`}
                 tone="text-blue-700"
               />
               <DetailBlock icon={Ruler} label="Dimensions" value={dimensionLabel} />

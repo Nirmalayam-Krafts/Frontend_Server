@@ -146,7 +146,9 @@ export default function OrderListSection({
                         {order.productCategory}
                       </h3>
                       <p className="mt-2 text-sm text-gray-500">
-                        Clear bag specs for quick sales and production review.
+                        {order.productCategory?.toLowerCase().includes("roll")
+                          ? "Clear roll specs for quick sales and production review."
+                          : "Clear bag specs for quick sales and production review."}
                       </p>
                     </div>
                   </div>
@@ -154,12 +156,19 @@ export default function OrderListSection({
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
                       <Package className="h-3.5 w-3.5" />
-                      Qty {order.orderDetails?.quantity || 0} pcs
+                      Qty {order.orderDetails?.quantity || 0} {order.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs"}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
-                      <ShoppingBag className="h-3.5 w-3.5" />
-                      Size {order.orderDetails?.bagSize || "—"}
-                    </span>
+                    {!order.productCategory?.toLowerCase().includes("roll") ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                        <ShoppingBag className="h-3.5 w-3.5" />
+                        Size {order.orderDetails?.bagSize || "—"}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                        <Package className="h-3.5 w-3.5" />
+                        GSM {order.orderDetails?.gsm || "—"}
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-white p-3">

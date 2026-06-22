@@ -61,13 +61,16 @@ const initialManualOrderForm = {
   businessName: "",
   phone: "",
   email: "",
+  productId: "",
   productCategory: "",
   source: "Manual Order",
   bagSize: "",
+  color: "",
   quantity: "",
   length: "",
   width: "",
   height: "",
+  gsm: "",
   dimensionUnit: "inch",
   notes: "",
 };
@@ -189,7 +192,7 @@ const Orders = () => {
     return value ? `#${value.slice(-6).toUpperCase()}` : "#ORDER";
   };
 
-  const formatDimensionsLabel = (dimensions) => {
+  const formatDimensionsLabel = (dimensions, category) => {
     if (!dimensions) return "Not added";
     const length = Number(dimensions.length || 0);
     const width = Number(dimensions.width || 0);
@@ -197,6 +200,9 @@ const Orders = () => {
     const unit = dimensions.unit || "inch";
 
     if (!length && !width && !height) return "Not added";
+    if (String(category || "").toLowerCase().includes("roll")) {
+      return `Width: ${width} ${unit}`;
+    }
     return `${length} x ${width} x ${height} ${unit}`;
   };
 
@@ -247,7 +253,7 @@ const Orders = () => {
           dimensions,
         },
         orderDimensions: dimensions,
-        dimensionSummary: formatDimensionsLabel(dimensions),
+        dimensionSummary: formatDimensionsLabel(dimensions, order?.productCategory),
         confirmedPayment: order?.confirmedPayment || {},
         delivery: order?.delivery || {},
         deliveryAddress: order?.delivery?.deliveryAddress || "",
@@ -1473,15 +1479,18 @@ ${lines || "(See PDF for full BOM)"}
   const handleCreateManualOrder = async (e) => {
     e.preventDefault();
 
+    const selectedProd = productItems.find(
+      (p) => String(p?._id || p?.id || "").trim() === manualOrderForm.productId
+    );
+    const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll");
+
     if (
       !manualOrderForm.customerName ||
       !manualOrderForm.phone ||
-      !manualOrderForm.productCategory ||
-      !manualOrderForm.bagSize ||
+      !manualOrderForm.productId ||
       !manualOrderForm.quantity ||
-      !manualOrderForm.length ||
       !manualOrderForm.width ||
-      !manualOrderForm.height
+      (isRoll ? !manualOrderForm.gsm : (!manualOrderForm.bagSize || !manualOrderForm.color || !manualOrderForm.length || !manualOrderForm.height))
     ) {
       showNotification("Please fill all required fields", "error");
       return;
@@ -1511,16 +1520,18 @@ ${lines || "(See PDF for full BOM)"}
         businessName: manualOrderForm.businessName,
         phone: manualOrderForm.phone,
         email: manualOrderForm.email,
-        productCategory: manualOrderForm.productCategory,
+        productCategory: manualOrderForm.productCategory || selectedProd?.category || "Kraft Rolls",
         source: manualOrderForm.source,
         orderDetails: {
-          bagSize: manualOrderForm.bagSize,
-          color: manualOrderForm.color,
+          productId: manualOrderForm.productId,
+          bagSize: isRoll ? undefined : manualOrderForm.bagSize,
+          color: isRoll ? undefined : manualOrderForm.color,
           quantity: Number(manualOrderForm.quantity),
+          gsm: isRoll ? Number(manualOrderForm.gsm) : undefined,
           dimensions: {
-            length: Number(manualOrderForm.length),
+            length: isRoll ? 0 : Number(manualOrderForm.length),
             width: Number(manualOrderForm.width),
-            height: Number(manualOrderForm.height),
+            height: isRoll ? 0 : Number(manualOrderForm.height),
             unit: manualOrderForm.dimensionUnit,
           },
         },
@@ -2051,21 +2062,33 @@ ${lines || "(See PDF for full BOM)"}
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-gray-500">Quantity:</span>
                               <span className="font-bold text-blue-600">
-                                {order.orderDetails?.quantity || 0} pcs
+                                {order.orderDetails?.quantity || 0} {order.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs"}
                               </span>
                             </div>
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-500">Size:</span>
+                              <span className="text-gray-500">
+                                {order.productCategory?.toLowerCase().includes("roll") ? "GSM:" : "Size:"}
+                              </span>
                               <span className="font-semibold text-gray-900">
-                                {order.orderDetails?.bagSize || "—"}
+                                {order.productCategory?.toLowerCase().includes("roll")
+                                  ? (order.orderDetails?.gsm || "—")
+                                  : (order.orderDetails?.bagSize || "—")}
                               </span>
                             </div>
-                            {order.orderDetails?.length && order.orderDetails?.width && (
+                            {order.productCategory?.toLowerCase().includes("roll") ? (
                               <div className="text-xs text-gray-500 pt-1 border-t border-gray-100">
-                                <span className="font-medium">Dimensions:</span>{" "}
-                                {order.orderDetails.length}×{order.orderDetails.width}×{order.orderDetails.height || 0}{" "}
-                                {order.orderDetails.dimensionUnit || "inch"}
+                                <span className="font-medium">Width:</span>{" "}
+                                {order.orderDetails?.width || 0}{" "}
+                                {order.orderDetails?.dimensionUnit || "inch"}
                               </div>
+                            ) : (
+                              (order.orderDetails?.length || order.orderDetails?.width) && (
+                                <div className="text-xs text-gray-500 pt-1 border-t border-gray-100">
+                                  <span className="font-medium">Dimensions:</span>{" "}
+                                  {order.orderDetails.length || 0}×{order.orderDetails.width || 0}×{order.orderDetails.height || 0}{" "}
+                                  {order.orderDetails.dimensionUnit || "inch"}
+                                </div>
+                              )
                             )}
                           </div>
                         </td>
@@ -2259,140 +2282,296 @@ ${lines || "(See PDF for full BOM)"}
           title="Create Manual Order"
           onClose={resetManualOrderForm}
         >
-          <form onSubmit={handleCreateManualOrder} className="space-y-5">
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
-                  <ShoppingBag className="h-5 w-5" />
+          {(() => {
+            const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === manualOrderForm.productId);
+            const isManualRoll = !!(selProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll"));
+
+            return (
+              <form onSubmit={handleCreateManualOrder} className="space-y-5">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
+                      <ShoppingBag className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">Manual Order Details</h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Create a new order manually.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900">Manual Order Details</h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Create a new order manually.
-                  </p>
+
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <div className="mb-4 flex items-center gap-2">
+                    <User2 className="h-4 w-4 text-emerald-600" />
+                    <p className="text-sm font-bold text-gray-800">Customer & Product Details</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Customer Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={manualOrderForm.customerName}
+                        onChange={(e) => handleFormChange("customerName", e.target.value)}
+                        placeholder="Customer Name"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Business Name
+                      </label>
+                      <input
+                        type="text"
+                        value={manualOrderForm.businessName}
+                        onChange={(e) => handleFormChange("businessName", e.target.value)}
+                        placeholder="Business Name"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Phone <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={manualOrderForm.phone}
+                        onChange={(e) => handleFormChange("phone", e.target.value)}
+                        placeholder="Phone"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={manualOrderForm.email}
+                        onChange={(e) => handleFormChange("email", e.target.value)}
+                        placeholder="Email"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Product <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={manualOrderForm.productId}
+                        onChange={(e) => {
+                          const prodId = e.target.value;
+                          const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
+                          setManualOrderForm(prev => ({
+                            ...prev,
+                            productId: prodId,
+                            productCategory: prod?.category || "",
+                            length: prod?.dimensions?.length || "",
+                            width: prod?.dimensions?.width || "",
+                            height: prod?.dimensions?.height || "",
+                            dimensionUnit: prod?.dimensions?.unit || "inch",
+                            gsm: prod?.gsm || "",
+                            color: prod?.color || prev.color || "",
+                            bagSize: prod?.bagSize || prev.bagSize || "",
+                          }));
+                        }}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      >
+                        <option value="">Select Product</option>
+                        {productItems.map((product) => (
+                          <option key={product._id || product.id} value={product._id || product.id}>
+                            {product.name} {product.sku ? `(${product.sku})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Source
+                      </label>
+                      <input
+                        type="text"
+                        value={manualOrderForm.source}
+                        onChange={(e) => handleFormChange("source", e.target.value)}
+                        placeholder="Source"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        {isManualRoll ? "Weight (kg)" : "Quantity"} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={manualOrderForm.quantity}
+                        onChange={(e) => handleFormChange("quantity", e.target.value)}
+                        placeholder={isManualRoll ? "Weight in kg" : "Quantity"}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        {isManualRoll ? "Width Unit" : "Dimension Unit"}
+                      </label>
+                      <select
+                        value={manualOrderForm.dimensionUnit}
+                        onChange={(e) => handleFormChange("dimensionUnit", e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      >
+                        <option value="inch">Inch</option>
+                        <option value="cm">CM</option>
+                        <option value="mm">MM</option>
+                        <option value="ft">Feet</option>
+                      </select>
+                    </div>
+
+                    {/* Roll vs Bag Conditional Fields */}
+                    {isManualRoll ? (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            GSM <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={manualOrderForm.gsm}
+                            onChange={(e) => handleFormChange("gsm", e.target.value)}
+                            placeholder="GSM"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Width <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={manualOrderForm.width}
+                            onChange={(e) => handleFormChange("width", e.target.value)}
+                            placeholder="Width"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Bag Size <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={manualOrderForm.bagSize}
+                            onChange={(e) => handleFormChange("bagSize", e.target.value)}
+                            placeholder="Bag Size"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Color <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={manualOrderForm.color}
+                            onChange={(e) => handleFormChange("color", e.target.value)}
+                            placeholder="Color"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Length <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={manualOrderForm.length}
+                            onChange={(e) => handleFormChange("length", e.target.value)}
+                            placeholder="Length"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Width <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={manualOrderForm.width}
+                            onChange={(e) => handleFormChange("width", e.target.value)}
+                            placeholder="Width"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Height <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={manualOrderForm.height}
+                            onChange={(e) => handleFormChange("height", e.target.value)}
+                            placeholder="Height"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="rounded-2xl border border-gray-100 p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <User2 className="h-4 w-4 text-emerald-600" />
-                <p className="text-sm font-bold text-gray-800">Customer Information</p>
-              </div>
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <label className="mb-2 block text-xs font-semibold text-gray-600">
+                    Notes
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={manualOrderForm.notes}
+                    onChange={(e) => handleFormChange("notes", e.target.value)}
+                    placeholder="Notes"
+                    className="w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <input
-                  type="text"
-                  value={manualOrderForm.customerName}
-                  onChange={(e) => handleFormChange("customerName", e.target.value)}
-                  placeholder="Customer Name"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="text"
-                  value={manualOrderForm.businessName}
-                  onChange={(e) => handleFormChange("businessName", e.target.value)}
-                  placeholder="Business Name"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="text"
-                  value={manualOrderForm.phone}
-                  onChange={(e) => handleFormChange("phone", e.target.value)}
-                  placeholder="Phone"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="email"
-                  value={manualOrderForm.email}
-                  onChange={(e) => handleFormChange("email", e.target.value)}
-                  placeholder="Email"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="text"
-                  value={manualOrderForm.productCategory}
-                  onChange={(e) => handleFormChange("productCategory", e.target.value)}
-                  placeholder="Product Category"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="text"
-                  value={manualOrderForm.source}
-                  onChange={(e) => handleFormChange("source", e.target.value)}
-                  placeholder="Source"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="text"
-                  value={manualOrderForm.bagSize}
-                  onChange={(e) => handleFormChange("bagSize", e.target.value)}
-                  placeholder="Bag Size"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="number"
-                  min="1"
-                  value={manualOrderForm.quantity}
-                  onChange={(e) => handleFormChange("quantity", e.target.value)}
-                  placeholder="Quantity"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <select
-                  value={manualOrderForm.dimensionUnit}
-                  onChange={(e) => handleFormChange("dimensionUnit", e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                >
-                  <option value="inch">Inch</option>
-                  <option value="cm">CM</option>
-                  <option value="mm">MM</option>
-                  <option value="ft">Feet</option>
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  value={manualOrderForm.length}
-                  onChange={(e) => handleFormChange("length", e.target.value)}
-                  placeholder="Length"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={manualOrderForm.width}
-                  onChange={(e) => handleFormChange("width", e.target.value)}
-                  placeholder="Width"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={manualOrderForm.height}
-                  onChange={(e) => handleFormChange("height", e.target.value)}
-                  placeholder="Height"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-
-            <textarea
-              rows={4}
-              value={manualOrderForm.notes}
-              onChange={(e) => handleFormChange("notes", e.target.value)}
-              placeholder="Notes"
-              className="w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-            />
-
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="secondary" onClick={resetManualOrderForm}>
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
-                Create Order
-              </Button>
-            </div>
-          </form>
+                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={resetManualOrderForm}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+                    Create Order
+                  </Button>
+                </div>
+              </form>
+            );
+          })()}
         </Modal>
 
         <Modal
@@ -2550,14 +2729,20 @@ ${lines || "(See PDF for full BOM)"}
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="rounded-xl bg-white p-3">
-                      <p className="text-xs font-semibold text-gray-500">Bag Size</p>
+                      <p className="text-xs font-semibold text-gray-500">
+                        {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "GSM" : "Bag Size"}
+                      </p>
                       <p className="mt-1 font-semibold text-gray-900">
-                        {availabilityOrder.orderDetails?.bagSize || "—"}
+                        {availabilityOrder.productCategory?.toLowerCase().includes("roll")
+                          ? (availabilityOrder.orderDetails?.gsm || "—")
+                          : (availabilityOrder.orderDetails?.bagSize || "—")}
                       </p>
                     </div>
 
                     <div className="rounded-xl bg-white p-3">
-                      <p className="text-xs font-semibold text-gray-500">Quantity</p>
+                      <p className="text-xs font-semibold text-gray-500">
+                        {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "Weight (kg)" : "Quantity (pcs)"}
+                      </p>
                       <p className="mt-1 font-semibold text-gray-900">
                         {availabilityOrder.orderDetails?.quantity || "—"}
                       </p>
@@ -2566,10 +2751,9 @@ ${lines || "(See PDF for full BOM)"}
                     <div className="rounded-xl bg-white p-3">
                       <p className="text-xs font-semibold text-gray-500">Dimensions</p>
                       <p className="mt-1 font-semibold text-gray-900">
-                        {availabilityOrder.orderDetails?.dimensions?.length || 0} ×{" "}
-                        {availabilityOrder.orderDetails?.dimensions?.width || 0} ×{" "}
-                        {availabilityOrder.orderDetails?.dimensions?.height || 0}{" "}
-                        {availabilityOrder.orderDetails?.dimensions?.unit || "inch"}
+                        {availabilityOrder.productCategory?.toLowerCase().includes("roll")
+                          ? `Width: ${availabilityOrder.orderDetails?.dimensions?.width || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`
+                          : `${availabilityOrder.orderDetails?.dimensions?.length || 0} × ${availabilityOrder.orderDetails?.dimensions?.width || 0} × ${availabilityOrder.orderDetails?.dimensions?.height || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`}
                       </p>
                     </div>
                   </div>

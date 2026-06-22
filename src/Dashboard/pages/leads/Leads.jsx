@@ -50,6 +50,8 @@ const FOLLOWUP_FLOW = [
 const initialOrderForm = {
   selectedProductId: "",
   bagSize: "",
+  color: "",
+  gsm: "",
   quantity: "",
   length: "",
   width: "",
@@ -249,12 +251,22 @@ const Leads = () => {
 
   const openConvertModal = (lead) => {
     const preResolvedProductId = resolveProductIdForLead(lead, initialOrderForm);
+    const prod = productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === preResolvedProductId
+    );
     setLeadToConvert(lead);
     setOrderForm({
       ...initialOrderForm,
       selectedProductId: preResolvedProductId || "",
       quantity:
         lead?.quantity && lead.quantity !== "—" ? String(lead.quantity) : "",
+      length: prod?.dimensions?.length || "",
+      width: prod?.dimensions?.width || "",
+      height: prod?.dimensions?.height || "",
+      dimensionUnit: prod?.dimensions?.unit || "inch",
+      gsm: prod?.gsm || "",
+      color: prod?.color || "",
+      bagSize: prod?.bagSize || "",
     });
     setShowConvertModal(true);
   };
@@ -389,13 +401,16 @@ const Leads = () => {
       return;
     }
 
+    const selectedProd = productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === orderForm.selectedProductId
+    );
+    const isRollProduct = selectedProd?.category?.toLowerCase().includes("roll") || leadToConvert?.productInterest?.toLowerCase().includes("roll");
+
     if (
       !orderForm.selectedProductId ||
-      !orderForm.bagSize ||
       !orderForm.quantity ||
-      !orderForm.length ||
       !orderForm.width ||
-      !orderForm.height
+      (isRollProduct ? !orderForm.gsm : (!orderForm.bagSize || !orderForm.color || !orderForm.length || !orderForm.height))
     ) {
       showNotification("Please fill all required order details", "error");
       return;
@@ -421,17 +436,19 @@ const Leads = () => {
         businessName: leadToConvert.businessName,
         phone: leadToConvert.phone,
         email: leadToConvert.email,
-        productCategory: leadToConvert.productInterest,
+        productCategory: selectedProd?.category || leadToConvert.productInterest,
         source: leadToConvert.source,
 
         orderDetails: {
           productId: resolvedProductId,
-          bagSize: orderForm.bagSize,
+          bagSize: isRollProduct ? undefined : orderForm.bagSize,
+          color: isRollProduct ? undefined : orderForm.color,
           quantity: Number(orderForm.quantity),
+          gsm: isRollProduct ? Number(orderForm.gsm) : undefined,
           dimensions: {
-            length: Number(orderForm.length),
+            length: isRollProduct ? 0 : Number(orderForm.length),
             width: Number(orderForm.width),
-            height: Number(orderForm.height),
+            height: isRollProduct ? 0 : Number(orderForm.height),
             unit: orderForm.dimensionUnit,
           },
         },
@@ -660,6 +677,19 @@ const Leads = () => {
       sku: item?.sku || "",
     }));
   }, [productItems]);
+
+  const selectedProduct = useMemo(() => {
+    return productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === orderForm.selectedProductId
+    ) || null;
+  }, [productItems, orderForm.selectedProductId]);
+
+  const isRoll = useMemo(() => {
+    if (selectedProduct) {
+      return selectedProduct.category?.toLowerCase().includes("roll");
+    }
+    return String(leadToConvert?.productInterest || "").toLowerCase().includes("roll");
+  }, [selectedProduct, leadToConvert]);
 
   return (
     <Layout>
@@ -1093,9 +1123,21 @@ const Leads = () => {
                         </label>
                         <select
                           value={orderForm.selectedProductId}
-                          onChange={(e) =>
-                            handleOrderFormChange("selectedProductId", e.target.value)
-                          }
+                          onChange={(e) => {
+                            const prodId = e.target.value;
+                            const prod = productItems.find(p => String(p?._id || p?.id || p?.productId || "").trim() === prodId);
+                            setOrderForm(prev => ({
+                              ...prev,
+                              selectedProductId: prodId,
+                              length: prod?.dimensions?.length || "",
+                              width: prod?.dimensions?.width || "",
+                              height: prod?.dimensions?.height || "",
+                              dimensionUnit: prod?.dimensions?.unit || "inch",
+                              gsm: prod?.gsm || "",
+                              color: prod?.color || prev.color || "",
+                              bagSize: prod?.bagSize || prev.bagSize || "",
+                            }));
+                          }}
                           className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
                           required
                         >
@@ -1109,32 +1151,73 @@ const Leads = () => {
                         </select>
                       </div>
 
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Bag Size <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                          <select
-                            value={orderForm.bagSize}
-                            onChange={(e) =>
-                              handleOrderFormChange("bagSize", e.target.value)
-                            }
-                            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                          >
-                            <option value="">Select bag size</option>
-                            {["Small", "Medium", "Large", "Extra Large"].map((size) => (
-                              <option key={size} value={size}>
-                                {size}
-                              </option>
-                            ))}
-                          </select>
+                      {isRoll ? (
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-gray-700">
+                            GSM <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="number"
+                              min="0"
+                              value={orderForm.gsm}
+                              onChange={(e) =>
+                                handleOrderFormChange("gsm", e.target.value)
+                              }
+                              placeholder="Enter GSM"
+                              className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                              required
+                            />
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Bag Size <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                              <select
+                                value={orderForm.bagSize}
+                                onChange={(e) =>
+                                  handleOrderFormChange("bagSize", e.target.value)
+                                }
+                                className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                              >
+                                <option value="">Select bag size</option>
+                                {["Small", "Medium", "Large", "Extra Large"].map((size) => (
+                                  <option key={size} value={size}>
+                                    {size}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Bag Color <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                              <input
+                                type="text"
+                                value={orderForm.color}
+                                onChange={(e) =>
+                                  handleOrderFormChange("color", e.target.value)
+                                }
+                                placeholder="Enter bag color"
+                                className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Quantity <span className="text-red-500">*</span>
+                          {isRoll ? "Weight (kg)" : "Quantity (pcs)"} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -1145,7 +1228,7 @@ const Leads = () => {
                             onChange={(e) =>
                               handleOrderFormChange("quantity", e.target.value)
                             }
-                            placeholder="Enter quantity"
+                            placeholder={isRoll ? "Enter weight in kg" : "Enter quantity"}
                             className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
                           />
                         </div>
@@ -1153,7 +1236,7 @@ const Leads = () => {
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Dimension Unit
+                          {isRoll ? "Width Unit" : "Dimension Unit"}
                         </label>
                         <select
                           value={orderForm.dimensionUnit}
@@ -1175,25 +1258,27 @@ const Leads = () => {
                   <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6 shadow-sm">
                     <div className="mb-5 flex items-center gap-2">
                       <Ruler className="h-5 w-5 text-emerald-600" />
-                      <h4 className="text-base font-bold text-gray-900">Bag Dimensions</h4>
+                      <h4 className="text-base font-bold text-gray-900">{isRoll ? "Roll Dimensions" : "Bag Dimensions"}</h4>
                     </div>
 
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Length <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={orderForm.length}
-                          onChange={(e) =>
-                            handleOrderFormChange("length", e.target.value)
-                          }
-                          placeholder="Length"
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                        />
-                      </div>
+                      {!isRoll && (
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-gray-700">
+                            Length <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={orderForm.length}
+                            onChange={(e) =>
+                              handleOrderFormChange("length", e.target.value)
+                            }
+                            placeholder="Length"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -1211,21 +1296,23 @@ const Leads = () => {
                         />
                       </div>
 
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Height <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={orderForm.height}
-                          onChange={(e) =>
-                            handleOrderFormChange("height", e.target.value)
-                          }
-                          placeholder="Height"
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                        />
-                      </div>
+                      {!isRoll && (
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-gray-700">
+                            Height <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={orderForm.height}
+                            onChange={(e) =>
+                              handleOrderFormChange("height", e.target.value)
+                            }
+                            placeholder="Height"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1258,11 +1345,20 @@ const Leads = () => {
 
                 <div className="mt-5 space-y-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">Bag Size</span>
+                    <span className="text-gray-600">{isRoll ? "GSM" : "Bag Size"}</span>
                     <span className="font-semibold text-gray-900">
-                      {orderForm.bagSize || "—"}
+                      {(isRoll ? orderForm.gsm : orderForm.bagSize) || "—"}
                     </span>
                   </div>
+
+                  {!isRoll && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-600">Bag Color</span>
+                      <span className="font-semibold text-gray-900">
+                        {orderForm.color || "—"}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-gray-600">Quantity</span>
@@ -1274,8 +1370,9 @@ const Leads = () => {
                   <div className="flex items-start justify-between gap-3">
                     <span className="text-gray-600">Dimensions</span>
                     <span className="text-right font-semibold text-gray-900">
-                      {orderForm.length || "0"} × {orderForm.width || "0"} ×{" "}
-                      {orderForm.height || "0"} {orderForm.dimensionUnit}
+                      {isRoll
+                        ? `Width ${orderForm.width || "0"} ${orderForm.dimensionUnit}`
+                        : `${orderForm.length || "0"} × ${orderForm.width || "0"} × ${orderForm.height || "0"} ${orderForm.dimensionUnit}`}
                     </span>
                   </div>
 

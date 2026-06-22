@@ -610,6 +610,7 @@ const Inventory = () => {
             <option value="STANDARD">Standard</option>
             <option value="PREMIUM">Premium</option>
             <option value="FOOD_GRADE">Food Grade</option>
+            <option value="KRAFT_ROLL">Kraft Roll</option>
             <option value="RAW_MATERIAL">Raw Material</option>
           </select>
         </motion.div>
@@ -775,27 +776,66 @@ const Inventory = () => {
                           {/* Specifications */}
                           <td className="px-6 py-4">
                             <div className="space-y-1 text-xs">
-                              {item.bagColor && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-gray-500">Color:</span>
-                                  <span className="font-medium text-gray-900">{item.bagColor}</span>
-                                </div>
-                              )}
-                              {item.bagSizeLabel && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-gray-500">Size:</span>
-                                  <span className="font-medium text-gray-900">{item.bagSizeLabel}</span>
-                                </div>
-                              )}
-                              {item.dimensions && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-gray-500">Dims:</span>
-                                  <span className="font-medium text-gray-900">
-                                    {item.dimensions.length}×{item.dimensions.width}×{item.dimensions.height}{item.dimensions.unit}
-                                  </span>
-                                </div>
-                              )}
-                              {!item.bagColor && !item.bagSizeLabel && !item.dimensions && (
+                              {(() => {
+                                const isRollItem = item.category === "KRAFT_ROLL" || String(item.productName || "").toLowerCase().includes("roll");
+                                if (isRollItem) {
+                                  return (
+                                    <>
+                                      {item.gsm && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">GSM:</span>
+                                          <span className="font-medium text-gray-900">{item.gsm}</span>
+                                        </div>
+                                      )}
+                                      {item.weight && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Weight:</span>
+                                          <span className="font-medium text-gray-900">{item.weight} kg</span>
+                                        </div>
+                                      )}
+                                      {item.lengthInMeters && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Length:</span>
+                                          <span className="font-medium text-gray-900">{item.lengthInMeters} m</span>
+                                        </div>
+                                      )}
+                                      {item.dimensions && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">Width:</span>
+                                          <span className="font-medium text-gray-900">
+                                            {item.dimensions.width}{item.dimensions.unit}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <>
+                                    {item.bagColor && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-gray-500">Color:</span>
+                                        <span className="font-medium text-gray-900">{item.bagColor}</span>
+                                      </div>
+                                    )}
+                                    {item.bagSizeLabel && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-gray-500">Size:</span>
+                                        <span className="font-medium text-gray-900">{item.bagSizeLabel}</span>
+                                      </div>
+                                    )}
+                                    {item.dimensions && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-gray-500">Dims:</span>
+                                        <span className="font-medium text-gray-900">
+                                          {item.dimensions.length}×{item.dimensions.width}×{item.dimensions.height}{item.dimensions.unit}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              {!item.bagColor && !item.bagSizeLabel && !item.dimensions && !item.gsm && !item.weight && !item.lengthInMeters && (
                                 <span className="text-gray-400">No specs</span>
                               )}
                             </div>

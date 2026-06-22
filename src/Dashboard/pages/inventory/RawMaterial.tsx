@@ -372,6 +372,8 @@ const RawMaterial = () => {
     );
   }, [products, productionForm.productId]);
 
+  const isRoll = selectedProductionProduct?.category?.toLowerCase().includes("roll");
+
   const baseProductDimensions = useMemo(() => {
     return selectedProductionProduct?.dimensions || {
       length: 0,
@@ -398,14 +400,27 @@ const RawMaterial = () => {
       unit: baseProductDimensions.unit || "inch",
     };
   }, [productionForm.dimensionMode, productionForm.customDimensions, baseProductDimensions]);
-  const selectedProductDimensionSummary = `${toNumber(effectiveDimensions.length)} × ${toNumber(
-    effectiveDimensions.width
-  )} × ${toNumber(effectiveDimensions.height)} ${effectiveDimensions.unit || "inch"}`;
+  const selectedProductDimensionSummary = useMemo(() => {
+    const isRoll = selectedProductionProduct?.category?.toLowerCase().includes("roll");
+    if (isRoll) {
+      return `Width ${toNumber(effectiveDimensions.width)} ${effectiveDimensions.unit || "inch"}`;
+    }
+    return `${toNumber(effectiveDimensions.length)} × ${toNumber(
+      effectiveDimensions.width
+    )} × ${toNumber(effectiveDimensions.height)} ${effectiveDimensions.unit || "inch"}`;
+  }, [selectedProductionProduct, effectiveDimensions]);
   const selectedProductMaterialCount = selectedProductionProduct?.rawMaterials?.length || 0;
 
   const dimensionScaleFactor = useMemo(() => {
     if (!selectedProductionProduct) return 1;
     if (productionForm.dimensionMode !== "custom") return 1;
+
+    const isRoll = selectedProductionProduct.category?.toLowerCase().includes("roll");
+    if (isRoll) {
+      const baseWidth = toNumber(baseProductDimensions.width);
+      const customWidth = toNumber(effectiveDimensions.width);
+      return baseWidth > 0 ? customWidth / baseWidth : 1;
+    }
 
     // Keep scale logic consistent with order availability engine:
     // factor = (L+W+H custom) / (L+W+H base)
@@ -743,21 +758,23 @@ const RawMaterial = () => {
   const handleCreateProductionStock = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const isRoll = selectedProductionProduct?.category?.toLowerCase().includes("roll");
+
     const payload = {
       productId: productionForm.productId,
       quantity: Number(productionForm.quantity || 0),
       category: productionForm.category,
-      bagColor: (productionForm.bagColor || "").trim(),
-      bagSizeLabel: (productionForm.bagSizeLabel || "").trim(),
+      bagColor: isRoll ? "" : (productionForm.bagColor || "").trim(),
+      bagSizeLabel: isRoll ? "" : (productionForm.bagSizeLabel || "").trim(),
       reorderPt: Number(productionForm.reorderPt || 10),
       note: productionForm.note,
       unitPrice: Number(effectiveUnitPricePreview || 0),
       customDimensions:
         productionForm.dimensionMode === "custom"
           ? {
-              length: Number(productionForm.customDimensions.length || 0),
+              length: isRoll ? 0 : Number(productionForm.customDimensions.length || 0),
               width: Number(productionForm.customDimensions.width || 0),
-              height: Number(productionForm.customDimensions.height || 0),
+              height: isRoll ? 0 : Number(productionForm.customDimensions.height || 0),
               unit: productionForm.customDimensions.unit || "inch",
             }
           : undefined,
@@ -775,11 +792,9 @@ const RawMaterial = () => {
 
     if (
       productionForm.dimensionMode === "custom" &&
-      (!effectiveDimensions.length ||
-        !effectiveDimensions.width ||
-        !effectiveDimensions.height)
+      (isRoll ? !effectiveDimensions.width : (!effectiveDimensions.length || !effectiveDimensions.width || !effectiveDimensions.height))
     ) {
-      toast.error("Please enter valid custom dimensions");
+      toast.error(isRoll ? "Please enter a valid custom width" : "Please enter valid custom dimensions");
       return;
     }
 
@@ -1618,95 +1633,99 @@ const RawMaterial = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Bag Color</label>
-                <div className="flex gap-2">
+              {!isRoll && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">Bag Color</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={productionForm.bagColor}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        handleProductionField("bagColor", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                    >
+                      <option value="">Select color</option>
+                      {bagColorOptions.map((color: string) => (
+                        <option key={color} value={color}>
+                          {color}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      label=""
+                      className=""
+                      error={undefined}
+                      icon={undefined}
+                      value={customBagColor}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagColor(e.target.value)}
+                      placeholder="Add new color"
+                    />
+                    <Button
+                      type="button"
+                      className="whitespace-nowrap bg-emerald-700"
+                      onClick={() => {
+                        const value = customBagColor.trim();
+                        if (!value) return;
+                        setBagColorOptions((prev: string[]) =>
+                          prev.includes(value) ? prev : [...prev, value]
+                        );
+                        handleProductionField("bagColor", value);
+                        setCustomBagColor("");
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!isRoll && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">Bag Size Label</label>
                   <select
-                    value={productionForm.bagColor}
+                    value={productionForm.bagSizeLabel}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      handleProductionField("bagColor", e.target.value)
+                      handleProductionField("bagSizeLabel", e.target.value)
                     }
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                   >
-                    <option value="">Select color</option>
-                    {bagColorOptions.map((color: string) => (
-                      <option key={color} value={color}>
-                        {color}
+                    <option value="">Select size</option>
+                    {bagSizeOptions.map((size: string) => (
+                      <option key={size} value={size}>
+                        {size}
                       </option>
                     ))}
                   </select>
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      label=""
+                      className=""
+                      error={undefined}
+                      icon={undefined}
+                      value={customBagSize}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagSize(e.target.value)}
+                      placeholder='Add new size (e.g. 10x14 inch)'
+                    />
+                    <Button
+                      type="button"
+                      className="whitespace-nowrap bg-emerald-700"
+                      onClick={() => {
+                        const value = customBagSize.trim();
+                        if (!value) return;
+                        setBagSizeOptions((prev: string[]) =>
+                          prev.includes(value) ? prev : [...prev, value]
+                        );
+                        handleProductionField("bagSizeLabel", value);
+                        setCustomBagSize("");
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-2 flex gap-2">
-                  <Input
-                    label=""
-                    className=""
-                    error={undefined}
-                    icon={undefined}
-                    value={customBagColor}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagColor(e.target.value)}
-                    placeholder="Add new color"
-                  />
-                  <Button
-                    type="button"
-                    className="whitespace-nowrap bg-emerald-700"
-                    onClick={() => {
-                      const value = customBagColor.trim();
-                      if (!value) return;
-                      setBagColorOptions((prev: string[]) =>
-                        prev.includes(value) ? prev : [...prev, value]
-                      );
-                      handleProductionField("bagColor", value);
-                      setCustomBagColor("");
-                    }}
-                  >
-                    Add
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Bag Size Label</label>
-                <select
-                  value={productionForm.bagSizeLabel}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                    handleProductionField("bagSizeLabel", e.target.value)
-                  }
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                >
-                  <option value="">Select size</option>
-                  {bagSizeOptions.map((size: string) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 flex gap-2">
-                  <Input
-                    label=""
-                    className=""
-                    error={undefined}
-                    icon={undefined}
-                    value={customBagSize}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagSize(e.target.value)}
-                    placeholder='Add new size (e.g. 10x14 inch)'
-                  />
-                  <Button
-                    type="button"
-                    className="whitespace-nowrap bg-emerald-700"
-                    onClick={() => {
-                      const value = customBagSize.trim();
-                      if (!value) return;
-                      setBagSizeOptions((prev: string[]) =>
-                        prev.includes(value) ? prev : [...prev, value]
-                      );
-                      handleProductionField("bagSizeLabel", value);
-                      setCustomBagSize("");
-                    }}
-                  >
-                    Add
-                  </Button>
-                </div>
-              </div>
+              )}
 
               <div>
                 <Input
@@ -1807,8 +1826,9 @@ const RawMaterial = () => {
                         Base Product Dimensions
                       </p>
                       <p className="mt-2 text-sm font-bold text-gray-900">
-                        {toNumber(baseProductDimensions.length)} × {toNumber(baseProductDimensions.width)} ×{" "}
-                        {toNumber(baseProductDimensions.height)} {baseProductDimensions.unit || "inch"}
+                        {isRoll
+                          ? `Width ${toNumber(baseProductDimensions.width)} ${baseProductDimensions.unit || "inch"}`
+                          : `${toNumber(baseProductDimensions.length)} × ${toNumber(baseProductDimensions.width)} × ${toNumber(baseProductDimensions.height)} ${baseProductDimensions.unit || "inch"}`}
                       </p>
                     </div>
 
@@ -1817,30 +1837,33 @@ const RawMaterial = () => {
                         Effective Production Dimensions
                       </p>
                       <p className="mt-2 text-sm font-bold text-gray-900">
-                        {toNumber(effectiveDimensions.length)} × {toNumber(effectiveDimensions.width)} ×{" "}
-                        {toNumber(effectiveDimensions.height)} {effectiveDimensions.unit || "inch"}
+                        {isRoll
+                          ? `Width ${toNumber(effectiveDimensions.width)} ${effectiveDimensions.unit || "inch"}`
+                          : `${toNumber(effectiveDimensions.length)} × ${toNumber(effectiveDimensions.width)} × ${toNumber(effectiveDimensions.height)} ${effectiveDimensions.unit || "inch"}`}
                       </p>
                     </div>
                   </div>
 
                   {productionForm.dimensionMode === "custom" && (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Length
-                        </label>
-                        <Input
-                          label="Length"
-                          className=""
-                          error={undefined}
-                          icon={undefined}
-                          type="number"
-                          min="0"
-                          value={productionForm.customDimensions.length}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("length", e.target.value)}
-                          placeholder="14"
-                        />
-                      </div>
+                      {!isRoll && (
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-gray-700">
+                            Length
+                          </label>
+                          <Input
+                            label="Length"
+                            className=""
+                            error={undefined}
+                            icon={undefined}
+                            type="number"
+                            min="0"
+                            value={productionForm.customDimensions.length}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("length", e.target.value)}
+                            placeholder="14"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -1859,22 +1882,24 @@ const RawMaterial = () => {
                         />
                       </div>
 
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Height
-                        </label>
-                        <Input
-                          label="Height"
-                          className=""
-                          error={undefined}
-                          icon={undefined}
-                          type="number"
-                          min="0"
-                          value={productionForm.customDimensions.height}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("height", e.target.value)}
-                          placeholder="12"
-                        />
-                      </div>
+                      {!isRoll && (
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-gray-700">
+                            Height
+                          </label>
+                          <Input
+                            label="Height"
+                            className=""
+                            error={undefined}
+                            icon={undefined}
+                            type="number"
+                            min="0"
+                            value={productionForm.customDimensions.height}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomDimensionField("height", e.target.value)}
+                            placeholder="12"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">

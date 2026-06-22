@@ -8,7 +8,7 @@ import { Package, Tag, DollarSign, Ruler, Layers3 } from "lucide-react";
 const inventorySchema = z.object({
   sku: z.string().min(2, "SKU is required").toUpperCase(),
   productName: z.string().min(2, "Product name is required"),
-  category: z.enum(["STANDARD", "PREMIUM", "FOOD_GRADE", "RAW_MATERIAL"]),
+  category: z.enum(["STANDARD", "PREMIUM", "FOOD_GRADE", "KRAFT_ROLL", "RAW_MATERIAL"]),
   bagType: z.string().optional(),
   bagColor: z.string().optional(),
   bagSizeLabel: z.string().optional(),
@@ -20,6 +20,9 @@ const inventorySchema = z.object({
   productionCostPerUnit: z.coerce.number().min(0, "Production cost cannot be negative").optional(),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
+  gsm: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0).optional()),
+  weight: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0).optional()),
+  lengthInMeters: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0).optional()),
 });
 
 const InventoryForm = ({ initialData, onSubmit, loading }) => {
@@ -45,9 +48,14 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
       productionCostPerUnit: 0,
       description: "",
       isActive: true,
+      gsm: "",
+      weight: "",
+      lengthInMeters: "",
     },
   });
 
+  const category = watch("category");
+  const isRoll = category === "KRAFT_ROLL";
   const stockLevel = watch("stockLevel") || 0;
   const unitPrice = watch("unitPrice") || 0;
   const totalValue = stockLevel * unitPrice;
@@ -82,6 +90,7 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
               { value: "STANDARD", label: "📦 Standard" },
               { value: "PREMIUM", label: "⭐ Premium" },
               { value: "FOOD_GRADE", label: "🍽️ Food Grade" },
+              { value: "KRAFT_ROLL", label: "🧻 Kraft Roll" },
               { value: "RAW_MATERIAL", label: "🔧 Raw Material" },
             ]}
             error={errors.category?.message}
@@ -103,24 +112,52 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
           Product Specifications
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            label="Bag Type (Optional)"
-            placeholder="e.g., Die-cut, SOS, Flat Handle"
-            error={errors.bagType?.message}
-            {...register("bagType")}
-          />
-          <Input
-            label="Bag Color (Optional)"
-            placeholder="e.g., Brown, White, Custom"
-            error={errors.bagColor?.message}
-            {...register("bagColor")}
-          />
-          <Input
-            label="Size Label (Optional)"
-            placeholder="e.g., Small, Medium, Large"
-            error={errors.bagSizeLabel?.message}
-            {...register("bagSizeLabel")}
-          />
+          {isRoll ? (
+            <>
+              <Input
+                label="GSM"
+                type="number"
+                placeholder="e.g., 120, 150"
+                error={errors.gsm?.message}
+                {...register("gsm")}
+              />
+              <Input
+                label="Weight (kg)"
+                type="number"
+                placeholder="e.g., 50, 100"
+                error={errors.weight?.message}
+                {...register("weight")}
+              />
+              <Input
+                label="Length in Meters"
+                type="number"
+                placeholder="e.g., 1000"
+                error={errors.lengthInMeters?.message}
+                {...register("lengthInMeters")}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                label="Bag Type (Optional)"
+                placeholder="e.g., Die-cut, SOS, Flat Handle"
+                error={errors.bagType?.message}
+                {...register("bagType")}
+              />
+              <Input
+                label="Bag Color (Optional)"
+                placeholder="e.g., Brown, White, Custom"
+                error={errors.bagColor?.message}
+                {...register("bagColor")}
+              />
+              <Input
+                label="Size Label (Optional)"
+                placeholder="e.g., Small, Medium, Large"
+                error={errors.bagSizeLabel?.message}
+                {...register("bagSizeLabel")}
+              />
+            </>
+          )}
         </div>
       </div>
 
