@@ -33,6 +33,16 @@ const categories = [
     videoStill: '/images/generated/video_luxury.webp',
     color: '#c09457',
     features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Exquisite Textured Finish']
+  },
+  {
+    id: 'industrial',
+    title: 'Kraft Rolls',
+    subtitle: 'High-Strength wrapping & packaging',
+    description: 'Premium brown and white industrial rolls designed for superior protection and shipping. Ideal for secure wrapping, parcel protection, and bulk industrial packaging.',
+    image: '/images/new/KraftRoll_New.webp',
+    videoStill: '/images/new/KraftRoll_New.webp',
+    color: '#8b5e34',
+    features: ['High-GSM Paper', 'Eco-friendly Brown & White', 'Tear & Puncture Resistant']
   }
 ];
 

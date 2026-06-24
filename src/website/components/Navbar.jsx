@@ -11,6 +11,7 @@ const navLinks = [
       { label: 'Ecocraft Bags', to: '/products/ecocraft' },
       { label: 'F&B Gourmet Bags', to: '/products/fnb' },
       { label: 'Luxury Bags', to: '/products/luxury' },
+      { label: 'Kraft Rolls', to: '/products/industrial' },
     ],
   },
   // { label: 'Design Your Product', to: '/design' },

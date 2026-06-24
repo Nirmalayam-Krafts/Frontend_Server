@@ -166,14 +166,14 @@ const categoryData = {
   },
   industrial: {
     id: 'industrial',
-    title: 'Industrial Kraft Rolls',
-    image: '/images/factory_rolls_main.webp',
+    title: 'Kraft Rolls',
+    image: '/images/new/KraftRoll_New.webp',
     minOrder: '100 UNITS',
-    color: '#4a3728',
-    description: 'Heavy-duty industrial rolls designed for maximum protection and shipping.',
-    longDescription: 'Our industrial-grade kraft paper rolls are manufactured for superior tensile strength and puncture resistance. Ideal for inter-city shipping and bulk item protection.',
+    color: '#8b5e34',
+    description: 'Premium brown and white kraft paper rolls designed for high-strength wrapping, packaging, and industrial shipping.',
+    longDescription: 'Our kraft paper rolls are manufactured with high tensile strength and tear resistance. Ideal for protective wrapping, void filling, parcel cushioning, and bulk packaging. Available in natural brown and bleached white variations.',
     bullets: [
-      { label: 'Extra Duty', icon: ShieldCheck },
+      { label: 'Tear Resistant', icon: ShieldCheck },
       { label: 'Puncture Proof', icon: Zap },
       { label: 'Moisture Safe', icon: Droplets },
       { label: '100% Recycled', icon: Leaf }
@@ -187,9 +187,9 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Bulk Protection', desc: 'Secure industrial wrapping', image: '/images/factory_rolls_gallery1.webp' },
-      { title: 'High GSM Roll', desc: 'Superior tensile strength', image: '/images/factory_rolls_gallery2.webp' },
-      { title: 'Custom Length', desc: 'Tailored for logistics', image: '/images/factory_rolls_gallery3.webp' }
+      { title: 'Factory Warehouse', desc: 'High-volume storage of brown and white rolls', image: '/images/newGen/rolls.jpeg' },
+      { title: 'Quality Certification', desc: 'Nirmalyam certified industrial rolls', image: '/images/prod_rolls_paper.webp' },
+      { title: 'Industrial Solutions', desc: 'Tailored for bulk wrapping and packaging', image: '/images/prod_rolls_paper_new.webp' }
     ]
   }
 };

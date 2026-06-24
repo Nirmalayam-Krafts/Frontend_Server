@@ -84,7 +84,7 @@ const categories = [
     image: '/images/new/V_BottomBag6.webp',
     color: '#4ade80',
     bg: '#f0fdf4',
-    to: '/products#ecocraft',
+    to: '/products/ecocraft',
     // priceBadge: 'From ₹2/Bag'
   },
   {
@@ -94,7 +94,7 @@ const categories = [
     image: '/images/new/F&B.webp',
     color: '#f59e0b',
     bg: '#fffbeb',
-    to: '/products#fnb',
+    to: '/products/fnb',
     // priceBadge: 'Bulk Factory Discount'
   },
   {
@@ -104,8 +104,17 @@ const categories = [
     image: '/images/new/LUXHEADFIXED.webp',
     color: '#c09457',
     bg: '#fdf9f3',
-    to: '/products#luxury',
+    to: '/products/luxury',
     // priceBadge: 'Low Wholesale Rates'
+  },
+  {
+    title: 'Kraft Rolls',
+    desc: 'Premium brown and white rolls designed for high-strength wrapping, packaging, and industrial shipping.',
+    icon: Package,
+    image: '/images/new/KraftRoll_New.webp',
+    color: '#8b5e34',
+    bg: '#fdf8f4',
+    to: '/products/industrial',
   },
 ];
 
