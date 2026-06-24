@@ -41,16 +41,15 @@ const categoryData = {
     ],
     specs: [
       { label: 'Material', value: 'High-Tensile Kraft', icon: Layers },
-      { label: 'Weight Range', icon: Weight, value: '80 - 140 GSM' },
+      { label: 'Weight Range', icon: Weight, value: '60 - 120 GSM' },
       { label: 'Handle Types', icon: Settings, value: 'Twisted / Flat' },
       // { label: 'Printing', value: 'Brown & White Colors', icon: Printer },
-      { label: 'Capacity', value: '3kg - 12kg', icon: Scale },
-      { label: 'Texture', icon: ShieldCheck, value: 'Matte Fiber' }
+      { label: 'Capacity', value: '3kg - 12kg', icon: Scale }
     ],
     gallery: [
-      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/new/V_BottomBag6.webp' },
-      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/new/V_Bottom_Bag5.webp' },
-      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/new/V_Bottom_Bag4.webp' }
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/collection_ecocraft_new.webp' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/newGen/BOTTOMvF.jpeg' },
+      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/newGen/bottomVSlider.png' }
     ]
   },
   fnb: {
@@ -76,7 +75,7 @@ const categoryData = {
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/images/new/V_BottomBag6.webp' },
+      { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/collection-fnb.webp' },
       { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/new/V_Bottom_Bag7.webp' },
       { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/new/V_Bottom_Bag4.webp' }
     ]
@@ -591,8 +590,12 @@ export default function ProductCategory() {
                     </Link>
                   </div>
                 </div>
-                <h4 style={{ fontSize: isMobile ? 12 : 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4, textAlign: 'center' }}>{item.title}</h4>
-                <p style={{ fontSize: isMobile ? 10 : 15, color: 'var(--kraft-500)', lineHeight: 1.5, textAlign: 'center', display: isMobile ? 'none' : 'block' }}>{item.desc}</p>
+                {data.id !== 'ecocraft' && (
+                  <>
+                    <h4 style={{ fontSize: isMobile ? 12 : 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4, textAlign: 'center' }}>{item.title}</h4>
+                    <p style={{ fontSize: isMobile ? 10 : 15, color: 'var(--kraft-500)', lineHeight: 1.5, textAlign: 'center', display: isMobile ? 'none' : 'block' }}>{item.desc}</p>
+                  </>
+                )}
               </div>
             ))}
           </div>

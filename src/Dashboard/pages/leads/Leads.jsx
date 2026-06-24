@@ -50,7 +50,7 @@ const FOLLOWUP_FLOW = [
 const initialOrderForm = {
   selectedProductId: "",
   bagSize: "",
-  color: "",
+  color: "Brown",
   gsm: "",
   quantity: "",
   length: "",
@@ -1201,15 +1201,16 @@ const Leads = () => {
                             </label>
                             <div className="relative">
                               <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                              <input
-                                type="text"
+                              <select
                                 value={orderForm.color}
                                 onChange={(e) =>
                                   handleOrderFormChange("color", e.target.value)
                                 }
-                                placeholder="Enter bag color"
                                 className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                              />
+                              >
+                                <option value="Brown">Brown</option>
+                                <option value="White">White</option>
+                              </select>
                             </div>
                           </div>
                         </>

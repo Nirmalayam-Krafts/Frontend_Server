@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Leaf, TreePine, Droplets, Truck, Recycle, Check, ArrowRight, Cog } from 'lucide-react';
+import { Leaf, TreePine, Droplets, Truck, Recycle, Check, ArrowRight, Cog, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import PagePopup from '../components/PagePopup';
 
 /* ── Green Print steps ── */
 const greenPrint = [
-  { icon: Cog, title: 'Manufacturing Excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/generated/managed_forest.webp' },
+  { icon: Cog, title: 'Manufacturing Excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/manufacturing_excellence.png' },
   { icon: Droplets, title: 'Non-Toxic Printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.', image: '/images/generated/eco_inks.webp' },
   { icon: Truck, title: 'Efficient Transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.', image: '/images/generated/step_efficient_transit_1775638398608.webp' },
   { icon: Recycle, title: '100% Compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.', image: '/images/generated/step_compostable_1775638415138.webp' },
@@ -15,14 +15,14 @@ const greenPrint = [
 const legalLaws = [
   { title: 'Plastic Waste Management (2022)', desc: 'Strict ban on single-use plastics in India, mandating shifts to biodegradable alternatives like paper.' },
   { title: 'EPR Compliance', desc: 'Extended Producer Responsibility ensures brands take responsibility for the lifecycle of their packaging.' },
-  { title: 'Green Procurement Policy', desc: 'Government-backed mandates for corporate sectors to adopt sustainable and eco-friendly packaging.' }
+  { title: 'Circular Procurement Mandates', desc: 'Government-backed guidelines for corporate sectors to actively eliminate single-use plastics in favor of circular paper alternatives.' }
 ];
 
 const paperBenefits = [
   { title: '90 Day Biodegradation', desc: 'Breaks down naturally without leaving microplastics, returning nutrients to the soil.' },
   { icon: Recycle, title: 'Infinite Recyclability', desc: 'Paper fibers can be recycled up to 7 times, making it a circular economy champion.' },
-  { title: 'Renewable Resource', desc: 'Sourced from FSC forests, ensuring a net-positive impact on global tree cover.' },
-  { title: 'Affordable Branding', desc: 'Offers a tactile, premium branding experience at the lowest wholesale cost per bag.' }
+  { title: 'Recycled & Circular', desc: 'Made from high-content recycled paper fibers, avoiding virgin tree harvesting and promoting circular waste loops.' },
+  { title: 'Tactile Brand Value', desc: 'Offers an organic, premium branding experience that immediately communicates your plastic-free commitment.' }
 ];
 
 /* ── Success Stories ── */
@@ -58,7 +58,7 @@ export default function Sustainability() {
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{
-        backgroundImage: 'url(/images/generated/forest_hero.webp)',
+        backgroundImage: 'url(/images/kraft_paper_hero_bg.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -71,8 +71,8 @@ export default function Sustainability() {
           position: 'absolute',
           inset: 0,
           background: isMobile 
-            ? 'linear-gradient(to bottom, rgba(2, 28, 13, 0.95) 0%, rgba(2, 28, 13, 0.7) 60%, transparent 100%)'
-            : 'linear-gradient(to right, rgba(2, 28, 13, 0.98) 0%, rgba(2, 28, 13, 0.75) 50%, transparent 100%)',
+            ? 'linear-gradient(to bottom, rgba(24, 18, 12, 0.95) 0%, rgba(24, 18, 12, 0.7) 60%, transparent 100%)'
+            : 'linear-gradient(to right, rgba(24, 18, 12, 0.98) 0%, rgba(24, 18, 12, 0.75) 50%, transparent 100%)',
           zIndex: 0
         }} />
         <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '1440px' }}>
@@ -104,8 +104,8 @@ export default function Sustainability() {
               lineHeight: 1.8,
               margin: isMobile || isTablet ? '0 auto' : '0'
             }}>
-              {isMobile ? "Discover affordable eco packaging solutions. Going green doesn't have to be expensive with our wholesale pricing." : 
-              "Going green doesn't have to break your budget. Discover how we manufacture the most affordable, plastic-free custom packaging in India at direct wholesale rates."}
+              {isMobile ? "Transitioning to plastic-free packaging is simple. Discover our sustainable recycled paper bags that protect our environment." : 
+              "Transitioning to plastic-free packaging is simple. Discover how we deliver premium, zero-waste recycled paper bags that protect our land, oceans, and marine life from plastic pollution."}
             </p>
           </div>
         </div>
@@ -180,6 +180,147 @@ export default function Sustainability() {
 
       <div style={{ height: 40 }} />
 
+      {/* ── SECTION: WHY WE SHIFT TO PAPER ── */}
+      <section className="section-padding" style={{
+        background: '#fcfaf7',
+        padding: isMobile ? '80px var(--container-gutter)' : '120px var(--container-gutter)',
+        borderTop: '1px solid var(--kraft-100)',
+        borderBottom: '1px solid var(--kraft-100)',
+        position: 'relative'
+      }}>
+        <div className="container" style={{ maxWidth: '1440px' }}>
+          <div style={{ textAlign: 'center', marginBottom: isMobile ? 48 : 80 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(239, 68, 68, 0.08)',
+              padding: '8px 20px',
+              borderRadius: 100,
+              color: '#dc2626',
+              fontSize: 12,
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              marginBottom: 16
+            }}>
+              Switch to Paper Bags Today
+            </div>
+            <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>
+              Why We Are Shifting to Paper
+            </h2>
+            <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '18px' : '20px', maxWidth: 800, color: 'var(--kraft-600)' }}>
+              Single-use plastic bags are devasting our planet. Switching to recycled paper bags is a direct and simple way to end the plastic waste crisis.
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr' : 'repeat(3, 1fr)',
+            gap: 32
+          }}>
+            {/* Card 1: Better than Plastic */}
+            <div style={{
+              background: 'white',
+              borderRadius: '24px',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              border: '1px solid var(--kraft-100)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-8px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+            >
+              <div style={{ height: '220px', borderRadius: '16px', overflow: 'hidden', marginBottom: 24, position: 'relative' }}>
+                <img src="/images/say_no_to_plastic.png" alt="Say No to Plastic Bags" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <AlertCircle size={24} color="#ef4444" />
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>The Plastic Crisis</h3>
+              </div>
+              <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.7, margin: 0 }}>
+                Globally, companies produce an estimated <strong>5 trillion plastic bags a year</strong>. Less than 9% are recycled. A single bag takes more than 1,000 years to decompose, breaking into toxic microplastics that contaminate soil and drinking water.
+              </p>
+            </div>
+
+            {/* Card 2: Save Marine Life */}
+            <div style={{
+              background: 'white',
+              borderRadius: '24px',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              border: '1px solid var(--kraft-100)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-8px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+            >
+              <div style={{ height: '220px', borderRadius: '16px', overflow: 'hidden', marginBottom: 24, position: 'relative' }}>
+                <img src="/images/marine_life_clean.png" alt="Save Marine Life" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <ShieldCheck size={24} color="#3b82f6" />
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>Save Marine Life</h3>
+              </div>
+              <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.7, margin: 0 }}>
+                Every year, about <strong>8 million metric tons of plastic litter</strong> ends up in our oceans. Marine animals, especially sea turtles, mistake plastic bags for food, resulting in ingestion, entanglement, suffocation, and systemic biodiversity damage.
+              </p>
+            </div>
+
+            {/* Card 3: The Recycled Choice */}
+            <div style={{
+              background: 'white',
+              borderRadius: '24px',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              border: '1px solid var(--kraft-100)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-8px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+            >
+              <div>
+                <div style={{ 
+                  height: '220px', 
+                  borderRadius: '16px', 
+                  background: 'var(--eco-50)', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  marginBottom: 24,
+                  padding: '20px',
+                  textAlign: 'center',
+                  border: '1px dashed var(--eco-200)'
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--eco-700)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>Consumer Survey Fact</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--eco-800)', lineHeight: 1.1 }}>No. 1 Choice</div>
+                  <div style={{ fontSize: 13, color: 'var(--eco-600)', marginTop: 8, lineHeight: 1.4 }}>
+                    Consumers ranked paper packaging as one of the most environmentally friendly choices.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <Leaf size={24} color="#22c55e" />
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>Recycling Champion</h3>
+                </div>
+                <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.7, margin: 0 }}>
+                  Paper boasts a recovery and recycling rate of over 68% in major global economies. Since paper bags are composed of bio-based circular fibers, they degrade naturally within 90 days, closing the zero-waste loop.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div style={{ height: 40 }} />
+
       {/* ── SECTION: SUSTAINABILITY (GREEN PRINT) ── */}
       <section className="section-padding nature-section" id="green-print" style={{ 
         background: 'var(--eco-950)', 
@@ -191,9 +332,9 @@ export default function Sustainability() {
         <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '1440px' }}>
           <div style={{ textAlign: 'center', marginBottom: isMobile ? 64 : 100, padding: '0 var(--container-gutter)' }}>
             <div className="section-label" style={{ color: 'var(--eco-400)' }}>Engineering Purity</div>
-            <h2 className="section-title" style={{ color: 'white', fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>The Green Print</h2>
+            <h2 className="section-title" style={{ color: 'white', fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>The Zero-Waste Cycle</h2>
             <p className="section-subtitle" style={{ color: 'rgba(255,255,255,0.7)', margin: '0 auto', fontSize: isMobile ? '18px' : '22px' }}>
-              Full lifecycle transparency. From managed forests to fertile soil.
+              Full lifecycle transparency. From recycled material to safe organic decomposition.
             </p>
           </div>
 
@@ -379,7 +520,7 @@ export default function Sustainability() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/images/generated/cta_forest_bg.webp)',
+          backgroundImage: 'url(/images/dark_kraft_cta_bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.3

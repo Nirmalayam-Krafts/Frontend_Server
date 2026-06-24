@@ -4,19 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 const bags = [
   {
     id: 1,
-    image: '/images/new/V_Bottom_Bag2.webp',
+    image: '/images/new/ECO.webp',
     title: 'Sustainable Packaging',
     color: '#eab308'
   },
   {
     id: 2,
-    image: '/images/newGen/BOTTOMvF.jpeg',
+    image: 'images/new/HERO1.webp',
     title: 'Premium Quality',
     color: '#c09457'
   },
   {
     id: 3,
-    image: '/images/new/V_Bottom_Bag4.webp',
+    image: 'images/newGen/BOTTOMvF.jpeg',
     title: 'Eco Friendly',
     color: '#16a34a'
   }

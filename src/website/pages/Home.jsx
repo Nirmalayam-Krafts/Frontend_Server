@@ -85,17 +85,17 @@ const categories = [
     color: '#4ade80',
     bg: '#f0fdf4',
     to: '/products#ecocraft',
-    priceBadge: 'From ₹2/Bag'
+    // priceBadge: 'From ₹2/Bag'
   },
   {
     title: 'F&B Gourmet Bags',
     desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
     icon: Zap,
-    image: '/images/new/V_Bottom_Bag4.webp',
+    image: '/images/new/F&B.webp',
     color: '#f59e0b',
     bg: '#fffbeb',
     to: '/products#fnb',
-    priceBadge: 'Bulk Factory Discount'
+    // priceBadge: 'Bulk Factory Discount'
   },
   {
     title: 'Luxury Bags',
@@ -105,7 +105,7 @@ const categories = [
     color: '#c09457',
     bg: '#fdf9f3',
     to: '/products#luxury',
-    priceBadge: 'Low Wholesale Rates'
+    // priceBadge: 'Low Wholesale Rates'
   },
 ];
 
@@ -119,16 +119,16 @@ const whyCards = [
     icon: Palette,
     accent: 'var(--eco-600)'
   },
+  // {
+  //   id: 2,
+  //   title: 'Lowest Price',
+  //   label: 'Guaranteed Factory Rates',
+  //   image: '/images/newGen/LOWESTPRICE.jpeg',
+  //   icon: Shield,
+  //   accent: '#22c55e'
+  // },
   {
     id: 2,
-    title: 'Lowest Price',
-    label: 'Guaranteed Factory Rates',
-    image: '/images/newGen/LOWESTPRICE.jpeg',
-    icon: Shield,
-    accent: '#22c55e'
-  },
-  {
-    id: 3,
     title: 'Artisanal',
     label: 'Craftsmanship Heritage',
     image: '/images/new/ARTISION.webp',
@@ -136,9 +136,9 @@ const whyCards = [
     accent: '#f59e0b'
   },
   {
-    id: 4,
+    id: 3,
     title: 'Vibrant',
-    label: 'Colorful Collections',
+    label: 'Versatile Collections',
     image: '/images/new/V_BottomBag6.webp',
     icon: TrendingUp,
     accent: '#ec4899'
@@ -315,8 +315,7 @@ export default function Home() {
               maxWidth: 500,
               fontWeight: 600
             }}>
-              Specializing in ITC ECF paperboards and eco-friendly specialty papers. 
-              We offer high-performance packaging at the cheapest wholesale rates, ensuring your business stays both green and profitable.
+              Manufacturing high-quality kraft paper bags for retail, food, gifting, and commercial packaging needs. Our eco-friendly solutions combine strength, style, and affordability for businesses of all sizes.
             </p>
 
             {/* Buttons */}
@@ -724,7 +723,7 @@ export default function Home() {
       <section
         className="why-nirmalyam-section anim-reveal"
         style={{
-          background: 'linear-gradient(rgba(58, 36, 16, 0.88), rgba(58, 36, 16, 0.92)), url("/images/why_factory_bg.webp")',
+          background: 'linear-gradient(rgba(58, 36, 16, 0.88), rgba(58, 36, 16, 0.92)), url("/images/why_factory_bg.png")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           position: 'relative',
@@ -1105,9 +1104,9 @@ export default function Home() {
           }} className="product-grid-3x3">
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.webp', badge: 'Affordable Rates' },
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/V_Bottom_Bag3.webp', badge: 'Wholesale Deal' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/new/V_Bottom_Bag5.webp', badge: 'Budget Option' },
-              { name: 'Flat Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/prod_flat_paper_colored.webp', badge: 'From ₹2.50/pc' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/HERO2.webp', badge: 'Wholesale Deal' },
+              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget Option' },
+              { name: 'Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/collection_ecocraft_new.webp', badge: 'From ₹2.50/pc' },
               { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/new/KraftRoll_New.webp', badge: 'Cheapest in India' },
             ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"
@@ -1185,13 +1184,13 @@ export default function Home() {
         position: 'relative',
         padding: isMobile ? '80px 24px' : '120px 0',
         overflow: 'hidden',
-        background: '#0a1f0a', // Dark fallback
+        background: '#18120c', // Dark fallback
       }}>
-        {/* Forest Background Image */}
+        {/* Recycled Kraft Background Image */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("/images/sustainability_cta_bg.webp")',
+          backgroundImage: 'url("/images/dark_kraft_cta_bg.png")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.6,
@@ -1201,7 +1200,7 @@ export default function Home() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 100%)',
+          background: 'linear-gradient(to right, rgba(24, 18, 12, 0.85) 0%, rgba(24, 18, 12, 0.5) 100%)',
           zIndex: 1
         }} />
         <div className="nature-layer-leaf" style={{ opacity: 0.1, zIndex: 2 }} />

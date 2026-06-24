@@ -138,7 +138,7 @@ const initialProductionForm: IProductionForm = {
   productId: "",
   quantity: "",
   category: "STANDARD",
-  bagColor: "",
+  bagColor: "Brown",
   bagSizeLabel: "",
   reorderPt: "10",
   unitPrice: "",
@@ -176,7 +176,7 @@ const RAW_MATERIAL_UNITS = [
 const INVENTORY_CATEGORY_OPTIONS = ["STANDARD", "PREMIUM", "FOOD_GRADE"] as const;
 
 const DIMENSION_UNITS = ["inch", "cm", "mm", "ft"];
-const DEFAULT_BAG_COLORS = ["Brown", "White", "Black", "Natural", "Printed"];
+const DEFAULT_BAG_COLORS = ["Brown", "White"];
 const DEFAULT_BAG_SIZES = ["Small", "Medium", "Large"];
 
 const getStockStatus = (availableStock: number | string, reorderPoint: number | string) => {
@@ -526,14 +526,7 @@ const RawMaterial = () => {
   );
 
   useEffect(() => {
-    const materialColorOptions = rawMaterials
-      .map((item: IRawMaterial) => String(item.color || "").trim())
-      .filter((color: string) => color.length > 0);
-
-    setBagColorOptions((prev: string[]) => {
-      const merged = [...DEFAULT_BAG_COLORS, ...materialColorOptions, ...prev];
-      return Array.from(new Set(merged.map((i) => i.trim()).filter(Boolean)));
-    });
+    setBagColorOptions(DEFAULT_BAG_COLORS);
 
     const productSizeOptions = products
       .map((product: IBagProduct) => {
@@ -1651,32 +1644,6 @@ const RawMaterial = () => {
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <Input
-                      label=""
-                      className=""
-                      error={undefined}
-                      icon={undefined}
-                      value={customBagColor}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBagColor(e.target.value)}
-                      placeholder="Add new color"
-                    />
-                    <Button
-                      type="button"
-                      className="whitespace-nowrap bg-emerald-700"
-                      onClick={() => {
-                        const value = customBagColor.trim();
-                        if (!value) return;
-                        setBagColorOptions((prev: string[]) =>
-                          prev.includes(value) ? prev : [...prev, value]
-                        );
-                        handleProductionField("bagColor", value);
-                        setCustomBagColor("");
-                      }}
-                    >
-                      Add
-                    </Button>
                   </div>
                 </div>
               )}

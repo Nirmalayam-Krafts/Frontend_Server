@@ -101,7 +101,7 @@ export default function Navbar() {
         lineHeight: 1.3,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
-          <span style={{ background: '#f59e0b', color: '#1e1b4b', padding: '1px 6px', borderRadius: '4px', fontSize: '9px', textTransform: 'uppercase', fontWeight: 900 }}>Lowest Price Guarantee</span>
+          {/* <span style={{ background: '#f59e0b', color: '#1e1b4b', padding: '1px 6px', borderRadius: '4px', fontSize: '9px', textTransform: 'uppercase', fontWeight: 900 }}>Lowest Price Guarantee</span> */}
           <span>India's Most Affordable Custom Kraft Bags — Direct Wholesale Factory Rates!</span>
         </div>
       </div>

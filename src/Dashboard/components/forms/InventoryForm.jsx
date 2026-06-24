@@ -33,25 +33,27 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
     watch,
   } = useForm({
     resolver: zodResolver(inventorySchema),
-    defaultValues: initialData || {
-      sku: "",
-      productName: "",
-      category: "STANDARD",
-      bagType: "",
-      bagColor: "",
-      bagSizeLabel: "",
-      stockLevel: 0,
-      reorderPt: 10,
-      unit: "bags",
-      unitPrice: 0,
-      sellingPricePerUnit: 0,
-      productionCostPerUnit: 0,
-      description: "",
-      isActive: true,
-      gsm: "",
-      weight: "",
-      lengthInMeters: "",
-    },
+    defaultValues: initialData
+      ? { ...initialData, bagColor: initialData.bagColor || "Brown" }
+      : {
+          sku: "",
+          productName: "",
+          category: "STANDARD",
+          bagType: "",
+          bagColor: "Brown",
+          bagSizeLabel: "",
+          stockLevel: 0,
+          reorderPt: 10,
+          unit: "bags",
+          unitPrice: 0,
+          sellingPricePerUnit: 0,
+          productionCostPerUnit: 0,
+          description: "",
+          isActive: true,
+          gsm: "",
+          weight: "",
+          lengthInMeters: "",
+        },
   });
 
   const category = watch("category");
@@ -144,9 +146,12 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
                 error={errors.bagType?.message}
                 {...register("bagType")}
               />
-              <Input
-                label="Bag Color (Optional)"
-                placeholder="e.g., Brown, White, Custom"
+              <Select
+                label="Bag Color"
+                options={[
+                  { value: "Brown", label: "Brown" },
+                  { value: "White", label: "White" },
+                ]}
                 error={errors.bagColor?.message}
                 {...register("bagColor")}
               />

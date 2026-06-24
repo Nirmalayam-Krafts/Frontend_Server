@@ -120,7 +120,7 @@ export default function Footer() {
               maxWidth: '100%',
               wordWrap: 'break-word'
             }}>
-              Pioneering the future of plastic-free luxury packaging through advanced kraft paper technology. Join thousands of brands shaping a greener tomorrow.
+              Pioneering the future of plastic-free packaging through advanced kraft paper technology. Shaping a greener tomorrow.
             </p>
 
             {/* Newsletter */}

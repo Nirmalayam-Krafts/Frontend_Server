@@ -65,7 +65,7 @@ const initialManualOrderForm = {
   productCategory: "",
   source: "Manual Order",
   bagSize: "",
-  color: "",
+  color: "Brown",
   quantity: "",
   length: "",
   width: "",
@@ -2492,14 +2492,15 @@ ${lines || "(See PDF for full BOM)"}
                           <label className="mb-1 block text-xs font-semibold text-gray-600">
                             Color <span className="text-red-500">*</span>
                           </label>
-                          <input
-                            type="text"
+                          <select
                             value={manualOrderForm.color}
                             onChange={(e) => handleFormChange("color", e.target.value)}
-                            placeholder="Color"
                             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                             required
-                          />
+                          >
+                            <option value="Brown">Brown</option>
+                            <option value="White">White</option>
+                          </select>
                         </div>
                         <div>
                           <label className="mb-1 block text-xs font-semibold text-gray-600">

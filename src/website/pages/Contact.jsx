@@ -11,7 +11,7 @@ const contacts = [
     icon: Mail,
     title: 'Email Us',
     value: 'hello@nirmalyamkrafts.com',
-    sub: 'We reply within 1 business hour',
+    sub: 'Our team will get back to you as soon as possible.',
     href: 'mailto:hello@nirmalyamkrafts.com',
     color: 'var(--eco-600)',
     bg: 'rgba(22,163,74,0.08)',
@@ -29,7 +29,7 @@ const contacts = [
     icon: MessageCircle,
     title: 'WhatsApp',
     value: 'Chat for Instant Quote',
-    sub: 'Usually replies in under 5 minutes',
+    sub: 'We are just a message away',
     href: 'https://wa.me/919049001299?text=Hi%20',
     color: '#25d366',
     bg: 'rgba(37,211,102,0.08)',
@@ -38,7 +38,7 @@ const contacts = [
     icon: MapPin,
     title: 'Visit Us',
     value: 'Regional Distribution Hub',
-    sub: 'Pune & Mumbai, Maharashtra, India',
+    sub: 'Pune, Maharashtra, India',
     href: 'https://maps.google.com/?q=Nirmalyam+Krafts',
     color: '#ef4444',
     bg: 'rgba(239,68,68,0.08)',
@@ -74,11 +74,13 @@ const PRODUCT_OPTIONS = [
   { value: 'Ecocraft Bags', label: 'Ecocraft Bags' },
   { value: 'F&B Gourmet Bags', label: 'F&B Gourmet Bags' },
   { value: 'Luxury Bags', label: 'Luxury Kraft Bags' },
+  { value: 'Kraft Paper Rolls', label: 'Kraft Paper Rolls' },
 ];
 
 const INITIAL_FORM = {
   name: '', email: '', phone: '', business_name: '',
   product_category: '', quantity: '', requirement: '', location_area: '',
+  gsm: '', bf_factor: '',
 };
 
 const FIELD_NAMES = ['name', 'email', 'phone', 'business_name', 'product_category', 'quantity', 'requirement'];
@@ -110,7 +112,7 @@ const isMeaningfulProjectText = (value) => {
   return words.length >= 4 && descriptiveWords.length >= 3 && !hasRepeatedCharacterRun(value);
 };
 
-const validateField = (fieldName, value) => {
+const validateField = (fieldName, value, formValues) => {
   const trimmedValue = typeof value === 'string' ? value.trim() : value;
 
   switch (fieldName) {
@@ -121,7 +123,7 @@ const validateField = (fieldName, value) => {
       return '';
 
     case 'email':
-      if (!trimmedValue) return 'Corporate Email is required.';
+      if (!trimmedValue) return 'Email is required.';
       if (!EMAIL_REGEX.test(trimmedValue)) return 'Enter a valid email address.';
       return '';
 
@@ -144,18 +146,34 @@ const validateField = (fieldName, value) => {
       return '';
 
     case 'quantity': {
-      if (!trimmedValue) return 'Est. Monthly Volume is required.';
+      if (!trimmedValue) return 'Estimated Monthly Volume is required.';
       const numericValue = Number(trimmedValue);
       if (Number.isNaN(numericValue)) return 'Enter a valid monthly volume.';
-      if (numericValue < 100) return 'Est. Monthly Volume must be at least 100.';
+      if (numericValue < 100) return 'Estimated Monthly Volume must be at least 100.';
       return '';
     }
 
     case 'requirement':
-      if (!trimmedValue) return 'Project Details are required.';
-      if (trimmedValue.length < 20) return 'Project Details must be at least 20 characters.';
+      if (!trimmedValue) return 'Details are required.';
+      if (trimmedValue.length < 20) return 'Details must be at least 20 characters.';
       if (!isMeaningfulProjectText(trimmedValue)) {
-        return 'Add clearer project details with product type, quantity, size, branding, or timeline.';
+        return 'Add clearer details with product type, quantity, size, branding, or timeline.';
+      }
+      return '';
+
+    case 'gsm':
+      if (formValues?.product_category === 'Kraft Paper Rolls') {
+        if (!trimmedValue) return 'GSM is required.';
+        const numericValue = Number(trimmedValue);
+        if (Number.isNaN(numericValue) || numericValue <= 0) return 'Enter a valid GSM.';
+      }
+      return '';
+
+    case 'bf_factor':
+      if (formValues?.product_category === 'Kraft Paper Rolls') {
+        if (!trimmedValue) return 'BF Factor is required.';
+        const numericValue = Number(trimmedValue);
+        if (Number.isNaN(numericValue) || numericValue <= 0) return 'Enter a valid BF Factor.';
       }
       return '';
 
@@ -164,11 +182,16 @@ const validateField = (fieldName, value) => {
   }
 };
 
-const validateForm = (formValues) =>
-  FIELD_NAMES.reduce((acc, fieldName) => {
-    acc[fieldName] = validateField(fieldName, formValues[fieldName]);
+const validateForm = (formValues) => {
+  const fields = [...FIELD_NAMES];
+  if (formValues.product_category === 'Kraft Paper Rolls') {
+    fields.push('gsm', 'bf_factor');
+  }
+  return fields.reduce((acc, fieldName) => {
+    acc[fieldName] = validateField(fieldName, formValues[fieldName], formValues);
     return acc;
   }, {});
+};
 
 const LOCATION_OPTIONS = [
   { value: '', label: 'Select your area...' },
@@ -236,14 +259,14 @@ export default function Contact() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const nextValue = name === 'phone' || name === 'quantity' ? value.replace(/\D/g, '') : value;
+    const nextValue = name === 'phone' || name === 'quantity' || name === 'gsm' || name === 'bf_factor' ? value.replace(/\D/g, '') : value;
     const nextForm = { ...form, [name]: nextValue };
 
     setForm(nextForm);
     setTouched((prev) => ({ ...prev, [name]: true }));
     setErrors((prev) => ({
       ...prev,
-      [name]: validateField(name, nextValue),
+      [name]: validateField(name, nextValue, nextForm),
     }));
     setError('');
   };
@@ -260,10 +283,17 @@ export default function Contact() {
     const nextErrors = validateForm(form);
     const hasErrors = Object.values(nextErrors).some(Boolean);
 
-    setTouched(FIELD_NAMES.reduce((acc, fieldName) => {
-      acc[fieldName] = true;
-      return acc;
-    }, {}));
+    setTouched((prev) => {
+      const nextTouched = { ...prev };
+      const fields = [...FIELD_NAMES];
+      if (form.product_category === 'Kraft Paper Rolls') {
+        fields.push('gsm', 'bf_factor');
+      }
+      fields.forEach(f => {
+        nextTouched[f] = true;
+      });
+      return nextTouched;
+    });
     setErrors(nextErrors);
 
     if (hasErrors) {
@@ -283,6 +313,10 @@ export default function Contact() {
         product_category: form.product_category,
         quantity: form.quantity.trim(),
         requirement: form.requirement.trim(),
+        ...(form.product_category === 'Kraft Paper Rolls' ? {
+          gsm: form.gsm.trim(),
+          bf_factor: form.bf_factor.trim(),
+        } : {}),
       };
 
       const { data } = await axiosInstance.post(`/leads`, {
@@ -486,10 +520,10 @@ export default function Contact() {
                         marginBottom: 12,
                         letterSpacing: '-0.02em'
                       }}>
-                        Get a Cheap Bulk Quote
+                        Get Custom Pricing
                       </h2>
                       <p style={{ fontSize: 16, color: 'var(--kraft-500)', maxWidth: 450, lineHeight: 1.6 }}>
-                        Best wholesale price matching guaranteed! Tell us your brand requirements and we will provide the most affordable direct factory quotation.
+                        Tell us your brand requirements and we will provide a custom direct factory quotation.
                       </p>
                     </div>
 
@@ -514,7 +548,7 @@ export default function Contact() {
                           {touched.name && errors.name && <span className="input-error">{errors.name}</span>}
                         </div>
                         <div className="input-group">
-                          <label className="input-label">Corporate Email</label>
+                          <label className="input-label">Email</label>
                           <input className={getFieldClassName('email')} name="email" type="email" placeholder="name@company.com" value={form.email} onChange={handleChange} required aria-invalid={Boolean(errors.email)} />
                           {touched.email && errors.email && <span className="input-error">{errors.email}</span>}
                         </div>
@@ -545,14 +579,29 @@ export default function Contact() {
                           {touched.product_category && errors.product_category && <span className="input-error">{errors.product_category}</span>}
                         </div>
                         <div className="input-group">
-                          <label className="input-label">Est. Monthly Volume</label>
+                          <label className="input-label">Estimated Monthly Volume</label>
                           <input className={getFieldClassName('quantity')} name="quantity" type="number" placeholder="Min. 100 recommended" value={form.quantity} onChange={handleChange} min={100} inputMode="numeric" aria-invalid={Boolean(errors.quantity)} />
                           {touched.quantity && errors.quantity && <span className="input-error">{errors.quantity}</span>}
                         </div>
                       </div>
 
+                      {form.product_category === 'Kraft Paper Rolls' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
+                          <div className="input-group">
+                            <label className="input-label">GSM (Grams per Square Meter)</label>
+                            <input className={getFieldClassName('gsm')} name="gsm" placeholder="E.g. 120" value={form.gsm} onChange={handleChange} required inputMode="numeric" aria-invalid={Boolean(errors.gsm)} />
+                            {touched.gsm && errors.gsm && <span className="input-error">{errors.gsm}</span>}
+                          </div>
+                          <div className="input-group">
+                            <label className="input-label">BF Factor (Bursting Factor)</label>
+                            <input className={getFieldClassName('bf_factor')} name="bf_factor" placeholder="E.g. 18" value={form.bf_factor} onChange={handleChange} required inputMode="numeric" aria-invalid={Boolean(errors.bf_factor)} />
+                            {touched.bf_factor && errors.bf_factor && <span className="input-error">{errors.bf_factor}</span>}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="input-group">
-                        <label className="input-label">Project Details</label>
+                        <label className="input-label">Details</label>
                         <textarea className={getFieldClassName('requirement')} name="requirement" placeholder="Share specific dimensions, colors, or timeline needs..." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 140, resize: 'none', padding: '16px' }} aria-invalid={Boolean(errors.requirement)} />
                         {touched.requirement && errors.requirement && <span className="input-error">{errors.requirement}</span>}
                         {!errors.requirement && <span className="input-helper">Example: need 2,000 luxury kraft bags with gold foil logo for a July launch.</span>}
@@ -625,7 +674,7 @@ export default function Contact() {
                  </div>
                </div>
 
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
+               {/* <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
                  {[
                    { label: 'Response Time', value: '1 Business Hour', icon: Clock },
                    { label: 'Global Standard', value: 'ISO 9001:2015', icon: ShieldCheck },
@@ -641,9 +690,9 @@ export default function Contact() {
                      </div>
                    </div>
                  ))}
-               </div>
+               </div> */}
 
-               <div style={{ 
+               {/* <div style={{ 
                  background: 'var(--kraft-950)', 
                  padding: '40px', 
                  borderRadius: 'var(--radius-2xl)', 
@@ -667,7 +716,7 @@ export default function Contact() {
                       </div>
                     ))}
                  </div>
-               </div>
+               </div> */}
             </div>
           </div>
         </div>

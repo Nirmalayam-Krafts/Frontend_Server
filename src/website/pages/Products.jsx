@@ -12,8 +12,7 @@ const categories = [
     image: '/images/newGen/BOTTOMV.jpeg',
     videoStill: '/images/generated/video_ecocraft.webp',
     color: '#4ade80',
-    features: ['100-140 GSM Kraft', 'Twisted Paper Handles', 'Super Budget Friendly'],
-    priceBadge: 'From ₹2/Bag'
+    features: ['60 - 120 GSM Kraft', 'Twisted Paper Handles', 'Premium Strength & Build']
   },
   {
     id: 'fnb',
@@ -23,8 +22,7 @@ const categories = [
     image: '/images/newGen/bottomVFB.jpeg',
     videoStill: '/images/generated/video_fnb.webp',
     color: '#f59e0b',
-    features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Lowest Wholesale Cost'],
-    priceBadge: 'Bulk Factory Rates'
+    features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Certified Food Safe']
   },
   {
     id: 'luxury',
@@ -34,8 +32,7 @@ const categories = [
     image: '/images/collection_luxury_vibrant.webp',
     videoStill: '/images/generated/video_luxury.webp',
     color: '#c09457',
-    features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Highly Affordable Rates'],
-    priceBadge: 'Low Wholesale Prices'
+    features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Exquisite Textured Finish']
   }
 ];
 
@@ -47,6 +44,19 @@ export default function Products() {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (window.location.hash) {
+      const id = window.location.hash.substring(1);
+      const element = document.getElementById(id);
+      if (element) {
+        const timer = setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+        return () => clearTimeout(timer);
+      }
+    }
   }, []);
 
   const isMobile = windowWidth < 768;
@@ -61,10 +71,11 @@ export default function Products() {
         backgroundSize: 'cover',
         backgroundPosition: isMobile ? 'center' : 'center right',
         position: 'relative',
-        minHeight: isMobile ? '450px' : '550px',
+        minHeight: isMobile ? '350px' : '450px',
         display: 'flex',
         alignItems: 'center',
-        marginTop: isMobile ? '-126px' : '-148px',
+        paddingTop: isMobile ? '120px' : '160px',
+        paddingBottom: isMobile ? '60px' : '100px',
         overflow: 'hidden'
       }}>
         <div style={{
@@ -127,6 +138,7 @@ export default function Products() {
             {categories.map((cat, i) => (
               <div
                 key={cat.id}
+                id={cat.id}
                 className="anim-fade-up product-category-row"
                 style={{
                   display: 'grid',
@@ -142,6 +154,7 @@ export default function Products() {
                   transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   minHeight: isMobile ? 'auto' : '550px',
                   position: 'relative',
+                  scrollMarginTop: '100px',
                   animationDelay: `${i * 0.15}s`
                 }}
               >

@@ -107,7 +107,7 @@ export default function About() {
                 margin: isMobile || isTablet ? '0 auto' : '0'
               }}>
                 {isMobile ? "India's most affordable premium packaging — luxury that honors our earth at wholesale factory rates." :
-                  "Pioneers in premium, zero-waste packaging. We believe true luxury shouldn't cost the earth or your business, which is why we offer our bags at the lowest direct-from-factory rates in India."}
+                  "Pioneers in premium, zero-waste bags. We believe exceptional packaging should reflect both your brand values and your commitment to sustainability, delivering quality that customers can see and trust."}
               </p>
             </div>
 
@@ -426,7 +426,7 @@ export default function About() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/images/generated/cta_forest_bg.webp)',
+          backgroundImage: 'url(/images/dark_kraft_cta_bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.4
