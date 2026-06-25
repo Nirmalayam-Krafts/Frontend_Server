@@ -123,7 +123,7 @@ const validateField = (fieldName, value, formValues) => {
       return '';
 
     case 'email':
-      if (!trimmedValue) return 'Email is required.';
+      if (!trimmedValue) return '';
       if (!EMAIL_REGEX.test(trimmedValue)) return 'Enter a valid email address.';
       return '';
 
@@ -133,7 +133,7 @@ const validateField = (fieldName, value, formValues) => {
       return '';
 
     case 'business_name':
-      if (!trimmedValue) return 'Business Name is required.';
+      if (!trimmedValue) return '';
       if (trimmedValue.length < 2) return 'Business Name must be at least 2 characters.';
       if (!BUSINESS_NAME_REGEX.test(trimmedValue)) return 'Business Name contains invalid characters.';
       if (hasRepeatedCharacterRun(trimmedValue) || hasSuspiciousSingleWord(trimmedValue)) {
@@ -146,15 +146,14 @@ const validateField = (fieldName, value, formValues) => {
       return '';
 
     case 'quantity': {
-      if (!trimmedValue) return 'Estimated Monthly Volume is required.';
+      if (!trimmedValue) return '';
       const numericValue = Number(trimmedValue);
-      if (Number.isNaN(numericValue)) return 'Enter a valid monthly volume.';
-      if (numericValue < 100) return 'Estimated Monthly Volume must be at least 100.';
+      if (Number.isNaN(numericValue) || numericValue <= 0) return 'Enter a valid monthly volume.';
       return '';
     }
 
     case 'requirement':
-      if (!trimmedValue) return 'Details are required.';
+      if (!trimmedValue) return '';
       if (trimmedValue.length < 20) return 'Details must be at least 20 characters.';
       if (!isMeaningfulProjectText(trimmedValue)) {
         return 'Add clearer details with product type, quantity, size, branding, or timeline.';
@@ -163,7 +162,7 @@ const validateField = (fieldName, value, formValues) => {
 
     case 'gsm':
       if (formValues?.product_category === 'Kraft Paper Rolls') {
-        if (!trimmedValue) return 'GSM is required.';
+        if (!trimmedValue) return '';
         const numericValue = Number(trimmedValue);
         if (Number.isNaN(numericValue) || numericValue <= 0) return 'Enter a valid GSM.';
       }
@@ -171,7 +170,7 @@ const validateField = (fieldName, value, formValues) => {
 
     case 'bf_factor':
       if (formValues?.product_category === 'Kraft Paper Rolls') {
-        if (!trimmedValue) return 'BF Factor is required.';
+        if (!trimmedValue) return '';
         const numericValue = Number(trimmedValue);
         if (Number.isNaN(numericValue) || numericValue <= 0) return 'Enter a valid BF Factor.';
       }
@@ -330,8 +329,12 @@ export default function Contact() {
       queryClient.invalidateQueries({
         queryKey: ['getAllLeadsData']
       });
-    } catch {
-      setError('Unable to reach the server. Please try WhatsApp or email directly.');
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        setError(error.response.data.message);
+      } else {
+        setError('Unable to reach the server. Please try WhatsApp or email directly.');
+      }
     } finally {
       setLoading(false);
     }
@@ -550,7 +553,7 @@ export default function Contact() {
                         </div>
                         <div className="input-group">
                           <label className="input-label">Email</label>
-                          <input className={getFieldClassName('email')} name="email" type="email" placeholder="name@company.com" value={form.email} onChange={handleChange} required aria-invalid={Boolean(errors.email)} />
+                          <input className={getFieldClassName('email')} name="email" type="email" placeholder="name@company.com" value={form.email} onChange={handleChange} aria-invalid={Boolean(errors.email)} />
                           {touched.email && errors.email && <span className="input-error">{errors.email}</span>}
                         </div>
                       </div>
@@ -558,7 +561,7 @@ export default function Contact() {
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                         <div className="input-group">
                           <label className="input-label">Contact Number</label>
-                          <input className={getFieldClassName('phone')} name="phone" placeholder="+91 00000 00000" value={form.phone} onChange={handleChange} inputMode="numeric" maxLength={15} aria-invalid={Boolean(errors.phone)} />
+                          <input className={getFieldClassName('phone')} name="phone" placeholder="+91 00000 00000" value={form.phone} onChange={handleChange} required inputMode="numeric" maxLength={15} aria-invalid={Boolean(errors.phone)} />
                           {touched.phone && errors.phone && <span className="input-error">{errors.phone}</span>}
                         </div>
                         <div className="input-group">
@@ -572,7 +575,7 @@ export default function Contact() {
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                         <div className="input-group">
                           <label className="input-label">Product of Interest</label>
-                          <select className={getFieldClassName('product_category', 'contact-input select-styled')} name="product_category" value={form.product_category} onChange={handleChange} aria-invalid={Boolean(errors.product_category)}>
+                          <select className={getFieldClassName('product_category', 'contact-input select-styled')} name="product_category" value={form.product_category} onChange={handleChange} required aria-invalid={Boolean(errors.product_category)}>
                             {PRODUCT_OPTIONS.map(({ value, label }) => (
                               <option key={value} value={value}>{label}</option>
                             ))}
@@ -581,7 +584,7 @@ export default function Contact() {
                         </div>
                         <div className="input-group">
                           <label className="input-label">Estimated Monthly Volume</label>
-                          <input className={getFieldClassName('quantity')} name="quantity" type="number" placeholder="Min. 100 recommended" value={form.quantity} onChange={handleChange} min={100} inputMode="numeric" aria-invalid={Boolean(errors.quantity)} />
+                          <input className={getFieldClassName('quantity')} name="quantity" type="number" placeholder="E.g. 500" value={form.quantity} onChange={handleChange} min={1} inputMode="numeric" aria-invalid={Boolean(errors.quantity)} />
                           {touched.quantity && errors.quantity && <span className="input-error">{errors.quantity}</span>}
                         </div>
                       </div>
@@ -590,12 +593,12 @@ export default function Contact() {
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                           <div className="input-group">
                             <label className="input-label">GSM (Grams per Square Meter)</label>
-                            <input className={getFieldClassName('gsm')} name="gsm" placeholder="E.g. 120" value={form.gsm} onChange={handleChange} required inputMode="numeric" aria-invalid={Boolean(errors.gsm)} />
+                            <input className={getFieldClassName('gsm')} name="gsm" placeholder="E.g. 120" value={form.gsm} onChange={handleChange} inputMode="numeric" aria-invalid={Boolean(errors.gsm)} />
                             {touched.gsm && errors.gsm && <span className="input-error">{errors.gsm}</span>}
                           </div>
                           <div className="input-group">
                             <label className="input-label">BF Factor (Bursting Factor)</label>
-                            <input className={getFieldClassName('bf_factor')} name="bf_factor" placeholder="E.g. 18" value={form.bf_factor} onChange={handleChange} required inputMode="numeric" aria-invalid={Boolean(errors.bf_factor)} />
+                            <input className={getFieldClassName('bf_factor')} name="bf_factor" placeholder="E.g. 18" value={form.bf_factor} onChange={handleChange} inputMode="numeric" aria-invalid={Boolean(errors.bf_factor)} />
                             {touched.bf_factor && errors.bf_factor && <span className="input-error">{errors.bf_factor}</span>}
                           </div>
                         </div>
