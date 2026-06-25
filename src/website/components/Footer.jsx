@@ -277,7 +277,7 @@ export default function Footer() {
               hello@nirmalyamkrafts.com
             </a>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
-              Response time: &lt; 2 business hours
+              Quick & Reliable Support
             </div>
           </div>
         </div>
