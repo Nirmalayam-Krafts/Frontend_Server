@@ -20,7 +20,7 @@ const contacts = [
     icon: Phone,
     title: 'Call Us',
     value: '+91 90490 01299',
-    sub: 'Mon – Sat, 9 AM – 7 PM IST',
+    sub: 'we are here for 24/7 Support',
     href: 'tel:+919049001299',
     color: 'var(--kraft-600)',
     bg: 'rgba(192,148,87,0.1)',
@@ -227,7 +227,7 @@ export default function Contact() {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
-  
+
   const location = useLocation();
   const queryClient = useQueryClient();
 
@@ -236,7 +236,7 @@ export default function Contact() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
+
   useEffect(() => {
     if (location.state?.name || location.state?.email) {
       setForm(prev => ({
@@ -245,7 +245,7 @@ export default function Contact() {
         email: location.state.email || prev.email
       }));
     }
-    
+
     // Handle scroll to form if hash is present
     if (location.hash === '#contact-form') {
       setTimeout(() => {
@@ -365,11 +365,11 @@ export default function Contact() {
           background: 'linear-gradient(to right, rgba(26, 18, 8, 1) 0%, rgba(26, 18, 8, 0.7) 40%, transparent 100%)',
           zIndex: 0
         }} />
-        
+
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div className="anim-fade-up" style={{ textAlign: isMobile || isTablet ? 'center' : 'left' }}>
-            <div className="section-label" style={{ 
-              color: 'var(--eco-400)', 
+            <div className="section-label" style={{
+              color: 'var(--eco-400)',
               marginBottom: 16,
               letterSpacing: '0.3em',
               textShadow: '0 2px 4px rgba(0,0,0,0.3)'
@@ -401,7 +401,7 @@ export default function Contact() {
       </div>
 
       {/* ── Contact Channels: Floating Experience ── */}
-      <section style={{ 
+      <section style={{
         background: 'white',
         marginTop: 0,
         paddingTop: 40,
@@ -410,10 +410,10 @@ export default function Contact() {
         paddingBottom: 60
       }}>
         <div className="container">
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', 
-            gap: 24 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+            gap: 24
           }}>
             {contacts.map(({ icon: Icon, title, value, sub, href, color, bg }, i) => (
               <a
@@ -426,21 +426,21 @@ export default function Contact() {
                   animationDelay: `${i * 0.1}s`,
                   display: 'flex', flexDirection: 'column', gap: 16,
                   padding: '32px 24px', background: 'white',
-                  borderRadius: 'var(--radius-xl)', 
+                  borderRadius: 'var(--radius-xl)',
                   border: '1px solid var(--kraft-100)',
                   textDecoration: 'none', transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)',
                   boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
                   textAlign: 'center'
                 }}
                 onMouseEnter={(e) => {
-                  if(!isMobile) {
+                  if (!isMobile) {
                     e.currentTarget.style.transform = 'translateY(-12px)';
                     e.currentTarget.style.borderColor = color;
                     e.currentTarget.style.boxShadow = `0 30px 60px ${color}15`;
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if(!isMobile) {
+                  if (!isMobile) {
                     e.currentTarget.style.transform = 'none';
                     e.currentTarget.style.borderColor = 'var(--kraft-100)';
                     e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.05)';
@@ -469,9 +469,9 @@ export default function Contact() {
       <section className="section-padding nature-section" style={{ background: 'var(--kraft-50)' }}>
         <div className="nature-layer-wood" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile || isTablet ? '1fr' : '1.1fr 0.9fr', 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : '1.1fr 0.9fr',
             gap: isMobile ? 48 : 80,
             alignItems: 'stretch'
           }}>
@@ -513,10 +513,10 @@ export default function Contact() {
                 ) : (
                   <>
                     <div style={{ marginBottom: 40 }}>
-                      <h2 style={{ 
-                        fontFamily: "'Playfair Display', serif", 
-                        fontSize: isMobile ? 36 : 42, 
-                        color: 'var(--kraft-950)', 
+                      <h2 style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: isMobile ? 36 : 42,
+                        color: 'var(--kraft-950)',
                         marginBottom: 12,
                         letterSpacing: '-0.02em'
                       }}>
@@ -607,9 +607,9 @@ export default function Contact() {
                         {!errors.requirement && <span className="input-helper">Example: need 2,000 luxury kraft bags with gold foil logo for a July launch.</span>}
                       </div>
 
-                      <button type="submit" disabled={loading} style={{ 
-                        width: '100%', 
-                        padding: '20px', 
+                      <button type="submit" disabled={loading} style={{
+                        width: '100%',
+                        padding: '20px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -624,18 +624,18 @@ export default function Contact() {
                         transition: 'all 0.3s ease',
                         boxShadow: '0 15px 30px rgba(26, 18, 8, 0.15)',
                       }}
-                      onMouseEnter={e => {
-                        if (!loading) {
-                          e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
-                          e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.8)';
-                          e.currentTarget.style.boxShadow = '0 20px 40px rgba(26, 18, 8, 0.25)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                        e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.4)';
-                        e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
-                      }}
+                        onMouseEnter={e => {
+                          if (!loading) {
+                            e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+                            e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.8)';
+                            e.currentTarget.style.boxShadow = '0 20px 40px rgba(26, 18, 8, 0.25)';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                          e.currentTarget.style.borderColor = 'rgba(192, 148, 87, 0.4)';
+                          e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
+                        }}
                       >
                         {loading ? 'Processing Your Request...' : 'Submit Inquiry'} <Send size={20} />
                       </button>
@@ -647,34 +647,34 @@ export default function Contact() {
 
             {/* --- Information Column: Cinematic Info --- */}
             <div className="anim-fade-up-slow" style={{ display: 'flex', flexDirection: 'column' }}>
-               <div style={{ 
-                 position: 'relative', 
-                 borderRadius: 'var(--radius-2xl)', 
-                 overflow: 'hidden',
-                 height: isMobile ? '400px' : '500px',
-                 marginBottom: 48,
-                 boxShadow: 'var(--shadow-xl)'
-               }}>
-                 <img 
-                   src="/images/generated/contact_consulting.webp" 
-                   alt="Nirmalyam Packaging" 
-                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                 />
-                 <div style={{
-                   position: 'absolute',
-                   inset: 0,
-                   background: 'linear-gradient(to top, rgba(26, 18, 8, 0.9) 0%, transparent 60%)',
-                   display: 'flex',
-                   flexDirection: 'column',
-                   justifyContent: 'flex-end',
-                   padding: 40
-                 }}>
-                   <div style={{ color: 'var(--kraft-300)', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 12, marginBottom: 12 }}>Manufacturing Excellence</div>
-                   <h3 style={{ color: 'white', fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>"We don't just supply bags; we architect unboxing experiences that drive customer loyalty."</h3>
-                 </div>
-               </div>
+              <div style={{
+                position: 'relative',
+                borderRadius: 'var(--radius-2xl)',
+                overflow: 'hidden',
+                height: isMobile ? '400px' : '500px',
+                marginBottom: 48,
+                boxShadow: 'var(--shadow-xl)'
+              }}>
+                <img
+                  src="/images/generated/contact_consulting.webp"
+                  alt="Nirmalyam Packaging"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(to top, rgba(26, 18, 8, 0.9) 0%, transparent 60%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  padding: 40
+                }}>
+                  <div style={{ color: 'var(--kraft-300)', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 12, marginBottom: 12 }}>Manufacturing Excellence</div>
+                  <h3 style={{ color: 'white', fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>"We don't just supply bags; we architect unboxing experiences that drive customer loyalty."</h3>
+                </div>
+              </div>
 
-               {/* <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
+              {/* <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
                  {[
                    { label: 'Response Time', value: '1 Business Hour', icon: Clock },
                    { label: 'Global Standard', value: 'ISO 9001:2015', icon: ShieldCheck },
@@ -692,7 +692,7 @@ export default function Contact() {
                  ))}
                </div> */}
 
-               {/* <div style={{ 
+              {/* <div style={{ 
                  background: 'var(--kraft-950)', 
                  padding: '40px', 
                  borderRadius: 'var(--radius-2xl)', 
@@ -726,29 +726,29 @@ export default function Contact() {
       <section className="section-padding" style={{ background: 'white' }}>
         <div className="container" style={{ maxWidth: 900 }}>
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
-             <div className="section-label" style={{ marginBottom: 16 }}>Concierge</div>
-             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 36 : 48, color: 'var(--kraft-950)', marginBottom: 20 }}>Tailored Solutions FAQ</h2>
-             <p style={{ color: 'var(--kraft-500)', fontSize: 18 }}>Everything you need to know about starting your sustainable journey.</p>
+            <div className="section-label" style={{ marginBottom: 16 }}>Concierge</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 36 : 48, color: 'var(--kraft-950)', marginBottom: 20 }}>Tailored Solutions FAQ</h2>
+            <p style={{ color: 'var(--kraft-500)', fontSize: 18 }}>Everything you need to know about starting your sustainable journey.</p>
           </div>
 
           <div style={{ display: 'grid', gap: 20 }}>
             {faqs.map((faq, i) => (
-              <div key={i} style={{ 
-                background: 'var(--kraft-50)', 
-                borderRadius: '24px', 
-                border: '1px solid var(--kraft-100)', 
+              <div key={i} style={{
+                background: 'var(--kraft-50)',
+                borderRadius: '24px',
+                border: '1px solid var(--kraft-100)',
                 overflow: 'hidden',
                 transition: 'all 0.3s'
               }}>
-                <button 
+                <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   style={{ width: '100%', padding: isMobile ? '24px' : '32px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: 24 }}
                 >
                   <span style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: 'var(--kraft-950)', lineHeight: 1.4 }}>{faq.q}</span>
-                  <div style={{ 
-                    width: 44, height: 44, borderRadius: '14px', 
-                    background: openFaq === i ? 'var(--kraft-900)' : 'white', 
-                    color: openFaq === i ? 'white' : 'var(--kraft-900)', 
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '14px',
+                    background: openFaq === i ? 'var(--kraft-900)' : 'white',
+                    color: openFaq === i ? 'white' : 'var(--kraft-900)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     transition: 'all 0.3s',
                     boxShadow: 'var(--shadow-sm)'

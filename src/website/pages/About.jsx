@@ -13,20 +13,20 @@ const values = [
 /* ── Visionaries ── */
 const visionaries = [
   {
-    name: 'Rajesh Nair',
-    role: 'Managing Director',
-    email: 'rajesh@nirmalyamkrafts.com',
-    phone: '+91 98765 43210',
-    desc: 'With over 20 years of experience in sustainable manufacturing, Rajesh leads the vision of making plastic-free packaging highly affordable and accessible to all brands.',
+    name: 'Mahesh Nair',
+    role: 'Director',
+    email: 'nirmalyamkrafts@gmail.com',
+    phone: '+91 90490 01299',
+    desc: 'With extensive experience in sustainable manufacturing, Mahesh leads the vision of making plastic-free packaging highly affordable and accessible to all brands.',
     image: '/images/generated/owner_1.webp'
   },
   {
-    name: 'Anjali Nair',
-    role: 'Creative Director',
-    email: 'anjali@nirmalyamkrafts.com',
-    phone: '+91 98765 43211',
-    desc: 'Anjali is the creative force behind our premium designs, ensuring that sustainability never comes at the cost of brand elegance.',
-    image: '/images/generated/owner_2.webp'
+    name: 'Satish Nair',
+    role: 'Director',
+    email: 'nirmalyamkrafts@gmail.com',
+    phone: '+91 84465 54743',
+    desc: 'Satish drives our product engineering and operational excellence, ensuring that sustainability never comes at the cost of durability and brand elegance.',
+    image: '/images/generated/owner_1.webp'
   }
 ];
 
@@ -319,7 +319,7 @@ export default function About() {
                   onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 />
-                <div style={{
+                {/* <div style={{
                   position: 'absolute',
                   top: isMobile ? 12 : 32,
                   right: isMobile ? 12 : 32,
@@ -340,7 +340,7 @@ export default function About() {
                 }}>
                   <div style={{ width: 10, height: 10, background: '#fbbf24', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
                   ISO 9001:2015 Certified
-                </div>
+                </div> */}
               </div>
             </div>
 

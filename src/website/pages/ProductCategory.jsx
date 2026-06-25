@@ -77,7 +77,7 @@ const categoryData = {
     gallery: [
       { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/collection-fnb.webp' },
       { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/new/V_Bottom_Bag7.webp' },
-      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/new/V_Bottom_Bag4.webp' }
+      { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/new/fnb_bakery.webp' }
     ]
   },
   luxury: {
