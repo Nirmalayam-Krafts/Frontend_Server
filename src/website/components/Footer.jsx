@@ -44,7 +44,7 @@ const shopLinks = [
   { label: 'F&B Gourmet', to: '/products/fnb' },
   { label: 'Luxury Kraft', to: '/products/luxury' },
   { label: 'Eco-Pouches', to: '/products' },
-  { label: 'Custom Mailers', to: '/products' },
+  { label: 'Kraft Rolls', to: '/products/industrial' },
 ];
 
 const policyLinks = [
@@ -293,7 +293,7 @@ export default function Footer() {
         }}>
           <div style={{ display: 'flex', gap: isMobile ? 12 : 32, flexWrap: 'wrap', justifyContent: 'center' }}>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-              © {new Date().getFullYear()} Nirmalyam Krafts Pro. All rights reserved.
+              © {new Date().getFullYear()} Nirmalyam Krafts. All rights reserved.
             </p>
             {policyLinks.map(link => (
               <Link key={link.label} to={link.to} style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>

@@ -219,7 +219,7 @@ export default function Home() {
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
-        paddingTop: `calc(${isMobile ? '82px' : '108px'} + var(--banner-height, 0px))`,
+        paddingTop: 'var(--header-height, 108px)',
         paddingBottom: isMobile ? '80px' : '120px',
         transition: 'padding-top 0.3s ease-in-out'
       }}>

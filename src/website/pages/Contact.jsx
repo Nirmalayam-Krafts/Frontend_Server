@@ -356,7 +356,8 @@ export default function Contact() {
         minHeight: isMobile ? '450px' : '550px',
         display: 'flex',
         alignItems: 'center',
-        marginTop: isMobile ? -60 : -80,
+        paddingTop: isMobile ? 'calc(var(--header-height, 80px) + 20px)' : 'calc(var(--header-height, 108px) + 60px)',
+        paddingBottom: isMobile ? '60px' : '100px',
         overflow: 'hidden'
       }}>
         <div style={{

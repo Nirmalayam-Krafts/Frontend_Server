@@ -626,9 +626,17 @@ h6 {
       var(--kraft-800) 60%,
       var(--kraft-700) 100%);
   color: white;
-  padding: 160px 0px 100px;
+  padding-top: calc(var(--header-height, 108px) + 60px);
+  padding-bottom: 100px;
   position: relative;
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .page-hero {
+    padding-top: calc(var(--header-height, 80px) + 20px);
+    padding-bottom: 60px;
+  }
 }
 
 .page-hero::after {

@@ -84,7 +84,7 @@ export default function Products() {
         minHeight: isMobile ? '350px' : '450px',
         display: 'flex',
         alignItems: 'center',
-        paddingTop: isMobile ? '120px' : '160px',
+        paddingTop: isMobile ? 'calc(var(--header-height, 80px) + 20px)' : 'calc(var(--header-height, 108px) + 60px)',
         paddingBottom: isMobile ? '60px' : '100px',
         overflow: 'hidden'
       }}>

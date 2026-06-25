@@ -61,7 +61,10 @@ export default function About() {
         minHeight: isMobile ? '500px' : isTablet ? '550px' : '650px',
         display: 'flex',
         alignItems: 'center',
-        padding: isMobile ? '100px var(--container-gutter) 60px' : '140px var(--container-gutter) 100px'
+        paddingTop: isMobile ? 'calc(var(--header-height, 80px) + 20px)' : 'calc(var(--header-height, 108px) + 60px)',
+        paddingBottom: isMobile ? '60px' : '100px',
+        paddingLeft: 'var(--container-gutter)',
+        paddingRight: 'var(--container-gutter)'
       }}>
         <div style={{
           position: 'absolute',

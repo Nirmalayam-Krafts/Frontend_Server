@@ -63,13 +63,20 @@ export default function Navbar() {
 
   useEffect(() => {
     const isBannerVisible = showBanner && !scrolled;
-    const height = isBannerVisible ? (isMobile ? '44px' : '40px') : '0px';
-    document.documentElement.style.setProperty('--banner-height', height);
+    const bannerHeightVal = isBannerVisible ? (isMobile ? 44 : 40) : 0;
+    const navbarHeightVal = isMobile ? (scrolled ? 60 : 80) : (scrolled ? 80 : 108);
+    const headerHeightVal = bannerHeightVal + navbarHeightVal;
+
+    document.documentElement.style.setProperty('--banner-height', `${bannerHeightVal}px`);
+    document.documentElement.style.setProperty('--navbar-height', `${navbarHeightVal}px`);
+    document.documentElement.style.setProperty('--header-height', `${headerHeightVal}px`);
   }, [showBanner, scrolled, isMobile]);
 
   useEffect(() => {
     return () => {
       document.documentElement.style.removeProperty('--banner-height');
+      document.documentElement.style.removeProperty('--navbar-height');
+      document.documentElement.style.removeProperty('--header-height');
     };
   }, []);
 

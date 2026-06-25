@@ -76,7 +76,11 @@ export default function TermsOfService() {
       {/* Hero */}
       <div className="page-hero" style={{
         position: 'relative', minHeight: isMobile ? '400px' : isTablet ? '420px' : '480px',
-        display: 'flex', alignItems: 'center', padding: isMobile ? '100px 0 60px' : '120px 0 80px'
+        display: 'flex', alignItems: 'center',
+        paddingTop: isMobile ? 'calc(var(--header-height, 80px) + 20px)' : 'calc(var(--header-height, 108px) + 60px)',
+        paddingBottom: isMobile ? '60px' : '80px',
+        paddingLeft: 0,
+        paddingRight: 0
       }}>
         <div style={{ position: 'absolute', top: '15%', right: '8%', width: isMobile ? 200 : 400, height: isMobile ? 200 : 400, background: 'radial-gradient(circle, rgba(192,168,117,0.2) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(60px)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: '15%', left: '5%', width: isMobile ? 150 : 300, height: isMobile ? 150 : 300, background: 'radial-gradient(circle, rgba(22,163,74,0.12) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(50px)', pointerEvents: 'none' }} />

@@ -65,7 +65,10 @@ export default function Sustainability() {
         minHeight: isMobile ? '450px' : isTablet ? '500px' : '650px',
         display: 'flex',
         alignItems: 'center',
-        padding: isMobile ? '80px var(--container-gutter) 60px' : '100px var(--container-gutter)'
+        paddingTop: isMobile ? 'calc(var(--header-height, 80px) + 20px)' : 'calc(var(--header-height, 108px) + 60px)',
+        paddingBottom: isMobile ? '60px' : '100px',
+        paddingLeft: 'var(--container-gutter)',
+        paddingRight: 'var(--container-gutter)'
       }}>
         <div style={{
           position: 'absolute',

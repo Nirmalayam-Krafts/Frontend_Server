@@ -129,7 +129,10 @@ export default function PrivacyPolicy() {
         minHeight: isMobile ? '400px' : isTablet ? '420px' : '480px',
         display: 'flex',
         alignItems: 'center',
-        padding: isMobile ? '100px 0 60px' : '120px 0 80px'
+        paddingTop: isMobile ? 'calc(var(--header-height, 80px) + 20px)' : 'calc(var(--header-height, 108px) + 60px)',
+        paddingBottom: isMobile ? '60px' : '80px',
+        paddingLeft: 0,
+        paddingRight: 0
       }}>
         {/* Decorative gradient orbs */}
         <div style={{
