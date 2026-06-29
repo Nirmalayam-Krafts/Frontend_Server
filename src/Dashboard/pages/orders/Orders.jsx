@@ -65,7 +65,7 @@ const initialManualOrderForm = {
   productCategory: "",
   source: "Manual Order",
   bagSize: "",
-  color: "Brown",
+  color: "",
   quantity: "",
   length: "",
   width: "",
@@ -1490,7 +1490,7 @@ ${lines || "(See PDF for full BOM)"}
       !manualOrderForm.productId ||
       !manualOrderForm.quantity ||
       !manualOrderForm.width ||
-      (isRoll ? !manualOrderForm.gsm : (!manualOrderForm.bagSize || !manualOrderForm.color || !manualOrderForm.length || !manualOrderForm.height))
+      (isRoll ? !manualOrderForm.gsm : (!manualOrderForm.bagSize || !manualOrderForm.length || !manualOrderForm.height))
     ) {
       showNotification("Please fill all required fields", "error");
       return;
@@ -2490,14 +2490,14 @@ ${lines || "(See PDF for full BOM)"}
                         </div>
                         <div>
                           <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Color <span className="text-red-500">*</span>
+                            Color
                           </label>
                           <select
                             value={manualOrderForm.color}
                             onChange={(e) => handleFormChange("color", e.target.value)}
                             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
                           >
+                            <option value="">Select color</option>
                             <option value="Brown">Brown</option>
                             <option value="White">White</option>
                           </select>

@@ -50,7 +50,7 @@ const FOLLOWUP_FLOW = [
 const initialOrderForm = {
   selectedProductId: "",
   bagSize: "",
-  color: "Brown",
+  color: "",
   gsm: "",
   quantity: "",
   length: "",
@@ -410,7 +410,7 @@ const Leads = () => {
       !orderForm.selectedProductId ||
       !orderForm.quantity ||
       !orderForm.width ||
-      (isRollProduct ? !orderForm.gsm : (!orderForm.bagSize || !orderForm.color || !orderForm.length || !orderForm.height))
+      (isRollProduct ? !orderForm.gsm : (!orderForm.bagSize || !orderForm.length || !orderForm.height))
     ) {
       showNotification("Please fill all required order details", "error");
       return;
@@ -1197,7 +1197,7 @@ const Leads = () => {
                           </div>
                           <div>
                             <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Bag Color <span className="text-red-500">*</span>
+                              Bag Color
                             </label>
                             <div className="relative">
                               <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -1208,6 +1208,7 @@ const Leads = () => {
                                 }
                                 className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
                               >
+                                <option value="">Select color</option>
                                 <option value="Brown">Brown</option>
                                 <option value="White">White</option>
                               </select>
