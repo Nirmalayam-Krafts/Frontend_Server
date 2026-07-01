@@ -79,7 +79,7 @@ const PRODUCT_OPTIONS = [
 
 const INITIAL_FORM = {
   name: '', email: '', phone: '', business_name: '',
-  product_category: '', quantity: '', requirement: '', location_area: '',
+  product_category: '', quantity: '', quantity_unit: 'pieces', requirement: '', location_area: '',
   gsm: '', bf_factor: '',
 };
 
@@ -258,8 +258,24 @@ export default function Contact() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const nextValue = name === 'phone' || name === 'quantity' || name === 'gsm' || name === 'bf_factor' ? value.replace(/\D/g, '') : value;
-    const nextForm = { ...form, [name]: nextValue };
+    let nextValue = value;
+    if (name === 'phone' || name === 'gsm' || name === 'bf_factor') {
+      nextValue = value.replace(/\D/g, '');
+    } else if (name === 'quantity') {
+      nextValue = value.replace(/[^0-9.]/g, '');
+    }
+
+    let nextForm = { ...form, [name]: nextValue };
+
+    if (name === 'product_category') {
+      if (value === 'Kraft Paper Rolls') {
+        nextForm.quantity_unit = 'kg';
+      } else if (value) {
+        nextForm.quantity_unit = 'pieces';
+      } else {
+        nextForm.quantity_unit = 'pieces';
+      }
+    }
 
     setForm(nextForm);
     setTouched((prev) => ({ ...prev, [name]: true }));
@@ -310,7 +326,7 @@ export default function Contact() {
         phone: form.phone.trim(),
         business_name: form.business_name.trim(),
         product_category: form.product_category,
-        quantity: form.quantity.trim(),
+        quantity: form.quantity.trim() ? `${form.quantity.trim()} ${form.quantity_unit}` : '',
         requirement: form.requirement.trim(),
         ...(form.product_category === 'Kraft Paper Rolls' ? {
           gsm: form.gsm.trim(),
@@ -510,7 +526,7 @@ export default function Contact() {
                     </div>
                     <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--kraft-950)', marginBottom: 16 }}>Message Sent</h2>
                     <p style={{ color: 'var(--kraft-600)', fontSize: 18, marginBottom: 40, lineHeight: 1.6 }}>
-                      Thank you for choosing Nirmalyam. We will review your specifications and reach out within 60 minutes.
+                      Thank you for choosing Nirmalyam. We will review your specifications and reach out as soon as possible.
                     </p>
                     <button onClick={handleReset} className="btn-primary" style={{ margin: '0 auto' }}>Send Another Inquiry</button>
                   </div>
@@ -584,7 +600,36 @@ export default function Contact() {
                         </div>
                         <div className="input-group">
                           <label className="input-label">Estimated Monthly Volume</label>
-                          <input className={getFieldClassName('quantity')} name="quantity" type="number" placeholder="E.g. 500" value={form.quantity} onChange={handleChange} min={1} inputMode="numeric" aria-invalid={Boolean(errors.quantity)} />
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '8px' }}>
+                            <input 
+                              className={getFieldClassName('quantity')} 
+                              name="quantity" 
+                              type="text" 
+                              placeholder="E.g. 500" 
+                              value={form.quantity} 
+                              onChange={handleChange} 
+                              aria-invalid={Boolean(errors.quantity)} 
+                            />
+                            <select 
+                              className="contact-input select-styled" 
+                              name="quantity_unit" 
+                              value={form.quantity_unit} 
+                              onChange={handleChange}
+                              style={{ padding: '0 12px' }}
+                            >
+                              {form.product_category === 'Kraft Paper Rolls' ? (
+                                <>
+                                  <option value="kg">kg</option>
+                                  <option value="rolls">rolls</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value="pieces">pieces</option>
+                                  <option value="kg">kg</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
                           {touched.quantity && errors.quantity && <span className="input-error">{errors.quantity}</span>}
                         </div>
                       </div>

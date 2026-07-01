@@ -22,6 +22,7 @@ import {
   Activity,
   FileBox,
   ShoppingBag,
+  RotateCcw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -36,7 +37,9 @@ const Inventory = () => {
   const updateItem = useInventoryStore((state) => state.updateItem);
   const deleteItem = useInventoryStore((state) => state.deleteItem);
 
-  const { data: items = [], isLoading } = useGetInventory();
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  const { data: items = [], isLoading } = useGetInventory({ showDeleted });
   const { data: lowStockAlerts = [] } = useGetLowStockAlerts();
   console.log(items)
   const queryClient = useQueryClient();
@@ -130,6 +133,8 @@ const Inventory = () => {
   };
 
   const handleDeleteItem = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this stock item?")) return;
+    if (!window.confirm("Are you absolutely sure? This will remove it from the active stock view.")) return;
     const loadingToast = toast.loading("Deleting item...");
 
     try {
@@ -148,13 +153,39 @@ const Inventory = () => {
         queryKey: ["getLowStockAlertsData"],
       });
 
-      if (selectedItem?.id === id || selectedItem?._id === id) {
+      if (selectedItem?._id === id || selectedItem?.id === id) {
         setShowDetailPanel(false);
         setSelectedItem(null);
       }
     } catch (error) {
       toast.error(
         error?.response?.data?.message || "Failed to delete item",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const handleRecoverItem = async (id) => {
+    if (!window.confirm("Are you sure you want to recover this stock item?")) return;
+    if (!window.confirm("Are you absolutely sure you want to restore it back to active stock?")) return;
+    const loadingToast = toast.loading("Restoring stock item...");
+
+    try {
+      await axiosInstance.patch(`/inventory/${id}/recover`);
+
+      toast.success("Stock item restored successfully 🎉", {
+        id: loadingToast,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getLowStockAlertsData"],
+      });
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to restore stock item",
         { id: loadingToast }
       );
     }
@@ -592,27 +623,39 @@ const Inventory = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto]"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         >
-          <Input
-            placeholder="Search by SKU or product name..."
-            value={search}
-            icon={Search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="flex-1">
+            <Input
+              placeholder="Search by SKU or product name..."
+              value={search}
+              icon={Search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none focus:border-emerald-500"
-          >
-            <option value="All">All Categories</option>
-            <option value="STANDARD">Standard</option>
-            <option value="PREMIUM">Premium</option>
-            <option value="FOOD_GRADE">Food Grade</option>
-            <option value="KRAFT_ROLL">Kraft Roll</option>
-            <option value="RAW_MATERIAL">Raw Material</option>
-          </select>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2 h-[48px] text-sm text-gray-700 outline-none focus:border-emerald-500 font-medium"
+            >
+              <option value="All">All Categories</option>
+              <option value="STANDARD">Standard</option>
+              <option value="PREMIUM">Premium</option>
+              <option value="FOOD_GRADE">Food Grade</option>
+              <option value="KRAFT_ROLL">Kraft Roll</option>
+              <option value="RAW_MATERIAL">Raw Material</option>
+            </select>
+
+            <Button
+              variant={showDeleted ? "danger" : "secondary"}
+              onClick={() => setShowDeleted(!showDeleted)}
+              className="flex items-center justify-center gap-2 rounded-2xl h-[48px] px-6 text-sm font-semibold shadow-sm transition-all duration-200 border"
+            >
+              {showDeleted ? "📦 View Active" : "🗑️ View Trash"}
+            </Button>
+          </div>
         </motion.div>
 
         <motion.div
@@ -915,32 +958,44 @@ const Inventory = () => {
                                 <Eye className="h-4 w-4" />
                               </button>
 
-                              <button
-                                onClick={() => openAddStockModal(item)}
-                                className="p-2 rounded-lg text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-200"
-                                title="Add Stock"
-                              >
-                                <CirclePlus className="h-4 w-4" />
-                              </button>
+                              {showDeleted ? (
+                                <button
+                                  onClick={() => handleRecoverItem(item.id || item._id)}
+                                  className="p-2 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-600 transition-all duration-200"
+                                  title="Recover"
+                                >
+                                  <RotateCcw className="h-4 w-4 text-emerald-600" />
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => openAddStockModal(item)}
+                                    className="p-2 rounded-lg text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-200"
+                                    title="Add Stock"
+                                  >
+                                    <CirclePlus className="h-4 w-4" />
+                                  </button>
 
-                              <button
-                                onClick={() => {
-                                  setEditingItem(item);
-                                  setShowModal(true);
-                                }}
-                                className="p-2 rounded-lg text-gray-600 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200"
-                                title="Edit"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingItem(item);
+                                      setShowModal(true);
+                                    }}
+                                    className="p-2 rounded-lg text-gray-600 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </button>
 
-                              <button
-                                onClick={() => handleDeleteItem(item.id || item._id)}
-                                className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                                  <button
+                                    onClick={() => handleDeleteItem(item.id || item._id)}
+                                    className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

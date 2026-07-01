@@ -4,18 +4,23 @@ import { Button } from "../ui";
 import { useGetAllRawMaterials } from "../../../../hook/RawMaterial";
 
 const PRODUCT_CATEGORY_OPTIONS = [
-  "Shopping Bag",
-  "Food Bag",
-  "Gift Bag",
-  "Grocery Bag",
-  "Retail Bag",
-  "Pharmacy Bag",
-  "Bakery Bag",
-  "Custom Bag",
-  "Kraft Rolls",
+  "Ecocraft bags",
+  "F&B Gourmet Bags",
+  "Luxury bags",
+  "Kraft paper roll",
 ];
 
-const BAG_TYPE_OPTIONS = ["flat", "gusset", "handle", "box", "custom", "none"];
+const BAG_TYPE_OPTIONS = ["flat", "gusset", "handle", "box", "v_bottom", "square_bottom", "custom", "none"];
+const BAG_TYPE_LABELS = {
+  flat: "Flat",
+  gusset: "Gusset",
+  handle: "Handle",
+  box: "Box",
+  custom: "Custom",
+  v_bottom: "V Bottom",
+  square_bottom: "Square Bottom",
+  none: "None"
+};
 const DIMENSION_UNIT_OPTIONS = ["inch", "cm", "mm", "ft"];
 const PRICING_MODE_OPTIONS = ["calculated", "fixed"];
 const USAGE_TYPE_OPTIONS = ["fixed", "dimension_based"];
@@ -35,7 +40,7 @@ const getInitialState = (initialData = null) => {
   if (!initialData) {
     return {
       name: "",
-      category: "Shopping Bag",
+      category: "Ecocraft bags",
       sku: "",
       description: "",
       bagType: "custom",
@@ -56,6 +61,7 @@ const getInitialState = (initialData = null) => {
       },
       rawMaterials: [{ ...defaultMaterial }],
       isActive: true,
+      customPrinting: false,
       gsm: "",
       weight: "",
       lengthInMeters: "",
@@ -64,7 +70,7 @@ const getInitialState = (initialData = null) => {
 
   return {
     name: initialData?.name || "",
-    category: initialData?.category || "Shopping Bag",
+    category: initialData?.category || "Ecocraft bags",
     sku: initialData?.sku || "",
     description: initialData?.description || "",
     bagType: initialData?.bagType || "custom",
@@ -97,19 +103,64 @@ const getInitialState = (initialData = null) => {
           }))
         : [{ ...defaultMaterial }],
     isActive: initialData?.isActive ?? true,
+    customPrinting: initialData?.customPrinting || false,
     gsm: initialData?.gsm || "",
     weight: initialData?.weight || "",
     lengthInMeters: initialData?.lengthInMeters || "",
+    bf: initialData?.bf || "",
   };
 };
 
 const ProductForm = ({ initialData = null, onSubmit }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(getInitialState(initialData));
+  const [sizePreset, setSizePreset] = useState("custom");
 
   const isRoll = useMemo(() => {
     return String(formData.category || "").toLowerCase().includes("roll");
   }, [formData.category]);
+
+  React.useEffect(() => {
+    if (initialData && !isRoll) {
+      const len = Number(initialData.dimensions?.length);
+      const wid = Number(initialData.dimensions?.width);
+      const hei = Number(initialData.dimensions?.height);
+      const unit = initialData.dimensions?.unit || "inch";
+      if (unit === "inch") {
+        if (len === 8 && wid === 10 && hei === 4) {
+          setSizePreset("small");
+        } else if (len === 10 && wid === 12 && hei === 5) {
+          setSizePreset("medium");
+        } else if (len === 12 && wid === 16 && hei === 6) {
+          setSizePreset("large");
+        } else {
+          setSizePreset("custom");
+        }
+      } else {
+        setSizePreset("custom");
+      }
+    }
+  }, [initialData, isRoll]);
+
+  const handlePresetChange = (preset) => {
+    setSizePreset(preset);
+    if (preset === "small") {
+      setFormData(prev => ({
+        ...prev,
+        dimensions: { length: 8, width: 10, height: 4, unit: "inch" }
+      }));
+    } else if (preset === "medium") {
+      setFormData(prev => ({
+        ...prev,
+        dimensions: { length: 10, width: 12, height: 5, unit: "inch" }
+      }));
+    } else if (preset === "large") {
+      setFormData(prev => ({
+        ...prev,
+        dimensions: { length: 12, width: 16, height: 6, unit: "inch" }
+      }));
+    }
+  };
 
   const { data: rawMaterialResponse, isLoading } = useGetAllRawMaterials();
 
@@ -250,9 +301,11 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
           notes: item.notes?.trim() || "",
         })),
       isActive: formData.isActive,
+      customPrinting: formData.customPrinting || false,
       gsm: isRoll ? Number(formData.gsm) : undefined,
-      weight: isRoll && formData.weight ? Number(formData.weight) : undefined,
+      weight: formData.weight ? Number(formData.weight) : undefined,
       lengthInMeters: isRoll && formData.lengthInMeters ? Number(formData.lengthInMeters) : undefined,
+      bf: isRoll && formData.bf ? Number(formData.bf) : undefined,
       unit: isRoll ? "kg" : undefined,
     };
 
@@ -328,10 +381,25 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             >
               {BAG_TYPE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
+                  {BAG_TYPE_LABELS[option] || option}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Custom Printing
+            </label>
+            <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 w-full bg-white cursor-pointer h-[48px]">
+              <input
+                type="checkbox"
+                checked={formData.customPrinting || false}
+                onChange={(e) => updateField("customPrinting", e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              Enable Custom Printing
+            </label>
           </div>
 
           <div className="md:col-span-2">
@@ -347,7 +415,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             />
           </div>
 
-          {isRoll && (
+          {isRoll ? (
             <>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -371,6 +439,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={formData.weight}
                   onChange={(e) => updateField("weight", e.target.value)}
                   placeholder="50"
@@ -391,13 +460,58 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                 />
               </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  BF (Burst Factor)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.bf}
+                  onChange={(e) => updateField("bf", e.target.value)}
+                  placeholder="20"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
             </>
+          ) : (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Weight per Bag (kg)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={formData.weight}
+                onChange={(e) => updateField("weight", e.target.value)}
+                placeholder="e.g. 0.02"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              />
+            </div>
           )}
         </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 p-4">
         <h3 className="mb-4 text-sm font-bold text-gray-900">{isRoll ? "Roll Dimensions" : "Bag Dimensions"}</h3>
+
+        {!isRoll && (
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-semibold text-gray-700">Size Configuration</label>
+            <select
+              value={sizePreset}
+              onChange={(e) => handlePresetChange(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 font-medium"
+            >
+              <option value="small">Small (8 × 10 × 4 inch)</option>
+              <option value="medium">Medium (10 × 12 × 5 inch)</option>
+              <option value="large">Large (12 × 16 × 6 inch)</option>
+              <option value="custom">Custom (Manual Entry)</option>
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           {!isRoll && (
@@ -408,8 +522,9 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                 min="0"
                 value={formData.dimensions.length}
                 onChange={(e) => updateDimension("length", e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
                 required={!isRoll}
+                disabled={sizePreset !== "custom"}
               />
             </div>
           )}
@@ -421,8 +536,9 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
               min="0"
               value={formData.dimensions.width}
               onChange={(e) => updateDimension("width", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
               required
+              disabled={!isRoll && sizePreset !== "custom"}
             />
           </div>
 
@@ -434,8 +550,9 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                 min="0"
                 value={formData.dimensions.height}
                 onChange={(e) => updateDimension("height", e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
                 required={!isRoll}
+                disabled={sizePreset !== "custom"}
               />
             </div>
           )}
@@ -445,7 +562,8 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             <select
               value={formData.dimensions.unit}
               onChange={(e) => updateDimension("unit", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
+              disabled={!isRoll && sizePreset !== "custom"}
             >
               {DIMENSION_UNIT_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -687,6 +805,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                   <input
                     type="number"
                     min="0"
+                    step="any"
                     value={item.requiredQuantityPerBag}
                     onChange={(e) =>
                       updateMaterial(index, "requiredQuantityPerBag", e.target.value)
@@ -746,7 +865,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
 
       <div className="flex justify-end gap-3">
         <Button type="submit" className="bg-green-900">
-          {initialData ? "Update Product" : "Create Product"}
+          {initialData ? "Update and Add to Stock" : "Create and Add to Stock"}
         </Button>
       </div>
     </form>

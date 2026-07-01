@@ -306,6 +306,7 @@ const RawMaterial = () => {
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedStockItem, setSelectedStockItem] = useState<IRawMaterial | null>(null);
   const [stockToAdd, setStockToAdd] = useState("");
+  const [stockUnitPrice, setStockUnitPrice] = useState("");
   const [stockNote, setStockNote] = useState("");
 
   const [showProductionModal, setShowProductionModal] = useState(false);
@@ -315,7 +316,9 @@ const RawMaterial = () => {
   const [customBagColor, setCustomBagColor] = useState("");
   const [customBagSize, setCustomBagSize] = useState("");
 
-  const { data: rawMaterials = [], isLoading } = useGetAllRawMaterials({ search });
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  const { data: rawMaterials = [], isLoading } = useGetAllRawMaterials({ search, showDeleted });
   const { data: lowStockAlerts = [] } = useGetLowStockRawMaterials();
   const { data: products = [] } = useGetAllProducts();
 
@@ -361,8 +364,8 @@ const RawMaterial = () => {
   const formattedRawMaterialValue = `₹${Number(totalRawMaterialValue).toLocaleString("en-IN")}`;
   const stockToAddValue = Number(stockToAdd || 0);
   const projectedStockLevel = Number(selectedStockItem?.availableStock || 0) + stockToAddValue;
-  const projectedStockValue =
-    projectedStockLevel * Number(selectedStockItem?.unitPrice || 0);
+  const currentUnitPrice = stockUnitPrice !== "" ? Number(stockUnitPrice) : Number(selectedStockItem?.unitPrice || 0);
+  const projectedStockValue = projectedStockLevel * currentUnitPrice;
 
   const selectedProductionProduct = useMemo(() => {
     return (
@@ -649,6 +652,8 @@ const RawMaterial = () => {
 
   const handleDeleteItem = async (id?: string) => {
     if (!id) return;
+    if (!window.confirm("Are you sure you want to delete this raw material?")) return;
+    if (!window.confirm("Are you absolutely sure? This will remove it from the active inventory catalog.")) return;
     const loadingToast = toast.loading("Deleting raw material...");
 
     try {
@@ -672,9 +677,32 @@ const RawMaterial = () => {
     }
   };
 
+  const handleRecoverItem = async (id?: string) => {
+    if (!id) return;
+    if (!window.confirm("Are you sure you want to recover this raw material?")) return;
+    if (!window.confirm("Are you absolutely sure you want to restore it back to inventory?")) return;
+    const loadingToast = toast.loading("Restoring raw material...");
+
+    try {
+      await axiosInstance.patch(`/raw-materials/${id}/recover`);
+
+      toast.success("Raw material restored successfully 🎉", {
+        id: loadingToast,
+      });
+
+      invalidateAllQueries();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to restore raw material",
+        { id: loadingToast }
+      );
+    }
+  };
+
   const openAddStockModal = (item: IRawMaterial) => {
     setSelectedStockItem(item);
     setStockToAdd("");
+    setStockUnitPrice(String(item.unitPrice || ""));
     setStockNote("");
     setShowStockModal(true);
   };
@@ -684,8 +712,14 @@ const RawMaterial = () => {
 
     const quantity = Number(stockToAdd || 0);
 
-    if (!quantity || quantity <= 0) {
+    if (isNaN(quantity) || quantity <= 0) {
       toast.error("Please enter valid stock quantity");
+      return;
+    }
+
+    const unitPrice = Number(stockUnitPrice || 0);
+    if (isNaN(unitPrice) || unitPrice < 0) {
+      toast.error("Please enter a valid unit price");
       return;
     }
 
@@ -696,6 +730,7 @@ const RawMaterial = () => {
         `/raw-materials/${selectedStockItem._id || selectedStockItem.id}/add-stock`,
         {
           quantity,
+          unitPrice,
           note: stockNote || "Stock added manually",
         }
       );
@@ -719,6 +754,7 @@ const RawMaterial = () => {
       setShowStockModal(false);
       setSelectedStockItem(null);
       setStockToAdd("");
+      setStockUnitPrice("");
       setStockNote("");
     } catch (error: any) {
       toast.error(
@@ -1194,15 +1230,24 @@ const RawMaterial = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="grid grid-cols-1 gap-4"
+          className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
         >
-          <Input
-            label="Search Materials"
-            placeholder="Search by material name, code, type, or color..."
-            icon={Search}
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          />
+          <div className="flex-1">
+            <Input
+              label="Search Materials"
+              placeholder="Search by material name, code, type, or color..."
+              icon={Search}
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button
+            variant={showDeleted ? "danger" : "secondary"}
+            onClick={() => setShowDeleted(!showDeleted)}
+            className="flex items-center justify-center gap-2 rounded-2xl h-[48px] px-6 text-sm font-semibold shadow-sm transition-all duration-200 border"
+          >
+            {showDeleted ? "📦 View Active" : "🗑️ View Trash"}
+          </Button>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
@@ -1412,29 +1457,41 @@ const RawMaterial = () => {
                                 <Eye className="h-4 w-4" />
                               </button>
 
-                              <button
-                                onClick={() => openAddStockModal(item)}
-                                className="p-2 rounded-lg text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-200"
-                                title="Add Stock"
-                              >
-                                <CirclePlus className="h-4 w-4" />
-                              </button>
+                              {showDeleted ? (
+                                <button
+                                  onClick={() => handleRecoverItem(item._id || item.id)}
+                                  className="p-2 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-600 transition-all duration-200"
+                                  title="Recover"
+                                >
+                                  <RotateCcw className="h-4 w-4 text-emerald-600" />
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => openAddStockModal(item)}
+                                    className="p-2 rounded-lg text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-200"
+                                    title="Add Stock"
+                                  >
+                                    <CirclePlus className="h-4 w-4" />
+                                  </button>
 
-                              <button
-                                onClick={() => openEditModal(item)}
-                                className="p-2 rounded-lg text-gray-600 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200"
-                                title="Edit"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </button>
+                                  <button
+                                    onClick={() => openEditModal(item)}
+                                    className="p-2 rounded-lg text-gray-600 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </button>
 
-                              <button
-                                onClick={() => handleDeleteItem(item._id || item.id)}
-                                className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                                  <button
+                                    onClick={() => handleDeleteItem(item._id || item.id)}
+                                    className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -2037,6 +2094,7 @@ const RawMaterial = () => {
             setShowStockModal(false);
             setSelectedStockItem(null);
             setStockToAdd("");
+            setStockUnitPrice("");
             setStockNote("");
           }}
           size="lg"
@@ -2086,16 +2144,29 @@ const RawMaterial = () => {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
-                <Input
-                  label="Add Stock Quantity"
-                  icon={Package}
-                  type="number"
-                  min="1"
-                  value={stockToAdd}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
-                  placeholder={`Enter quantity in ${selectedStockItem.unit}`}
-                />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
+                  <Input
+                    label="Add Stock Quantity"
+                    icon={Package}
+                    type="number"
+                    step="any"
+                    value={stockToAdd}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
+                    placeholder={`Enter quantity in ${selectedStockItem.unit}`}
+                  />
+                </div>
+                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
+                  <Input
+                    label="New Unit Price / Rate (₹)"
+                    icon={Calculator}
+                    type="number"
+                    step="0.01"
+                    value={stockUnitPrice}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockUnitPrice(e.target.value)}
+                    placeholder={`Current: ₹${selectedStockItem.unitPrice}`}
+                  />
+                </div>
               </div>
 
               <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
@@ -2153,6 +2224,7 @@ const RawMaterial = () => {
                     setShowStockModal(false);
                     setSelectedStockItem(null);
                     setStockToAdd("");
+                    setStockUnitPrice("");
                     setStockNote("");
                   }}
                 >

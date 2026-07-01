@@ -14,6 +14,7 @@ import {
   Ruler,
   Wallet,
   Layers3,
+  RotateCcw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -31,7 +32,9 @@ const Product = () => {
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const { data: products = [], isLoading } = useGetAllProducts({ search });
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  const { data: products = [], isLoading } = useGetAllProducts({ search, showDeleted });
 
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {
@@ -118,6 +121,8 @@ const Product = () => {
   };
 
   const handleDeleteProduct = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    if (!window.confirm("Are you absolutely sure? This will hide the product and soft-delete its inventory stock levels.")) return;
     const loadingToast = toast.loading("Deleting product...");
 
     try {
@@ -138,6 +143,32 @@ const Product = () => {
     } catch (error) {
       toast.error(
         error?.response?.data?.message || "Failed to delete product",
+        { id: loadingToast }
+      );
+    }
+  };
+
+  const handleRecoverProduct = async (id) => {
+    if (!window.confirm("Are you sure you want to recover this product?")) return;
+    if (!window.confirm("Are you absolutely sure you want to restore it back to the active catalog?")) return;
+    const loadingToast = toast.loading("Restoring product...");
+
+    try {
+      await axiosInstance.patch(`/products/${id}/recover`);
+
+      toast.success("Product restored successfully 🎉", {
+        id: loadingToast,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["getAllProducts"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to restore product",
         { id: loadingToast }
       );
     }
@@ -263,14 +294,23 @@ const Product = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="grid grid-cols-1 gap-4"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         >
-          <Input
-            placeholder="Search by product name, category, SKU, or bag type..."
-            value={search}
-            icon={Search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="flex-1">
+            <Input
+              placeholder="Search by product name, category, SKU, or bag type..."
+              value={search}
+              icon={Search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button
+            variant={showDeleted ? "danger" : "secondary"}
+            onClick={() => setShowDeleted(!showDeleted)}
+            className="flex items-center justify-center gap-2 rounded-2xl h-[48px] px-6 text-sm font-semibold shadow-sm transition-all duration-200 border"
+          >
+            {showDeleted ? "📦 View Active" : "🗑️ View Trash"}
+          </Button>
         </motion.div>
 
         <motion.div
@@ -382,24 +422,36 @@ const Product = () => {
                               <Eye className="h-4 w-4" />
                             </button>
 
-                            <button
-                              onClick={() => {
-                                setEditingProduct(item);
-                                setShowModal(true);
-                              }}
-                              className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                              title="Edit Product"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
+                            {showDeleted ? (
+                              <button
+                                onClick={() => handleRecoverProduct(item._id || item.id)}
+                                className="rounded-lg p-2 text-green-600 transition hover:bg-green-50"
+                                title="Recover Product"
+                              >
+                                <RotateCcw className="h-4 w-4 text-emerald-600" />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingProduct(item);
+                                    setShowModal(true);
+                                  }}
+                                  className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                  title="Edit Product"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
 
-                            <button
-                              onClick={() => handleDeleteProduct(item._id || item.id)}
-                              className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                              title="Delete Product"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(item._id || item.id)}
+                                  className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                                  title="Delete Product"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

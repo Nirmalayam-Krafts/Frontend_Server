@@ -1,14 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "../src/context/Adminauth";
 
-export const useGetInventory = () => {
+export const useGetInventory = (params = {}) => {
     const { axiosInstance } = useAuthContext();
 
-
     const query = useQuery({
-        queryKey: ["getInventoryData"],
+        queryKey: ["getInventoryData", params],
         queryFn: async () => {
-            const res = await axiosInstance.get("/inventory/all");
+            const res = await axiosInstance.get("/inventory/all", { params });
 
             return res.data.data;
         },

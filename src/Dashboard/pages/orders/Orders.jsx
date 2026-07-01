@@ -73,6 +73,9 @@ const initialManualOrderForm = {
   gsm: "",
   dimensionUnit: "inch",
   notes: "",
+  unit: "",
+  calculationMode: "auto",
+  convertedQuantity: "",
 };
 
 const initialConfirmOrderForm = {
@@ -117,6 +120,7 @@ const Orders = () => {
   const [showReportPreview, setShowReportPreview] = useState(false);
 
   const [manualOrderForm, setManualOrderForm] = useState(initialManualOrderForm);
+
 
   const [checkingOrderId, setCheckingOrderId] = useState(null);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
@@ -170,6 +174,55 @@ const Orders = () => {
     if (Array.isArray(productsData?.data)) return productsData.data;
     return [];
   }, [productsData]);
+
+  useEffect(() => {
+    const selProd = productItems.find(
+      (p) => String(p?._id || p?.id || "").trim() === manualOrderForm.productId
+    );
+    const isRoll = !!(selProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll"));
+    
+    if (manualOrderForm.calculationMode === "auto") {
+      const qty = Number(manualOrderForm.quantity || 0);
+      if (qty <= 0) {
+        setManualOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+        return;
+      }
+
+      if (!isRoll) {
+        if (manualOrderForm.unit === "kg") {
+          const weight = Number(selProd?.weight || 0);
+          if (weight > 0) {
+            setManualOrderForm(prev => ({ ...prev, convertedQuantity: Math.ceil(qty / weight) }));
+          } else {
+            setManualOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+          }
+        } else {
+          setManualOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
+        }
+      } else {
+        if (manualOrderForm.unit === "m") {
+          const width = Number(manualOrderForm.width || selProd?.dimensions?.width || 0);
+          const gsm = Number(manualOrderForm.gsm || selProd?.gsm || 0);
+          if (width > 0 && gsm > 0) {
+            const calculated = Number(((width * 2.54 * qty * gsm) / 100000).toFixed(2));
+            setManualOrderForm(prev => ({ ...prev, convertedQuantity: calculated }));
+          } else {
+            setManualOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+          }
+        } else {
+          setManualOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
+        }
+      }
+    }
+  }, [
+    manualOrderForm.productId,
+    manualOrderForm.quantity,
+    manualOrderForm.unit,
+    manualOrderForm.calculationMode,
+    manualOrderForm.gsm,
+    manualOrderForm.width,
+    productItems
+  ]);
 
   const rawOrders = data?.orders || [];
   const pagination = data?.pagination || {
@@ -1528,6 +1581,10 @@ ${lines || "(See PDF for full BOM)"}
           color: isRoll ? undefined : manualOrderForm.color,
           quantity: Number(manualOrderForm.quantity),
           gsm: isRoll ? Number(manualOrderForm.gsm) : undefined,
+          unit: manualOrderForm.unit || (isRoll ? "kg" : "pcs"),
+          calculationMode: manualOrderForm.calculationMode || "auto",
+          convertedQuantity: manualOrderForm.convertedQuantity ? Number(manualOrderForm.convertedQuantity) : undefined,
+          bf: isRoll && selectedProd?.bf ? Number(selectedProd.bf) : undefined,
           dimensions: {
             length: isRoll ? 0 : Number(manualOrderForm.length),
             width: Number(manualOrderForm.width),
@@ -2372,6 +2429,7 @@ ${lines || "(See PDF for full BOM)"}
                         onChange={(e) => {
                           const prodId = e.target.value;
                           const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
+                          const isRollCategory = prod?.category?.toLowerCase().includes("roll");
                           setManualOrderForm(prev => ({
                             ...prev,
                             productId: prodId,
@@ -2383,6 +2441,9 @@ ${lines || "(See PDF for full BOM)"}
                             gsm: prod?.gsm || "",
                             color: prod?.color || prev.color || "",
                             bagSize: prod?.bagSize || prev.bagSize || "",
+                            unit: isRollCategory ? "kg" : "pcs",
+                            calculationMode: "auto",
+                            convertedQuantity: "",
                           }));
                         }}
                         className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
@@ -2412,18 +2473,78 @@ ${lines || "(See PDF for full BOM)"}
 
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        {isManualRoll ? "Weight (kg)" : "Quantity"} <span className="text-red-500">*</span>
+                        Order Quantity <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={manualOrderForm.quantity}
-                        onChange={(e) => handleFormChange("quantity", e.target.value)}
-                        placeholder={isManualRoll ? "Weight in kg" : "Quantity"}
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                        required
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={manualOrderForm.quantity}
+                          onChange={(e) => handleFormChange("quantity", e.target.value)}
+                          placeholder="Quantity"
+                          className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                          required
+                        />
+                        <select
+                          value={manualOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
+                          onChange={(e) => handleFormChange("unit", e.target.value)}
+                          className="w-[90px] rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500"
+                        >
+                          {isManualRoll ? (
+                            <>
+                              <option value="kg">kg</option>
+                              <option value="m">meter</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="pcs">pcs</option>
+                              <option value="kg">kg</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
                     </div>
+
+                    {((!isManualRoll && manualOrderForm.unit === "kg") || (isManualRoll && manualOrderForm.unit === "m")) && (
+                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Unit Conversion Mode
+                          </label>
+                          <select
+                            value={manualOrderForm.calculationMode || "auto"}
+                            onChange={(e) =>
+                              handleFormChange("calculationMode", e.target.value)
+                            }
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                          >
+                            <option value="auto">Auto via Formula</option>
+                            <option value="manual">Enter Manually</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={manualOrderForm.convertedQuantity || ""}
+                            onChange={(e) =>
+                              handleFormChange("convertedQuantity", e.target.value)
+                            }
+                            placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
+                            disabled={manualOrderForm.calculationMode !== "manual"}
+                            className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
+                              manualOrderForm.calculationMode === "manual"
+                                ? "border-emerald-300 bg-white focus:border-emerald-500"
+                                : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-gray-600">

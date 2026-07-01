@@ -14,9 +14,18 @@ const rawMaterialSchema = z.object({
   unitPrice: z.coerce.number().min(0, "Price cannot be negative"),
   reorderPoint: z.coerce.number().min(0, "Reorder point cannot be negative"),
   minStock: z.coerce.number().min(0, "Minimum stock cannot be negative").optional(),
+  kgPerRoll: z.coerce.number().min(0, "Cannot be negative").optional(),
   color: z.string().optional(),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
+}).refine(data => {
+  if (data.unit === "rolls" && (!data.kgPerRoll || data.kgPerRoll <= 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Weight per roll (kg) is required for rolls unit and must be greater than 0",
+  path: ["kgPerRoll"]
 });
 
 const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
@@ -36,6 +45,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
       unitPrice: 0,
       reorderPoint: 0,
       minStock: 0,
+      kgPerRoll: 0,
       color: "",
       description: "",
       isActive: true,
@@ -117,11 +127,29 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
           <Input
             label="Available Stock"
             type="number"
+            step="any"
             placeholder="0"
             error={errors.availableStock?.message}
             {...register("availableStock")}
           />
         </div>
+
+        {watch("unit") === "rolls" && (
+          <div className="mt-4">
+            <Input
+              label="Weight per Roll (kg)"
+              type="number"
+              step="any"
+              placeholder="e.g., 25"
+              error={errors.kgPerRoll?.message}
+              {...register("kgPerRoll")}
+            />
+            <p className="text-xs text-emerald-700 mt-1">
+              * Specify how many kilograms (kg) are in 1 roll of this material. This factor will be used to automatically calculate weight and inventory consumption during production.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <Input
             label="Unit Price (₹)"
@@ -150,6 +178,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
           <Input
             label="Reorder Point"
             type="number"
+            step="any"
             placeholder="0"
             error={errors.reorderPoint?.message}
             {...register("reorderPoint")}
@@ -157,6 +186,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
           <Input
             label="Minimum Stock (Optional)"
             type="number"
+            step="any"
             placeholder="0"
             error={errors.minStock?.message}
             {...register("minStock")}

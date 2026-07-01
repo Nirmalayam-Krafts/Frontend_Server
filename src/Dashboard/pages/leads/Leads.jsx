@@ -58,12 +58,17 @@ const initialOrderForm = {
   height: "",
   dimensionUnit: "inch",
   notes: "",
+  customPrinting: false,
+  brandingText: "",
+  logo: "",
+  logoName: "",
 };
 
 
 
 const Leads = () => {
-  const { data, isLoading, refetch } = usegetAllLeads();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data, isLoading, refetch } = usegetAllLeads({ showDeleted });
   const { data: inventoryData } = useGetInventory();
   const { data: productsData } = useGetAllProducts();
   const showNotification = useUIStore((state) => state.showNotification);
@@ -124,11 +129,22 @@ const Leads = () => {
         source: lead.source || "—",
         status: (lead.status || "New").toUpperCase(),
         statusLabel: lead.status || "New",
-        date: new Date(lead.createdAt).toLocaleDateString(),
+        date: new Date(lead.createdAt).toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true
+        }),
         fullDate: lead.createdAt,
         notes: lead.notes || [],
         followupHistory,
         completedFollowups,
+        subcategory: lead.subcategory || "—",
+        comments: lead.comments || "—",
+        requirement: lead.requirement || "—",
         avatar: (lead.name || "U")
           .split(" ")
           .map((part) => part[0])
@@ -255,6 +271,7 @@ const Leads = () => {
       (p) => String(p?._id || p?.id || p?.productId || "").trim() === preResolvedProductId
     );
     setLeadToConvert(lead);
+    const isRoll = prod?.category?.toLowerCase().includes("roll") || lead?.productInterest?.toLowerCase().includes("roll");
     setOrderForm({
       ...initialOrderForm,
       selectedProductId: preResolvedProductId || "",
@@ -267,8 +284,49 @@ const Leads = () => {
       gsm: prod?.gsm || "",
       color: prod?.color || "",
       bagSize: prod?.bagSize || "",
+      customPrinting: prod?.customPrinting || false,
+      brandingText: "",
+      logo: "",
+      logoName: "",
+      unit: isRoll ? "kg" : "pcs",
+      calculationMode: "auto",
+      convertedQuantity: "",
     });
     setShowConvertModal(true);
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "application/pdf"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Unsupported file format. Please upload PNG, JPEG, JPG, WEBP, or PDF.");
+      return;
+    }
+
+    const loadingToast = toast.loading("Uploading logo...");
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const payload = {
+          fileName: file.name,
+          fileData: reader.result,
+        };
+        const response = await axiosInstance.post("/upload-logo", payload);
+        if (response.data?.success) {
+          toast.success("Logo uploaded successfully 🎉", { id: loadingToast });
+          handleOrderFormChange("logo", response.data.url);
+          handleOrderFormChange("logoName", file.name);
+        } else {
+          toast.error("Failed to upload logo", { id: loadingToast });
+        }
+      } catch (err) {
+        toast.error(err?.response?.data?.message || "Failed to upload logo", { id: loadingToast });
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleOrderFormChange = (field, value) => {
@@ -277,6 +335,54 @@ const Leads = () => {
       [field]: value,
     }));
   };
+
+  React.useEffect(() => {
+    const selectedProd = productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === orderForm.selectedProductId
+    );
+    const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || leadToConvert?.productInterest?.toLowerCase().includes("roll");
+    
+    if (orderForm.calculationMode === "auto") {
+      const qty = Number(orderForm.quantity || 0);
+      if (qty <= 0) {
+        setOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+        return;
+      }
+
+      if (!isRoll) {
+        if (orderForm.unit === "kg") {
+          const weight = Number(selectedProd?.weight || 0);
+          if (weight > 0) {
+            setOrderForm(prev => ({ ...prev, convertedQuantity: Math.ceil(qty / weight) }));
+          } else {
+            setOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+          }
+        } else {
+          setOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
+        }
+      } else {
+        if (orderForm.unit === "m") {
+          const width = Number(orderForm.width || selectedProd?.dimensions?.width || 0);
+          const gsm = Number(orderForm.gsm || selectedProd?.gsm || 0);
+          if (width > 0 && gsm > 0) {
+            const calculated = Number(((width * 2.54 * qty * gsm) / 100000).toFixed(2));
+            setOrderForm(prev => ({ ...prev, convertedQuantity: calculated }));
+          } else {
+            setOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+          }
+        } else {
+          setOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
+        }
+      }
+    }
+  }, [
+    orderForm.selectedProductId,
+    orderForm.quantity,
+    orderForm.unit,
+    orderForm.calculationMode,
+    orderForm.gsm,
+    orderForm.width
+  ]);
 
   const handleUpdateLeadStatus = async (id, status, leadData = null) => {
     if (status === "Converted") {
@@ -416,6 +522,13 @@ const Leads = () => {
       return;
     }
 
+    if (orderForm.customPrinting) {
+      if (!orderForm.brandingText?.trim() && !orderForm.logo?.trim()) {
+        toast.error("Either Branding Text or Logo upload is required for custom printing.");
+        return;
+      }
+    }
+
     const loadingToast = toast.loading("Converting lead into order...");
 
     try {
@@ -445,6 +558,13 @@ const Leads = () => {
           color: isRollProduct ? undefined : orderForm.color,
           quantity: Number(orderForm.quantity),
           gsm: isRollProduct ? Number(orderForm.gsm) : undefined,
+          customPrinting: orderForm.customPrinting || false,
+          brandingText: orderForm.customPrinting ? orderForm.brandingText : undefined,
+          logo: orderForm.customPrinting ? orderForm.logo : undefined,
+          unit: orderForm.unit || (isRollProduct ? "kg" : "pcs"),
+          calculationMode: orderForm.calculationMode || "auto",
+          convertedQuantity: orderForm.convertedQuantity ? Number(orderForm.convertedQuantity) : undefined,
+          bf: isRollProduct && selectedProd?.bf ? Number(selectedProd.bf) : undefined,
           dimensions: {
             length: isRollProduct ? 0 : Number(orderForm.length),
             width: Number(orderForm.width),
@@ -498,6 +618,8 @@ const Leads = () => {
   };
 
   const handleDeleteLead = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this lead?")) return;
+    if (!window.confirm("Are you absolutely sure? This will remove the lead and hide it from the active pipeline.")) return;
     const loadingToast = toast.loading("Deleting lead...");
     try {
       const response = await axiosInstance.delete(`/leads/${id}`);
@@ -512,6 +634,21 @@ const Leads = () => {
       }
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to delete lead", { id: loadingToast });
+    }
+  };
+
+  const handleRecoverLead = async (id) => {
+    if (!window.confirm("Are you sure you want to recover this lead?")) return;
+    if (!window.confirm("Are you absolutely sure you want to restore it back to the active pipeline?")) return;
+    const loadingToast = toast.loading("Restoring lead...");
+    try {
+      const response = await axiosInstance.patch(`/leads/${id}/recover`);
+      if (response.data.success) {
+        toast.success("Lead restored successfully 🎉", { id: loadingToast });
+        refetch();
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to restore lead", { id: loadingToast });
     }
   };
 
@@ -806,19 +943,21 @@ const Leads = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto]"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         >
-          <Input
-            placeholder="Search by lead name, business, email, or phone..."
-            icon={Search}
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+          <div className="flex-1">
+            <Input
+              placeholder="Search by lead name, business, email, or phone..."
+              icon={Search}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {["All", "New", "Contacted", "Interested", "Converted", "Lost"].map((status) => (
               <button
                 key={status}
@@ -834,6 +973,17 @@ const Leads = () => {
                 {status}
               </button>
             ))}
+
+            <Button
+              variant={showDeleted ? "danger" : "secondary"}
+              onClick={() => {
+                setShowDeleted(!showDeleted);
+                setCurrentPage(1);
+              }}
+              className="flex items-center justify-center gap-2 rounded-xl h-[38px] px-4 text-sm font-semibold shadow-sm transition-all duration-200 border"
+            >
+              {showDeleted ? "📦 Active" : "🗑️ Trash"}
+            </Button>
           </div>
         </motion.div>
 
@@ -1001,6 +1151,15 @@ const Leads = () => {
                             >
                               View
                             </button>
+
+                            {showDeleted && (
+                              <button
+                                onClick={() => handleRecoverLead(lead.id)}
+                                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-green-700 hover:bg-green-50"
+                              >
+                                Recover
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1126,6 +1285,7 @@ const Leads = () => {
                           onChange={(e) => {
                             const prodId = e.target.value;
                             const prod = productItems.find(p => String(p?._id || p?.id || p?.productId || "").trim() === prodId);
+                            const isRollCategory = prod?.category?.toLowerCase().includes("roll");
                             setOrderForm(prev => ({
                               ...prev,
                               selectedProductId: prodId,
@@ -1136,6 +1296,10 @@ const Leads = () => {
                               gsm: prod?.gsm || "",
                               color: prod?.color || prev.color || "",
                               bagSize: prod?.bagSize || prev.bagSize || "",
+                              customPrinting: prod?.customPrinting || false,
+                              unit: isRollCategory ? "kg" : "pcs",
+                              calculationMode: "auto",
+                              convertedQuantity: "",
                             }));
                           }}
                           className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
@@ -1219,10 +1383,9 @@ const Leads = () => {
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          {isRoll ? "Weight (kg)" : "Quantity (pcs)"} <span className="text-red-500">*</span>
+                          Order Quantity <span className="text-red-500">*</span>
                         </label>
-                        <div className="relative">
-                          <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <div className="flex gap-2">
                           <input
                             type="number"
                             min="1"
@@ -1230,11 +1393,77 @@ const Leads = () => {
                             onChange={(e) =>
                               handleOrderFormChange("quantity", e.target.value)
                             }
-                            placeholder={isRoll ? "Enter weight in kg" : "Enter quantity"}
-                            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                            placeholder="Enter quantity"
+                            className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 px-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                            required
                           />
+                          <select
+                            value={orderForm.unit || (isRoll ? "kg" : "pcs")}
+                            onChange={(e) =>
+                              handleOrderFormChange("unit", e.target.value)
+                            }
+                            className="w-[95px] rounded-2xl border border-gray-200 bg-white px-3 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 animate-fade-in"
+                          >
+                            {isRoll ? (
+                              <>
+                                <option value="kg">kg</option>
+                                <option value="m">meter</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="pcs">pcs</option>
+                                <option value="kg">kg</option>
+                              </>
+                            )}
+                          </select>
                         </div>
                       </div>
+
+                      {((!isRoll && orderForm.unit === "kg") || (isRoll && orderForm.unit === "m")) && (
+                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Unit Conversion Mode
+                            </label>
+                            <select
+                              value={orderForm.calculationMode || "auto"}
+                              onChange={(e) =>
+                                handleOrderFormChange("calculationMode", e.target.value)
+                              }
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                            >
+                              <option value="auto">Auto via Formula</option>
+                              <option value="manual">Enter Manually</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              {isRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={orderForm.convertedQuantity || ""}
+                              onChange={(e) =>
+                                handleOrderFormChange("convertedQuantity", e.target.value)
+                              }
+                              placeholder={isRoll ? "Equivalent kg" : "Equivalent bags"}
+                              disabled={orderForm.calculationMode !== "manual"}
+                              className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
+                                orderForm.calculationMode === "manual"
+                                  ? "border-emerald-300 bg-white focus:border-emerald-500"
+                                  : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
+                              }`}
+                            />
+                            {orderForm.calculationMode === "auto" && (
+                              <p className="text-[11px] text-gray-500 mt-1 italic">
+                                Calculated dynamically from product parameters.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -1253,6 +1482,71 @@ const Leads = () => {
                           <option value="ft">Feet</option>
                         </select>
                       </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Custom Printing
+                        </label>
+                        <label className="inline-flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3.5 text-sm font-medium text-gray-700 w-full bg-white cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={orderForm.customPrinting || false}
+                            onChange={(e) =>
+                              handleOrderFormChange("customPrinting", e.target.checked)
+                            }
+                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          Require Custom Printing
+                        </label>
+                      </div>
+
+                      {orderForm.customPrinting && (
+                        <div className="md:col-span-2 space-y-4 border-l-4 border-emerald-500 bg-emerald-50/50 p-4 rounded-xl">
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Branding Text (Optional if Logo is uploaded)
+                            </label>
+                            <input
+                              type="text"
+                              value={orderForm.brandingText || ""}
+                              onChange={(e) =>
+                                handleOrderFormChange("brandingText", e.target.value)
+                              }
+                              placeholder="Enter branding text to print on bags..."
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Upload Logo (Optional if Branding Text is entered)
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-4 bg-white cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition">
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg, image/jpg, image/webp, application/pdf"
+                                  onChange={handleLogoUpload}
+                                  className="hidden"
+                                />
+                                <span className="text-sm font-medium text-gray-600">
+                                  {orderForm.logoName ? `Selected: ${orderForm.logoName}` : "Click to select logo (PNG, JPEG, JPG, WEBP, PDF)"}
+                                </span>
+                              </label>
+                              {orderForm.logo && (
+                                <a
+                                  href={`${axiosInstance.defaults.baseURL?.replace("/api", "") || ""}${orderForm.logo}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs font-semibold text-emerald-600 hover:underline shrink-0"
+                                >
+                                  View Logo
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1498,6 +1792,33 @@ const Leads = () => {
                     <p className="mt-1 text-gray-900">{selectedLead.quantity}</p>
                   </div>
 
+                  {selectedLead.requirement && selectedLead.requirement !== "—" && (
+                    <div className="rounded-2xl border border-gray-100 p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        Details / Requirements
+                      </p>
+                      <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedLead.requirement}</p>
+                    </div>
+                  )}
+
+                  {selectedLead.subcategory && selectedLead.subcategory !== "—" && (
+                    <div className="rounded-2xl border border-gray-100 p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        Sub Category
+                      </p>
+                      <p className="mt-1 text-gray-900">{selectedLead.subcategory}</p>
+                    </div>
+                  )}
+
+                  {selectedLead.comments && selectedLead.comments !== "—" && (
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        Chatbot Comments / Notes
+                      </p>
+                      <p className="mt-1 text-sm text-gray-800 italic">"{selectedLead.comments}"</p>
+                    </div>
+                  )}
+
                   <div className="rounded-2xl border border-gray-100 p-4">
                     <p className="text-xs font-semibold uppercase text-gray-500">
                       Source
@@ -1659,15 +1980,39 @@ const Leads = () => {
                     Close
                   </Button>
 
-                  <Button
-                    onClick={() => {
-                      setEditingLead(selectedLead);
-                      setShowModal(true);
-                      setShowDetailPanel(false);
-                    }}
-                  >
-                    Edit
-                  </Button>
+                  {showDeleted ? (
+                    <Button
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      onClick={() => {
+                        handleRecoverLead(selectedLead.id);
+                        setShowDetailPanel(false);
+                      }}
+                    >
+                      Recover Lead
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={() => {
+                          setEditingLead(selectedLead);
+                          setShowModal(true);
+                          setShowDetailPanel(false);
+                        }}
+                      >
+                        Edit
+                      </Button>
+
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          handleDeleteLead(selectedLead.id);
+                          setShowDetailPanel(false);
+                        }}
+                      >
+                        Delete Lead
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button, Input, Select } from "../ui";
 import { Package, Tag, DollarSign, Ruler, Layers3 } from "lucide-react";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 const inventorySchema = z.object({
   sku: z.string().min(2, "SKU is required").toUpperCase(),
@@ -23,6 +24,8 @@ const inventorySchema = z.object({
   gsm: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0).optional()),
   weight: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0).optional()),
   lengthInMeters: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0).optional()),
+  productId: z.string().optional(),
+  customPrinting: z.boolean().optional(),
 });
 
 const InventoryForm = ({ initialData, onSubmit, loading }) => {
@@ -31,6 +34,7 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm({
     resolver: zodResolver(inventorySchema),
     defaultValues: initialData
@@ -53,17 +57,76 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
           gsm: "",
           weight: "",
           lengthInMeters: "",
+          productId: "",
+          customPrinting: false,
         },
   });
+
+  const { data: products = [] } = useGetAllProducts();
 
   const category = watch("category");
   const isRoll = category === "KRAFT_ROLL";
   const stockLevel = watch("stockLevel") || 0;
   const unitPrice = watch("unitPrice") || 0;
   const totalValue = stockLevel * unitPrice;
+  const selectedProductId = watch("productId");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Product Template Selector */}
+      {!initialData && (
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-5 border border-emerald-100">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Link Existing Product Template (Optional)
+          </label>
+          <select
+            value={selectedProductId || ""}
+            onChange={(e) => {
+              const prodId = e.target.value;
+              if (!prodId) {
+                setValue("productId", "");
+                return;
+              }
+              const prod = products.find(p => String(p._id || p.id) === prodId);
+              if (prod) {
+                setValue("productId", prodId);
+                setValue("sku", prod.sku || "");
+                setValue("productName", prod.name || "");
+                
+                let invCat = "STANDARD";
+                if (prod.category === "Kraft paper roll") invCat = "KRAFT_ROLL";
+                else if (prod.category === "F&B Gourmet Bags") invCat = "FOOD_GRADE";
+                else if (prod.category === "Luxury bags") invCat = "PREMIUM";
+                
+                setValue("category", invCat);
+                setValue("unit", prod.category === "Kraft paper roll" ? "kg" : "bags");
+                setValue("bagType", prod.bagType || "");
+                setValue("bagColor", prod.color || "Brown");
+                setValue("bagSizeLabel", prod.bagSize || "");
+                setValue("unitPrice", prod.basePrice || 0);
+                setValue("sellingPricePerUnit", prod.basePrice || 0);
+                setValue("productionCostPerUnit", prod.basePrice || 0);
+                setValue("gsm", prod.gsm || "");
+                setValue("weight", prod.weight || "");
+                setValue("lengthInMeters", prod.lengthInMeters || "");
+                setValue("description", prod.description || "");
+                setValue("customPrinting", prod.customPrinting || false);
+              }
+            }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 font-medium cursor-pointer"
+          >
+            <option value="">-- No Product Linked (Manual Entry) --</option>
+            {products.map((prod) => (
+              <option key={prod._id || prod.id} value={prod._id || prod.id}>
+                {prod.name} ({prod.sku})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-600 mt-1">
+            Linking a product template will auto-fill specifications and sync stock updates with raw material checks.
+          </p>
+        </div>
+      )}
       {/* Basic Information Section */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">

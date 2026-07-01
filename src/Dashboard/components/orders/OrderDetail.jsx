@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Truck,
   User2,
+  Printer,
 } from "lucide-react";
 import { Badge } from "../ui";
 
@@ -219,13 +220,55 @@ export default function OrderDetail({ order }) {
                   value={order.orderDetails?.gsm || "Not added"}
                 />
               )}
-              <DetailBlock
+               <DetailBlock
                 icon={Package}
                 label="Quantity"
-                value={`${order.orderDetails?.quantity || 0} ${isRoll ? "kg" : "pcs"}`}
+                value={
+                  order.orderDetails?.unit === "kg" && !isRoll
+                    ? `${order.orderDetails?.quantity || 0} kg (~${order.orderDetails?.convertedQuantity || 0} pcs)`
+                    : order.orderDetails?.unit === "m" && isRoll
+                    ? `${order.orderDetails?.quantity || 0} m (~${order.orderDetails?.convertedQuantity || 0} kg)`
+                    : `${order.orderDetails?.quantity || 0} ${order.orderDetails?.unit || (isRoll ? "kg" : "pcs")}`
+                }
                 tone="text-blue-700"
               />
               <DetailBlock icon={Ruler} label="Dimensions" value={dimensionLabel} />
+              {order.orderDetails?.bf !== undefined && order.orderDetails?.bf > 0 && (
+                <DetailBlock
+                  icon={ShieldCheck}
+                  label="Burst Factor (BF)"
+                  value={`${order.orderDetails.bf} BF`}
+                />
+              )}
+              <DetailBlock
+                icon={Printer}
+                label="Custom Printing"
+                value={order.orderDetails?.customPrinting ? "Yes, Required" : "No"}
+                tone={order.orderDetails?.customPrinting ? "text-emerald-700 font-bold" : "text-gray-500"}
+              />
+              {order.orderDetails?.brandingText && (
+                <DetailBlock
+                  icon={FileText}
+                  label="Branding Text"
+                  value={order.orderDetails.brandingText}
+                />
+              )}
+              {order.orderDetails?.logo && (
+                <DetailBlock
+                  icon={Printer}
+                  label="Branding Logo"
+                  value={
+                    <a
+                      href={order.orderDetails.logo.startsWith("http") ? order.orderDetails.logo : `${window.location.protocol}//${window.location.hostname}:3010${order.orderDetails.logo}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                    >
+                      View Logo ↗
+                    </a>
+                  }
+                />
+              )}
             </div>
           </div>
 
