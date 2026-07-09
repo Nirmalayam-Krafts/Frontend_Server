@@ -30,6 +30,7 @@ import {
   User2,
   Clock3,
   X,
+  XCircle,
   Loader2,
   CheckCircle2,
   AlertTriangle,
@@ -128,6 +129,18 @@ const Orders = () => {
   const [availabilityResult, setAvailabilityResult] = useState(null);
   const [deductionMode, setDeductionMode] = useState("AUTO");
   const [confirmOrderForm, setConfirmOrderForm] = useState(initialConfirmOrderForm);
+  const [useAvailableStock, setUseAvailableStock] = useState(false);
+  
+  // BILL GENERATOR STATES
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [billOrder, setBillOrder] = useState(null);
+  const [billNumber, setBillNumber] = useState("");
+  const [billDate, setBillDate] = useState("");
+  const [billDueDate, setBillDueDate] = useState("");
+  const [billTaxRate, setBillTaxRate] = useState("0");
+  const [billShipping, setBillShipping] = useState("0");
+  const [billDiscount, setBillDiscount] = useState("0");
+  const [billNotes, setBillNotes] = useState("Thank you for your business!");
 
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [quotationOrder, setQuotationOrder] = useState(null);
@@ -136,11 +149,16 @@ const Orders = () => {
   const [quotationValidUntil, setQuotationValidUntil] = useState("");
   const [quotationLoading, setQuotationLoading] = useState(false);
   const [quotationTotalInput, setQuotationTotalInput] = useState("");
+  const [quotationNumberInput, setQuotationNumberInput] = useState("");
   const [processingActionId, setProcessingActionId] = useState(null);
   const [completeActionId, setCompleteActionId] = useState(null);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: "", paymentMode: "cash", note: "" });
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelOrderTarget, setCancelOrderTarget] = useState(null);
+  const [cancellationReasonInput, setCancellationReasonInput] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   const limit = 10;
@@ -289,6 +307,7 @@ const Orders = () => {
         createdAt: order?.createdAt || null,
         updatedAt: order?.updatedAt || null,
         notes: order?.notes || "",
+        quotation: order?.quotation || null,
         payment: order?.payment || {},
         paymentMode,
         orderDetails: {
@@ -408,6 +427,7 @@ const Orders = () => {
     setAvailabilityResult(null);
     setConfirmOrderForm(initialConfirmOrderForm);
     setCheckingOrderId(null);
+    setUseAvailableStock(false);
   };
 
   const normalizeText = (value) =>
@@ -537,19 +557,19 @@ const Orders = () => {
     };
   };
 
-  const handleCheckOrderAvailability = async (order) => {
-    setCheckingOrderId(order.id);
+  const handleCheckOrderAvailability = async (order, overrideStock = false) => {
+    setCheckingOrderId(order.id || order._id);
     setAvailabilityOrder(order);
     setAvailabilityResult(null);
     setConfirmOrderForm(initialConfirmOrderForm);
     setAvailabilityModalOpen(true);
-    setCheckingOrderId(order.id || order._id);
+    setUseAvailableStock(overrideStock);
 
     try {
       //  REAL API CALL to the Smart Inventory Brain
       const resp = await axiosInstance.get(
         `/orders/${order.id || order._id}/availability`,
-        { params: { mode: deductionMode } }
+        { params: { mode: deductionMode, useAvailableStock: overrideStock } }
       );
 
       if (resp.data.success) {
@@ -606,6 +626,44 @@ const Orders = () => {
     }
   };
 
+  const handleQuickMatchStock = async (alt) => {
+    if (!availabilityOrder || !alt.inventoryId) return;
+
+    const targetColor = availabilityOrder.orderDetails?.color || "";
+    const targetSize = availabilityOrder.orderDetails?.bagSize || "";
+
+    if (
+      !window.confirm(
+        `Are you sure you want to change this stock item's color and size to match the current order?\n\n` +
+          `Product: ${alt.productName}\n` +
+          `Current Details: Color: "${alt.bagColor}", Size: "${alt.bagSizeLabel}"\n` +
+          `Target Details: Color: "${targetColor || "—"}", Size: "${targetSize || "—"}"\n\n` +
+          `This will align the stock parameters so it matches and ships for this order.`
+      )
+    ) {
+      return;
+    }
+
+    const loadingToast = toast.loading("Aligning stock specifications...");
+    try {
+      await axiosInstance.patch(`/inventory/${alt.inventoryId}/update`, {
+        bagColor: targetColor,
+        bagSizeLabel: targetSize,
+      });
+
+      toast.success("Stock details aligned! Re-checking availability...", {
+        id: loadingToast,
+      });
+
+      await handleCheckOrderAvailability(availabilityOrder, useAvailableStock);
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to align stock", {
+        id: loadingToast,
+      });
+    }
+  };
+
   const handleConfirmExistingOrder = async () => {
     if (!availabilityOrder) return;
 
@@ -617,7 +675,7 @@ const Orders = () => {
       return;
     }
 
-    if (!availabilityResult?.enoughStock) {
+    if (!availabilityResult?.enoughStock && !useAvailableStock) {
       showNotification("Insufficient stock/materials for this order", "error");
       return;
     }
@@ -647,6 +705,7 @@ const Orders = () => {
         deliveryNotes: confirmOrderForm.deliveryNotes,
         productId: availabilityOrder.orderDetails?.productId || null,
         deductionMode: deductionMode,
+        useAvailableStock: useAvailableStock,
         inventoryMatchedItemId:
           availabilityResult?.item?._id || availabilityResult?.item?.id || null,
         matchedProductName:
@@ -679,6 +738,289 @@ const Orders = () => {
         { id: loadingToast }
       );
     }
+  };
+
+  const openBillModal = (order) => {
+    setBillOrder(order);
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const billNum = `INV-${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+    setBillNumber(billNum);
+    setBillDate(now.toISOString().slice(0, 10));
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    setBillDueDate(dueDate.toISOString().slice(0, 10));
+    setBillTaxRate("0");
+    setBillShipping("0");
+    setBillDiscount("0");
+    setBillNotes("Thank you for doing business with Nirmalyam Krafts!");
+    setShowBillModal(true);
+  };
+
+  const getBillShareText = (order, meta) => {
+    const qty = Number(order.orderDetails?.quantity || 1);
+    const total = Number(order.totalAmount || 0);
+    const discountVal = Number(meta.billDiscount || 0);
+    const shippingVal = Number(meta.billShipping || 0);
+    const taxRate = Number(meta.billTaxRate || 0);
+    const taxVal = (total - discountVal) * (taxRate / 100);
+    const grandTotal = total - discountVal + taxVal + shippingVal;
+    const balance = Math.max(0, grandTotal - Number(order.paidAmount || 0));
+    
+    return `*${COMPANY_NAME} — Invoice/Bill*
+
+Invoice Number: ${meta.billNumber}
+Invoice Date: ${meta.billDate}
+Due Date: ${meta.billDueDate}
+
+*Client Details:*
+Customer: ${order.customerName}
+Business: ${order.businessName || "—"}
+
+*Item Specifications:*
+Product: ${order.productCategory}
+Size: ${order.orderDetails?.bagSize || "—"}
+Quantity: ${qty} ${order.orderDetails?.unit || "pcs"}
+Grand Total: ₹${grandTotal.toFixed(2)}
+Amount Paid: ₹${Number(order.paidAmount || 0).toFixed(2)}
+*Balance Due: ₹${balance.toFixed(2)}*
+
+Note: ${meta.billNotes || "—"}`;
+  };
+
+  const handleBillWhatsApp = () => {
+    if (!billOrder) return;
+    const meta = {
+      billNumber,
+      billDate,
+      billDueDate,
+      billDiscount,
+      billShipping,
+      billTaxRate,
+      billNotes
+    };
+    const text = getBillShareText(billOrder, meta);
+    const encodedText = encodeURIComponent(text);
+    const cleanPhone = String(billOrder.phone || "").replace(/[^0-9]/g, "");
+    const waUrl = `https://wa.me/${cleanPhone.startsWith("91") ? cleanPhone : "91" + cleanPhone}?text=${encodedText}`;
+    window.open(waUrl, "_blank");
+  };
+
+  const handleBillEmail = () => {
+    if (!billOrder) return;
+    const meta = {
+      billNumber,
+      billDate,
+      billDueDate,
+      billDiscount,
+      billShipping,
+      billTaxRate,
+      billNotes
+    };
+    const text = getBillShareText(billOrder, meta);
+    const subject = encodeURIComponent(`${COMPANY_NAME} — Invoice ${billNumber}`);
+    const body = encodeURIComponent(text);
+    window.open(`mailto:${billOrder.email || ""}?subject=${subject}&body=${body}`, "_blank");
+  };
+
+  const generateBillPDF = (order, meta) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    const brand = [10, 92, 67]; // Emerald Green
+    const gold = [212, 175, 55]; // Gold accent
+
+    // Draw top layout headers
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    
+    doc.setFillColor(gold[0], gold[1], gold[2]);
+    doc.rect(0, 40, pageWidth, 2, "F");
+    
+    // Header text
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text(COMPANY_NAME, 15, 18);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 15, 27);
+    
+    // Title "INVOICE" on the right side of header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text("INVOICE", pageWidth - 15, 20, { align: "right" });
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text(`Invoice No: ${meta.billNumber}`, pageWidth - 15, 28, { align: "right" });
+    doc.text(`Date: ${meta.billDate}`, pageWidth - 15, 33, { align: "right" });
+    
+    // Client & Invoice details
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILL TO:", 15, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Customer: ${order.customerName || "—"}`, 15, 58);
+    doc.text(`Business: ${order.businessName || "—"}`, 15, 63);
+    doc.text(`Phone: ${order.phone || "—"}`, 15, 68);
+    doc.text(`Email: ${order.email || "—"}`, 15, 73);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("DELIVERY ADDRESS:", 110, 52);
+    doc.setFont("helvetica", "normal");
+    const addressLines = doc.splitTextToSize(order.delivery?.deliveryAddress || "Pickup / Standard Delivery", 85);
+    doc.text(addressLines, 110, 58);
+    
+    // Invoice Meta Table or Section
+    const termsY = 85;
+    doc.setFillColor(245, 247, 246);
+    doc.rect(15, termsY, pageWidth - 30, 10, "F");
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Due Date: ${meta.billDueDate}`, 20, termsY + 6.5);
+    doc.text(`Payment Status: ${(order.paymentStatus || "Unpaid").toUpperCase()}`, 110, termsY + 6.5);
+    
+    // Item Table
+    const qty = Number(order.orderDetails?.quantity || 1);
+    const orderTotal = Number(order.totalAmount || 0);
+    
+    // Compute Subtotal, tax, discount, shipping from meta
+    const discountVal = Number(meta.billDiscount || 0);
+    const shippingVal = Number(meta.billShipping || 0);
+    const taxRate = Number(meta.billTaxRate || 0);
+    
+    const subtotal = orderTotal;
+    const taxVal = (subtotal - discountVal) * (taxRate / 100);
+    const grandTotal = subtotal - discountVal + taxVal + shippingVal;
+    const rate = qty > 0 ? (subtotal / qty) : subtotal;
+    
+    const isRoll = order.productCategory?.toLowerCase().includes("roll");
+    const dimsLabel = isRoll
+      ? `Width: ${order.orderDetails?.dimensions?.width || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`
+      : `${order.orderDetails?.dimensions?.length || 0} × ${order.orderDetails?.dimensions?.width || 0} × ${order.orderDetails?.dimensions?.height || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`;
+
+    const specDetails = `Product: ${order.productCategory || "Product"}\n` +
+      `Bag Size: ${order.orderDetails?.bagSize || "—"} · Color: ${order.orderDetails?.color || "—"}\n` +
+      `Dimensions: ${dimsLabel}`;
+
+    const tableBody = [
+      [
+        specDetails,
+        `${qty} ${order.orderDetails?.unit || "pcs"}`,
+        `Rs. ${rate.toFixed(2)}`,
+        `Rs. ${subtotal.toFixed(2)}`
+      ]
+    ];
+    
+    autoTable(doc, {
+      startY: termsY + 16,
+      head: [["Item Description & Specifications", "Quantity", "Rate", "Amount"]],
+      body: tableBody,
+      theme: "striped",
+      styles: { fontSize: 9.5, cellPadding: 4, valign: "middle" },
+      headStyles: { fillColor: brand, fontStyle: "bold" },
+      columnStyles: {
+        1: { halign: "center", cellWidth: 30 },
+        2: { halign: "right", cellWidth: 30 },
+        3: { halign: "right", cellWidth: 35 }
+      }
+    });
+    
+    const finalY = doc.lastAutoTable.finalY + 8;
+    
+    // Totals Grid
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 80, 80);
+    
+    const rightAlignX = pageWidth - 15;
+    const labelX = pageWidth - 70;
+    
+    let currentY = finalY;
+    doc.text("Subtotal:", labelX, currentY);
+    doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    if (discountVal > 0) {
+      currentY += 6;
+      doc.text("Discount:", labelX, currentY);
+      doc.text(`- Rs. ${discountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+    
+    if (taxVal > 0) {
+      currentY += 6;
+      doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
+      doc.text(`Rs. ${taxVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+    
+    if (shippingVal > 0) {
+      currentY += 6;
+      doc.text("Shipping Charges:", labelX, currentY);
+      doc.text(`Rs. ${shippingVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+    
+    currentY += 8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text("Grand Total:", labelX, currentY);
+    doc.text(`Rs. ${grandTotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    currentY += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text("Amount Paid:", labelX, currentY);
+    doc.text(`Rs. ${Number(order.paidAmount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    currentY += 7;
+    doc.setFillColor(254, 242, 242);
+    doc.rect(labelX - 4, currentY - 5, 70, 8, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(185, 28, 28);
+    const balanceDue = Math.max(0, grandTotal - Number(order.paidAmount || 0));
+    doc.text("Balance Due:", labelX, currentY);
+    doc.text(`Rs. ${balanceDue.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    // Notes & Payment instructions on bottom left
+    const notesY = finalY;
+    doc.setTextColor(60, 60, 60);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.text("Notes & Payment Instructions:", 15, notesY);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    const noteTextLines = doc.splitTextToSize(meta.billNotes || "Please clear payment within due date.", 100);
+    doc.text(noteTextLines, 15, notesY + 5);
+    
+    // Bank Transfer Details block removed
+    
+    // Footer
+    const footY = pageHeight - 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 140, 140);
+    doc.text(
+      "Thank you for doing business with Nirmalyam Krafts! This is a system-generated invoice.",
+      pageWidth / 2,
+      footY,
+      { align: "center" }
+    );
+    
+    doc.save(`${COMPANY_NAME.replace(/\s+/g, "_")}_Invoice_${meta.billNumber}.pdf`);
   };
 
   const getOrderReportData = (order) => {
@@ -975,6 +1317,44 @@ Delivery Address: ${report.deliveryAddress}
     }
   };
 
+  const handleCancelOrderSubmit = async () => {
+    if (!cancelOrderTarget) return;
+    if (!cancellationReasonInput.trim()) {
+      toast.error("Please enter a reason for cancellation");
+      return;
+    }
+
+    setCancelLoading(true);
+    const loadingToast = toast.loading("Cancelling order...");
+    try {
+      const response = await axiosInstance.patch(`/orders/${cancelOrderTarget.id || cancelOrderTarget._id}/status`, {
+        newStatus: "Cancelled",
+        productId: cancelOrderTarget.orderDetails?.productId || null,
+        deductionMode: deductionMode || "AUTO",
+        cancellationReason: cancellationReasonInput,
+      });
+
+      if (response.data.success) {
+        toast.success("Order cancelled safely", { id: loadingToast });
+        setShowCancelModal(false);
+        setCancelOrderTarget(null);
+        setCancellationReasonInput("");
+        queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+        queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
+        queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
+        setShowDetailPanel(false);
+        await refetch();
+      } else {
+        toast.error(response.data?.message || "Cancellation failed", { id: loadingToast });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to cancel order", { id: loadingToast });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const handleRecordPayment = async (e) => {
     e.preventDefault();
     const amount = Number(paymentForm.amount);
@@ -1265,6 +1645,9 @@ Delivery Address: ${report.deliveryAddress}
     const defaultUntil = new Date();
     defaultUntil.setDate(defaultUntil.getDate() + 7);
     setQuotationValidUntil(defaultUntil.toISOString().slice(0, 10));
+    const existingQn = order.quotation?.quotationNumber || "";
+    const isTimestamp = /^QT-\d{10,}$/.test(existingQn) || /^[0-9a-fA-F]{24}$/.test(existingQn.replace("QT-", ""));
+    setQuotationNumberInput(isTimestamp ? "" : existingQn);
     setShowQuotationModal(true);
   };
 
@@ -1307,158 +1690,146 @@ Delivery Address: ${report.deliveryAddress}
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const qn = meta.quotationNumber || order?.quotation?.quotationNumber || `QT-${order.id}`;
+    let qn = meta.quotationNumber || order?.quotation?.quotationNumber || "";
+    const isTemp = !qn || /^QT-\d{10,}$/.test(qn) || /^[0-9a-fA-F]{24}$/.test(qn.replace("QT-", ""));
+    if (isTemp) {
+      qn = `QT-${(order.id || order._id || "").toString().slice(-6).toUpperCase()}`;
+    }
     const total = Number(meta.totalQuoted || 0);
     const validUntil = meta.validUntil || "—";
-    const brand = [10, 92, 67];
-    const accent = [212, 175, 55];
+    const brand = [10, 92, 67]; // Emerald Green
+    const gold = [212, 175, 55]; // Gold accent
 
-    const drawHeaderBand = () => {
-      doc.setFillColor(brand[0], brand[1], brand[2]);
-      doc.rect(0, 0, pageWidth, 38, "F");
-      doc.setFillColor(accent[0], accent[1], accent[2]);
-      doc.rect(0, 38, pageWidth, 2, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(20);
-      doc.text(COMPANY_NAME, 14, 16);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text("Manufacturing quotation", 14, 24);
-      doc.setFontSize(8);
-      doc.setTextColor(230, 245, 238);
-      doc.text(`Document ${qn}  ·  Valid through ${validUntil}`, 14, 31);
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.2);
-      doc.line(pageWidth - 72, 10, pageWidth - 14, 10);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text("CONFIDENTIAL", pageWidth - 14, 14, { align: "right" });
-    };
+    // Draw header band
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    doc.setFillColor(gold[0], gold[1], gold[2]);
+    doc.rect(0, 40, pageWidth, 2, "F");
 
-    drawHeaderBand();
-
-    doc.setTextColor(35, 35, 35);
-    autoTable(doc, {
-      startY: 48,
-      head: [["Client", ""]],
-      body: [
-        ["Customer", order.customerName || "—"],
-        ["Business", order.businessName || "—"],
-        ["Phone", order.phone || "—"],
-        ["Email", order.email || "—"],
-      ],
-      theme: "plain",
-      styles: {
-        fontSize: 10,
-        cellPadding: { top: 4, bottom: 4, left: 5, right: 5 },
-        lineColor: [230, 230, 230],
-        lineWidth: 0.1,
-      },
-      headStyles: {
-        fillColor: brand,
-        textColor: 255,
-        fontStyle: "bold",
-        fontSize: 10,
-      },
-      columnStyles: { 0: { cellWidth: 42, fontStyle: "bold", textColor: [80, 80, 80] } },
-      alternateRowStyles: { fillColor: [252, 252, 252] },
-    });
-
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 10,
-      head: [["Specification", ""]],
-      body: [
-        ["Product", order.productCategory || "—"],
-        ["Bag size", `${order.orderDetails?.bagSize || "—"}`],
-        ["Quantity", String(order.orderDetails?.quantity ?? "—")],
-        [
-          "Dimensions (L × W × H)",
-          `${order.orderDetails?.dimensions?.length || 0} × ${order.orderDetails?.dimensions?.width || 0} × ${order.orderDetails?.dimensions?.height || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`,
-        ],
-      ],
-      theme: "plain",
-      styles: {
-        fontSize: 10,
-        cellPadding: { top: 4, bottom: 4, left: 5, right: 5 },
-        lineColor: [230, 230, 230],
-      },
-      headStyles: {
-        fillColor: brand,
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      columnStyles: { 0: { cellWidth: 52, fontStyle: "bold", textColor: [80, 80, 80] } },
-      alternateRowStyles: { fillColor: [252, 252, 252] },
-    });
-
-    const mats = pricing?.materialRequirements || [];
-    if (mats.length > 0) {
-      autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 10,
-        head: [["Material (BOM reference)", "Qty", "UOM", "Unit ₹", "Line ₹"]],
-        body: mats.map((m) => [
-          m.name || "—",
-          String(m.totalQuantity ?? "—"),
-          m.unit || "—",
-          String(m.unitPrice ?? 0),
-          String(m.totalPrice ?? 0),
-        ]),
-        theme: "striped",
-        styles: { fontSize: 9, cellPadding: 2.5, halign: "left" },
-        headStyles: { fillColor: brand, fontStyle: "bold", fontSize: 9 },
-        columnStyles: {
-          1: { halign: "right" },
-          3: { halign: "right" },
-          4: { halign: "right", fontStyle: "bold" },
-        },
-      });
-    } else {
-      autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 10,
-        head: [["Note"]],
-        body: [
-          [
-            "No BOM detail on this quotation (e.g. finished-stock mode). Totals below reflect your quoted figure.",
-          ],
-        ],
-        theme: "plain",
-        styles: { fontSize: 9, cellPadding: 4, textColor: [90, 90, 90] },
-        headStyles: { fillColor: brand, fontStyle: "bold" },
-      });
-    }
-
-    const summaryY = doc.lastAutoTable.finalY + 12;
-    doc.setFillColor(248, 250, 249);
-    doc.roundedRect(14, summaryY, pageWidth - 28, 28, 2, 2, "F");
-    doc.setDrawColor(brand[0], brand[1], brand[2]);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(14, summaryY, pageWidth - 28, 28, 2, 2, "S");
-    doc.setTextColor(60, 60, 60);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("Estimated material (reference only)", 20, summaryY + 8);
-    doc.text(
-      `₹${Number(pricing?.totalOrderMaterialCost || 0).toLocaleString("en-IN")}`,
-      pageWidth - 20,
-      summaryY + 8,
-      { align: "right" }
-    );
-    doc.text("On-demand BOM lines (must be 0 before production)", 20, summaryY + 16);
-    doc.text(String(pricing?.onDemandCount ?? "—"), pageWidth - 20, summaryY + 16, { align: "right" });
+    // Header company details
+    doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(brand[0], brand[1], brand[2]);
-    doc.text("Total quoted", 20, summaryY + 24);
-    doc.text(`₹${total.toLocaleString("en-IN")}`, pageWidth - 20, summaryY + 24, { align: "right" });
+    doc.setFontSize(22);
+    doc.text(COMPANY_NAME, 15, 18);
 
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 15, 27);
+
+    // Title "QUOTATION" on the right side of header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text("QUOTATION", pageWidth - 15, 20, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text(`Quote No: ${qn}`, pageWidth - 15, 28, { align: "right" });
+    doc.text(`Date: ${new Date().toISOString().slice(0, 10)}`, pageWidth - 15, 33, { align: "right" });
+
+    // Client and Quotation details
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("QUOTED TO:", 15, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Customer: ${order.customerName || "—"}`, 15, 58);
+    doc.text(`Business: ${order.businessName || "—"}`, 15, 63);
+    doc.text(`Phone: ${order.phone || "—"}`, 15, 68);
+    doc.text(`Email: ${order.email || "—"}`, 15, 73);
+
+    const statusLabel = order.quotation?.status 
+      ? (order.quotation.status.charAt(0).toUpperCase() + order.quotation.status.slice(1)) 
+      : "Pending Approval";
+
+    // Quotation Details
+    doc.setFont("helvetica", "bold");
+    doc.text("QUOTE SUMMARY:", 110, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Validity: Valid until ${validUntil}`, 110, 58);
+    doc.text(`Status: ${statusLabel}`, 110, 63);
+    doc.text(`GSM: ${order.orderDetails?.gsm || "—"}`, 110, 68);
+    doc.text(`Source: ${order.source || "Dashboard"}`, 110, 73);
+
+    // Divider line
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.5);
+    doc.line(15, 78, pageWidth - 15, 78);
+
+    // Items table header
+    const tableY = 84;
+    const qty = Number(order.orderDetails?.quantity || 1);
+    const unitPrice = qty > 0 ? (total / qty) : total;
+
+    // Detailed Quotation Item Table
+    const isRoll = order.productCategory?.toLowerCase().includes("roll");
+    const dimsLabel = isRoll
+      ? `Width: ${order.orderDetails?.dimensions?.width || 0} ${order.orderDetails?.dimensions?.unit || "inch"} (Roll Category)`
+      : `${order.orderDetails?.dimensions?.length || 0} × ${order.orderDetails?.dimensions?.width || 0} × ${order.orderDetails?.dimensions?.height || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`;
+
+    const specDetails = `Product: ${order.productCategory || "—"}\n` +
+      `Size: ${order.orderDetails?.bagSize || "—"} · Color: ${order.orderDetails?.color || "—"}\n` +
+      `GSM: ${order.orderDetails?.gsm || "—"} · Custom Printing: ${order.orderDetails?.customPrinting ? "Yes" : "No"}\n` +
+      `Dimensions: ${dimsLabel}`;
+
+    const tableBody = [
+      [
+        specDetails,
+        `${qty} ${order.orderDetails?.unit || "pcs"}`,
+        `Rs. ${unitPrice.toFixed(2)}`,
+        `Rs. ${total.toFixed(2)}`
+      ]
+    ];
+
+    autoTable(doc, {
+      startY: tableY,
+      head: [["Item Details & Specifications", "Quantity", "Unit Rate", "Total Amount"]],
+      body: tableBody,
+      theme: "striped",
+      styles: { fontSize: 9.5, cellPadding: 5, valign: "middle" },
+      headStyles: { fillColor: brand, fontStyle: "bold" },
+      columnStyles: {
+        1: { halign: "center", cellWidth: 30 },
+        2: { halign: "right", cellWidth: 30 },
+        3: { halign: "right", cellWidth: 35 }
+      }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 10;
+
+    // Grand total display on right side
+    const rightAlignX = pageWidth - 15;
+    const labelX = pageWidth - 70;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text("Grand Total:", labelX, finalY);
+    doc.text(`Rs. ${total.toFixed(2)}`, rightAlignX, finalY, { align: "right" });
+
+    // Terms & Conditions block on bottom left
+    const tcY = finalY + 12;
+    doc.setTextColor(60, 60, 60);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Terms & Conditions:", 15, tcY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text(`1. Validity: This quotation is strictly valid until ${validUntil}.`, 15, tcY + 6);
+    doc.text("2. Payment Terms: 50% advance payment required to initiate production. Remaining 50% before dispatch.", 15, tcY + 11);
+    doc.text("3. Delivery: Standard production lead time of 7-10 working days from advance payment.", 15, tcY + 16);
+    doc.text("4. Taxes & Shipping: Prices are ex-factory. GST (18%) and transport charges are extra as actuals.", 15, tcY + 21);
+
+    // Footer
     const footY = pageHeight - 12;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 140, 140);
     doc.text(
-      `${COMPANY_NAME} · Quotation is valid until date shown · Prices exclude taxes unless stated · E. & O. E.`,
+      "Thank you for your interest! We look forward to working with you.",
       pageWidth / 2,
       footY,
       { align: "center" }
@@ -1482,6 +1853,7 @@ Delivery Address: ${report.deliveryAddress}
         status,
         totalQuoted,
         validUntil: quotationValidUntil,
+        quotationNumber: quotationNumberInput,
       });
       toast.success("Quotation updated", { id: loadingToast });
       setShowQuotationModal(false);
@@ -1580,7 +1952,7 @@ ${lines || "(See PDF for full BOM)"}
           bagSize: isRoll ? undefined : manualOrderForm.bagSize,
           color: isRoll ? undefined : manualOrderForm.color,
           quantity: Number(manualOrderForm.quantity),
-          gsm: isRoll ? Number(manualOrderForm.gsm) : undefined,
+          gsm: manualOrderForm.gsm ? Number(manualOrderForm.gsm) : undefined,
           unit: manualOrderForm.unit || (isRoll ? "kg" : "pcs"),
           calculationMode: manualOrderForm.calculationMode || "auto",
           convertedQuantity: manualOrderForm.convertedQuantity ? Number(manualOrderForm.convertedQuantity) : undefined,
@@ -2119,7 +2491,7 @@ ${lines || "(See PDF for full BOM)"}
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-gray-500">Quantity:</span>
                               <span className="font-bold text-blue-600">
-                                {order.orderDetails?.quantity || 0} {order.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs"}
+                                {order.orderDetails?.quantity || 0} {order.orderDetails?.unit || "pcs"}
                               </span>
                             </div>
                             <div className="flex items-center justify-between text-xs">
@@ -2247,6 +2619,16 @@ ${lines || "(See PDF for full BOM)"}
                               <span>Quote</span>
                             </button>
 
+                            <button
+                              type="button"
+                              onClick={() => openBillModal(order)}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-emerald-800 hover:bg-emerald-50 transition-all duration-200"
+                              title="Create Bill / Invoice"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>Bill</span>
+                            </button>
+
                             {order.orderStatusKey === "CONFIRMED" && (
                               <button
                                 type="button"
@@ -2317,6 +2699,7 @@ ${lines || "(See PDF for full BOM)"}
                 }}
                 onCheckAvailability={handleCheckOrderAvailability}
                 onOpenQuotation={openQuotationModal}
+                onOpenBill={openBillModal}
                 onMoveToProcessing={handleMoveToProcessing}
                 onCompleteOrder={handleCompleteOrder}
               />
@@ -2728,40 +3111,57 @@ ${lines || "(See PDF for full BOM)"}
                     )}
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-gray-600">
-                      Pricing mode (matches availability / processing)
-                    </label>
-                    <select
-                      value={quotationMode}
-                      onChange={(e) => setQuotationMode(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                    >
-                      <option value="AUTO">AUTO</option>
-                      <option value="RAW_ONLY">RAW_ONLY</option>
-                      <option value="STOCK_ONLY">STOCK_ONLY</option>
-                    </select>
-                  </div>
+                  {(() => {
+                    const stockCovered = Number(quotationPricing?.canFulfillFromStock || 0);
+                    const stockUnitPrice = Number(getStockUnitQuotePrice(quotationPricing, quotationOrder) || 0);
+                    const prodCost = Number(quotationPricing?.totalOrderMaterialCost || 0);
+                    const suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
 
-                  {quotationPricing && (
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm text-gray-800">
-                      <p>
-                        Est. material cost (reference): ₹
-                        {Number(quotationPricing.totalOrderMaterialCost || 0).toLocaleString()}
-                      </p>
-                      <p
-                        className={
-                          (quotationPricing.onDemandCount || 0) > 0
-                            ? "mt-1 font-semibold text-amber-800"
-                            : "mt-1 font-semibold text-emerald-800"
-                        }
-                      >
-                        On-demand BOM lines: {quotationPricing.onDemandCount ?? 0} (Step 7 blocks processing if &gt; 0)
-                      </p>
+                    return quotationPricing && (
+                      <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4 space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-violet-700">
+                            Calculated Suggested Price
+                          </p>
+                          <p className="mt-1.5 text-2.5xl font-bold text-violet-900">
+                            ₹{suggestedTotal.toLocaleString("en-IN")}
+                          </p>
+                          <p className="mt-1 text-[11px] text-gray-500 font-medium">
+                            Note: This is a suggested total based on materials and stock. You can type any price in the "Total quoted" box below to print in the quotation PDF.
+                          </p>
+                        </div>
+
+                        <div className="border-t border-violet-100 pt-3">
+                          <p className="text-xs font-bold text-gray-900">Pricing Breakdown & Formula:</p>
+                          <div className="mt-2 text-xs text-gray-700 space-y-1.5 bg-white rounded-xl p-3 border border-violet-50">
+                            <p className="font-mono text-[10px] text-violet-800 font-bold bg-violet-50 px-2 py-1 rounded inline-block">
+                              Formula: (Stock Qty × Stock Sell Price) + Raw Material Cost
+                            </p>
+                            <ul className="list-inside list-disc pl-1 space-y-1 text-gray-600 mt-1">
+                              <li>
+                                Stock covered: <span className="font-semibold text-gray-800">{stockCovered} units</span> (at ₹{stockUnitPrice}/unit = ₹{(stockCovered * stockUnitPrice).toLocaleString()})
+                              </li>
+                              <li>
+                                Production material cost: <span className="font-semibold text-gray-800">₹{prodCost.toLocaleString()}</span> (for {Number(quotationPricing.requiredFromProduction || 0)} units)
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">Quote Number</label>
+                      <input
+                        type="text"
+                        value={quotationNumberInput}
+                        onChange={(e) => setQuotationNumberInput(e.target.value)}
+                        placeholder="e.g. QT-1002"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                      />
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-gray-600">Total quoted (₹)</label>
                       <input
@@ -2791,7 +3191,7 @@ ${lines || "(See PDF for full BOM)"}
                         generateQuotationPDF(quotationOrder, quotationPricing, {
                           totalQuoted: quotationTotalInput,
                           validUntil: quotationValidUntil,
-                          quotationNumber: quotationOrder.quotation?.quotationNumber,
+                          quotationNumber: quotationNumberInput,
                         })
                       }
                     >
@@ -2826,6 +3226,129 @@ ${lines || "(See PDF for full BOM)"}
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </Modal>
+
+        <Modal
+          isOpen={showBillModal}
+          title={`Order Bill / Invoice — ${COMPANY_NAME}`}
+          onClose={() => {
+            setShowBillModal(false);
+            setBillOrder(null);
+          }}
+        >
+          {billOrder && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 animate-fade-in">
+                <p className="text-sm font-bold text-gray-900">{billOrder.customerName}</p>
+                <p className="text-xs text-gray-600">
+                  {billOrder.productCategory} · Qty {billOrder.orderDetails?.quantity} {billOrder.orderDetails?.unit || "pcs"}
+                </p>
+                <p className="mt-2 text-xs font-semibold text-emerald-800">
+                  Base Order Amount: ₹{Number(billOrder.totalAmount || 0).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Invoice Number</label>
+                  <input
+                    type="text"
+                    value={billNumber}
+                    onChange={(e) => setBillNumber(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Invoice Date</label>
+                  <input
+                    type="date"
+                    value={billDate}
+                    onChange={(e) => setBillDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Payment Due Date</label>
+                  <input
+                    type="date"
+                    value={billDueDate}
+                    onChange={(e) => setBillDueDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={billTaxRate}
+                    onChange={(e) => setBillTaxRate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Shipping/Transport Charges (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={billShipping}
+                    onChange={(e) => setBillShipping(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Discount Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={billDiscount}
+                    onChange={(e) => setBillDiscount(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Bill/Invoice Notes</label>
+                <textarea
+                  rows={2}
+                  value={billNotes}
+                  onChange={(e) => setBillNotes(e.target.value)}
+                  className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button
+                  type="button"
+                  className="rounded-2xl bg-emerald-700 hover:bg-emerald-800"
+                  onClick={() =>
+                    generateBillPDF(billOrder, {
+                      billNumber,
+                      billDate,
+                      billDueDate,
+                      billTaxRate,
+                      billShipping,
+                      billDiscount,
+                      billNotes
+                    })
+                  }
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF Bill
+                </Button>
+                <Button type="button" variant="secondary" className="rounded-2xl bg-green-900 text-white hover:bg-green-800" onClick={handleBillWhatsApp}>
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Share WhatsApp
+                </Button>
+                <Button type="button" variant="secondary" className="rounded-2xl bg-blue-700 text-white hover:bg-blue-800" onClick={handleBillEmail}>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email Bill
+                </Button>
+              </div>
             </div>
           )}
         </Modal>
@@ -3096,6 +3619,31 @@ ${lines || "(See PDF for full BOM)"}
                           </div>
                         )}
 
+                        {((!availabilityResult.enoughStock && availabilityResult.canFulfillFromStock > 0) || useAvailableStock) && (
+                          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm animate-fade-in">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={useAvailableStock}
+                                onChange={(e) => {
+                                  handleCheckOrderAvailability(availabilityOrder, e.target.checked);
+                                }}
+                                className="mt-1 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              <div>
+                                <p className="text-sm font-bold text-amber-900">
+                                  "Use This Stock" Override Option
+                                </p>
+                                <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                                  Check this to reserve the available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. 
+                                  The remaining shortage (<strong>{Number(availabilityResult.requiredQty || 0) - Number(availabilityResult.canFulfillFromStock || 0)}</strong> units) 
+                                  will trigger an urgent alert notification on the stocks page for manual stock addition.
+                                </p>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+
                         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                           <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -3104,6 +3652,15 @@ ${lines || "(See PDF for full BOM)"}
                             <p className="mt-2 text-2xl font-bold text-gray-900">
                               {availabilityResult.canFulfillFromStock}
                             </p>
+                            {availabilityResult.canFulfillFromStock > 0 && (() => {
+                              const stockUnitPrice = getStockUnitQuotePrice(availabilityResult, availabilityOrder);
+                              return (
+                                <p className="mt-1.5 text-xs font-semibold text-emerald-600">
+                                  Est. Price: ₹{(availabilityResult.canFulfillFromStock * stockUnitPrice).toLocaleString()}
+                                  <span className="text-[10px] text-gray-400 font-normal block mt-0.5">(₹{stockUnitPrice}/unit)</span>
+                                </p>
+                              );
+                            })()}
                           </div>
 
                           <div className="rounded-2xl border border-amber-100 bg-white px-4 py-4 shadow-sm">
@@ -3256,10 +3813,7 @@ ${lines || "(See PDF for full BOM)"}
                             )}
                             {availabilityResult.finishedGoodsInsight.alternatives?.length > 0 && (
                               <div className="overflow-x-auto rounded-xl border border-amber-100 bg-amber-50/40">
-                                <p className="border-b border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
-                                  Other finished lines (same product & dimensions — different color/size)
-                                </p>
-                                <table className="w-full text-left text-xs">
+                                        <table className="w-full text-left text-xs">
                                   <thead className="bg-white/80 text-[10px] font-semibold uppercase text-slate-500">
                                     <tr>
                                       <th className="px-3 py-2">Product</th>
@@ -3267,6 +3821,7 @@ ${lines || "(See PDF for full BOM)"}
                                       <th className="px-3 py-2">Size</th>
                                       <th className="px-3 py-2 text-right">Avail.</th>
                                       <th className="px-3 py-2">Note</th>
+                                      <th className="px-3 py-2 text-center">Action</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-amber-100/80">
@@ -3281,6 +3836,15 @@ ${lines || "(See PDF for full BOM)"}
                                           {alt.availableBags}
                                         </td>
                                         <td className="px-3 py-2 text-slate-600">{alt.note}</td>
+                                        <td className="px-3 py-2 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleQuickMatchStock(alt)}
+                                            className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-600 transition shadow-sm cursor-pointer"
+                                          >
+                                            ⚡ Align & Use
+                                          </button>
+                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -3991,6 +4555,21 @@ ${lines || "(See PDF for full BOM)"}
                     </Button>
                   )}
 
+                  {selectedOrder.orderStatusKey !== "COMPLETED" && selectedOrder.orderStatusKey !== "CANCELLED" && (
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-red-650 px-4 py-2 hover:bg-red-750 text-white"
+                      onClick={() => {
+                        setCancelOrderTarget(selectedOrder);
+                        setCancellationReasonInput("");
+                        setShowCancelModal(true);
+                      }}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Cancel Order
+                    </Button>
+                  )}
+
                   <Button
                     type="button"
                     variant="secondary"
@@ -4369,6 +4948,76 @@ ${lines || "(See PDF for full BOM)"}
               </Button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* ── Cancel Order Modal ────────────────────────────────────── */}
+      <Modal
+        isOpen={showCancelModal}
+        title="Cancel Order"
+        onClose={() => {
+          setShowCancelModal(false);
+          setCancelOrderTarget(null);
+          setCancellationReasonInput("");
+        }}
+      >
+        {cancelOrderTarget && (
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl bg-red-100 p-3 text-red-700">
+                  <AlertTriangle className="h-5 w-5 animate-bounce" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Cancel Order for {cancelOrderTarget.customerName}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    This order has status <strong>{cancelOrderTarget.orderStatus}</strong>. Any stock reserved for this order will be safely released back to available inventory.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Reason for Cancellation <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={cancellationReasonInput}
+                  onChange={(e) => setCancellationReasonInput(e.target.value)}
+                  placeholder="Please describe why this order is being cancelled..."
+                  rows="4"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-red-500 bg-white resize-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1 rounded-2xl"
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelOrderTarget(null);
+                  setCancellationReasonInput("");
+                }}
+              >
+                Go Back
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 rounded-2xl bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleCancelOrderSubmit}
+                loading={cancelLoading}
+              >
+                Confirm Cancel
+              </Button>
+            </div>
+          </div>
         )}
       </Modal>
     </Layout>

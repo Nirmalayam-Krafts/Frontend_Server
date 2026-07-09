@@ -64,7 +64,22 @@ const initialOrderForm = {
   logoName: "",
 };
 
-
+const getStatusSelectClass = (status) => {
+  switch (String(status).toLowerCase()) {
+    case "new":
+      return "bg-blue-50 text-blue-700 border-blue-200 focus:border-blue-400";
+    case "contacted":
+      return "bg-amber-50 text-amber-700 border-amber-200 focus:border-amber-400 font-semibold";
+    case "interested":
+      return "bg-purple-50 text-purple-700 border-purple-200 focus:border-purple-400 font-semibold";
+    case "converted":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 focus:border-emerald-400 font-bold";
+    case "lost":
+      return "bg-rose-50 text-rose-700 border-rose-200 focus:border-rose-400 font-semibold";
+    default:
+      return "bg-gray-50 text-gray-700 border-gray-200 focus:border-emerald-500";
+  }
+};
 
 const Leads = () => {
   const [showDeleted, setShowDeleted] = useState(false);
@@ -230,7 +245,8 @@ const Leads = () => {
 
   const handleAddLead = async (formData) => {
     try {
-      const response = await axiosInstance.post("/leads", { payload: formData });
+      const payload = { ...formData, source: "Manual" };
+      const response = await axiosInstance.post("/leads", { payload });
       if (response.data.success) {
         setShowModal(false);
         showNotification("Lead added successfully", "success");
@@ -557,7 +573,7 @@ const Leads = () => {
           bagSize: isRollProduct ? undefined : orderForm.bagSize,
           color: isRollProduct ? undefined : orderForm.color,
           quantity: Number(orderForm.quantity),
-          gsm: isRollProduct ? Number(orderForm.gsm) : undefined,
+          gsm: orderForm.gsm ? Number(orderForm.gsm) : undefined,
           customPrinting: orderForm.customPrinting || false,
           brandingText: orderForm.customPrinting ? orderForm.brandingText : undefined,
           logo: orderForm.customPrinting ? orderForm.logo : undefined,
@@ -1119,7 +1135,7 @@ const Leads = () => {
                             onChange={(e) =>
                               handleUpdateLeadStatus(lead.id, e.target.value, lead)
                             }
-                            className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                            className={`rounded-lg border px-3 py-2 text-sm font-semibold outline-none transition duration-150 shadow-sm ${getStatusSelectClass(lead.statusLabel)}`}
                           >
                             <option value="New">New</option>
                             <option value="Contacted">Contacted</option>
@@ -1385,7 +1401,7 @@ const Leads = () => {
                         <label className="mb-2 block text-sm font-semibold text-gray-700">
                           Order Quantity <span className="text-red-500">*</span>
                         </label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 min-w-0">
                           <input
                             type="number"
                             min="1"
@@ -1394,7 +1410,7 @@ const Leads = () => {
                               handleOrderFormChange("quantity", e.target.value)
                             }
                             placeholder="Enter quantity"
-                            className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 px-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                            className="flex-1 min-w-0 rounded-2xl border border-gray-200 bg-white py-3.5 px-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
                             required
                           />
                           <select
@@ -1402,7 +1418,7 @@ const Leads = () => {
                             onChange={(e) =>
                               handleOrderFormChange("unit", e.target.value)
                             }
-                            className="w-[95px] rounded-2xl border border-gray-200 bg-white px-3 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 animate-fade-in"
+                            className="w-[85px] shrink-0 rounded-2xl border border-gray-200 bg-white px-2.5 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 animate-fade-in"
                           >
                             {isRoll ? (
                               <>

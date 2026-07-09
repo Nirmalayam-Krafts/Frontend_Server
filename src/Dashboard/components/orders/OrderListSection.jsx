@@ -8,6 +8,7 @@ import {
   Eye,
   Factory,
   FileDown,
+  FileText,
   Package,
   Loader2,
   Mail,
@@ -41,6 +42,7 @@ export default function OrderListSection({
   onViewOrder,
   onCheckAvailability,
   onOpenQuotation,
+  onOpenBill,
   onMoveToProcessing,
   onCompleteOrder,
 }) {
@@ -156,7 +158,7 @@ export default function OrderListSection({
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
                       <Package className="h-3.5 w-3.5" />
-                      Qty {order.orderDetails?.quantity || 0} {order.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs"}
+                      Qty {order.orderDetails?.quantity || 0} {order.orderDetails?.unit || "pcs"}
                     </span>
                     {!order.productCategory?.toLowerCase().includes("roll") ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
@@ -296,6 +298,16 @@ export default function OrderListSection({
                       >
                         <FileDown className="h-4 w-4" />
                         <span>Create quote</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onOpenBill(order)}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                        title="Create Bill / Invoice"
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span>Create bill</span>
                       </button>
 
                       {order.orderStatusKey === "CONFIRMED" && (

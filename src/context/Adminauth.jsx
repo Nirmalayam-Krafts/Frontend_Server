@@ -32,13 +32,28 @@ export const AuthContextProvider = ({ children }) => {
       return config;
     });
 
-    // Auto-logout on 401 (expired or invalid token)
+    // Auto-logout on 401 (expired or invalid token) and clean technical messages
     instance.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error?.response?.status === 401) {
           localStorage.removeItem("adminToken");
           navigate("/dashboard/login", { replace: true });
+        }
+        
+        if (error?.response?.data?.message) {
+          let msg = String(error.response.data.message);
+          if (msg.includes("ValidationError") || msg.includes("validation failed") || msg.includes("ValidatorError")) {
+            if (msg.includes("quantity") && (msg.includes("minimum") || msg.includes("less than"))) {
+              msg = "Validation Error: Quantity must be a valid number of at least 1.";
+            } else {
+              msg = msg
+                .replace(/ValidationError\s*:/gi, "Validation Error:")
+                .replace(/Inventory validation failed\s*:/gi, "")
+                .trim();
+            }
+            error.response.data.message = msg;
+          }
         }
         return Promise.reject(error);
       }

@@ -42,6 +42,9 @@ const OrderActionsDashboard = ({
   const completedOrders = hasGlobal
     ? (globalStats.statusCounts?.Completed || 0)
     : orders.filter((o) => o.orderStatusKey === "COMPLETED").length;
+  const cancelledOrders = hasGlobal
+    ? (globalStats.statusCounts?.Cancelled || 0)
+    : orders.filter((o) => o.orderStatusKey === "CANCELLED").length;
 
   const pendingQuotations = hasGlobal
     ? (globalStats.pendingQuotations || 0)
@@ -114,6 +117,19 @@ const OrderActionsDashboard = ({
       textColor: "text-emerald-700",
       action: "Mark Complete",
     },
+    {
+      title: "Cancelled Orders",
+      count: cancelledOrders,
+      description: "Mistakes & cancelled lines",
+      icon: AlertCircle,
+      color: "red",
+      gradient: "from-red-50 to-orange-50/50",
+      borderColor: "border-red-200",
+      iconBg: "bg-red-100",
+      iconColor: "text-red-600",
+      textColor: "text-red-700",
+      action: "View Cancelled",
+    },
   ];
 
   const quickStats = [
@@ -183,7 +199,7 @@ const OrderActionsDashboard = ({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
       >
         {actionCards.map((card, index) => (
           <motion.div
@@ -202,6 +218,8 @@ const OrderActionsDashboard = ({
                 onViewOrder?.("PROCESSING");
               } else if (card.title === "Ready to Complete") {
                 onViewOrder?.("CONFIRMED");
+              } else if (card.title === "Cancelled Orders") {
+                onViewOrder?.("CANCELLED");
               }
             }}
           >

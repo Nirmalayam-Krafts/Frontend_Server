@@ -64,6 +64,31 @@ const Inventory = () => {
     }
   }, [lowStockAlerts.length]);
 
+  const urgentAlerts = useMemo(() => {
+    return items.flatMap((item) => {
+      return (item.urgentAlerts || []).map((alert) => ({
+        ...alert,
+        itemId: item.id || item._id,
+        sku: item.sku,
+        productName: item.productName,
+        unit: item.unit || "bags"
+      }));
+    });
+  }, [items]);
+
+  const handleClearUrgentAlert = async (itemId, alertId) => {
+    const loadingToast = toast.loading("Clearing urgent alert...");
+    try {
+      await axiosInstance.patch(`/inventory/${itemId}/alerts/${alertId}/clear`);
+      toast.success("Alert cleared successfully 🎉", { id: loadingToast });
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to clear alert", { id: loadingToast });
+    }
+  };
+
   const handleAddItem = async (data) => {
     const loadingToast = toast.loading("Creating item...");
 
@@ -530,6 +555,85 @@ const Inventory = () => {
             </div>
           </Card>
         </motion.div>
+
+        {urgentAlerts.length > 0 && (
+          <motion.div
+            className="rounded-3xl border border-red-200 bg-gradient-to-r from-red-50 via-white to-orange-50 p-5 shadow-md ring-1 ring-red-100"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex items-start gap-4">
+              <div className="relative mt-1">
+                <AlertTriangle className="h-6 w-6 flex-shrink-0 text-red-600 animate-bounce" />
+                <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
+                </span>
+              </div>
+
+              <div className="flex-1">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-red-900">🚨 Urgent Production Notifications</h3>
+                    <p className="text-xs text-red-700 mt-0.5">
+                      The following stock requirements need immediate manual addition.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700 animate-pulse">
+                    Action Required
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {urgentAlerts.map((alert) => (
+                    <div
+                      key={alert._id}
+                      className="flex items-center justify-between rounded-2xl border border-red-100 bg-white p-3.5 shadow-sm hover:border-red-200 transition-all duration-200"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {alert.productName}
+                          </p>
+                          <span className="rounded-md bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-gray-600">
+                            {alert.sku}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-red-600 font-medium">
+                          {alert.message}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3 ml-4 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const matchedItem = items.find(
+                              (item) => item.id === alert.itemId || item._id === alert.itemId
+                            );
+                            if (matchedItem) {
+                              openAddStockModal(matchedItem);
+                            }
+                          }}
+                          className="rounded-xl px-3 py-1 text-xs font-semibold text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
+                        >
+                          ➕ Add Stock
+                        </Button>
+                        <button
+                          onClick={() => handleClearUrgentAlert(alert.itemId, alert._id)}
+                          className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {showAlerts && lowStockAlerts.length > 0 && (
           <motion.div

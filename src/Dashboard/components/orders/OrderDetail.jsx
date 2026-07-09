@@ -207,13 +207,14 @@ export default function OrderDetail({ order }) {
               <p className="mt-1 text-lg font-bold text-emerald-900">{order.productCategory}</p>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {!isRoll ? (
+              {!isRoll && (
                 <DetailBlock
                   icon={ShoppingBag}
                   label="Bag Size"
                   value={order.orderDetails?.bagSize || "Not added"}
                 />
-              ) : (
+              )}
+              {order.orderDetails?.gsm !== undefined && (
                 <DetailBlock
                   icon={Package}
                   label="GSM"
@@ -271,6 +272,61 @@ export default function OrderDetail({ order }) {
               )}
             </div>
           </div>
+
+          {order.quotation && ((order.quotation.status && order.quotation.status !== "none") || order.quotation.quotationNumber) && (
+            <div className={infoCardClass}>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Quotation Details</h3>
+                </div>
+                <Badge
+                  variant={
+                    order.quotation.status === "approved"
+                      ? "success"
+                      : order.quotation.status === "sent"
+                      ? "info"
+                      : "warning"
+                  }
+                  className="capitalize"
+                >
+                  {order.quotation.status || "draft"}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <DetailBlock
+                  icon={FileText}
+                  label="Quotation No"
+                  value={order.quotation.quotationNumber || "—"}
+                  tone="text-emerald-700 font-bold"
+                />
+                <DetailBlock
+                  icon={DollarSign}
+                  label="Total Quoted"
+                  value={formatCurrency(order.quotation.totalQuoted)}
+                />
+                <DetailBlock
+                  icon={Calendar}
+                  label="Valid Until"
+                  value={order.quotation.validUntil ? new Date(order.quotation.validUntil).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                />
+                {order.quotation.status === "sent" && order.quotation.sentAt && (
+                  <DetailBlock
+                    icon={Clock}
+                    label="Sent At"
+                    value={formatDate(order.quotation.sentAt)}
+                  />
+                )}
+                {order.quotation.status === "approved" && order.quotation.approvedAt && (
+                  <DetailBlock
+                    icon={CheckCircle2}
+                    label="Approved At"
+                    value={formatDate(order.quotation.approvedAt)}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
           <div className={infoCardClass}>
             <div className="mb-4 flex items-center gap-2">

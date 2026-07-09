@@ -220,6 +220,8 @@ const Finance = () => {
     return `${sorted[0].category} (${formatCurrency(sorted[0].total)})`;
   }, [reportData?.byCategory]);
 
+  const formatCurrencyPDF = (val) => `Rs. ${Number(val || 0).toLocaleString("en-IN")}`;
+
   // Generate finance summary PDF
   const generateFinancePDF = () => {
     const doc = new jsPDF();
@@ -248,13 +250,13 @@ const Finance = () => {
       startY: y,
       head: [["Metric", "Value"]],
       body: [
-        ["Monthly Revenue", formatCurrency(data?.monthlyRevenue)],
-        ["Pending Dues", formatCurrency(data?.pendingDues)],
+        ["Monthly Revenue", formatCurrencyPDF(data?.monthlyRevenue)],
+        ["Pending Dues", formatCurrencyPDF(data?.pendingDues)],
         ["Total Dispatched", String(data?.totalDispatched ?? 0)],
         ["Payment Rate", `${data?.paymentRate ?? 0}%`],
-        ["Total Income", formatCurrency(data?.income)],
-        ["Total Expense", formatCurrency(data?.expense)],
-        ["Net Profit", formatCurrency(data?.netProfit)],
+        ["Total Income", formatCurrencyPDF(data?.income)],
+        ["Total Expense", formatCurrencyPDF(data?.expense)],
+        ["Net Profit", formatCurrencyPDF(data?.netProfit)],
       ],
       theme: "grid",
       headStyles: { fillColor: [5, 150, 105] },
@@ -272,7 +274,7 @@ const Finance = () => {
       autoTable(doc, {
         startY: y,
         head: [["Month", "Revenue"]],
-        body: chartData.map((item) => [item.month, formatCurrency(item.revenue)]),
+        body: chartData.map((item) => [item.month, formatCurrencyPDF(item.revenue)]),
         theme: "grid",
         headStyles: { fillColor: [5, 150, 105] },
         styles: { fontSize: 10 },
@@ -292,8 +294,8 @@ const Finance = () => {
         body: recentOrders.map((o) => [
           o.reference,
           o.customer,
-          formatCurrency(o.totalAmount),
-          formatCurrency(o.paidAmount),
+          formatCurrencyPDF(o.totalAmount),
+          formatCurrencyPDF(o.paidAmount),
           o.paymentStatus,
         ]),
         theme: "grid",
@@ -596,7 +598,7 @@ const Finance = () => {
                             </td>
                             <td className="py-3 px-4 text-center">
                               <Badge
-                                variant={order.orderStatus === "Completed" ? "success" : order.orderStatus === "Processing" ? "primary" : "secondary"}
+                                variant={order.orderStatus === "Completed" ? "success" : order.orderStatus === "Processing" ? "primary" : order.orderStatus === "Cancelled" ? "danger" : "secondary"}
                                 className="text-xs"
                               >
                                 {order.orderStatus}

@@ -7,12 +7,30 @@ import { Button, Input, Select } from "../ui";
 // Validation Schemas
 const leadSchema = z
   .object({
-    name: z.string().min(2, "Name is required"),
-    email: z.string().email("Invalid email address"),
-    phone: z.string().min(10, "Phone must be at least 10 digits"),
-    business_name: z.string().optional(),
-    product_category: z.enum(["Ecocraft Bags", "F&B Gourmet Bags", "Luxury Bags"]),
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+        message: "Invalid email address",
+      }),
+    phone: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine((val) => !val || /^\+?[\d\s\-()]{7,20}$/.test(val), {
+        message: "Invalid phone number",
+      }),
+    business_name: z.string().optional().or(z.literal("")),
+    product_category: z
+      .enum(["Ecocraft Bags", "F&B Gourmet Bags", "Luxury Bags", "Kraft Paper Rolls", ""])
+      .optional()
+      .or(z.literal("")),
     status: z.enum(["New", "Contacted", "Interested", "Converted", "Lost"]),
+    quantity: z.string().optional().or(z.literal("")),
+    quantity_unit: z.enum(["pcs", "kg", "pieces"]).optional().default("pcs"),
+    requirement: z.string().optional().or(z.literal("")),
   })
   .strict();
 
@@ -36,17 +54,47 @@ const orderSchema = z
   .strict();
 
 export const LeadForm = ({ initialData, onSubmit, loading }) => {
+  const parseInitialQtyAndUnit = (qtyString) => {
+    if (!qtyString) return { quantity: "", quantity_unit: "pcs" };
+    const match = String(qtyString).trim().match(/^([\d\s\-()]+)\s*(pcs|pieces|kg)?$/i);
+    if (match) {
+      const num = match[1].trim();
+      let unit = match[2] ? match[2].toLowerCase() : "pcs";
+      if (unit === "pieces") unit = "pcs";
+      return { quantity: num, quantity_unit: unit };
+    }
+    return { quantity: qtyString, quantity_unit: "pcs" };
+  };
+
+  const parsedQty = parseInitialQtyAndUnit(initialData?.quantity);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(leadSchema),
-    defaultValues: initialData || {},
+    defaultValues: initialData
+      ? {
+          ...initialData,
+          quantity: parsedQty.quantity,
+          quantity_unit: parsedQty.quantity_unit,
+        }
+      : { quantity_unit: "pcs" },
   });
 
+  const handleLocalSubmit = (data) => {
+    const { quantity, quantity_unit, ...rest } = data;
+    const combinedQuantity =
+      quantity && String(quantity).trim() ? `${String(quantity).trim()} ${quantity_unit}` : "";
+    onSubmit({
+      ...rest,
+      quantity: combinedQuantity,
+    });
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(handleLocalSubmit)} className="space-y-4">
       <Input
         label="Lead Name"
         placeholder="Enter lead name"
@@ -78,10 +126,46 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
           { value: "Ecocraft Bags", label: "Ecocraft Bags" },
           { value: "F&B Gourmet Bags", label: "F&B Gourmet Bags" },
           { value: "Luxury Bags", label: "Luxury Bags" },
+          { value: "Kraft Paper Rolls", label: "Kraft Paper Rolls" },
         ]}
         error={errors.product_category?.message}
         {...register("product_category")}
       />
+      <div className="grid grid-cols-3 gap-3">
+        <div className="col-span-2">
+          <Input
+            label="Quantity"
+            placeholder="e.g. 1000"
+            error={errors.quantity?.message}
+            {...register("quantity")}
+          />
+        </div>
+        <div>
+          <Select
+            label="Unit"
+            options={[
+              { value: "pcs", label: "pcs" },
+              { value: "kg", label: "kg" },
+            ]}
+            error={errors.quantity_unit?.message}
+            {...register("quantity_unit")}
+          />
+        </div>
+      </div>
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Requirement
+        </label>
+        <textarea
+          placeholder="Describe requirement details..."
+          rows={3}
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-white border-gray-300"
+          {...register("requirement")}
+        />
+        {errors.requirement?.message && (
+          <p className="text-xs text-red-600 mt-1">{errors.requirement.message}</p>
+        )}
+      </div>
       <Select
         label="Status"
         options={[
