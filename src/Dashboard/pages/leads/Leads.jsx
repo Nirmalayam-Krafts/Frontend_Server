@@ -32,6 +32,7 @@ import {
   Ruler,
   Wallet,
   FileText,
+  AlertCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { usegetAllLeads } from "../../../../hook/leads";
@@ -144,6 +145,7 @@ const Leads = () => {
         source: lead.source || "—",
         status: (lead.status || "New").toUpperCase(),
         statusLabel: lead.status || "New",
+        duplicateExists: Boolean(lead.duplicateExists),
         date: new Date(lead.createdAt).toLocaleString("en-IN", {
           timeZone: "Asia/Kolkata",
           day: "2-digit",
@@ -1086,6 +1088,11 @@ const Leads = () => {
                                   <span className="flex items-center gap-1">
                                     <Phone className="h-3.5 w-3.5" />
                                     {lead.phone}
+                                    {lead.duplicateExists && (
+                                      <span className="ml-1 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 animate-pulse" title="Another record with this phone number exists.">
+                                        ⚠️ Duplicate
+                                      </span>
+                                    )}
                                   </span>
 
                                   {lead.phone !== "—" && (
@@ -1767,8 +1774,13 @@ const Leads = () => {
                       <p className="text-xs font-semibold uppercase text-gray-500">
                         Phone / WhatsApp
                       </p>
-                      <p className="mt-1 text-sm font-medium text-gray-900">
+                      <p className="mt-1 text-sm font-medium text-gray-900 flex items-center gap-1.5">
                         {selectedLead.phone}
+                        {selectedLead.duplicateExists && (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 animate-pulse" title="Another record with this phone number exists.">
+                            ⚠️ Duplicate
+                          </span>
+                        )}
                       </p>
                     </div>
 
@@ -1785,6 +1797,16 @@ const Leads = () => {
                     )}
                   </div>
                 </div>
+
+                {selectedLead.duplicateExists && (
+                  <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 flex items-start gap-3 animate-fade-in">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5 animate-pulse" />
+                    <div>
+                      <p className="font-bold">Duplicate Lead Exists</p>
+                      <p className="mt-0.5 text-xs text-amber-700">Another record with this phone number exists. Keep both but verify context before conversion.</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-gray-100 p-4">

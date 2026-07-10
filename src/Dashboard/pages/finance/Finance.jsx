@@ -40,7 +40,7 @@ import {
 
 const Finance = () => {
   const { axiosInstance } = useAuthContext();
-  const { data, isLoading, isError, refetch } = useGetFinance();
+  const { data, isLoading, isError, error, refetch } = useGetFinance();
   const { data: ordersData } = useGetAllOrders({ limit: 10 });
 
   // Tab State
@@ -369,31 +369,43 @@ const Finance = () => {
           </div>
         </motion.div>
 
-        {/* Tab switcher */}
-        <div className="flex border-b border-gray-200 bg-white p-1 rounded-xl shadow-sm">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`flex-1 py-3 text-center font-semibold text-sm rounded-lg transition-all ${
-              activeTab === "overview"
-                ? "bg-emerald-50 text-emerald-700 shadow-inner"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab("expenses")}
-            className={`flex-1 py-3 text-center font-semibold text-sm rounded-lg transition-all ${
-              activeTab === "expenses"
-                ? "bg-emerald-50 text-emerald-700 shadow-inner"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            Expenses Manager
-          </button>
-        </div>
+        {isError && error?.response?.status === 403 ? (
+          <div className="text-center py-20 bg-white rounded-3xl border border-gray-200 shadow-sm p-8 max-w-lg mx-auto">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h3>
+            <p className="text-sm text-gray-600 max-w-sm mx-auto">
+              You do not have permissions to view Finance and Revenue reports. Admin privileges are required.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Tab switcher */}
+            <div className="flex border-b border-gray-200 bg-white p-1 rounded-xl shadow-sm">
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={`flex-1 py-3 text-center font-semibold text-sm rounded-lg transition-all ${
+                  activeTab === "overview"
+                    ? "bg-emerald-50 text-emerald-700 shadow-inner"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setActiveTab("expenses")}
+                className={`flex-1 py-3 text-center font-semibold text-sm rounded-lg transition-all ${
+                  activeTab === "expenses"
+                    ? "bg-emerald-50 text-emerald-700 shadow-inner"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Expenses Manager
+              </button>
+            </div>
 
-        {activeTab === "overview" ? (
+            {activeTab === "overview" ? (
           <>
             {/* KPI Cards */}
             {!isLoading && !isError && data && (
@@ -927,6 +939,8 @@ const Finance = () => {
             </div>
           </form>
         </Modal>
+          </>
+        )}
       </div>
     </Layout>
   );

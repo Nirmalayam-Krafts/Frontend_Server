@@ -161,7 +161,10 @@ const validateField = (fieldName, value, formValues) => {
       return '';
 
     case 'gsm':
-      if (formValues?.product_category === 'Kraft Paper Rolls') {
+      if (
+        formValues?.product_category === 'Kraft Paper Rolls' ||
+        (formValues?.product_category && formValues.product_category.toLowerCase().includes('bags'))
+      ) {
         if (!trimmedValue) return '';
         const numericValue = Number(trimmedValue);
         if (Number.isNaN(numericValue) || numericValue <= 0) return 'Enter a valid GSM.';
@@ -185,6 +188,8 @@ const validateForm = (formValues) => {
   const fields = [...FIELD_NAMES];
   if (formValues.product_category === 'Kraft Paper Rolls') {
     fields.push('gsm', 'bf_factor');
+  } else if (formValues.product_category && formValues.product_category.toLowerCase().includes('bags')) {
+    fields.push('gsm');
   }
   return fields.reduce((acc, fieldName) => {
     acc[fieldName] = validateField(fieldName, formValues[fieldName], formValues);
@@ -303,6 +308,8 @@ export default function Contact() {
       const fields = [...FIELD_NAMES];
       if (form.product_category === 'Kraft Paper Rolls') {
         fields.push('gsm', 'bf_factor');
+      } else if (form.product_category && form.product_category.toLowerCase().includes('bags')) {
+        fields.push('gsm');
       }
       fields.forEach(f => {
         nextTouched[f] = true;
@@ -331,7 +338,9 @@ export default function Contact() {
         ...(form.product_category === 'Kraft Paper Rolls' ? {
           gsm: form.gsm.trim(),
           bf_factor: form.bf_factor.trim(),
-        } : {}),
+        } : (form.product_category && form.product_category.toLowerCase().includes('bags') ? {
+          gsm: form.gsm.trim(),
+        } : {})),
       };
 
       const { data } = await axiosInstance.post(`/leads`, {
@@ -646,6 +655,14 @@ export default function Contact() {
                             <input className={getFieldClassName('bf_factor')} name="bf_factor" placeholder="E.g. 18" value={form.bf_factor} onChange={handleChange} inputMode="numeric" aria-invalid={Boolean(errors.bf_factor)} />
                             {touched.bf_factor && errors.bf_factor && <span className="input-error">{errors.bf_factor}</span>}
                           </div>
+                        </div>
+                      )}
+
+                      {form.product_category && form.product_category !== 'Kraft Paper Rolls' && form.product_category.toLowerCase().includes('bags') && (
+                        <div className="input-group">
+                          <label className="input-label">GSM (Grams per Square Meter) <span style={{ color: 'var(--kraft-400)', fontSize: '13px', fontWeight: 'normal' }}>(Optional)</span></label>
+                          <input className={getFieldClassName('gsm')} name="gsm" placeholder="E.g. 120" value={form.gsm} onChange={handleChange} inputMode="numeric" aria-invalid={Boolean(errors.gsm)} />
+                          {touched.gsm && errors.gsm && <span className="input-error">{errors.gsm}</span>}
                         </div>
                       )}
 

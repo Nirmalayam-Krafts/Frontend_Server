@@ -81,6 +81,10 @@ const initialManualOrderForm = {
 
 const initialConfirmOrderForm = {
   totalAmount: "",
+  subtotalAmount: "",
+  taxRate: "0",
+  shippingCharges: "0",
+  otherCharges: "0",
   paidAmount: "",
   paymentMode: "cash",
   deliveryMode: "courier",
@@ -141,6 +145,8 @@ const Orders = () => {
   const [billShipping, setBillShipping] = useState("0");
   const [billDiscount, setBillDiscount] = useState("0");
   const [billNotes, setBillNotes] = useState("Thank you for your business!");
+  const [billSubtotal, setBillSubtotal] = useState("0");
+  const [billOther, setBillOther] = useState("0");
 
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [quotationOrder, setQuotationOrder] = useState(null);
@@ -150,6 +156,10 @@ const Orders = () => {
   const [quotationLoading, setQuotationLoading] = useState(false);
   const [quotationTotalInput, setQuotationTotalInput] = useState("");
   const [quotationNumberInput, setQuotationNumberInput] = useState("");
+  const [quotationTaxRateInput, setQuotationTaxRateInput] = useState("0");
+  const [quotationShippingInput, setQuotationShippingInput] = useState("0");
+  const [quotationOtherInput, setQuotationOtherInput] = useState("0");
+  const [quotationSubtotalInput, setQuotationSubtotalInput] = useState("");
   const [processingActionId, setProcessingActionId] = useState(null);
   const [completeActionId, setCompleteActionId] = useState(null);
 
@@ -158,6 +168,7 @@ const Orders = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelOrderTarget, setCancelOrderTarget] = useState(null);
   const [cancellationReasonInput, setCancellationReasonInput] = useState("");
+  const [manualLossInput, setManualLossInput] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
@@ -421,6 +432,19 @@ const Orders = () => {
     }));
   };
 
+  const handleConfirmOrderPriceChange = (field, val) => {
+    setConfirmOrderForm((prev) => {
+      const next = { ...prev, [field]: val };
+      const sub = Number(next.subtotalAmount || 0);
+      const tax = Number(next.taxRate || 0);
+      const ship = Number(next.shippingCharges || 0);
+      const other = Number(next.otherCharges || 0);
+      const total = sub * (1 + tax / 100) + ship + other;
+      next.totalAmount = total > 0 ? String(Number(total.toFixed(2))) : "0";
+      return next;
+    });
+  };
+
   const resetAvailabilityModal = () => {
     setAvailabilityModalOpen(false);
     setAvailabilityOrder(null);
@@ -576,6 +600,31 @@ const Orders = () => {
         const resData = applyAvailabilityCostCorrection(resp.data.data, order);
         const matchInsight = analyzeInventoryMatches(order);
         const productResolved = resData.productResolved !== false;
+
+        const existingQuotation = order.quotation || {};
+        const qSubtotal = existingQuotation.subtotalAmount || existingQuotation.totalQuoted || resData.totalOrderMaterialCost || 0;
+        const qTaxRate = existingQuotation.taxRate || 0;
+        const qShipping = existingQuotation.shippingCharges || 0;
+        const qOther = existingQuotation.otherCharges || 0;
+        const qTotal = existingQuotation.totalQuoted || (qSubtotal * (1 + qTaxRate / 100) + qShipping + qOther);
+
+        setConfirmOrderForm({
+          totalAmount: String(qTotal > 0 ? qTotal : ""),
+          subtotalAmount: String(qSubtotal > 0 ? qSubtotal : ""),
+          taxRate: String(qTaxRate),
+          shippingCharges: String(qShipping),
+          otherCharges: String(qOther),
+          paidAmount: String(order.paidAmount || ""),
+          paymentMode: "cash",
+          deliveryMode: order.delivery?.deliveryMode || "courier",
+          deliveryAddress: order.delivery?.deliveryAddress || "",
+          deliveryDate: order.delivery?.deliveryDate ? new Date(order.delivery.deliveryDate).toISOString().slice(0, 10) : "",
+          dispatchDate: order.delivery?.dispatchDate ? new Date(order.delivery.dispatchDate).toISOString().slice(0, 10) : "",
+          receiverName: order.delivery?.receiverName || "",
+          receiverPhone: order.delivery?.receiverPhone || "",
+          deliveryNotes: order.delivery?.deliveryNotes || "",
+        });
+
         setAvailabilityResult({
           enoughStock: productResolved && resData.isAvailable,
           productResolved,
@@ -694,6 +743,10 @@ const Orders = () => {
     try {
       const payload = {
         totalAmount: Number(confirmOrderForm.totalAmount || 0),
+        subtotalAmount: Number(confirmOrderForm.subtotalAmount || 0),
+        taxRate: Number(confirmOrderForm.taxRate || 0),
+        shippingCharges: Number(confirmOrderForm.shippingCharges || 0),
+        otherCharges: Number(confirmOrderForm.otherCharges || 0),
         paidAmount: Number(confirmOrderForm.paidAmount || 0),
         paymentMode: confirmOrderForm.paymentMode,
         receiverName: confirmOrderForm.receiverName,
@@ -755,8 +808,16 @@ const Orders = () => {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 7);
     setBillDueDate(dueDate.toISOString().slice(0, 10));
-    setBillTaxRate("0");
-    setBillShipping("0");
+
+    const savedTaxRate = order.taxRate ?? order.quotation?.taxRate ?? 0;
+    const savedShipping = order.shippingCharges ?? order.quotation?.shippingCharges ?? 0;
+    const savedOther = order.otherCharges ?? order.quotation?.otherCharges ?? 0;
+    const savedSubtotal = order.subtotalAmount ?? order.quotation?.subtotalAmount ?? order.totalAmount ?? 0;
+
+    setBillSubtotal(String(savedSubtotal));
+    setBillTaxRate(String(savedTaxRate));
+    setBillShipping(String(savedShipping));
+    setBillOther(String(savedOther));
     setBillDiscount("0");
     setBillNotes("Thank you for doing business with Nirmalyam Krafts!");
     setShowBillModal(true);
@@ -764,12 +825,13 @@ const Orders = () => {
 
   const getBillShareText = (order, meta) => {
     const qty = Number(order.orderDetails?.quantity || 1);
-    const total = Number(order.totalAmount || 0);
+    const subtotal = Number(meta.billSubtotal || order.subtotalAmount || order.totalAmount || 0);
     const discountVal = Number(meta.billDiscount || 0);
     const shippingVal = Number(meta.billShipping || 0);
+    const otherVal = Number(meta.billOther || 0);
     const taxRate = Number(meta.billTaxRate || 0);
-    const taxVal = (total - discountVal) * (taxRate / 100);
-    const grandTotal = total - discountVal + taxVal + shippingVal;
+    const taxVal = (subtotal - discountVal) * (taxRate / 100);
+    const grandTotal = subtotal - discountVal + taxVal + shippingVal + otherVal;
     const balance = Math.max(0, grandTotal - Number(order.paidAmount || 0));
     
     return `*${COMPANY_NAME} — Invoice/Bill*
@@ -802,7 +864,9 @@ Note: ${meta.billNotes || "—"}`;
       billDiscount,
       billShipping,
       billTaxRate,
-      billNotes
+      billNotes,
+      billSubtotal,
+      billOther
     };
     const text = getBillShareText(billOrder, meta);
     const encodedText = encodeURIComponent(text);
@@ -820,7 +884,9 @@ Note: ${meta.billNotes || "—"}`;
       billDiscount,
       billShipping,
       billTaxRate,
-      billNotes
+      billNotes,
+      billSubtotal,
+      billOther
     };
     const text = getBillShareText(billOrder, meta);
     const subject = encodeURIComponent(`${COMPANY_NAME} — Invoice ${billNumber}`);
@@ -895,16 +961,14 @@ Note: ${meta.billNotes || "—"}`;
     
     // Item Table
     const qty = Number(order.orderDetails?.quantity || 1);
-    const orderTotal = Number(order.totalAmount || 0);
-    
-    // Compute Subtotal, tax, discount, shipping from meta
+    const subtotal = Number(meta.billSubtotal || order.subtotalAmount || order.totalAmount || 0);
     const discountVal = Number(meta.billDiscount || 0);
     const shippingVal = Number(meta.billShipping || 0);
+    const otherVal = Number(meta.billOther || 0);
     const taxRate = Number(meta.billTaxRate || 0);
     
-    const subtotal = orderTotal;
     const taxVal = (subtotal - discountVal) * (taxRate / 100);
-    const grandTotal = subtotal - discountVal + taxVal + shippingVal;
+    const grandTotal = subtotal - discountVal + taxVal + shippingVal + otherVal;
     const rate = qty > 0 ? (subtotal / qty) : subtotal;
     
     const isRoll = order.productCategory?.toLowerCase().includes("roll");
@@ -969,6 +1033,12 @@ Note: ${meta.billNotes || "—"}`;
       currentY += 6;
       doc.text("Shipping Charges:", labelX, currentY);
       doc.text(`Rs. ${shippingVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    if (otherVal > 0) {
+      currentY += 6;
+      doc.text("Other Charges:", labelX, currentY);
+      doc.text(`Rs. ${otherVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
     
     currentY += 8;
@@ -1120,9 +1190,9 @@ Note: ${meta.billNotes || "—"}`;
       body: [
         ["Payment Status", report.paymentStatus],
         ["Payment Type", report.paymentType],
-        ["Partial Paid Amount", formatCurrency(report.partialPaidAmount)],
-        ["Full Paid Amount", formatCurrency(report.fullPaidAmount)],
-        ["Confirmed Paid Amount", formatCurrency(report.confirmedPaidAmount)],
+        ["Partial Paid Amount", Number(report.partialPaidAmount || 0).toFixed(2)],
+        ["Full Paid Amount", Number(report.fullPaidAmount || 0).toFixed(2)],
+        ["Confirmed Paid Amount", Number(report.confirmedPaidAmount || 0).toFixed(2)],
         ["Payment Mode", report.confirmedPaymentMode],
       ],
       theme: "grid",
@@ -1332,6 +1402,7 @@ Delivery Address: ${report.deliveryAddress}
         productId: cancelOrderTarget.orderDetails?.productId || null,
         deductionMode: deductionMode || "AUTO",
         cancellationReason: cancellationReasonInput,
+        manualLoss: manualLossInput.trim() !== "" ? Number(manualLossInput) : undefined,
       });
 
       if (response.data.success) {
@@ -1339,6 +1410,7 @@ Delivery Address: ${report.deliveryAddress}
         setShowCancelModal(false);
         setCancelOrderTarget(null);
         setCancellationReasonInput("");
+        setManualLossInput("");
         queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
         queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
         queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
@@ -1636,10 +1708,40 @@ Delivery Address: ${report.deliveryAddress}
     return Number(order?.totalAmount || 0);
   };
 
+  const recalculateQuotationTotal = (subtotal, tax, shipping, other) => {
+    const s = Number(subtotal || 0);
+    const t = Number(tax || 0);
+    const sh = Number(shipping || 0);
+    const o = Number(other || 0);
+    const total = s * (1 + t / 100) + sh + o;
+    setQuotationTotalInput(total > 0 ? String(Number(total.toFixed(2))) : "0");
+  };
+
+  const handleSubtotalChange = (val) => {
+    setQuotationSubtotalInput(val);
+    recalculateQuotationTotal(val, quotationTaxRateInput, quotationShippingInput, quotationOtherInput);
+  };
+  const handleTaxChange = (val) => {
+    setQuotationTaxRateInput(val);
+    recalculateQuotationTotal(quotationSubtotalInput, val, quotationShippingInput, quotationOtherInput);
+  };
+  const handleShippingChange = (val) => {
+    setQuotationShippingInput(val);
+    recalculateQuotationTotal(quotationSubtotalInput, quotationTaxRateInput, val, quotationOtherInput);
+  };
+  const handleOtherChange = (val) => {
+    setQuotationOtherInput(val);
+    recalculateQuotationTotal(quotationSubtotalInput, quotationTaxRateInput, quotationShippingInput, val);
+  };
+
   const openQuotationModal = (order) => {
     setQuotationOrder(order);
     setQuotationPricing(null);
     setQuotationTotalInput("");
+    setQuotationTaxRateInput(String(order.quotation?.taxRate ?? "0"));
+    setQuotationShippingInput(String(order.quotation?.shippingCharges ?? "0"));
+    setQuotationOtherInput(String(order.quotation?.otherCharges ?? "0"));
+    setQuotationSubtotalInput(String(order.quotation?.subtotalAmount ?? ""));
     // Default to AUTO so available finished stock is considered first.
     setQuotationMode("AUTO");
     const defaultUntil = new Date();
@@ -1664,7 +1766,15 @@ Delivery Address: ${report.deliveryAddress}
         const d = applyAvailabilityCostCorrection(resp.data.data, quotationOrder);
         setQuotationPricing(d);
         const suggested = getSuggestedQuotationTotal(d, quotationOrder);
-        setQuotationTotalInput(String(suggested > 0 ? suggested : ""));
+        const existingSubtotal = quotationOrder.quotation?.subtotalAmount;
+        const initialSubtotal = existingSubtotal > 0 ? existingSubtotal : (quotationOrder.quotation?.totalQuoted || suggested);
+        setQuotationSubtotalInput(String(initialSubtotal > 0 ? initialSubtotal : ""));
+
+        const taxRate = Number(quotationOrder.quotation?.taxRate ?? 0);
+        const shipping = Number(quotationOrder.quotation?.shippingCharges ?? 0);
+        const other = Number(quotationOrder.quotation?.otherCharges ?? 0);
+        const calcTotal = Number(initialSubtotal || 0) * (1 + taxRate / 100) + shipping + other;
+        setQuotationTotalInput(String(calcTotal > 0 ? Number(calcTotal.toFixed(2)) : ""));
         if (!cancelled && d.productResolved === false) {
           showNotification(
             "Quotation: reference-only stock/BOM — link a catalog product on the order for exact fulfillment numbers.",
@@ -1695,7 +1805,13 @@ Delivery Address: ${report.deliveryAddress}
     if (isTemp) {
       qn = `QT-${(order.id || order._id || "").toString().slice(-6).toUpperCase()}`;
     }
-    const total = Number(meta.totalQuoted || 0);
+    const subtotal = Number(meta.subtotalAmount || meta.totalQuoted || 0);
+    const taxRate = Number(meta.taxRate || 0);
+    const shippingVal = Number(meta.shippingCharges || 0);
+    const otherVal = Number(meta.otherCharges || 0);
+    const taxVal = subtotal * (taxRate / 100);
+    const grandTotal = subtotal + taxVal + shippingVal + otherVal;
+
     const validUntil = meta.validUntil || "—";
     const brand = [10, 92, 67]; // Emerald Green
     const gold = [212, 175, 55]; // Gold accent
@@ -1744,7 +1860,7 @@ Delivery Address: ${report.deliveryAddress}
       ? (order.quotation.status.charAt(0).toUpperCase() + order.quotation.status.slice(1)) 
       : "Pending Approval";
 
-    // Quotation Details
+    // Quotation Summary Details
     doc.setFont("helvetica", "bold");
     doc.text("QUOTE SUMMARY:", 110, 52);
     doc.setFont("helvetica", "normal");
@@ -1761,7 +1877,7 @@ Delivery Address: ${report.deliveryAddress}
     // Items table header
     const tableY = 84;
     const qty = Number(order.orderDetails?.quantity || 1);
-    const unitPrice = qty > 0 ? (total / qty) : total;
+    const unitPrice = qty > 0 ? (subtotal / qty) : subtotal;
 
     // Detailed Quotation Item Table
     const isRoll = order.productCategory?.toLowerCase().includes("roll");
@@ -1772,6 +1888,7 @@ Delivery Address: ${report.deliveryAddress}
     const specDetails = `Product: ${order.productCategory || "—"}\n` +
       `Size: ${order.orderDetails?.bagSize || "—"} · Color: ${order.orderDetails?.color || "—"}\n` +
       `GSM: ${order.orderDetails?.gsm || "—"} · Custom Printing: ${order.orderDetails?.customPrinting ? "Yes" : "No"}\n` +
+      `Branding: ${order.orderDetails?.brandingText || "—"}\n` +
       `Dimensions: ${dimsLabel}`;
 
     const tableBody = [
@@ -1779,7 +1896,7 @@ Delivery Address: ${report.deliveryAddress}
         specDetails,
         `${qty} ${order.orderDetails?.unit || "pcs"}`,
         `Rs. ${unitPrice.toFixed(2)}`,
-        `Rs. ${total.toFixed(2)}`
+        `Rs. ${subtotal.toFixed(2)}`
       ]
     ];
 
@@ -1797,17 +1914,44 @@ Delivery Address: ${report.deliveryAddress}
       }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 10;
+    const finalY = doc.lastAutoTable.finalY + 8;
 
-    // Grand total display on right side
+    // Totals Grid
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 80, 80);
+
     const rightAlignX = pageWidth - 15;
     const labelX = pageWidth - 70;
 
+    let currentY = finalY;
+    doc.text("Subtotal:", labelX, currentY);
+    doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    if (taxVal > 0) {
+      currentY += 6;
+      doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
+      doc.text(`Rs. ${taxVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    if (shippingVal > 0) {
+      currentY += 6;
+      doc.text("Shipping Charges:", labelX, currentY);
+      doc.text(`Rs. ${shippingVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    if (otherVal > 0) {
+      currentY += 6;
+      doc.text("Other Charges:", labelX, currentY);
+      doc.text(`Rs. ${otherVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    currentY += 8;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(brand[0], brand[1], brand[2]);
-    doc.text("Grand Total:", labelX, finalY);
-    doc.text(`Rs. ${total.toFixed(2)}`, rightAlignX, finalY, { align: "right" });
+    doc.text("Grand Total:", labelX, currentY);
+    doc.text(`Rs. ${grandTotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Terms & Conditions block on bottom left
     const tcY = finalY + 12;
@@ -1854,6 +1998,10 @@ Delivery Address: ${report.deliveryAddress}
         totalQuoted,
         validUntil: quotationValidUntil,
         quotationNumber: quotationNumberInput,
+        taxRate: Number(quotationTaxRateInput || 0),
+        shippingCharges: Number(quotationShippingInput || 0),
+        otherCharges: Number(quotationOtherInput || 0),
+        subtotalAmount: Number(quotationSubtotalInput || 0),
       });
       toast.success("Quotation updated", { id: loadingToast });
       setShowQuotationModal(false);
@@ -3151,7 +3299,7 @@ ${lines || "(See PDF for full BOM)"}
                     );
                   })()}
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-gray-600">Quote Number</label>
                       <input
@@ -3163,13 +3311,57 @@ ${lines || "(See PDF for full BOM)"}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Total quoted (₹)</label>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">Subtotal Amount (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={quotationSubtotalInput}
+                        onChange={(e) => handleSubtotalChange(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={quotationTaxRateInput}
+                        onChange={(e) => handleTaxChange(e.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">Shipping Charges (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={quotationShippingInput}
+                        onChange={(e) => handleShippingChange(e.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">Other Charges (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={quotationOtherInput}
+                        onChange={(e) => handleOtherChange(e.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">Total Quoted (₹) [Calculated]</label>
                       <input
                         type="number"
                         min="0"
                         value={quotationTotalInput}
-                        onChange={(e) => setQuotationTotalInput(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                        readOnly
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none"
                       />
                     </div>
                     <div>
@@ -3192,6 +3384,10 @@ ${lines || "(See PDF for full BOM)"}
                           totalQuoted: quotationTotalInput,
                           validUntil: quotationValidUntil,
                           quotationNumber: quotationNumberInput,
+                          taxRate: quotationTaxRateInput,
+                          shippingCharges: quotationShippingInput,
+                          otherCharges: quotationOtherInput,
+                          subtotalAmount: quotationSubtotalInput,
                         })
                       }
                     >
@@ -3240,14 +3436,18 @@ ${lines || "(See PDF for full BOM)"}
         >
           {billOrder && (
             <div className="space-y-4">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 animate-fade-in">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 animate-fade-in space-y-1">
                 <p className="text-sm font-bold text-gray-900">{billOrder.customerName}</p>
                 <p className="text-xs text-gray-600">
                   {billOrder.productCategory} · Qty {billOrder.orderDetails?.quantity} {billOrder.orderDetails?.unit || "pcs"}
                 </p>
-                <p className="mt-2 text-xs font-semibold text-emerald-800">
-                  Base Order Amount: ₹{Number(billOrder.totalAmount || 0).toLocaleString()}
-                </p>
+                <div className="mt-2 pt-2 border-t border-emerald-100/60 text-[11px] text-emerald-800 grid grid-cols-2 gap-y-1 gap-x-4">
+                  <span>Approved Total: ₹{Number(billOrder.totalAmount || 0).toLocaleString()}</span>
+                  <span>Approved Subtotal: ₹{Number(billOrder.subtotalAmount || billOrder.totalAmount || 0).toLocaleString()}</span>
+                  <span>Approved Tax: {billOrder.taxRate || 0}%</span>
+                  <span>Approved Shipping: ₹{Number(billOrder.shippingCharges || 0).toLocaleString()}</span>
+                  {billOrder.otherCharges > 0 && <span>Approved Other: ₹{Number(billOrder.otherCharges || 0).toLocaleString()}</span>}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -3279,6 +3479,16 @@ ${lines || "(See PDF for full BOM)"}
                   />
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Subtotal Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={billSubtotal}
+                    onChange={(e) => setBillSubtotal(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate (%)</label>
                   <input
                     type="number"
@@ -3300,6 +3510,16 @@ ${lines || "(See PDF for full BOM)"}
                   />
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Other Charges (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={billOther}
+                    onChange={(e) => setBillOther(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">Discount Amount (₹)</label>
                   <input
                     type="number"
@@ -3307,6 +3527,16 @@ ${lines || "(See PDF for full BOM)"}
                     value={billDiscount}
                     onChange={(e) => setBillDiscount(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Grand Total (₹) [Calculated]</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={Number(((Number(billSubtotal || 0) - Number(billDiscount || 0)) * (1 + Number(billTaxRate || 0) / 100) + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2))}
+                    readOnly
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none"
                   />
                 </div>
               </div>
@@ -3333,7 +3563,9 @@ ${lines || "(See PDF for full BOM)"}
                       billTaxRate,
                       billShipping,
                       billDiscount,
-                      billNotes
+                      billNotes,
+                      billSubtotal,
+                      billOther
                     })
                   }
                 >
@@ -4124,10 +4356,10 @@ ${lines || "(See PDF for full BOM)"}
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <div className="sm:col-span-2">
+                          <div>
                             <div className="flex items-center justify-between mb-2">
                               <label className="block text-sm font-semibold text-gray-700">
-                                Total Invoice Amount (₹)
+                                Subtotal Amount (₹)
                               </label>
                               <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                                 Suggested: ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
@@ -4136,12 +4368,74 @@ ${lines || "(See PDF for full BOM)"}
                             <input
                               type="number"
                               min="0"
-                              value={confirmOrderForm.totalAmount}
+                              value={confirmOrderForm.subtotalAmount}
                               onChange={(e) =>
-                                handleConfirmOrderChange("totalAmount", e.target.value)
+                                handleConfirmOrderPriceChange("subtotalAmount", e.target.value)
                               }
-                              placeholder="Enter total bill amount"
+                              placeholder="Enter subtotal amount"
                               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              GST/Tax Rate (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={confirmOrderForm.taxRate}
+                              onChange={(e) =>
+                                handleConfirmOrderPriceChange("taxRate", e.target.value)
+                              }
+                              placeholder="0"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Shipping Charges (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={confirmOrderForm.shippingCharges}
+                              onChange={(e) =>
+                                handleConfirmOrderPriceChange("shippingCharges", e.target.value)
+                              }
+                              placeholder="0"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Other Charges (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={confirmOrderForm.otherCharges}
+                              onChange={(e) =>
+                                handleConfirmOrderPriceChange("otherCharges", e.target.value)
+                              }
+                              placeholder="0"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                              Total Invoice Amount (₹) [Calculated]
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={confirmOrderForm.totalAmount}
+                              readOnly
+                              className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-emerald-800 outline-none"
                             />
                           </div>
 
@@ -4959,6 +5253,7 @@ ${lines || "(See PDF for full BOM)"}
           setShowCancelModal(false);
           setCancelOrderTarget(null);
           setCancellationReasonInput("");
+          setManualLossInput("");
         }}
       >
         {cancelOrderTarget && (
@@ -4993,6 +5288,20 @@ ${lines || "(See PDF for full BOM)"}
                   required
                 />
               </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Manual Cancellation Loss (₹) <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="number"
+                  value={manualLossInput}
+                  onChange={(e) => setManualLossInput(e.target.value)}
+                  placeholder="Defaults to calculated materials cost if empty..."
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-red-500 bg-white"
+                  min="0"
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -5004,6 +5313,7 @@ ${lines || "(See PDF for full BOM)"}
                   setShowCancelModal(false);
                   setCancelOrderTarget(null);
                   setCancellationReasonInput("");
+                  setManualLossInput("");
                 }}
               >
                 Go Back

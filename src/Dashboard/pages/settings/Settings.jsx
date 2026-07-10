@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Layout } from "../../components/common/Layout";
-import { Card, Button, Input } from "../../components/ui";
+import { Card, Button, Input, Modal } from "../../components/ui";
 import { useAuthStore, useUIStore } from "../../store";
 import { motion as Motion } from "framer-motion";
 import {
@@ -15,6 +15,10 @@ import {
   ShieldCheck,
   Building2,
   Sparkles,
+  Trash2,
+  UserPlus,
+  KeyRound,
+  Plus,
 } from "lucide-react";
 import { useCurrentUser } from "../../../../hook/admin";
 import { useAuthContext } from "../../../context/Adminauth";
@@ -64,10 +68,27 @@ const Settings = () => {
     businessName: "Nirmalyam Krafts",
   });
   const [initialFormData, setInitialFormData] = useState(null);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [securityLoading, setSecurityLoading] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Password Change & Staff Management States
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [passwordFields, setPasswordFields] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const [showCreateStaffModal, setShowCreateStaffModal] = useState(false);
+  const [staffFields, setStaffFields] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    password: "",
+    role: "sales",
+  });
+  const [creatingStaff, setCreatingStaff] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -82,7 +103,6 @@ const Settings = () => {
 
     setFormData(nextForm);
     setInitialFormData(nextForm);
-    setTwoFactorEnabled(Boolean(profile?.twoFactorEnabled));
   }, [profile]);
 
   const handleInputChange = (e) => {
@@ -132,14 +152,17 @@ const Settings = () => {
     }
   };
 
-  const handleChangePassword = async () => {
-    const currentPassword = window.prompt("Enter your current password:");
-    if (currentPassword === null) return;
-
-    const newPassword = window.prompt("Enter your new password (minimum 6 characters):");
-    if (newPassword === null) return;
-
-    if (newPassword.trim().length < 6) {
+  const onSubmitChangePassword = async (e) => {
+    e.preventDefault();
+    if (!passwordFields.currentPassword || !passwordFields.newPassword) {
+      showNotification("All password fields are required", "error");
+      return;
+    }
+    if (passwordFields.newPassword !== passwordFields.confirmPassword) {
+      showNotification("Passwords do not match", "error");
+      return;
+    }
+    if (passwordFields.newPassword.length < 6) {
       showNotification("New password must be at least 6 characters", "error");
       return;
     }
@@ -147,8 +170,8 @@ const Settings = () => {
     try {
       setSecurityLoading(true);
       const res = await axiosInstance.patch("/admin/me/password", {
-        currentPassword,
-        newPassword,
+        currentPassword: passwordFields.currentPassword,
+        newPassword: passwordFields.newPassword,
       });
 
       if (!res?.data?.success) {
@@ -156,6 +179,8 @@ const Settings = () => {
       }
 
       showNotification("Password changed successfully", "success");
+      setShowChangePasswordModal(false);
+      setPasswordFields({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (error) {
       const message =
         error?.response?.data?.message || error?.message || "Failed to change password";
@@ -165,34 +190,71 @@ const Settings = () => {
     }
   };
 
-  const handleToggleTwoFactor = async () => {
-    const nextValue = !twoFactorEnabled;
+  const { data: staffUsers, refetch: refetchStaff } = useQuery({
+    queryKey: ["getStaffUsers"],
+    queryFn: async () => {
+      if (profile?.role !== "admin") return [];
+      const res = await axiosInstance.get("/admin/users");
+      return res.data?.data || [];
+    },
+    enabled: profile?.role === "admin",
+  });
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    if (!staffFields.name || !staffFields.phone || !staffFields.email || !staffFields.password) {
+      showNotification("All staff fields are required", "error");
+      return;
+    }
+    if (!/^\d{10}$/.test(staffFields.phone)) {
+      showNotification("Phone number must be exactly 10 digits", "error");
+      return;
+    }
 
     try {
-      setSecurityLoading(true);
-      const res = await axiosInstance.patch("/admin/me/security/two-factor", {
-        enabled: nextValue,
-      });
-
+      setCreatingStaff(true);
+      const res = await axiosInstance.post("/admin/users", staffFields);
       if (!res?.data?.success) {
-        throw new Error(res?.data?.message || "Failed to update two-factor auth");
+        throw new Error(res?.data?.message || "Failed to create staff user");
       }
-
-      setTwoFactorEnabled(nextValue);
-      await refetch();
-      queryClient.invalidateQueries({ queryKey: ["getCurrentUser"] });
-      showNotification(
-        `Two-factor authentication ${nextValue ? "enabled" : "disabled"}`,
-        "success"
-      );
+      showNotification("Staff user created successfully", "success");
+      setShowCreateStaffModal(false);
+      setStaffFields({
+        name: "",
+        phone: "",
+        email: "",
+        password: "",
+        role: "sales",
+      });
+      refetchStaff();
     } catch (error) {
       const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to update two-factor auth";
+        error?.response?.data?.message || error?.message || "Failed to create staff user";
       showNotification(message, "error");
     } finally {
-      setSecurityLoading(false);
+      setCreatingStaff(false);
+    }
+  };
+
+  const handleDeleteStaff = async (staffId) => {
+    if (staffId === profile?._id) {
+      showNotification("You cannot delete your own account here", "error");
+      return;
+    }
+    const confirmDelete = window.confirm("Are you sure you want to delete this staff user?");
+    if (!confirmDelete) return;
+
+    try {
+      const res = await axiosInstance.delete(`/admin/users/${staffId}`);
+      if (!res?.data?.success) {
+        throw new Error(res?.data?.message || "Failed to delete staff user");
+      }
+      showNotification("Staff user deleted successfully", "success");
+      refetchStaff();
+    } catch (error) {
+      const message =
+        error?.response?.data?.message || error?.message || "Failed to delete staff user";
+      showNotification(message, "error");
     }
   };
 
@@ -512,21 +574,11 @@ const Settings = () => {
                   <Button
                     variant="secondary"
                     className="w-full rounded-xl"
-                    onClick={handleChangePassword}
+                    onClick={() => setShowChangePasswordModal(true)}
                     loading={securityLoading}
                     disabled={securityLoading || deletingAccount}
                   >
                     Change Password
-                  </Button>
-
-                  <Button
-                    variant="secondary"
-                    className="w-full rounded-xl"
-                    onClick={handleToggleTwoFactor}
-                    loading={securityLoading}
-                    disabled={securityLoading || deletingAccount}
-                  >
-                    {twoFactorEnabled ? "Disable Two-Factor Auth" : "Enable Two-Factor Auth"}
                   </Button>
 
                   <div className="border-t border-gray-200 pt-4">
@@ -590,6 +642,255 @@ const Settings = () => {
             </Motion.div>
           </div>
         </div>
+
+        {/* STAFF MANAGEMENT GRID SECTION */}
+        {profile?.role === "admin" && (
+          <Motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28 }}
+          >
+            <Card className="rounded-3xl border border-gray-200 shadow-sm p-6">
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900">
+                    <UserPlus className="h-5 w-5 text-emerald-600" />
+                    Staff Management
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Create and manage login profiles for your team members (Sales, Operations, etc.)
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowCreateStaffModal(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 self-start sm:self-center"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Staff Member
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <th className="px-5 py-3">Name</th>
+                      <th className="px-5 py-3">Email</th>
+                      <th className="px-5 py-3">Phone</th>
+                      <th className="px-5 py-3">Role</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-sm">
+                    {staffUsers && staffUsers.length > 0 ? (
+                      staffUsers.map((u) => (
+                        <tr key={u._id} className="hover:bg-gray-50/50 transition">
+                          <td className="px-5 py-4 font-medium text-gray-900">{u.name}</td>
+                          <td className="px-5 py-4 text-gray-600">{u.email}</td>
+                          <td className="px-5 py-4 text-gray-600">{u.phone}</td>
+                          <td className="px-5 py-4">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                                u.role === "admin"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-100"
+                                  : u.role === "sales"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-100"
+                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                              }`}
+                            >
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            {u._id !== profile?._id ? (
+                              <button
+                                onClick={() => handleDeleteStaff(u._id)}
+                                className="text-red-600 hover:text-red-800 transition p-1 hover:bg-red-50 rounded-lg inline-flex items-center cursor-pointer"
+                                title="Delete staff user"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400 font-normal italic">Current User</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
+                          No staff users found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </Motion.div>
+        )}
+
+        {/* CHANGE PASSWORD DIALOG MODAL */}
+        <Modal
+          isOpen={showChangePasswordModal}
+          title="Change Password"
+          onClose={() => {
+            setShowChangePasswordModal(false);
+            setPasswordFields({ currentPassword: "", newPassword: "", confirmPassword: "" });
+          }}
+        >
+          <form onSubmit={onSubmitChangePassword} className="space-y-4">
+            <p className="text-xs text-gray-500">
+              Ensure your new password contains at least 6 characters.
+            </p>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Current Password</label>
+              <input
+                type="password"
+                required
+                value={passwordFields.currentPassword}
+                onChange={(e) => setPasswordFields(prev => ({ ...prev, currentPassword: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="Enter current password"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">New Password</label>
+              <input
+                type="password"
+                required
+                value={passwordFields.newPassword}
+                onChange={(e) => setPasswordFields(prev => ({ ...prev, newPassword: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="Minimum 6 characters"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Confirm New Password</label>
+              <input
+                type="password"
+                required
+                value={passwordFields.confirmPassword}
+                onChange={(e) => setPasswordFields(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="Re-enter new password"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-xl px-5"
+                onClick={() => {
+                  setShowChangePasswordModal(false);
+                  setPasswordFields({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl px-5 bg-emerald-700 hover:bg-emerald-800"
+                loading={securityLoading}
+                disabled={securityLoading}
+              >
+                Change Password
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* CREATE STAFF MODAL */}
+        <Modal
+          isOpen={showCreateStaffModal}
+          title="Add Staff Member"
+          onClose={() => {
+            setShowCreateStaffModal(false);
+            setStaffFields({ name: "", phone: "", email: "", password: "", role: "sales" });
+          }}
+        >
+          <form onSubmit={handleCreateStaff} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Full Name</label>
+              <input
+                type="text"
+                required
+                value={staffFields.name}
+                onChange={(e) => setStaffFields(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="E.g., Amit Kumar"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Email Address</label>
+              <input
+                type="email"
+                required
+                value={staffFields.email}
+                onChange={(e) => setStaffFields(prev => ({ ...prev, email: e.target.value.toLowerCase() }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="staff@nirmalyamkrafts.com"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Phone Number (10 digits)</label>
+              <input
+                type="text"
+                required
+                pattern="[0-9]{10}"
+                maxLength={10}
+                value={staffFields.phone}
+                onChange={(e) => setStaffFields(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9]/g, "") }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="E.g., 9876543210"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Password</label>
+              <input
+                type="password"
+                required
+                value={staffFields.password}
+                onChange={(e) => setStaffFields(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                placeholder="Minimum 6 characters"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Role / Profile Type</label>
+              <select
+                value={staffFields.role}
+                onChange={(e) => setStaffFields(prev => ({ ...prev, role: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+              >
+                <option value="sales">Sales Team</option>
+                <option value="operations">Operations Team</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-xl px-5"
+                onClick={() => {
+                  setShowCreateStaffModal(false);
+                  setStaffFields({ name: "", phone: "", email: "", password: "", role: "sales" });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl px-5 bg-emerald-700 hover:bg-emerald-800"
+                loading={creatingStaff}
+                disabled={creatingStaff}
+              >
+                Create Profile
+              </Button>
+            </div>
+          </form>
+        </Modal>
       </div>
     </Layout>
   );

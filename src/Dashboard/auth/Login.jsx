@@ -57,17 +57,7 @@ export default function Login() {
     <AuthView
       mode="login"
       onLogin={handleLogin}
-      footerText={
-        <p className="text-sm text-on-surface-variant text-center mt-1">
-          Don&apos;t have an account?{" "}
-          {/* <Link
-            to="/dashboard/signup"
-            className="text-primary font-semibold hover:underline"
-          >
-            Sign up
-          </Link> */}
-        </p>
-      }
+      footerText={null}
     />
   );
 }

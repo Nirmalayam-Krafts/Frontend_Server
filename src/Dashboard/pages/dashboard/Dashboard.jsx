@@ -8,7 +8,7 @@ import {
   HorizontalBarChart,
 } from "../../components/charts";
 import { useUIStore } from "../../store";
-import { TrendingUp, Users, Box, AlertCircle } from "lucide-react";
+import { TrendingUp, Users, Box, AlertCircle, Package } from "lucide-react";
 import { motion as Motion } from "framer-motion";
 import { useAuthContext } from "../../../context/Adminauth";
 
@@ -353,7 +353,7 @@ const Dashboard = () => {
 
   const iconMap = {
     Users: Users,
-    Package: TrendingUp,
+    Package: Package,
     AlertCircle: AlertCircle,
     TrendingUp: TrendingUp,
   };
