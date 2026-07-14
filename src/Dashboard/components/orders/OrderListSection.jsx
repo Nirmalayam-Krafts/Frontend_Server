@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Wallet,
+  Edit,
 } from "lucide-react";
 import { Badge } from "../ui";
 
@@ -45,6 +46,7 @@ export default function OrderListSection({
   onOpenBill,
   onMoveToProcessing,
   onCompleteOrder,
+  onEditOrder,
 }) {
   if (isLoading) {
     return (
@@ -274,6 +276,16 @@ export default function OrderListSection({
                       >
                         <Eye className="h-4 w-4" />
                         <span>View details</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onEditOrder(order)}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        title="Edit Order Details"
+                      >
+                        <Edit className="h-4 w-4 text-gray-500" />
+                        <span>Edit order</span>
                       </button>
 
                       <button

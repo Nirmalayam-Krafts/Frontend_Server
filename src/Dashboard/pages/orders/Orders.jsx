@@ -47,6 +47,7 @@ import {
   Layers,
   ListOrdered,
   Info,
+  Edit,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -125,7 +126,10 @@ const Orders = () => {
   const [showReportPreview, setShowReportPreview] = useState(false);
 
   const [manualOrderForm, setManualOrderForm] = useState(initialManualOrderForm);
-
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [editOrderForm, setEditOrderForm] = useState(initialManualOrderForm);
+  const [showAdvancedAvailability, setShowAdvancedAvailability] = useState(false);
 
   const [checkingOrderId, setCheckingOrderId] = useState(null);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
@@ -250,6 +254,55 @@ const Orders = () => {
     manualOrderForm.calculationMode,
     manualOrderForm.gsm,
     manualOrderForm.width,
+    productItems
+  ]);
+
+  useEffect(() => {
+    const selProd = productItems.find(
+      (p) => String(p?._id || p?.id || "").trim() === editOrderForm.productId
+    );
+    const isRoll = !!(selProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll"));
+    
+    if (editOrderForm.calculationMode === "auto") {
+      const qty = Number(editOrderForm.quantity || 0);
+      if (qty <= 0) {
+        setEditOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+        return;
+      }
+
+      if (!isRoll) {
+        if (editOrderForm.unit === "kg") {
+          const weight = Number(selProd?.weight || 0);
+          if (weight > 0) {
+            setEditOrderForm(prev => ({ ...prev, convertedQuantity: Math.ceil(qty / weight) }));
+          } else {
+            setEditOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+          }
+        } else {
+          setEditOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
+        }
+      } else {
+        if (editOrderForm.unit === "m") {
+          const width = Number(editOrderForm.width || selProd?.dimensions?.width || 0);
+          const gsm = Number(editOrderForm.gsm || selProd?.gsm || 0);
+          if (width > 0 && gsm > 0) {
+            const calculated = Number(((width * 2.54 * qty * gsm) / 100000).toFixed(2));
+            setEditOrderForm(prev => ({ ...prev, convertedQuantity: calculated }));
+          } else {
+            setEditOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
+          }
+        } else {
+          setEditOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
+        }
+      }
+    }
+  }, [
+    editOrderForm.productId,
+    editOrderForm.quantity,
+    editOrderForm.unit,
+    editOrderForm.calculationMode,
+    editOrderForm.gsm,
+    editOrderForm.width,
     productItems
   ]);
 
@@ -425,6 +478,19 @@ const Orders = () => {
     setShowCreateModal(false);
   };
 
+  const handleEditFormChange = (field, value) => {
+    setEditOrderForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const resetEditOrderForm = () => {
+    setEditOrderForm(initialManualOrderForm);
+    setShowEditModal(false);
+    setEditingOrder(null);
+  };
+
   const handleConfirmOrderChange = (field, value) => {
     setConfirmOrderForm((prev) => ({
       ...prev,
@@ -452,6 +518,7 @@ const Orders = () => {
     setConfirmOrderForm(initialConfirmOrderForm);
     setCheckingOrderId(null);
     setUseAvailableStock(false);
+    setShowAdvancedAvailability(false);
   };
 
   const normalizeText = (value) =>
@@ -2049,6 +2116,104 @@ ${lines || "(See PDF for full BOM)"}
     window.location.href = `mailto:${quotationOrder.email || ""}?subject=${subject}&body=${body}`;
   };
 
+  const handleEditOrder = (order) => {
+    setEditingOrder(order);
+    setEditOrderForm({
+      customerName: order.customerName || "",
+      businessName: order.businessName || "",
+      phone: order.phone || "",
+      email: order.email || "",
+      productId: order.orderDetails?.productId || "",
+      productCategory: order.productCategory || "",
+      source: order.source || "Manual Order",
+      bagSize: order.orderDetails?.bagSize || "",
+      color: order.orderDetails?.color || "",
+      quantity: order.orderDetails?.quantity || "",
+      length: order.orderDetails?.dimensions?.length || "",
+      width: order.orderDetails?.dimensions?.width || "",
+      height: order.orderDetails?.dimensions?.height || "",
+      gsm: order.orderDetails?.gsm || "",
+      dimensionUnit: order.orderDetails?.dimensions?.unit || "inch",
+      notes: order.notes || "",
+      unit: order.orderDetails?.unit || "",
+      calculationMode: order.orderDetails?.calculationMode || "auto",
+      convertedQuantity: order.orderDetails?.convertedQuantity || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateOrderSubmit = async (e) => {
+    e.preventDefault();
+
+    const selectedProd = productItems.find(
+      (p) => String(p?._id || p?.id || "").trim() === editOrderForm.productId
+    );
+    const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll");
+
+    if (
+      !editOrderForm.customerName ||
+      !editOrderForm.phone ||
+      !editOrderForm.productId ||
+      !editOrderForm.quantity ||
+      !editOrderForm.width ||
+      (isRoll ? !editOrderForm.gsm : (!editOrderForm.bagSize || !editOrderForm.length || !editOrderForm.height))
+    ) {
+      showNotification("Please fill all required fields", "error");
+      return;
+    }
+
+    const loadingToast = toast.loading("Updating order...");
+
+    try {
+      const payload = {
+        customerName: editOrderForm.customerName,
+        businessName: editOrderForm.businessName,
+        phone: editOrderForm.phone,
+        email: editOrderForm.email,
+        productCategory: editOrderForm.productCategory || selectedProd?.category || "Kraft Rolls",
+        source: editOrderForm.source,
+        orderDetails: {
+          productId: editOrderForm.productId,
+          bagSize: isRoll ? undefined : editOrderForm.bagSize,
+          color: isRoll ? undefined : editOrderForm.color,
+          quantity: Number(editOrderForm.quantity),
+          gsm: editOrderForm.gsm ? Number(editOrderForm.gsm) : undefined,
+          unit: editOrderForm.unit || (isRoll ? "kg" : "pcs"),
+          calculationMode: editOrderForm.calculationMode || "auto",
+          convertedQuantity: editOrderForm.convertedQuantity ? Number(editOrderForm.convertedQuantity) : undefined,
+          bf: isRoll && selectedProd?.bf ? Number(selectedProd.bf) : undefined,
+          dimensions: {
+            length: isRoll ? 0 : Number(editOrderForm.length),
+            width: Number(editOrderForm.width),
+            height: isRoll ? 0 : Number(editOrderForm.height),
+            unit: editOrderForm.dimensionUnit,
+          },
+        },
+        notes: editOrderForm.notes,
+      };
+
+      await axiosInstance.patch(`/orders/${editingOrder.id}/update`, payload);
+
+      toast.success("Order updated successfully 🎉", { id: loadingToast });
+
+      queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+      queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
+
+      await refetch();
+      setShowEditModal(false);
+      setEditingOrder(null);
+      if (selectedOrder && selectedOrder.id === editingOrder.id) {
+        setShowDetailPanel(false);
+        setSelectedOrder(null);
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Failed to update order",
+        { id: loadingToast }
+      );
+    }
+  };
+
   const handleCreateManualOrder = async (e) => {
     e.preventDefault();
 
@@ -2745,6 +2910,16 @@ ${lines || "(See PDF for full BOM)"}
 
                             <button
                               type="button"
+                              onClick={() => handleEditOrder(order)}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-indigo-750 hover:bg-indigo-50 transition-all duration-200"
+                              title="Edit Order Details"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              type="button"
                               onClick={() => handleCheckOrderAvailability(order)}
                               className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-all duration-200"
                               title="Check Availability"
@@ -2850,6 +3025,7 @@ ${lines || "(See PDF for full BOM)"}
                 onOpenBill={openBillModal}
                 onMoveToProcessing={handleMoveToProcessing}
                 onCompleteOrder={handleCompleteOrder}
+                onEditOrder={handleEditOrder}
               />
             )}
 
@@ -3220,6 +3396,367 @@ ${lines || "(See PDF for full BOM)"}
                   </Button>
                   <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
                     Create Order
+                  </Button>
+                </div>
+              </form>
+            );
+          })()}
+        </Modal>
+
+        <Modal
+          isOpen={showEditModal}
+          title="Edit Order Details"
+          onClose={resetEditOrderForm}
+        >
+          {(() => {
+            const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === editOrderForm.productId);
+            const isManualRoll = !!(selProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll"));
+
+            return (
+              <form onSubmit={handleUpdateOrderSubmit} className="space-y-5">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
+                      <ShoppingBag className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">Update Order Details</h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Modify any order fields below.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <div className="mb-4 flex items-center gap-2">
+                    <User2 className="h-4 w-4 text-emerald-600" />
+                    <p className="text-sm font-bold text-gray-800">Customer & Product Details</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Customer Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editOrderForm.customerName}
+                        onChange={(e) => handleEditFormChange("customerName", e.target.value)}
+                        placeholder="Customer Name"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Business Name
+                      </label>
+                      <input
+                        type="text"
+                        value={editOrderForm.businessName}
+                        onChange={(e) => handleEditFormChange("businessName", e.target.value)}
+                        placeholder="Business Name"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Phone <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editOrderForm.phone}
+                        onChange={(e) => handleEditFormChange("phone", e.target.value)}
+                        placeholder="Phone"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={editOrderForm.email}
+                        onChange={(e) => handleEditFormChange("email", e.target.value)}
+                        placeholder="Email"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Product <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={editOrderForm.productId}
+                        onChange={(e) => {
+                          const prodId = e.target.value;
+                          const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
+                          const isRollCategory = prod?.category?.toLowerCase().includes("roll");
+                          setEditOrderForm(prev => ({
+                            ...prev,
+                            productId: prodId,
+                            productCategory: prod?.category || "",
+                            length: prod?.dimensions?.length || "",
+                            width: prod?.dimensions?.width || "",
+                            height: prod?.dimensions?.height || "",
+                            dimensionUnit: prod?.dimensions?.unit || "inch",
+                            gsm: prod?.gsm || "",
+                            color: prod?.color || prev.color || "",
+                            bagSize: prod?.bagSize || prev.bagSize || "",
+                            unit: isRollCategory ? "kg" : "pcs",
+                            calculationMode: "auto",
+                            convertedQuantity: "",
+                          }));
+                        }}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                        required
+                      >
+                        <option value="">Select Product</option>
+                        {productItems.map((product) => (
+                          <option key={product._id || product.id} value={product._id || product.id}>
+                            {product.name} {product.sku ? `(${product.sku})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Source
+                      </label>
+                      <input
+                        type="text"
+                        value={editOrderForm.source}
+                        onChange={(e) => handleEditFormChange("source", e.target.value)}
+                        placeholder="Source"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Order Quantity <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={editOrderForm.quantity}
+                          onChange={(e) => handleEditFormChange("quantity", e.target.value)}
+                          placeholder="Quantity"
+                          className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                          required
+                        />
+                        <select
+                          value={editOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
+                          onChange={(e) => handleEditFormChange("unit", e.target.value)}
+                          className="w-[90px] rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500"
+                        >
+                          {isManualRoll ? (
+                            <>
+                              <option value="kg">kg</option>
+                              <option value="m">meter</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="pcs">pcs</option>
+                              <option value="kg">kg</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {((!isManualRoll && editOrderForm.unit === "kg") || (isManualRoll && editOrderForm.unit === "m")) && (
+                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Unit Conversion Mode
+                          </label>
+                          <select
+                            value={editOrderForm.calculationMode || "auto"}
+                            onChange={(e) =>
+                              handleEditFormChange("calculationMode", e.target.value)
+                            }
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                          >
+                            <option value="auto">Auto via Formula</option>
+                            <option value="manual">Enter Manually</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={editOrderForm.convertedQuantity || ""}
+                            onChange={(e) =>
+                              handleEditFormChange("convertedQuantity", e.target.value)
+                            }
+                            placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
+                            disabled={editOrderForm.calculationMode !== "manual"}
+                            className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
+                              editOrderForm.calculationMode === "manual"
+                                ? "border-emerald-300 bg-white focus:border-emerald-500"
+                                : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        {isManualRoll ? "Width Unit" : "Dimension Unit"}
+                      </label>
+                      <select
+                        value={editOrderForm.dimensionUnit}
+                        onChange={(e) => handleEditFormChange("dimensionUnit", e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      >
+                        <option value="inch">Inch</option>
+                        <option value="cm">CM</option>
+                        <option value="mm">MM</option>
+                        <option value="ft">Feet</option>
+                      </select>
+                    </div>
+
+                    {isManualRoll ? (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            GSM <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editOrderForm.gsm}
+                            onChange={(e) => handleEditFormChange("gsm", e.target.value)}
+                            placeholder="GSM"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Width <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editOrderForm.width}
+                            onChange={(e) => handleEditFormChange("width", e.target.value)}
+                            placeholder="Width"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Bag Size <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={editOrderForm.bagSize}
+                            onChange={(e) => handleEditFormChange("bagSize", e.target.value)}
+                            placeholder="Bag Size"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Color
+                          </label>
+                          <select
+                            value={editOrderForm.color}
+                            onChange={(e) => handleEditFormChange("color", e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                          >
+                            <option value="">Select color</option>
+                            <option value="Brown">Brown</option>
+                            <option value="White">White</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Length <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editOrderForm.length}
+                            onChange={(e) => handleEditFormChange("length", e.target.value)}
+                            placeholder="Length"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Width <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editOrderForm.width}
+                            onChange={(e) => handleEditFormChange("width", e.target.value)}
+                            placeholder="Width"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            Height <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editOrderForm.height}
+                            onChange={(e) => handleEditFormChange("height", e.target.value)}
+                            placeholder="Height"
+                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <label className="mb-2 block text-xs font-semibold text-gray-600">
+                    Notes
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={editOrderForm.notes}
+                    onChange={(e) => handleEditFormChange("notes", e.target.value)}
+                    placeholder="Notes"
+                    className="w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={resetEditOrderForm}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+                    Save Changes
                   </Button>
                 </div>
               </form>
@@ -3660,40 +4197,54 @@ ${lines || "(See PDF for full BOM)"}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
-                  <label className="mb-2 block text-sm font-bold text-emerald-900">
-                    Choose Deduction Logic Mode
-                  </label>
-                  <select
-                    value={deductionMode}
-                    onChange={(e) => setDeductionMode(e.target.value)}
-                    className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                  >
-                    <option value="AUTO">AUTO (Search Finished Bags then Raw Materials)</option>
-                    <option value="RAW_ONLY">FORCE PRODUCTION (Raw Materials Only)</option>
-                    <option value="STOCK_ONLY">FORCE STOCK (Finished Bags Only)</option>
-                  </select>
-                  <button
-                    onClick={() => handleCheckOrderAvailability(availabilityOrder)}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${checkingOrderId ? "animate-spin" : ""}`} />
-                    Apply Mode & Re-Check
-                  </button>
+                {availabilityResult && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedAvailability(!showAdvancedAvailability)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-gray-250 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm cursor-pointer"
+                    >
+                      {showAdvancedAvailability ? "💡 Hide advanced options" : "🔧 Show advanced details & settings"}
+                    </button>
+                  </div>
+                )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!availabilityOrder) return;
-                      setAvailabilityModalOpen(false);
-                      openQuotationModal(availabilityOrder);
-                    }}
-                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-700 py-2.5 text-sm font-bold text-white transition hover:bg-violet-800"
-                  >
-                    <FileDown className="h-4 w-4" />
-                    Open Quotation
-                  </button>
-                </div>
+                {showAdvancedAvailability && (
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <label className="mb-2 block text-sm font-bold text-emerald-900">
+                      Choose Deduction Logic Mode
+                    </label>
+                    <select
+                      value={deductionMode}
+                      onChange={(e) => setDeductionMode(e.target.value)}
+                      className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                    >
+                      <option value="AUTO">AUTO (Search Finished Bags then Raw Materials)</option>
+                      <option value="RAW_ONLY">FORCE PRODUCTION (Raw Materials Only)</option>
+                      <option value="STOCK_ONLY">FORCE STOCK (Finished Bags Only)</option>
+                    </select>
+                    <button
+                      onClick={() => handleCheckOrderAvailability(availabilityOrder)}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${checkingOrderId ? "animate-spin" : ""}`} />
+                      Apply Mode & Re-Check
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!availabilityOrder) return;
+                        setAvailabilityModalOpen(false);
+                        openQuotationModal(availabilityOrder);
+                      }}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-700 py-2.5 text-sm font-bold text-white transition hover:bg-violet-800"
+                    >
+                      <FileDown className="h-4 w-4" />
+                      Open Quotation
+                    </button>
+                  </div>
+                )}
 
                 {checkingOrderId ? (
                   <motion.div
@@ -3715,625 +4266,719 @@ ${lines || "(See PDF for full BOM)"}
                       </div>
                     </div>
                   </motion.div>
-                ) : availabilityResult?.checkFailed ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="overflow-hidden rounded-3xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-5 shadow-sm"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700">
-                        <AlertTriangle className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-red-900">
-                          Availability check could not run
-                        </h3>
-                        <p className="mt-1 text-sm text-red-800">
-                          {availabilityResult.errorMessage}
-                        </p>
-                        <p className="mt-3 text-xs text-red-700/90">
-                          Confirm the order line above (product name, bag size, color, dimensions) and that it matches a
-                          catalog product. Then use &quot;Apply Mode &amp; Re-Check&quot;.
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
                 ) : availabilityResult ? (
                   <>
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`overflow-hidden rounded-3xl border shadow-sm ${availabilityResult.productResolved === false
-                        ? "border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50"
-                        : availabilityResult.enoughStock
-                          ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50"
-                          : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50"
-                        }`}
-                    >
-                      <div className="p-5">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="flex items-start gap-3">
+                    {!showAdvancedAvailability ? (
+                      <div className="space-y-5">
+                        {availabilityResult.productResolved === false ? (
+                          <div className="rounded-3xl border-2 border-indigo-200 bg-indigo-50 p-6 text-center shadow-md animate-fade-in">
+                            <span className="text-5xl">🔗</span>
+                            <h3 className="mt-3 text-xl font-black text-indigo-900">Product Not Matched</h3>
+                            <p className="mt-1 text-sm text-indigo-700 font-bold">
+                              {availabilityResult.message || "Please edit the order or link it in catalog."}
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            {availabilityResult.enoughStock ? (
+                              <div className="rounded-3xl border-2 border-emerald-505 bg-emerald-50 p-6 text-center shadow-md animate-fade-in">
+                                <span className="text-5xl">👍</span>
+                                <h3 className="mt-3 text-2xl font-black text-emerald-950">Ready to Go!</h3>
+                                <p className="mt-1 text-sm text-emerald-700 font-bold">
+                                  We have all the stock and materials. You can confirm this order!
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="rounded-3xl border-2 border-red-500 bg-red-50 p-6 text-center shadow-md animate-fade-in">
+                                <span className="text-5xl">⚠️</span>
+                                <h3 className="mt-3 text-2xl font-black text-red-950">Materials Missing!</h3>
+                                <p className="mt-1 text-sm text-red-700 font-bold">
+                                  We need to buy some raw materials first. Check the shopping list below.
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                              <div className="rounded-2xl bg-emerald-50 p-4 text-center ring-1 ring-emerald-250/20">
+                                <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wide">📦 Ready on Shelf</p>
+                                <p className="mt-2 text-3xl font-black text-emerald-950">
+                                  {availabilityResult.canFulfillFromStock} <span className="text-xs font-semibold text-emerald-700">units</span>
+                                </p>
+                                <p className="mt-1 text-[11px] text-emerald-600 font-medium">Bags/rolls ready in inventory</p>
+                              </div>
+                              <div className="rounded-2xl bg-blue-50 p-4 text-center ring-1 ring-blue-250/20">
+                                <p className="text-xs font-extrabold text-blue-700 uppercase tracking-wide">🏭 Make in Factory</p>
+                                <p className="mt-2 text-3xl font-black text-blue-950">
+                                  {availabilityResult.requiredFromProduction} <span className="text-xs font-semibold text-blue-700">units</span>
+                                </p>
+                                <p className="mt-1 text-[11px] text-blue-600 font-medium">Bags/rolls we need to manufacture</p>
+                              </div>
+                            </div>
+
+                            {(() => {
+                              const missingMats = availabilityResult.materialRequirements?.filter(m => !m.isAvailable) || [];
+                              if (missingMats.length > 0) {
+                                return (
+                                  <div className="rounded-3xl border-2 border-dashed border-red-200 bg-white p-5">
+                                    <h4 className="text-sm font-extrabold text-red-950 flex items-center gap-2">
+                                      🛒 Shopping List (Need to Buy)
+                                    </h4>
+                                    <p className="text-[11px] text-gray-500 mt-1">Please buy the following amounts of missing raw materials:</p>
+                                    <ul className="mt-3 space-y-2">
+                                      {missingMats.map((mat, i) => {
+                                        const usable = mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0;
+                                        const shortfall = Math.max(0, Number(mat.totalQuantity) - usable);
+                                        return (
+                                          <li key={i} className="flex items-center justify-between rounded-xl bg-red-50/50 px-4 py-2.5 text-xs font-bold text-red-950 ring-1 ring-red-100">
+                                            <span>❌ {mat.name}</span>
+                                            <span className="bg-red-100 px-2 py-0.5 rounded-full text-[11px] font-extrabold text-red-800">
+                                              Need {shortfall.toFixed(2)} {mat.unit || 'kg'} more
+                                            </span>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                );
+                              } else if (!availabilityResult.enoughStock) {
+                                return (
+                                  <div className="rounded-3xl border-2 border-dashed border-red-250 bg-white p-5">
+                                    <h4 className="text-sm font-extrabold text-red-950 flex items-center gap-2">
+                                      📦 Need Finished Stock
+                                    </h4>
+                                    <p className="text-[11px] text-gray-500 mt-1">We don't have enough finished units in stock:</p>
+                                    <ul className="mt-3 space-y-2">
+                                      <li className="flex items-center justify-between rounded-xl bg-red-50/50 px-4 py-2.5 text-xs font-bold text-red-950 ring-1 ring-red-100">
+                                        <span>❌ Finished Goods</span>
+                                        <span className="bg-red-100 px-2 py-0.5 rounded-full text-[11px] font-extrabold text-red-850">
+                                          Need {Number(availabilityResult.requiredQty || 0) - Number(availabilityResult.canFulfillFromStock || 0)} more units
+                                        </span>
+                                      </li>
+                                    </ul>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+
+                            {((!availabilityResult.enoughStock && availabilityResult.canFulfillFromStock > 0) || useAvailableStock) && (
+                              <div className="rounded-2xl border border-amber-250 bg-amber-50/70 p-4 shadow-sm animate-fade-in">
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={useAvailableStock}
+                                    onChange={(e) => {
+                                      handleCheckOrderAvailability(availabilityOrder, e.target.checked);
+                                    }}
+                                    className="mt-1 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
+                                  />
+                                  <div>
+                                    <p className="text-sm font-extrabold text-amber-950">
+                                      "Use This Stock" Override Option
+                                    </p>
+                                    <p className="mt-1 text-xs text-amber-800 leading-relaxed font-semibold">
+                                      Reserve the available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. 
+                                      The remaining shortage will trigger an urgent alert for manual stock addition.
+                                    </p>
+                                  </div>
+                                </label>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`overflow-hidden rounded-3xl border shadow-sm ${availabilityResult.productResolved === false
+                          ? "border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50"
+                          : availabilityResult.enoughStock
+                            ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50"
+                            : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50"
+                          }`}
+                      >
+                        <div className="p-5">
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`flex h-12 w-12 items-center justify-center rounded-2xl ${availabilityResult.productResolved === false
+                                  ? "bg-indigo-100 text-indigo-700"
+                                  : availabilityResult.enoughStock
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-amber-100 text-amber-700"
+                                  }`}
+                              >
+                                {availabilityResult.productResolved === false ? (
+                                  <Link2 className="h-6 w-6" />
+                                ) : availabilityResult.enoughStock ? (
+                                  <CheckCircle2 className="h-6 w-6" />
+                                ) : (
+                                  <AlertTriangle className="h-6 w-6" />
+                                )}
+                              </div>
+
+                              <div>
+                                <h3
+                                  className={`text-base font-bold ${availabilityResult.productResolved === false
+                                    ? "text-indigo-900"
+                                    : availabilityResult.enoughStock
+                                      ? "text-emerald-900"
+                                      : "text-amber-900"
+                                    }`}
+                                >
+                                  {availabilityResult.productResolved === false
+                                    ? "Catalog product not matched"
+                                    : availabilityResult.enoughStock
+                                      ? "Smart Availability Passed"
+                                      : "Insufficient Stock/Materials"}
+                                </h3>
+                                <p
+                                  className={`mt-1 text-sm ${availabilityResult.productResolved === false
+                                    ? "text-indigo-800"
+                                    : availabilityResult.enoughStock
+                                      ? "text-emerald-800"
+                                      : "text-amber-800"
+                                    }`}
+                                >
+                                  {availabilityResult.message}
+                                </p>
+                                {availabilityResult.productResolved === false &&
+                                  availabilityResult.unresolvedSearchTerm && (
+                                    <p className="mt-2 text-xs font-mono text-indigo-600">
+                                      Search label: {availabilityResult.unresolvedSearchTerm}
+                                    </p>
+                                  )}
+                              </div>
+                            </div>
+
                             <div
-                              className={`flex h-12 w-12 items-center justify-center rounded-2xl ${availabilityResult.productResolved === false
-                                ? "bg-indigo-100 text-indigo-700"
+                              className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm ${availabilityResult.productResolved === false
+                                ? "bg-indigo-600"
                                 : availabilityResult.enoughStock
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-amber-100 text-amber-700"
+                                  ? "bg-emerald-600"
+                                  : "bg-amber-600"
                                 }`}
                             >
-                              {availabilityResult.productResolved === false ? (
-                                <Link2 className="h-6 w-6" />
-                              ) : availabilityResult.enoughStock ? (
-                                <CheckCircle2 className="h-6 w-6" />
-                              ) : (
-                                <AlertTriangle className="h-6 w-6" />
+                              <span>
+                                {availabilityResult.productResolved === false
+                                  ? "UNRESOLVED"
+                                  : availabilityResult.enoughStock
+                                    ? "PASSED"
+                                    : "INSUFFICIENT"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {availabilityResult.productResolved !== false && (
+                            <div className="mt-4 border-t border-slate-100/60 pt-4 text-xs font-semibold text-gray-800">
+                              <p className="mb-2 text-slate-500 uppercase tracking-wider text-[10px]">Order Details checked:</p>
+                              <ul className="list-inside list-disc space-y-1 text-slate-800">
+                                <li>
+                                  <span className="font-semibold">Order quantity:</span>{" "}
+                                  {availabilityResult.requiredQty}
+                                </li>
+                                <li>
+                                  <span className="font-semibold">Ship from finished stock (matched line):</span>{" "}
+                                  {availabilityResult.canFulfillFromStock}
+                                </li>
+                                <li>
+                                  <span className="font-semibold">Remaining for production / raw BOM:</span>{" "}
+                                  {availabilityResult.requiredFromProduction}
+                                </li>
+                              </ul>
+                              <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] leading-snug text-slate-600">
+                                <span className="font-semibold text-slate-800">Deduction mode: {deductionMode}</span>
+                                {" — "}
+                                {DEDUCTION_MODE_HELP[deductionMode] ?? ""}
+                              </p>
+                            </div>
+                          )}
+
+                          {((!availabilityResult.enoughStock && availabilityResult.canFulfillFromStock > 0) || useAvailableStock) && (
+                            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm animate-fade-in">
+                              <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={useAvailableStock}
+                                  onChange={(e) => {
+                                    handleCheckOrderAvailability(availabilityOrder, e.target.checked);
+                                  }}
+                                  className="mt-1 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <div>
+                                  <p className="text-sm font-bold text-amber-900">
+                                    "Use This Stock" Override Option
+                                  </p>
+                                  <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                                    Check this to reserve the available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. 
+                                    The remaining shortage (<strong>{Number(availabilityResult.requiredQty || 0) - Number(availabilityResult.canFulfillFromStock || 0)}</strong> units) 
+                                    will trigger an urgent alert notification on the stocks page for manual stock addition.
+                                  </p>
+                                </div>
+                              </label>
+                            </div>
+                          )}
+
+                          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Bags from finished stock
+                              </p>
+                              <p className="mt-2 text-2xl font-bold text-gray-900">
+                                {availabilityResult.canFulfillFromStock}
+                              </p>
+                              {availabilityResult.canFulfillFromStock > 0 && (() => {
+                                const stockUnitPrice = getStockUnitQuotePrice(availabilityResult, availabilityOrder);
+                                return (
+                                  <p className="mt-1.5 text-xs font-semibold text-emerald-600">
+                                    Est. Price: ₹{(availabilityResult.canFulfillFromStock * stockUnitPrice).toLocaleString()}
+                                    <span className="text-[10px] text-gray-400 font-normal block mt-0.5">(₹{stockUnitPrice}/unit)</span>
+                                  </p>
+                                );
+                              })()}
+                            </div>
+
+                            <div className="rounded-2xl border border-amber-100 bg-white px-4 py-4 shadow-sm">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Bags from production (BOM)
+                              </p>
+                              <p className="mt-2 text-2xl font-bold text-amber-900">
+                                {availabilityResult.requiredFromProduction}
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Est. raw material cost
+                              </p>
+                              <p className="mt-2 text-2xl font-bold text-emerald-700">
+                                ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString() || 0}
+                              </p>
+                              <p className="mt-1 text-[10px] text-gray-500">For production portion only</p>
+                            </div>
+
+                            <div
+                              className={`rounded-2xl border px-4 py-4 shadow-sm ${Number(availabilityResult.onDemandCount || 0) > 0
+                                ? "border-rose-200 bg-rose-50/50"
+                                : "border-slate-100 bg-white"
+                                }`}
+                            >
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                BOM lines short on stock
+                              </p>
+                              <p
+                                className={`mt-2 text-2xl font-bold ${Number(availabilityResult.onDemandCount || 0) > 0
+                                  ? "text-rose-800"
+                                  : "text-slate-900"
+                                  }`}
+                              >
+                                {availabilityResult.onDemandCount ?? 0}
+                              </p>
+                              <p className="mt-1 text-[10px] text-gray-500">0 = all raw lines sufficient</p>
+                            </div>
+                          </div>
+
+                          {deductionMode === "STOCK_ONLY" && availabilityResult.productResolved !== false && (
+                            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-950">
+                              <span className="font-semibold">STOCK_ONLY:</span> raw material BOM is not evaluated for
+                              availability — only finished-bag lines matter for pass/fail. Switch to AUTO to see raw
+                              requirements for the uncovered quantity.
+                            </div>
+                          )}
+
+                          {availabilityResult.productionScalingMeta && (
+                            <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50/60 p-4 shadow-sm">
+                              <h4 className="text-sm font-bold text-violet-900">
+                                Dimension scaling (product BOM vs order size)
+                              </h4>
+                              <p className="mt-2 text-xs leading-relaxed text-violet-900/90">
+                                Catalog product base L+W+H ={" "}
+                                <strong>{availabilityResult.productionScalingMeta.productLinearSum}</strong>
+                                {" · "}
+                                This order L+W+H ={" "}
+                                <strong>{availabilityResult.productionScalingMeta.orderLinearSum}</strong>
+                                {" · "}
+                                Scale factor ={" "}
+                                <strong>{availabilityResult.productionScalingMeta.factor}</strong>
+                              </p>
+                              <p className="mt-2 text-[11px] text-violet-800/95">
+                                <em>Dimension-based</em> BOM lines multiply required qty by this factor (plus wastage).
+                                <em> Fixed</em> lines stay per bag regardless of dimensions.
+                              </p>
+                            </div>
+                          )}
+
+                          {availabilityResult.finishedGoodsInsight && (
+                            <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="text-sm font-bold text-slate-900">
+                                    Finished bags (by product · color · size)
+                                  </h4>
+                                  <p className="mt-1 text-xs text-slate-600">
+                                    Matched using order{" "}
+                                    <span className="font-semibold">
+                                      {availabilityResult.finishedGoodsInsight.catalogProductName}
+                                    </span>{" "}
+                                    · color{" "}
+                                    <span className="font-semibold">
+                                      {availabilityResult.finishedGoodsInsight.orderColor}
+                                    </span>{" "}
+                                    · size{" "}
+                                    <span className="font-semibold">
+                                      {availabilityResult.finishedGoodsInsight.orderBagSize}
+                                    </span>{" "}
+                                    · dims{" "}
+                                    {availabilityResult.finishedGoodsInsight.dimensionsLabel}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl border-slate-300 text-xs"
+                                    onClick={() => {
+                                      resetAvailabilityModal();
+                                      navigate("/rawmaterial");
+                                    }}
+                                  >
+                                    Raw materials
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className="rounded-xl bg-slate-800 text-xs hover:bg-slate-900"
+                                    onClick={() => {
+                                      resetAvailabilityModal();
+                                      navigate("/inventory");
+                                    }}
+                                  >
+                                    Create / add stock
+                                  </Button>
+                                </div>
+                              </div>
+                              {availabilityResult.finishedGoodsInsight.matchedDescription && (
+                                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                                  <span className="text-xs font-semibold uppercase text-slate-500">
+                                    Matched line
+                                  </span>
+                                  <p className="mt-0.5 font-medium">
+                                    {availabilityResult.finishedGoodsInsight.matchedDescription}
+                                    {availabilityResult.finishedGoodsInsight.matchedSku
+                                      ? ` · SKU ${availabilityResult.finishedGoodsInsight.matchedSku}`
+                                      : ""}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-600">
+                                    Sellable on this line:{" "}
+                                    <span className="font-bold text-slate-900">
+                                      {availabilityResult.finishedGoodsInsight.availableOnMatchedLine}
+                                    </span>{" "}
+                                    · Counted toward this order:{" "}
+                                    <span className="font-bold text-slate-900">
+                                      {availabilityResult.finishedGoodsInsight.canFulfillFromFinishedLine}
+                                    </span>
+                                  </p>
+                                </div>
+                              )}
+                              {availabilityResult.finishedGoodsInsight.explanations?.length > 0 && (
+                                <ul className="list-inside list-disc space-y-1 text-xs text-slate-700">
+                                  {availabilityResult.finishedGoodsInsight.explanations.map((line, i) => (
+                                    <li key={i}>{line}</li>
+                                  ))}
+                                </ul>
+                              )}
+                              {availabilityResult.finishedGoodsInsight.alternatives?.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-amber-100 bg-amber-50/40">
+                                          <table className="w-full text-left text-xs">
+                                    <thead className="bg-white/80 text-[10px] font-semibold uppercase text-slate-500">
+                                      <tr>
+                                        <th className="px-3 py-2">Product</th>
+                                        <th className="px-3 py-2">Color</th>
+                                        <th className="px-3 py-2">Size</th>
+                                        <th className="px-3 py-2 text-right">Avail.</th>
+                                        <th className="px-3 py-2">Note</th>
+                                        <th className="px-3 py-2 text-center">Action</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-amber-100/80">
+                                      {availabilityResult.finishedGoodsInsight.alternatives.map((alt, idx) => (
+                                        <tr key={idx} className="bg-white/60">
+                                          <td className="px-3 py-2 font-medium text-slate-900">
+                                            {alt.productName}
+                                          </td>
+                                          <td className="px-3 py-2">{alt.bagColor}</td>
+                                          <td className="px-3 py-2">{alt.bagSizeLabel}</td>
+                                          <td className="px-3 py-2 text-right font-bold text-amber-900">
+                                            {alt.availableBags}
+                                          </td>
+                                          <td className="px-3 py-2 text-slate-600">{alt.note}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickMatchStock(alt)}
+                                              className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-600 transition shadow-sm cursor-pointer"
+                                            >
+                                              ⚡ Align & Use
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
                               )}
                             </div>
+                          )}
 
-                            <div>
-                              <h3
-                                className={`text-base font-bold ${availabilityResult.productResolved === false
-                                  ? "text-indigo-900"
-                                  : availabilityResult.enoughStock
-                                    ? "text-emerald-900"
-                                    : "text-amber-900"
-                                  }`}
-                              >
-                                {availabilityResult.productResolved === false
-                                  ? "Catalog product not matched"
-                                  : availabilityResult.enoughStock
-                                    ? "Smart Availability Passed"
-                                    : "Insufficient Stock/Materials"}
-                              </h3>
-                              <p
-                                className={`mt-1 text-sm ${availabilityResult.productResolved === false
-                                  ? "text-indigo-800"
-                                  : availabilityResult.enoughStock
-                                    ? "text-emerald-800"
-                                    : "text-amber-800"
-                                  }`}
-                              >
-                                {availabilityResult.message}
-                              </p>
-                              {availabilityResult.productResolved === false &&
-                                availabilityResult.unresolvedSearchTerm && (
-                                  <p className="mt-2 text-xs font-mono text-indigo-600">
-                                    Search label: {availabilityResult.unresolvedSearchTerm}
-                                  </p>
+                          {availabilityResult.productResolved === false &&
+                            (availabilityResult.referenceInventory?.length > 0 ||
+                              availabilityResult.catalogSuggestions?.length > 0) && (
+                              <div className="mt-5 space-y-4">
+                                {availabilityResult.referenceInventory?.length > 0 && (
+                                  <div className="overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
+                                    <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50/80 px-4 py-3">
+                                      <Layers className="h-4 w-4 text-indigo-700" />
+                                      <h4 className="text-sm font-bold text-indigo-900">
+                                        Finished bags (reference — same keywords)
+                                      </h4>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-xs">
+                                        <thead className="bg-gray-50 text-[10px] font-semibold uppercase text-gray-500">
+                                          <tr>
+                                            <th className="px-3 py-2">SKU</th>
+                                            <th className="px-3 py-2">Product</th>
+                                            <th className="px-3 py-2">Color</th>
+                                            <th className="px-3 py-2">Size label</th>
+                                            <th className="px-3 py-2 text-right">Avail. bags</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                          {availabilityResult.referenceInventory.map((row, idx) => (
+                                            <tr key={idx}>
+                                              <td className="px-3 py-2 font-mono text-gray-700">{row.sku}</td>
+                                              <td className="px-3 py-2 font-medium text-gray-900">
+                                                {row.productName}
+                                              </td>
+                                              <td className="px-3 py-2 text-gray-600">{row.bagColor || "—"}</td>
+                                              <td className="px-3 py-2 text-gray-600">{row.bagSizeLabel || "—"}</td>
+                                              <td className="px-3 py-2 text-right font-bold text-indigo-800">
+                                                {row.availableBags}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
                                 )}
-                            </div>
-                          </div>
-
-                          <div
-                            className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm ${availabilityResult.productResolved === false
-                              ? "bg-indigo-600"
-                              : availabilityResult.enoughStock
-                                ? "bg-emerald-600"
-                                : "bg-amber-600"
-                              }`}
-                          >
-                            {availabilityResult.productResolved === false
-                              ? "Link product first"
-                              : availabilityResult.enoughStock
-                                ? "Ready to Confirm"
-                                : "Action Required"}
-                          </div>
-                        </div>
-
-                        {availabilityResult.productResolved !== false && (
-                          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <h4 className="text-sm font-bold text-slate-900">How this check splits the order</h4>
-                            <p className="mt-1 text-xs text-slate-600">
-                              Same order quantity is divided between shelf stock and production; raw rows below apply
-                              only to the &quot;production&quot; portion (except in RAW_ONLY, where the full qty uses
-                              BOM).
-                            </p>
-                            <ul className="mt-3 space-y-1.5 text-xs text-slate-800">
-                              <li>
-                                <span className="font-semibold">Order quantity:</span>{" "}
-                                {availabilityResult.requiredQty}
-                              </li>
-                              <li>
-                                <span className="font-semibold">Ship from finished stock (matched line):</span>{" "}
-                                {availabilityResult.canFulfillFromStock}
-                              </li>
-                              <li>
-                                <span className="font-semibold">Remaining for production / raw BOM:</span>{" "}
-                                {availabilityResult.requiredFromProduction}
-                              </li>
-                            </ul>
-                            <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] leading-snug text-slate-600">
-                              <span className="font-semibold text-slate-800">Deduction mode: {deductionMode}</span>
-                              {" — "}
-                              {DEDUCTION_MODE_HELP[deductionMode] ?? ""}
-                            </p>
-                          </div>
-                        )}
-
-                        {((!availabilityResult.enoughStock && availabilityResult.canFulfillFromStock > 0) || useAvailableStock) && (
-                          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm animate-fade-in">
-                            <label className="flex items-start gap-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={useAvailableStock}
-                                onChange={(e) => {
-                                  handleCheckOrderAvailability(availabilityOrder, e.target.checked);
-                                }}
-                                className="mt-1 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
-                              />
-                              <div>
-                                <p className="text-sm font-bold text-amber-900">
-                                  "Use This Stock" Override Option
-                                </p>
-                                <p className="mt-1 text-xs text-amber-800 leading-relaxed">
-                                  Check this to reserve the available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. 
-                                  The remaining shortage (<strong>{Number(availabilityResult.requiredQty || 0) - Number(availabilityResult.canFulfillFromStock || 0)}</strong> units) 
-                                  will trigger an urgent alert notification on the stocks page for manual stock addition.
-                                </p>
+                                {availabilityResult.catalogSuggestions?.length > 0 && (
+                                  <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
+                                    <div className="flex items-center gap-2 border-b border-violet-100 bg-violet-50/80 px-4 py-3">
+                                      <Package className="h-4 w-4 text-violet-700" />
+                                      <h4 className="text-sm font-bold text-violet-900">
+                                        Suggested catalog products to link
+                                      </h4>
+                                    </div>
+                                    <ul className="divide-y divide-gray-100 px-4 py-2 text-sm">
+                                      {availabilityResult.catalogSuggestions.map((s) => (
+                                        <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                                          <span className="font-semibold text-gray-900">{s.name}</span>
+                                          <span className="text-xs text-gray-500">
+                                            {s.category} · SKU {s.sku || "—"} ·{" "}
+                                            <span className="font-mono text-violet-700">{s.id}</span>
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                    <p className="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-500">
+                                      Update the order with{" "}
+                                      <code className="rounded bg-gray-100 px-1">orderDetails.productId</code> in
+                                      your admin / API to lock fulfillment to one of these products.
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                            </label>
-                          </div>
-                        )}
+                            )}
 
-                        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Bags from finished stock
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-gray-900">
-                              {availabilityResult.canFulfillFromStock}
-                            </p>
-                            {availabilityResult.canFulfillFromStock > 0 && (() => {
-                              const stockUnitPrice = getStockUnitQuotePrice(availabilityResult, availabilityOrder);
-                              return (
-                                <p className="mt-1.5 text-xs font-semibold text-emerald-600">
-                                  Est. Price: ₹{(availabilityResult.canFulfillFromStock * stockUnitPrice).toLocaleString()}
-                                  <span className="text-[10px] text-gray-400 font-normal block mt-0.5">(₹{stockUnitPrice}/unit)</span>
-                                </p>
-                              );
-                            })()}
-                          </div>
-
-                          <div className="rounded-2xl border border-amber-100 bg-white px-4 py-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Bags from production (BOM)
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-amber-900">
-                              {availabilityResult.requiredFromProduction}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Est. raw material cost
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-emerald-700">
-                              ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString() || 0}
-                            </p>
-                            <p className="mt-1 text-[10px] text-gray-500">For production portion only</p>
-                          </div>
-
-                          <div
-                            className={`rounded-2xl border px-4 py-4 shadow-sm ${Number(availabilityResult.onDemandCount || 0) > 0
-                              ? "border-rose-200 bg-rose-50/50"
-                              : "border-slate-100 bg-white"
-                              }`}
-                          >
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              BOM lines short on stock
-                            </p>
-                            <p
-                              className={`mt-2 text-2xl font-bold ${Number(availabilityResult.onDemandCount || 0) > 0
-                                ? "text-rose-800"
-                                : "text-slate-900"
-                                }`}
-                            >
-                              {availabilityResult.onDemandCount ?? 0}
-                            </p>
-                            <p className="mt-1 text-[10px] text-gray-500">0 = all raw lines sufficient</p>
-                          </div>
-                        </div>
-
-                        {deductionMode === "STOCK_ONLY" && availabilityResult.productResolved !== false && (
-                          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-950">
-                            <span className="font-semibold">STOCK_ONLY:</span> raw material BOM is not evaluated for
-                            availability — only finished-bag lines matter for pass/fail. Switch to AUTO to see raw
-                            requirements for the uncovered quantity.
-                          </div>
-                        )}
-
-                        {availabilityResult.productionScalingMeta && (
-                          <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50/60 p-4 shadow-sm">
-                            <h4 className="text-sm font-bold text-violet-900">
-                              Dimension scaling (product BOM vs order size)
+                          <div className="mt-5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                            <h4 className="text-sm font-bold text-gray-900">
+                              Inventory Match Suggestions (Size / Color)
                             </h4>
-                            <p className="mt-2 text-xs leading-relaxed text-violet-900/90">
-                              Catalog product base L+W+H ={" "}
-                              <strong>{availabilityResult.productionScalingMeta.productLinearSum}</strong>
-                              {" · "}
-                              This order L+W+H ={" "}
-                              <strong>{availabilityResult.productionScalingMeta.orderLinearSum}</strong>
-                              {" · "}
-                              Scale factor ={" "}
-                              <strong>{availabilityResult.productionScalingMeta.factor}</strong>
+                            <p className="mt-1 text-xs text-gray-500">
+                              Exact match = same dimensions + same size + same color.
                             </p>
-                            <p className="mt-2 text-[11px] text-violet-800/95">
-                              <em>Dimension-based</em> BOM lines multiply required qty by this factor (plus wastage).
-                              <em> Fixed</em> lines stay per bag regardless of dimensions.
-                            </p>
-                          </div>
-                        )}
 
-                        {availabilityResult.finishedGoodsInsight && (
-                          <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <h4 className="text-sm font-bold text-slate-900">
-                                  Finished bags (by product · color · size)
-                                </h4>
-                                <p className="mt-1 text-xs text-slate-600">
-                                  Matched using order{" "}
-                                  <span className="font-semibold">
-                                    {availabilityResult.finishedGoodsInsight.catalogProductName}
-                                  </span>{" "}
-                                  · color{" "}
-                                  <span className="font-semibold">
-                                    {availabilityResult.finishedGoodsInsight.orderColor}
-                                  </span>{" "}
-                                  · size{" "}
-                                  <span className="font-semibold">
-                                    {availabilityResult.finishedGoodsInsight.orderBagSize}
-                                  </span>{" "}
-                                  · dims{" "}
-                                  {availabilityResult.finishedGoodsInsight.dimensionsLabel}
+                            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                                <p className="text-xs font-semibold uppercase text-emerald-700">
+                                  Exact Matches
+                                </p>
+                                <p className="mt-1 text-lg font-bold text-emerald-900">
+                                  {availabilityResult?.matchInsight?.exactMatches?.length || 0}
                                 </p>
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="rounded-xl border-slate-300 text-xs"
-                                  onClick={() => {
-                                    resetAvailabilityModal();
-                                    navigate("/rawmaterial");
-                                  }}
-                                >
-                                  Raw materials
-                                </Button>
-                                <Button
-                                  type="button"
-                                  className="rounded-xl bg-slate-800 text-xs hover:bg-slate-900"
-                                  onClick={() => {
-                                    resetAvailabilityModal();
-                                    navigate("/inventory");
-                                  }}
-                                >
-                                  Create / add stock
-                                </Button>
+                              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+                                <p className="text-xs font-semibold uppercase text-amber-700">
+                                  Near Matches
+                                </p>
+                                <p className="mt-1 text-lg font-bold text-amber-900">
+                                  {(
+                                    (availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length || 0) +
+                                    (availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length || 0) +
+                                    (availabilityResult?.matchInsight?.nearDimensionMatches?.length || 0)
+                                  )}
+                                </p>
                               </div>
                             </div>
-                            {availabilityResult.finishedGoodsInsight.matchedDescription && (
-                              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
-                                <span className="text-xs font-semibold uppercase text-slate-500">
-                                  Matched line
-                                </span>
-                                <p className="mt-0.5 font-medium">
-                                  {availabilityResult.finishedGoodsInsight.matchedDescription}
-                                  {availabilityResult.finishedGoodsInsight.matchedSku
-                                    ? ` · SKU ${availabilityResult.finishedGoodsInsight.matchedSku}`
-                                    : ""}
+
+                            {(availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0 ||
+                              availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0) && (
+                                <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+                                  <p className="font-semibold">Suggested alternatives found:</p>
+                                  <p className="mt-1">
+                                    {availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0
+                                      ? `Same size but different color: ${availabilityResult.matchInsight.sizeMatchedColorDifferent.length}. `
+                                      : ""}
+                                    {availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0
+                                      ? `Same color but different size: ${availabilityResult.matchInsight.colorMatchedSizeDifferent.length}.`
+                                      : ""}
+                                  </p>
+                                </div>
+                              )}
+
+                            {!availabilityResult?.matchInsight?.hasAnySuggestedMatch && (
+                              <div className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3">
+                                <p className="text-sm font-semibold text-red-700">
+                                  No size/color inventory suggestion found.
                                 </p>
-                                <p className="mt-1 text-xs text-slate-600">
-                                  Sellable on this line:{" "}
-                                  <span className="font-bold text-slate-900">
-                                    {availabilityResult.finishedGoodsInsight.availableOnMatchedLine}
-                                  </span>{" "}
-                                  · Counted toward this order:{" "}
-                                  <span className="font-bold text-slate-900">
-                                    {availabilityResult.finishedGoodsInsight.canFulfillFromFinishedLine}
-                                  </span>
+                                <p className="mt-1 text-xs text-red-600">
+                                  Create or update raw material first, then create required stock.
                                 </p>
+                                <div className="mt-3">
+                                  <Button
+                                    type="button"
+                                    className="bg-red-600 hover:bg-red-700"
+                                    onClick={() => {
+                                      resetAvailabilityModal();
+                                      navigate("/rawmaterial");
+                                    }}
+                                  >
+                                    Create Raw Material
+                                  </Button>
+                                </div>
                               </div>
                             )}
-                            {availabilityResult.finishedGoodsInsight.explanations?.length > 0 && (
-                              <ul className="list-inside list-disc space-y-1 text-xs text-slate-700">
-                                {availabilityResult.finishedGoodsInsight.explanations.map((line, i) => (
-                                  <li key={i}>{line}</li>
-                                ))}
-                              </ul>
-                            )}
-                            {availabilityResult.finishedGoodsInsight.alternatives?.length > 0 && (
-                              <div className="overflow-x-auto rounded-xl border border-amber-100 bg-amber-50/40">
-                                        <table className="w-full text-left text-xs">
-                                  <thead className="bg-white/80 text-[10px] font-semibold uppercase text-slate-500">
+                          </div>
+
+                          {availabilityResult.materialRequirements?.length > 0 && (
+                            <div className="mt-5 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                              <div className="border-b border-gray-100 bg-gray-50/50 px-4 py-3">
+                                <h4 className="text-sm font-bold text-gray-900">Raw material BOM (for production portion)</h4>
+                                <p className="mt-1 text-xs text-gray-600">
+                                  Quantities are for{" "}
+                                  <strong>{availabilityResult.requiredFromProduction}</strong> bag(s) to manufacture
+                                  (after finished stock). Per-bag qty excludes wastage; dimension-based lines use the
+                                  scale factor above.
+                                </p>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[720px] text-left text-sm">
+                                  <thead className="bg-gray-50/30 text-[10px] font-semibold uppercase text-gray-500">
                                     <tr>
-                                      <th className="px-3 py-2">Product</th>
-                                      <th className="px-3 py-2">Color</th>
-                                      <th className="px-3 py-2">Size</th>
-                                      <th className="px-3 py-2 text-right">Avail.</th>
-                                      <th className="px-3 py-2">Note</th>
-                                      <th className="px-3 py-2 text-center">Action</th>
+                                      <th className="px-3 py-3">Material</th>
+                                      <th className="px-3 py-3">Rule</th>
+                                      <th className="px-3 py-3">Per bag</th>
+                                      <th className="px-3 py-3">Total need</th>
+                                      <th className="px-3 py-3">Usable stock</th>
+                                      <th className="px-3 py-3">Shortfall</th>
+                                      <th className="px-3 py-3">Unit price</th>
+                                      <th className="px-3 py-3 text-right">Line cost</th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-amber-100/80">
-                                    {availabilityResult.finishedGoodsInsight.alternatives.map((alt, idx) => (
-                                      <tr key={idx} className="bg-white/60">
-                                        <td className="px-3 py-2 font-medium text-slate-900">
-                                          {alt.productName}
-                                        </td>
-                                        <td className="px-3 py-2">{alt.bagColor}</td>
-                                        <td className="px-3 py-2">{alt.bagSizeLabel}</td>
-                                        <td className="px-3 py-2 text-right font-bold text-amber-900">
-                                          {alt.availableBags}
-                                        </td>
-                                        <td className="px-3 py-2 text-slate-600">{alt.note}</td>
-                                        <td className="px-3 py-2 text-center">
-                                          <button
-                                            type="button"
-                                            onClick={() => handleQuickMatchStock(alt)}
-                                            className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-600 transition shadow-sm cursor-pointer"
-                                          >
-                                            ⚡ Align & Use
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                  <tbody className="divide-y divide-gray-50">
+                                    {availabilityResult.materialRequirements.map((mat, idx) => {
+                                      const usable =
+                                        mat.availableStockAtCheck != null
+                                          ? Number(mat.availableStockAtCheck)
+                                          : null;
+                                      const shortfall =
+                                        usable != null
+                                          ? Math.max(0, Number(mat.totalQuantity) - usable)
+                                          : null;
+                                      return (
+                                        <tr key={idx} className={mat.isAvailable ? "" : "bg-red-50/30 text-red-800"}>
+                                          <td className="px-3 py-3 font-medium">
+                                            <div className="flex items-center gap-2">
+                                              {!mat.isAvailable && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                              {mat.name}
+                                            </div>
+                                          </td>
+                                          <td className="px-3 py-3 text-xs text-gray-800">
+                                            {mat.usageType === "dimension_based" ? (
+                                              <span>
+                                                Dim. scaled
+                                                {mat.lineScaleFactor != null && (
+                                                  <span className="block font-mono text-[10px] text-gray-600">
+                                                    ×{Number(mat.lineScaleFactor).toFixed(4)}
+                                                  </span>
+                                                )}
+                                              </span>
+                                            ) : mat.usageType === "fixed" ? (
+                                              "Fixed / bag"
+                                            ) : (
+                                              "—"
+                                            )}
+                                          </td>
+                                          <td className="px-3 py-3 whitespace-nowrap">
+                                            {mat.quantityPerBag} {mat.unit}
+                                          </td>
+                                          <td className="px-3 py-3 whitespace-nowrap font-medium">
+                                            {mat.totalQuantity} {mat.unit}
+                                          </td>
+                                          <td className="px-3 py-3 whitespace-nowrap">
+                                            {usable != null ? usable.toLocaleString() : "—"}
+                                          </td>
+                                          <td className="px-3 py-3 whitespace-nowrap">
+                                            {shortfall != null ? shortfall.toLocaleString() : "—"}
+                                          </td>
+                                          <td className="px-3 py-3">₹{mat.unitPrice}</td>
+                                          <td className="px-3 py-3 text-right font-bold">
+                                            ₹{mat.totalPrice?.toLocaleString()}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                    <tr className="border-t-2 border-emerald-100 bg-emerald-50/30">
+                                      <td colSpan="7" className="px-3 py-3 text-right font-bold text-gray-900">
+                                        Total estimated raw cost:
+                                      </td>
+                                      <td className="px-3 py-3 text-right font-extrabold text-emerald-800 text-lg">
+                                        ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
+                                      </td>
+                                    </tr>
                                   </tbody>
                                 </table>
                               </div>
-                            )}
-                          </div>
-                        )}
-
-                        {availabilityResult.productResolved === false &&
-                          (availabilityResult.referenceInventory?.length > 0 ||
-                            availabilityResult.catalogSuggestions?.length > 0) && (
-                            <div className="mt-5 space-y-4">
-                              {availabilityResult.referenceInventory?.length > 0 && (
-                                <div className="overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
-                                  <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50/80 px-4 py-3">
-                                    <Layers className="h-4 w-4 text-indigo-700" />
-                                    <h4 className="text-sm font-bold text-indigo-900">
-                                      Finished bags (reference — same keywords)
-                                    </h4>
-                                  </div>
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-xs">
-                                      <thead className="bg-gray-50 text-[10px] font-semibold uppercase text-gray-500">
-                                        <tr>
-                                          <th className="px-3 py-2">SKU</th>
-                                          <th className="px-3 py-2">Product</th>
-                                          <th className="px-3 py-2">Color</th>
-                                          <th className="px-3 py-2">Size label</th>
-                                          <th className="px-3 py-2 text-right">Avail. bags</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-100">
-                                        {availabilityResult.referenceInventory.map((row, idx) => (
-                                          <tr key={idx}>
-                                            <td className="px-3 py-2 font-mono text-gray-700">{row.sku}</td>
-                                            <td className="px-3 py-2 font-medium text-gray-900">
-                                              {row.productName}
-                                            </td>
-                                            <td className="px-3 py-2 text-gray-600">{row.bagColor || "—"}</td>
-                                            <td className="px-3 py-2 text-gray-600">{row.bagSizeLabel || "—"}</td>
-                                            <td className="px-3 py-2 text-right font-bold text-indigo-800">
-                                              {row.availableBags}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              )}
-                              {availabilityResult.catalogSuggestions?.length > 0 && (
-                                <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
-                                  <div className="flex items-center gap-2 border-b border-violet-100 bg-violet-50/80 px-4 py-3">
-                                    <Package className="h-4 w-4 text-violet-700" />
-                                    <h4 className="text-sm font-bold text-violet-900">
-                                      Suggested catalog products to link
-                                    </h4>
-                                  </div>
-                                  <ul className="divide-y divide-gray-100 px-4 py-2 text-sm">
-                                    {availabilityResult.catalogSuggestions.map((s) => (
-                                      <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
-                                        <span className="font-semibold text-gray-900">{s.name}</span>
-                                        <span className="text-xs text-gray-500">
-                                          {s.category} · SKU {s.sku || "—"} ·{" "}
-                                          <span className="font-mono text-violet-700">{s.id}</span>
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  <p className="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-500">
-                                    Update the order with{" "}
-                                    <code className="rounded bg-gray-100 px-1">orderDetails.productId</code> in
-                                    your admin / API to lock fulfillment to one of these products.
-                                  </p>
-                                </div>
-                              )}
                             </div>
                           )}
 
-                        <div className="mt-5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                          <h4 className="text-sm font-bold text-gray-900">
-                            Inventory Match Suggestions (Size / Color)
-                          </h4>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Exact match = same dimensions + same size + same color.
-                          </p>
-
-                          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-                              <p className="text-xs font-semibold uppercase text-emerald-700">
-                                Exact Matches
-                              </p>
-                              <p className="mt-1 text-lg font-bold text-emerald-900">
-                                {availabilityResult?.matchInsight?.exactMatches?.length || 0}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
-                              <p className="text-xs font-semibold uppercase text-amber-700">
-                                Near Matches
-                              </p>
-                              <p className="mt-1 text-lg font-bold text-amber-900">
-                                {(
-                                  (availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length || 0) +
-                                  (availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length || 0) +
-                                  (availabilityResult?.matchInsight?.nearDimensionMatches?.length || 0)
-                                )}
-                              </p>
-                            </div>
-                          </div>
-
-                          {(availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0 ||
-                            availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0) && (
-                              <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
-                                <p className="font-semibold">Suggested alternatives found:</p>
-                                <p className="mt-1">
-                                  {availabilityResult?.matchInsight?.sizeMatchedColorDifferent?.length > 0
-                                    ? `Same size but different color: ${availabilityResult.matchInsight.sizeMatchedColorDifferent.length}. `
-                                    : ""}
-                                  {availabilityResult?.matchInsight?.colorMatchedSizeDifferent?.length > 0
-                                    ? `Same color but different size: ${availabilityResult.matchInsight.colorMatchedSizeDifferent.length}.`
-                                    : ""}
-                                </p>
+                          {availabilityResult.missingMaterials?.length > 0 && (
+                            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                              <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                <p className="font-bold uppercase tracking-tight">Warning: Insufficient Materials</p>
                               </div>
-                            )}
-
-                          {!availabilityResult?.matchInsight?.hasAnySuggestedMatch && (
-                            <div className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3">
-                              <p className="text-sm font-semibold text-red-700">
-                                No size/color inventory suggestion found.
-                              </p>
-                              <p className="mt-1 text-xs text-red-600">
-                                Create or update raw material first, then create required stock.
-                              </p>
-                              <div className="mt-3">
-                                <Button
-                                  type="button"
-                                  className="bg-red-600 hover:bg-red-700"
-                                  onClick={() => {
-                                    resetAvailabilityModal();
-                                    navigate("/rawmaterial");
-                                  }}
-                                >
-                                  Create Raw Material
-                                </Button>
-                              </div>
+                              <ul className="list-inside list-disc opacity-90 space-y-1">
+                                {availabilityResult.missingMaterials.map((m, i) => (
+                                  <li key={i}>{m}</li>
+                                ))}
+                              </ul>
                             </div>
                           )}
                         </div>
-
-                        {availabilityResult.materialRequirements?.length > 0 && (
-                          <div className="mt-5 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                            <div className="border-b border-gray-100 bg-gray-50/50 px-4 py-3">
-                              <h4 className="text-sm font-bold text-gray-900">Raw material BOM (for production portion)</h4>
-                              <p className="mt-1 text-xs text-gray-600">
-                                Quantities are for{" "}
-                                <strong>{availabilityResult.requiredFromProduction}</strong> bag(s) to manufacture
-                                (after finished stock). Per-bag qty excludes wastage; dimension-based lines use the
-                                scale factor above.
-                              </p>
-                            </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full min-w-[720px] text-left text-sm">
-                                <thead className="bg-gray-50/30 text-[10px] font-semibold uppercase text-gray-500">
-                                  <tr>
-                                    <th className="px-3 py-3">Material</th>
-                                    <th className="px-3 py-3">Rule</th>
-                                    <th className="px-3 py-3">Per bag</th>
-                                    <th className="px-3 py-3">Total need</th>
-                                    <th className="px-3 py-3">Usable stock</th>
-                                    <th className="px-3 py-3">Shortfall</th>
-                                    <th className="px-3 py-3">Unit price</th>
-                                    <th className="px-3 py-3 text-right">Line cost</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                  {availabilityResult.materialRequirements.map((mat, idx) => {
-                                    const usable =
-                                      mat.availableStockAtCheck != null
-                                        ? Number(mat.availableStockAtCheck)
-                                        : null;
-                                    const shortfall =
-                                      usable != null
-                                        ? Math.max(0, Number(mat.totalQuantity) - usable)
-                                        : null;
-                                    return (
-                                      <tr key={idx} className={mat.isAvailable ? "" : "bg-red-50/30 text-red-800"}>
-                                        <td className="px-3 py-3 font-medium">
-                                          <div className="flex items-center gap-2">
-                                            {!mat.isAvailable && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                                            {mat.name}
-                                          </div>
-                                        </td>
-                                        <td className="px-3 py-3 text-xs text-gray-800">
-                                          {mat.usageType === "dimension_based" ? (
-                                            <span>
-                                              Dim. scaled
-                                              {mat.lineScaleFactor != null && (
-                                                <span className="block font-mono text-[10px] text-gray-600">
-                                                  ×{Number(mat.lineScaleFactor).toFixed(4)}
-                                                </span>
-                                              )}
-                                            </span>
-                                          ) : mat.usageType === "fixed" ? (
-                                            "Fixed / bag"
-                                          ) : (
-                                            "—"
-                                          )}
-                                        </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
-                                          {mat.quantityPerBag} {mat.unit}
-                                        </td>
-                                        <td className="px-3 py-3 whitespace-nowrap font-medium">
-                                          {mat.totalQuantity} {mat.unit}
-                                        </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
-                                          {usable != null ? usable.toLocaleString() : "—"}
-                                        </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
-                                          {shortfall != null ? shortfall.toLocaleString() : "—"}
-                                        </td>
-                                        <td className="px-3 py-3">₹{mat.unitPrice}</td>
-                                        <td className="px-3 py-3 text-right font-bold">
-                                          ₹{mat.totalPrice?.toLocaleString()}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                  <tr className="border-t-2 border-emerald-100 bg-emerald-50/30">
-                                    <td colSpan="7" className="px-3 py-3 text-right font-bold text-gray-900">
-                                      Total estimated raw cost:
-                                    </td>
-                                    <td className="px-3 py-3 text-right font-extrabold text-emerald-800 text-lg">
-                                      ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-
-                        {availabilityResult.missingMaterials?.length > 0 && (
-                          <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-                            <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="h-4 w-4" />
-                              <p className="font-bold uppercase tracking-tight">Warning: Insufficient Materials</p>
-                            </div>
-                            <ul className="list-inside list-disc opacity-90 space-y-1">
-                              {availabilityResult.missingMaterials.map((m, i) => (
-                                <li key={i}>{m}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
+                      </motion.div>
+                    )}
 
                     {availabilityResult.enoughStock && (
                       <motion.div
@@ -4755,6 +5400,15 @@ ${lines || "(See PDF for full BOM)"}
                   >
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                     Preview Report
+                  </Button>
+
+                  <Button
+                    type="button"
+                    className="rounded-2xl bg-indigo-600 px-4 py-2 hover:bg-indigo-700 text-white"
+                    onClick={() => handleEditOrder(selectedOrder)}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Order
                   </Button>
 
                   <Button
