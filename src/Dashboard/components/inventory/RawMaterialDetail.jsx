@@ -14,7 +14,52 @@ import {
 } from "lucide-react";
 import { Badge } from "../ui";
 
+// Helper: parse raw material stock history notes to identify product manufacturing consumption
+const parseHistoryNote = (note) => {
+  if (!note) return null;
+
+  // Pattern A: "Used for manual stock addition (Add Stock) of 1 bags of KraftRoll"
+  const patternA = /Used\s*for\s*manual\s*stock\s*addition\s*\(Add\s*Stock\)\s*of\s*([0-9.]+)\s*(\w+)\s*of\s*(.*?)$/i;
+
+  // Pattern B: general deduction pattern
+  const patternB = /Deducted\s*([0-9.]+)\s*(\w+)\s*for\s*(.*?)$/i;
+
+  let match = note.match(patternA);
+  if (match) {
+    const rawUnit = match[2];
+    const productName = match[3];
+    // If it is a roll product but unit is bags, normalize to kg
+    const unit = productName.toLowerCase().includes("roll") && rawUnit === "bags" ? "kg" : rawUnit;
+
+    return {
+      type: "PRODUCTION",
+      quantity: match[1],
+      unit,
+      productName,
+      description: `Stock deducted to manufacture ${match[1]} ${unit} of the product ${productName}.`
+    };
+  }
+
+  match = note.match(patternB);
+  if (match) {
+    const rawUnit = match[2];
+    const productName = match[3];
+    const unit = productName.toLowerCase().includes("roll") && rawUnit === "bags" ? "kg" : rawUnit;
+
+    return {
+      type: "PRODUCTION_GENERIC",
+      quantity: match[1],
+      unit,
+      productName,
+      description: `Consumed ${match[1]} ${unit} for product ${productName}.`
+    };
+  }
+
+  return null;
+};
+
 const RawMaterialDetail = ({ material, onClose }) => {
+  const [expandedIndex, setExpandedIndex] = React.useState(null);
   if (!material) return null;
 
   const availableStock = material.availableStock || 0;
@@ -98,7 +143,7 @@ const RawMaterialDetail = ({ material, onClose }) => {
             <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-medium">Available Stock</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
             {availableStock.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500 mt-1">{material.unit}</p>
@@ -109,7 +154,7 @@ const RawMaterialDetail = ({ material, onClose }) => {
             <AlertTriangle className="w-5 h-5" />
             <span className="text-sm font-medium">Reserved</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
             {reservedStock.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500 mt-1">{material.unit} on hold</p>
@@ -120,7 +165,7 @@ const RawMaterialDetail = ({ material, onClose }) => {
             <TrendingUp className="w-5 h-5" />
             <span className="text-sm font-medium">Available for Sale</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
             {availableForSale.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500 mt-1">{material.unit}</p>
@@ -131,7 +176,7 @@ const RawMaterialDetail = ({ material, onClose }) => {
             <DollarSign className="w-5 h-5" />
             <span className="text-sm font-medium">Total Value</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
             ₹{totalValue.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500 mt-1">₹{unitPrice}/{material.unit}</p>
@@ -232,61 +277,117 @@ const RawMaterialDetail = ({ material, onClose }) => {
 
       {/* Stock History Timeline */}
       {material.stockHistory && material.stockHistory.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-purple-600" />
+        <div className="bg-white rounded-md border border-gray-200 p-4">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-purple-600" />
             Stock History ({material.stockHistory.length})
           </h3>
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {material.stockHistory.slice(0, 10).map((history, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-4 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    history.action === "added" || history.action === "created"
-                      ? "bg-emerald-100 text-emerald-600"
-                      : history.action === "deducted"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  {history.action === "added" || history.action === "created" ? (
-                    <TrendingUp className="w-5 h-5" />
-                  ) : history.action === "deducted" ? (
-                    <XCircle className="w-5 h-5" />
-                  ) : (
-                    <Activity className="w-5 h-5" />
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {material.stockHistory.slice(0, 10).map((history, index) => {
+              const isExpanded = expandedIndex === index;
+              const parsed = parseHistoryNote(history.note);
+
+              return (
+                <div key={index} className="border border-gray-150 rounded-md overflow-hidden bg-white">
+                  <div
+                    onClick={() => setExpandedIndex(isExpanded ? null : index)}
+                    className="flex items-start gap-3 p-2.5 hover:bg-gray-50/70 transition-colors cursor-pointer select-none"
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        history.action === "added" || history.action === "created"
+                          ? "bg-emerald-100 text-emerald-600"
+                          : history.action === "deducted"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-blue-100 text-blue-600"
+                      }`}
+                    >
+                      {history.action === "added" || history.action === "created" ? (
+                        <TrendingUp className="w-4 h-4" />
+                      ) : history.action === "deducted" ? (
+                        <XCircle className="w-4 h-4" />
+                      ) : (
+                        <Activity className="w-4 h-4" />
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="font-bold text-gray-950 text-xs capitalize">
+                          {history.action}
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-semibold">
+                          {formatDate(history.at || history.createdAt)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 flex items-center justify-between">
+                        <span>
+                          Quantity: <strong className="font-bold text-gray-900">{history.quantity} {material.unit}</strong>
+                          <span className="text-gray-400 mx-2">|</span>
+                          Stock: {history.previousStock} → {history.newStock} {material.unit}
+                        </span>
+                        <span className="text-[9px] font-bold text-blue-600 hover:underline">
+                          {isExpanded ? "Less ▲" : "Details ▼"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded detail card */}
+                  {isExpanded && (
+                    <div className="bg-gray-50/75 border-t border-gray-150 p-3 text-xs text-gray-800 space-y-2">
+                      <div className="flex items-center gap-1.5 border-b border-gray-200 pb-1 mb-1 font-bold text-[10px] text-gray-500 uppercase tracking-wider">
+                        <span>📝</span> Action Details
+                      </div>
+
+                      {parsed ? (
+                        <div className="space-y-1.5 leading-relaxed font-medium">
+                          {parsed.type === "PRODUCTION" && (
+                            <>
+                              <p className="text-gray-950">
+                                🔧 This stock was **consumed automatically** during production of linked inventory items:
+                              </p>
+                              <div className="bg-white border border-gray-205 rounded p-2 grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <span className="text-[9px] text-gray-400 uppercase font-bold block">Target Product</span>
+                                  <strong className="text-gray-900 font-bold">{parsed.productName}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-gray-400 uppercase font-bold block">Units Produced</span>
+                                  <strong className="text-gray-950 font-bold">{parsed.quantity} {parsed.unit}</strong>
+                                </div>
+                                <div className="col-span-2 border-t border-gray-100 pt-1 text-[11px] text-gray-600">
+                                  {parsed.description}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          {parsed.type === "PRODUCTION_GENERIC" && (
+                            <p className="text-gray-950">
+                              {parsed.description} (Target: <strong className="font-bold">{parsed.productName}</strong>)
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-1 text-gray-650 leading-relaxed font-semibold">
+                          <p>
+                            <span className="font-bold text-gray-500">Action:</span> {history.action.toUpperCase()}
+                          </p>
+                          <p>
+                            <span className="font-bold text-gray-500">Transferred:</span> {history.quantity} {material.unit}
+                          </p>
+                          {history.note && (
+                            <p className="text-gray-700 bg-white border border-gray-200 rounded p-2 italic mt-1 font-medium">
+                              Note: {history.note}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-gray-900 capitalize">
-                      {history.action}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {formatDate(history.at || history.createdAt)}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <p>
-                      Quantity:{" "}
-                      <span className="font-medium">
-                        {history.quantity} {material.unit}
-                      </span>
-                    </p>
-                    <p>
-                      Stock: {history.previousStock} → {history.newStock}{" "}
-                      {material.unit}
-                    </p>
-                    {history.note && (
-                      <p className="text-gray-500 italic">Note: {history.note}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -14,6 +14,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { Badge } from "../ui";
+import { getProductTaxInfo } from "../../utils";
 
 const InventoryDetail = ({ item, onClose }) => {
   if (!item) return null;
@@ -205,6 +206,12 @@ const InventoryDetail = ({ item, onClose }) => {
                     </span>
                   </div>
                 )}
+                {item.bf && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">BF (Burst Factor)</span>
+                    <span className="font-semibold text-gray-900">{item.bf}</span>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -233,6 +240,21 @@ const InventoryDetail = ({ item, onClose }) => {
                 )}
               </>
             )}
+            {(() => {
+              const taxInfo = getProductTaxInfo(item);
+              return (
+                <>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">HSN Code</span>
+                    <span className="font-semibold text-gray-950 font-bold bg-gray-50 border border-gray-150 px-2.5 py-0.5 rounded-lg text-xs">{taxInfo.hsnCode}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">GST Rate</span>
+                    <span className="font-semibold text-gray-950 font-bold bg-gray-50 border border-gray-150 px-2.5 py-0.5 rounded-lg text-xs">{taxInfo.gstRate}%</span>
+                  </div>
+                </>
+              );
+            })()}
             <div className="flex justify-between items-center py-2">
               <span className="text-sm text-gray-600">Status</span>
               <span>

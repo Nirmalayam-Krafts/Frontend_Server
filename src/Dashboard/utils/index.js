@@ -1,12 +1,24 @@
-import { format, formatDistanceToNow, parseISO } from "date-fns";
-
 /**
  * Format dates
  */
 export const formatDate = (date, formatStr = "MMM dd, yyyy") => {
   try {
-    const d = typeof date === "string" ? parseISO(date) : new Date(date);
-    return format(d, formatStr);
+    if (!date) return "";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return date;
+
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+
+    if (formatStr === "MMM dd, yyyy HH:mm") {
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${month} ${day}, ${year} ${hours}:${minutes}`;
+    }
+
+    return `${month} ${day}, ${year}`;
   } catch {
     return date;
   }
@@ -18,8 +30,21 @@ export const formatDateTime = (date) => {
 
 export const formatTimeAgo = (date) => {
   try {
-    const d = typeof date === "string" ? parseISO(date) : new Date(date);
-    return formatDistanceToNow(d, { addSuffix: true });
+    if (!date) return "";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return date;
+
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return "just now";
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
   } catch {
     return date;
   }
@@ -190,4 +215,105 @@ export const throttle = (func, limit) => {
       setTimeout(() => (inThrottle = false), limit);
     }
   };
+};
+
+/**
+ * Dynamic Tax and HSN Calculator / Fallback
+ */
+export const getProductTaxInfo = (product) => {
+  if (!product) return { hsnCode: "—", gstRate: 18 };
+  
+  const category = String(product.category || product.productCategory || "").toLowerCase();
+  const isKraftRoll = category.includes("roll");
+  
+  let hsn = product.hsnCode;
+  let gst = product.gstRate;
+  
+  if (!hsn || hsn === "—" || hsn.trim() === "") {
+    if (isKraftRoll) {
+      const gsmVal = Number(product.gsm) || 0;
+      if (gsmVal <= 150) {
+        hsn = "4804 39 00";
+      } else if (gsmVal < 225) {
+        hsn = "4804 49 00";
+      } else {
+        hsn = "4804 59 00";
+      }
+    } else {
+      // It's a paper bag - get width value from dimensions
+      const widthVal = Number(product.dimensions?.width || (product.dimensions && product.dimensions.width)) || 0;
+      const unit = String(product.dimensions?.unit || (product.dimensions && product.dimensions.unit) || "inch").toLowerCase();
+      // conversion helper to centimeters
+      const widthInCm = unit === "cm" ? widthVal : unit === "mm" ? widthVal / 10 : widthVal * 2.54;
+      if (widthInCm >= 40) {
+        hsn = "4819 30 00";
+      } else {
+        hsn = "4819 40 00";
+      }
+    }
+  }
+  
+  if (gst == null || gst === "—" || String(gst).trim() === "") {
+    gst = isKraftRoll ? 12 : 18;
+  }
+  
+  return { hsnCode: hsn, gstRate: Number(gst) };
+};
+
+export const exportToExcel = (headers, rows, filename = "export") => {
+  let xml = '<?xml version="1.0"?>\n';
+  xml += '<?mso-application progid="Excel.Sheet"?>\n';
+  xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+  xml += ' xmlns:o="urn:schemas-microsoft-com:office:office"\n';
+  xml += ' xmlns:x="urn:schemas-microsoft-com:office:excel"\n';
+  xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\n';
+  xml += ' xmlns:html="http://www.w3.org/TR/REC-html40">\n';
+  xml += ' <Worksheet ss:Name="Sheet1">\n';
+  xml += '  <Table>\n';
+  
+  // Headers row
+  xml += '   <Row ss:StyleID="HeaderStyle">\n';
+  headers.forEach(h => {
+    xml += `    <Cell><Data ss:Type="String">${escapeXml(h)}</Data></Cell>\n`;
+  });
+  xml += '   </Row>\n';
+
+  // Data rows
+  rows.forEach(r => {
+    xml += '   <Row>\n';
+    r.forEach(val => {
+      const isNum = typeof val === 'number' && !isNaN(val);
+      const type = isNum ? 'Number' : 'String';
+      const cleanVal = val === null || val === undefined ? '' : String(val);
+      xml += `    <Cell><Data ss:Type="${type}">${escapeXml(cleanVal)}</Data></Cell>\n`;
+    });
+    xml += '   </Row>\n';
+  });
+
+  xml += '  </Table>\n';
+  xml += ' </Worksheet>\n';
+  xml += '</Workbook>\n';
+
+  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const escapeXml = (unsafe) => {
+  return unsafe.replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
 };

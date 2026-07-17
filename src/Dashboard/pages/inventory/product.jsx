@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Modal } from "../../components/ui";
+import { getProductTaxInfo, exportToExcel } from "../../utils";
 import ProductForm from "../../components/forms/ProductForm";
 import {
   Plus,
@@ -15,6 +16,8 @@ import {
   Wallet,
   Layers3,
   RotateCcw,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -33,8 +36,22 @@ const Product = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const [showDeleted, setShowDeleted] = useState(false);
+  const [activeLogProduct, setActiveLogProduct] = useState(null);
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
 
   const { data: products = [], isLoading } = useGetAllProducts({ search, showDeleted });
+
+  const currentActiveProduct = useMemo(() => {
+    if (!activeLogProduct) return null;
+    return products.find(p => String(p._id || p.id) === String(activeLogProduct._id || activeLogProduct.id)) || activeLogProduct;
+  }, [products, activeLogProduct]);
+
+  React.useEffect(() => {
+    if (!activeLogProduct && products.length > 0) {
+      setActiveLogProduct(products[0]);
+    }
+  }, [products, activeLogProduct]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {
@@ -84,12 +101,19 @@ const Product = () => {
   };
 
   const handleUpdateProduct = async (data) => {
+    const reason = window.prompt("Enter reason/note for updating this product:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Reason is required to update product specs");
+      return;
+    }
+
     const loadingToast = toast.loading("Updating product...");
 
     try {
       const response = await axiosInstance.patch(
         `/products/${editingProduct._id || editingProduct.id}`,
-        data
+        { ...data, reason }
       );
 
       const updatedProduct = response?.data?.data;
@@ -121,12 +145,19 @@ const Product = () => {
   };
 
   const handleDeleteProduct = async (id) => {
+    const reason = window.prompt("Enter reason/note for deleting this product:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Reason is required to delete product");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this product?")) return;
     if (!window.confirm("Are you absolutely sure? This will hide the product and soft-delete its inventory stock levels.")) return;
     const loadingToast = toast.loading("Deleting product...");
 
     try {
-      await axiosInstance.delete(`/products/${id}`);
+      await axiosInstance.delete(`/products/${id}`, { params: { reason } });
 
       toast.success("Product deleted successfully", {
         id: loadingToast,
@@ -149,12 +180,19 @@ const Product = () => {
   };
 
   const handleRecoverProduct = async (id) => {
+    const reason = window.prompt("Enter reason/note for recovering this product:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Reason is required to recover product");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to recover this product?")) return;
     if (!window.confirm("Are you absolutely sure you want to restore it back to the active catalog?")) return;
     const loadingToast = toast.loading("Restoring product...");
 
     try {
-      await axiosInstance.patch(`/products/${id}/recover`);
+      await axiosInstance.patch(`/products/${id}/recover`, { reason });
 
       toast.success("Product restored successfully 🎉", {
         id: loadingToast,
@@ -171,6 +209,102 @@ const Product = () => {
         error?.response?.data?.message || "Failed to restore product",
         { id: loadingToast }
       );
+    }
+  };
+
+  const handleRestoreState = async (productId, snapshotId, reason) => {
+    const loadingToast = toast.loading("Restoring product specifications...");
+    try {
+      await axiosInstance.patch(`/products/${productId}/restore`, { snapshotId, reason });
+      toast.success("Product state restored successfully ✓", { id: loadingToast });
+      queryClient.invalidateQueries({ queryKey: ["getAllProducts"] });
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to restore product state", { id: loadingToast });
+    }
+  };
+
+  const getProductSnapshotDiff = (snapshot, nextSnapshot, currentProd) => {
+    const diffs = [];
+    const target = nextSnapshot ? nextSnapshot.specs : currentProd;
+    if (!target || !snapshot || !snapshot.specs) return diffs;
+
+    const currentSpecs = snapshot.specs;
+
+    const compareFields = [
+      { key: "name", label: "Name" },
+      { key: "category", label: "Category" },
+      { key: "sku", label: "SKU" },
+      { key: "bagType", label: "Bag Type" },
+      { key: "gsm", label: "GSM" },
+      { key: "weight", label: "Weight" },
+      { key: "lengthInMeters", label: "Length (m)" },
+      { key: "bf", label: "BF" },
+      { key: "unit", label: "Unit" },
+      { key: "basePrice", label: "Base Price" },
+      { key: "customPrinting", label: "Custom Printing" },
+      { key: "isDeleted", label: "Soft Delete" },
+    ];
+
+    compareFields.forEach(({ key, label }) => {
+      const oldVal = currentSpecs[key];
+      const newVal = target[key];
+      if (oldVal !== newVal && oldVal !== undefined && newVal !== undefined) {
+        diffs.push(`${label}: "${oldVal ?? "—"}" ➔ "${newVal ?? "—"}"`);
+      }
+    });
+
+    return diffs;
+  };
+
+  const handleExportProducts = (format) => {
+    if (!filteredProducts.length) {
+      toast.error("No products available to export");
+      return;
+    }
+
+    const headers = [
+      "Product Name",
+      "Bag Type / Specs",
+      "Category",
+      "SKU",
+      "Dimensions",
+      "Base Price (₹)",
+      "Raw Materials Mapped",
+      "Status",
+    ];
+
+    const rows = filteredProducts.map((p) => {
+      const dimStr = p?.category?.toLowerCase().includes("roll")
+        ? `Width ${p?.dimensions?.width || 0} ${p?.dimensions?.unit || "inch"}`
+        : `${p?.dimensions?.length || 0} × ${p?.dimensions?.width || 0} × ${p?.dimensions?.height || 0} ${p?.dimensions?.unit || "inch"}`;
+      return [
+        p.name || "",
+        p.bagType || "",
+        p.category || "",
+        p.sku || "",
+        dimStr,
+        p.basePrice || 0,
+        p.rawMaterials?.length || 0,
+        p.isActive ? "Active" : "Inactive",
+      ];
+    });
+
+    if (format === "csv") {
+      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "products.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("CSV exported successfully");
+    } else {
+      exportToExcel(headers, rows, "products");
+      toast.success("Excel exported successfully");
     }
   };
 
@@ -205,6 +339,24 @@ const Product = () => {
 
             {/* RIGHT CTA */}
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:w-auto">
+
+              <Button
+                variant="custom"
+                icon={Download}
+                onClick={() => handleExportProducts("csv")}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-6 py-3 text-sm font-semibold shadow-lg"
+              >
+                Export CSV
+              </Button>
+
+              <Button
+                variant="custom"
+                icon={FileSpreadsheet}
+                onClick={() => handleExportProducts("excel")}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-6 py-3 text-sm font-semibold shadow-lg"
+              >
+                Export Excel
+              </Button>
 
               <Button
                 icon={Plus}
@@ -372,7 +524,8 @@ const Product = () => {
                     {filteredProducts.map((item) => (
                       <tr
                         key={item._id || item.id}
-                        className="border-b border-gray-100 transition hover:bg-gray-50"
+                        className="border-b border-gray-100 transition hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setActiveLogProduct(item)}
                       >
                         <td className="px-4 py-4">
                           <div>
@@ -469,6 +622,165 @@ const Product = () => {
               </div>
             )}
           </Card>
+
+          {currentActiveProduct && (
+            <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm">
+              <div className="rounded-3xl border border-indigo-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-lg mb-6">
+                <h3 className="text-lg font-bold">Activity Logs & Modification History — {currentActiveProduct.name}</h3>
+                <p className="mt-1 text-xs text-slate-300 opacity-90">
+                  Showing specifications modifications, delete actions, and recovery snapshots for Product {currentActiveProduct.name} ({currentActiveProduct.sku})
+                </p>
+              </div>
+
+              {/* Date Filters */}
+              <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-gray-200 p-3 rounded-2xl mb-6 text-sm">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Logs by Date:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">From</span>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    max={logEndDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logEndDate && val > logEndDate) {
+                        toast.error("'From' date cannot be after 'To' date");
+                        return;
+                      }
+                      setLogStartDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">To</span>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    min={logStartDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logStartDate && val < logStartDate) {
+                        toast.error("'To' date cannot be before 'From' date");
+                        return;
+                      }
+                      setLogEndDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                {(logStartDate || logEndDate) && (
+                  <button
+                    onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold ml-auto"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {(() => {
+                  const getLocalDateString = (dateVal) => {
+                    if (!dateVal) return "";
+                    const d = new Date(dateVal);
+                    if (isNaN(d.getTime())) return "";
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                  };
+
+                  const rawHistory = currentActiveProduct.editHistory || [];
+                  let sortedHistory = [...rawHistory].reverse();
+                  if (logStartDate) {
+                    sortedHistory = sortedHistory.filter(l => l.at && getLocalDateString(l.at) >= logStartDate);
+                  }
+                  if (logEndDate) {
+                    sortedHistory = sortedHistory.filter(l => l.at && getLocalDateString(l.at) <= logEndDate);
+                  }
+                  
+                  return sortedHistory.map((log, index) => {
+                    const nextLog = index > 0 ? sortedHistory[index - 1] : null;
+                    const changes = getProductSnapshotDiff(log, nextLog, currentActiveProduct);
+                    const canRestore = !currentActiveProduct.isDeleted && !log.reason.toLowerCase().includes("deleted") && !log.reason.toLowerCase().includes("recovered");
+                    const title = log.reason.toLowerCase().includes("deleted") ? "Product Soft-Deleted" : log.reason.toLowerCase().includes("recovered") ? "Product Recovered" : "Product Specifications Updated";
+
+                    return (
+                      <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                                title.includes("Deleted") 
+                                  ? "bg-red-50 border-red-150 text-red-700" 
+                                  : title.includes("Recovered") 
+                                    ? "bg-green-50 border-green-150 text-green-700"
+                                    : "bg-indigo-50 border-indigo-150 text-indigo-700"
+                              }`}>
+                                {title.includes("Deleted") ? "❌" : title.includes("Recovered") ? "🔄" : "📝"} {title}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Updated by:</span> {log.by}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Reason/Note:</span> {log.reason}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="text-xs text-gray-500 font-semibold">
+                              {new Date(log.at).toLocaleString()}
+                            </span>
+                            {canRestore && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const reason = window.prompt("Enter reason/note for restoring this snapshot:");
+                                  if (reason === null) return;
+                                  if (!reason.trim()) {
+                                    toast.error("Reason is required to revert state");
+                                    return;
+                                  }
+                                  handleRestoreState(currentActiveProduct._id || currentActiveProduct.id, log._id, reason);
+                                }}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 transition shadow-sm border border-teal-200"
+                              >
+                                Restore State
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {changes && changes.length > 0 ? (
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Changed fields:</p>
+                            <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700 font-semibold">
+                              {changes.map((changeStr, cIdx) => (
+                                <li key={cIdx}>{changeStr}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          !title.includes("Deleted") && !title.includes("Recovered") && (
+                            <div className="bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500">
+                              No specification details changed (metadata or note edit).
+                            </div>
+                          )
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+
+                {(!currentActiveProduct.editHistory || currentActiveProduct.editHistory.length === 0) && (
+                  <div className="rounded-xl border border-dashed border-gray-250 p-6 text-center text-sm font-semibold text-gray-500 bg-gray-50">
+                    No modifications or delete actions recorded for this product yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <Modal
@@ -533,6 +845,31 @@ const Product = () => {
                       Bag Type
                     </p>
                     <p className="mt-1 text-gray-900">{selectedProduct.bagType}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-gray-100 p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        HSN Code
+                      </p>
+                      <p className="mt-1 text-gray-900 font-bold">
+                        {(() => {
+                          const taxInfo = getProductTaxInfo(selectedProduct);
+                          return taxInfo.hsnCode;
+                        })()}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-100 p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">
+                        GST Rate
+                      </p>
+                      <p className="mt-1 text-gray-900 font-bold">
+                        {(() => {
+                          const taxInfo = getProductTaxInfo(selectedProduct);
+                          return `${taxInfo.gstRate}%`;
+                        })()}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-gray-100 p-4">

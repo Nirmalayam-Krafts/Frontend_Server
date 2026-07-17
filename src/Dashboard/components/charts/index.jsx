@@ -13,43 +13,72 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  AreaChart,
+  Area,
 } from "recharts";
 import { Card } from "../ui";
 
 export const RevenueChart = ({ data }) => {
-  const gridColor = "#e5e7eb";
-  const textColor = "#6b7280";
-  const labelColor = "#111827";
+  const gridColor = "#f3f4f6";
+  const textColor = "#9ca3af";
+  const labelColor = "#1f2937";
 
   return (
-    <Card className="h-80">
-      <h3 className="text-lg font-semibold mb-4 text-gray-900">
-        Revenue Trend
-      </h3>
-      <div className="h-[240px] w-full">
+    <Card className="h-80 shadow-sm border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">
+          Revenue Performance
+        </h3>
+        <span className="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-bold">
+          Live Trend
+        </span>
+      </div>
+      <div className="h-[220px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart
+          <AreaChart
             data={data}
-            margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <defs>
+              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.01} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
             <XAxis
               dataKey="month"
               stroke={textColor}
-              style={{ fontSize: "12px" }}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
             />
-            <YAxis stroke={textColor} style={{ fontSize: "12px" }} />
+            <YAxis 
+              stroke={textColor} 
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }} 
+            />
             <Tooltip
-              cursor={{ fill: "rgba(34, 197, 94, 0.1)" }}
               contentStyle={{
                 backgroundColor: "#ffffff",
-                border: `1px solid ${gridColor}`,
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                 color: labelColor,
-                borderRadius: "8px",
+                fontFamily: "Inter, sans-serif",
+                fontSize: "12px",
               }}
             />
-            <Bar dataKey="revenue" fill="#22c55e" radius={[8, 8, 0, 0]} />
-          </BarChart>
+            <Area 
+              type="monotone" 
+              dataKey="revenue" 
+              stroke="#10b981" 
+              strokeWidth={3}
+              fillOpacity={1} 
+              fill="url(#colorRevenue)" 
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </Card>
@@ -57,45 +86,56 @@ export const RevenueChart = ({ data }) => {
 };
 
 export const LeadConversionChart = ({ data }) => {
-  const gridColor = "#e5e7eb";
-  const textColor = "#6b7280";
-  const labelColor = "#111827";
-  const COLORS = ["#22c55e", "#16a34a", "#15803d"];
+  const gridColor = "#f3f4f6";
+  const textColor = "#9ca3af";
+  const labelColor = "#1f2937";
 
   return (
-    <Card className="h-80">
-      <h3 className="text-lg font-semibold mb-4 text-gray-900">
-        Lead Conversion Funnel
-      </h3>
-      <div className="h-[240px] w-full">
+    <Card className="h-80 shadow-sm border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">
+          Conversion Funnel Analysis
+        </h3>
+        <span className="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-bold">
+          Sales Pipeline
+        </span>
+      </div>
+      <div className="h-[220px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 0, right: 30, left: 100, bottom: 0 }}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={gridColor} />
             <XAxis
               type="number"
               stroke={textColor}
-              style={{ fontSize: "12px" }}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
             />
             <YAxis
               dataKey="name"
               type="category"
-              width={90}
+              width={100}
               stroke={textColor}
-              style={{ fontSize: "12px" }}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
             />
             <Tooltip
               contentStyle={{
                 backgroundColor: "#ffffff",
-                border: `1px solid ${gridColor}`,
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                 color: labelColor,
-                borderRadius: "8px",
+                fontFamily: "Inter, sans-serif",
+                fontSize: "12px",
               }}
             />
-            <Bar dataKey="value" fill="#22c55e" radius={[0, 8, 8, 0]} />
+            <Bar dataKey="value" fill="#059669" radius={[0, 8, 8, 0]} barSize={20} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -104,8 +144,8 @@ export const LeadConversionChart = ({ data }) => {
 };
 
 export const InventoryChart = ({ data }) => {
-  const labelColor = "#111827";
-  const COLORS = ["#22c55e", "#8b5cf6", "#3b82f6"];
+  const labelColor = "#1f2937";
+  const COLORS = ["#10b981", "#059669", "#34d399"];
   const normalizedData = Array.isArray(data)
     ? data.map((item, index) => ({
         ...item,
@@ -120,23 +160,30 @@ export const InventoryChart = ({ data }) => {
     : [{ name: "No Data", value: 100, _color: "#d1d5db" }];
 
   return (
-    <Card className="h-80">
-      <h3 className="text-lg font-semibold mb-4 text-gray-900">
-        Inventory Distribution
-      </h3>
-      <div className="h-[240px] w-full">
+    <Card className="h-80 shadow-sm border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">
+          Inventory Distribution
+        </h3>
+        <span className="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg font-bold">
+          Category Mix
+        </span>
+      </div>
+      <div className="h-[220px] w-full flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={pieData}
               cx="50%"
               cy="50%"
+              innerRadius={60}
+              outerRadius={90}
+              paddingAngle={4}
               labelLine={false}
               stroke="none"
-              label={({ name, value }) =>
+              label={({ name, percentage, value }) =>
                 hasPositiveValues ? `${name}: ${value}%` : "No inventory data"
               }
-              outerRadius={100}
               fill="#8884d8"
               dataKey="value"
             >
@@ -151,9 +198,11 @@ export const InventoryChart = ({ data }) => {
             <Tooltip
               contentStyle={{
                 backgroundColor: "#ffffff",
-                border: "1px solid #e5e7eb",
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                 color: labelColor,
-                borderRadius: "8px",
+                fontSize: "12px",
               }}
             />
           </PieChart>
@@ -255,3 +304,179 @@ export const HorizontalBarChart = ({ data }) => {
     </Card>
   );
 };
+
+export const CategorySalesChart = ({ data }) => {
+  const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899"];
+  const gridColor = "#f3f4f6";
+  const textColor = "#9ca3af";
+  const labelColor = "#1f2937";
+
+  return (
+    <Card className="h-80 shadow-sm border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">
+          Category Wise Sales
+        </h3>
+        <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-bold">
+          By Category
+        </span>
+      </div>
+      <div className="h-[220px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+            <XAxis
+              dataKey="category"
+              stroke={textColor}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
+            />
+            <YAxis
+              stroke={textColor}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#ffffff",
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                color: labelColor,
+                fontFamily: "Inter, sans-serif",
+                fontSize: "12px",
+              }}
+              formatter={(value) => [`₹${Number(value).toLocaleString("en-IN")}`, "Sales"]}
+            />
+            <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+};
+
+export const ProductSalesChart = ({ data }) => {
+  const gridColor = "#f3f4f6";
+  const textColor = "#9ca3af";
+  const labelColor = "#1f2937";
+
+  return (
+    <Card className="h-96 shadow-sm border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">
+          Product Wise Sales
+        </h3>
+        <span className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-bold">
+          Top Products
+        </span>
+      </div>
+      <div className="h-[300px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={gridColor} />
+            <XAxis
+              type="number"
+              stroke={textColor}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
+            />
+            <YAxis
+              dataKey="productName"
+              type="category"
+              stroke={textColor}
+              tickLine={false}
+              axisLine={false}
+              width={140}
+              style={{ fontSize: "10px", fontWeight: "600" }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#ffffff",
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                color: labelColor,
+                fontFamily: "Inter, sans-serif",
+                fontSize: "12px",
+              }}
+              formatter={(value) => [`${value} units`, "Quantity Sold"]}
+            />
+            <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+};
+
+export const ProductReturnsChart = ({ data }) => {
+  const gridColor = "#f3f4f6";
+  const textColor = "#9ca3af";
+  const labelColor = "#1f2937";
+
+  return (
+    <Card className="h-96 shadow-sm border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-900">
+          Per Product Returns
+        </h3>
+        <span className="text-xs bg-red-50 text-red-700 px-2.5 py-1 rounded-lg font-bold">
+          Return Analysis
+        </span>
+      </div>
+      <div className="h-[300px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={gridColor} />
+            <XAxis
+              type="number"
+              stroke={textColor}
+              tickLine={false}
+              axisLine={false}
+              style={{ fontSize: "11px", fontWeight: "600" }}
+            />
+            <YAxis
+              dataKey="productName"
+              type="category"
+              stroke={textColor}
+              tickLine={false}
+              axisLine={false}
+              width={140}
+              style={{ fontSize: "10px", fontWeight: "600" }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#ffffff",
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                color: labelColor,
+                fontFamily: "Inter, sans-serif",
+                fontSize: "12px",
+              }}
+              formatter={(value) => [`${value} units`, "Returned Quantity"]}
+            />
+            <Bar dataKey="returnedQuantity" fill="#ef4444" radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+};
+

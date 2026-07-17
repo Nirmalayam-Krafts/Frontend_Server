@@ -17,10 +17,9 @@ const leadSchema = z
       }),
     phone: z
       .string()
-      .optional()
-      .or(z.literal(""))
-      .refine((val) => !val || /^\+?[\d\s\-()]{7,20}$/.test(val), {
-        message: "Invalid phone number",
+      .min(1, "Phone number is required")
+      .refine((val) => /^[6-9][0-9]{9}$/.test(val), {
+        message: "Invalid 10-digit phone number (must start with 6-9)",
       }),
     business_name: z.string().optional().or(z.literal("")),
     product_category: z
@@ -112,7 +111,11 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
         label="Phone"
         placeholder="Enter phone number"
         error={errors.phone?.message}
-        {...register("phone")}
+        {...register("phone", {
+          onChange: (e) => {
+            e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+          }
+        })}
       />
       <Input
         label="Business Name"
@@ -173,8 +176,11 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
           { value: "Contacted", label: "Contacted" },
           { value: "Interested", label: "Interested" },
           { value: "Converted", label: "Converted" },
+          { value: "Completed", label: "Completed" },
+          { value: "Delivered", label: "Delivered" },
           { value: "Lost", label: "Lost" },
         ]}
+        disabled={initialData && ["Converted", "Completed", "Delivered"].includes(initialData.status)}
         error={errors.status?.message}
         {...register("status")}
       />

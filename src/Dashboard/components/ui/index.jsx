@@ -17,7 +17,7 @@ export const Button = ({
     "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variants = {
-    primary: "bg-primary-600 text-white hover:bg-primary-700 active:scale-95",
+    primary: "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95",
     secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
     danger: "bg-red-600 text-white hover:bg-red-700",
     outline: "border border-gray-300 text-gray-900 hover:bg-gray-50",
@@ -237,12 +237,18 @@ export  function Modal({
   title,
   children,
   size = "lg",
+  variant = "center",
+  sidePanel = null,
 }) {
   if (!isOpen) return null;
+  const isDrawer = variant === "drawer";
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6">
+      <div className={clsx(
+        "fixed inset-0 z-[100] flex",
+        isDrawer ? "justify-end" : "items-center justify-center p-3 sm:p-6"
+      )}>
         {/* Backdrop */}
         <motion.div
           className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
@@ -254,27 +260,48 @@ export  function Modal({
 
         {/* Modal Panel */}
         <motion.div
-          initial={{ opacity: 0, y: 18, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          transition={{ duration: 0.2 }}
-          className={`relative z-10 w-full ${sizeClasses[size]} overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl`}
+          initial={isDrawer ? { x: "100%" } : { opacity: 0, y: 18, scale: 0.98 }}
+          animate={isDrawer ? { x: 0 } : { opacity: 1, y: 0, scale: 1 }}
+          exit={isDrawer ? { x: "100%" } : { opacity: 0, y: 12, scale: 0.98 }}
+          transition={{ type: "tween", duration: 0.22 }}
+          className={clsx(
+            "z-10 flex shadow-2xl overflow-hidden",
+            isDrawer ? "h-full max-w-[85vw]" : `w-full ${sizeClasses[size]} items-stretch`
+          )}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6">
-            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          {/* Side Panel (renders to the left of the drawer) */}
+          {isDrawer && sidePanel && (
+            <div className="w-80 border-r border-gray-150 bg-gray-50 p-5 flex flex-col justify-between h-full text-slate-800 select-none">
+              {sidePanel}
+            </div>
+          )}
 
-            <button
-              onClick={onClose}
-              className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+          {/* Main content drawer/modal container */}
+          <div className={clsx(
+            "relative bg-white flex flex-col border-gray-250 w-full flex-1",
+            isDrawer 
+              ? "h-full w-[460px] max-w-lg border-l rounded-none" 
+              : `${sizeClasses[size]} overflow-hidden rounded-xl border`
+          )}>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-150 px-4 py-3 sm:px-5">
+              <h2 className="text-base font-extrabold text-gray-900 uppercase tracking-wider">{title}</h2>
 
-          {/* Body */}
-          <div className="max-h-[85vh] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-            {children}
+              <button
+                onClick={onClose}
+                className="rounded-lg p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className={clsx(
+              "overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 flex-1",
+              isDrawer ? "h-[calc(100vh-60px)]" : "max-h-[85vh]"
+            )}>
+              {children}
+            </div>
           </div>
         </motion.div>
       </div>

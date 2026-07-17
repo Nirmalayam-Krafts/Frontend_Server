@@ -121,12 +121,55 @@ const Settings = () => {
   };
 
   const handleSaveProfile = async () => {
+    // 1. Full Name Validation
+    const nameTrimmed = (formData.name || "").trim();
+    if (!nameTrimmed) {
+      showNotification("Full Name is required", "error");
+      return;
+    }
+    if (nameTrimmed.length < 2) {
+      showNotification("Full Name must be at least 2 characters long", "error");
+      return;
+    }
+    if (nameTrimmed.length > 50) {
+      showNotification("Full Name must not exceed 50 characters", "error");
+      return;
+    }
+    if (!/^[a-zA-Z\s.-]+$/.test(nameTrimmed)) {
+      showNotification("Full Name can only contain letters, spaces, dots, or hyphens", "error");
+      return;
+    }
+
+    // 2. Email Address Validation
+    const emailTrimmed = (formData.email || "").trim();
+    if (!emailTrimmed) {
+      showNotification("Email Address is required", "error");
+      return;
+    }
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      showNotification("Please enter a valid Email Address", "error");
+      return;
+    }
+
+    // 3. Phone Number Validation
+    const phoneTrimmed = (formData.phone || "").trim();
+    if (!phoneTrimmed) {
+      showNotification("Phone Number is required", "error");
+      return;
+    }
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(phoneTrimmed)) {
+      showNotification("Please enter a valid 10-digit Phone Number (e.g. 8625067058)", "error");
+      return;
+    }
+
     try {
       setSavingProfile(true);
       const payload = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        name: nameTrimmed,
+        email: emailTrimmed,
+        phone: phoneTrimmed,
       };
 
       const res = await axiosInstance.patch("/admin/me/profile", payload);
@@ -198,6 +241,15 @@ const Settings = () => {
       return res.data?.data || [];
     },
     enabled: profile?.role === "admin",
+  });
+
+  const { data: loginLogs } = useQuery({
+    queryKey: ["getMyLoginLogs"],
+    queryFn: async () => {
+      const res = await axiosInstance.get("/admin/login-logs");
+      return res.data?.data || [];
+    },
+    enabled: !!profile,
   });
 
   const handleCreateStaff = async (e) => {
@@ -470,14 +522,6 @@ const Settings = () => {
                       >
                         Save Changes
                       </Button>
-                      <Button
-                        variant="secondary"
-                        className="rounded-xl px-6"
-                        onClick={handleCancelProfile}
-                        disabled={savingProfile}
-                      >
-                        Cancel
-                      </Button>
                     </div>
                   </div>
                 )}
@@ -564,13 +608,6 @@ const Settings = () => {
                 </p>
 
                 <div className="mt-5 space-y-4">
-                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                    <p className="text-sm text-blue-900">
-                      <span className="font-semibold">Last login:</span>{" "}
-                      {formatLastLogin(profile)}
-                    </p>
-                  </div>
-
                   <Button
                     variant="secondary"
                     className="w-full rounded-xl"
@@ -630,13 +667,6 @@ const Settings = () => {
                       Active
                     </span>
                   </div>
-
-                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
-                    <span className="text-gray-500">Renewal Date</span>
-                    <span className="font-semibold text-gray-900">
-                      {profile?.updatedAt ? new Date(profile.updatedAt).toLocaleDateString() : "---"}
-                    </span>
-                  </div>
                 </div>
               </Card>
             </Motion.div>
@@ -677,7 +707,6 @@ const Settings = () => {
                       <th className="px-5 py-3">Name</th>
                       <th className="px-5 py-3">Email</th>
                       <th className="px-5 py-3">Phone</th>
-                      <th className="px-5 py-3">Role</th>
                       <th className="px-5 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -688,19 +717,6 @@ const Settings = () => {
                           <td className="px-5 py-4 font-medium text-gray-900">{u.name}</td>
                           <td className="px-5 py-4 text-gray-600">{u.email}</td>
                           <td className="px-5 py-4 text-gray-600">{u.phone}</td>
-                          <td className="px-5 py-4">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                                u.role === "admin"
-                                  ? "bg-purple-50 text-purple-700 border border-purple-100"
-                                  : u.role === "sales"
-                                  ? "bg-blue-50 text-blue-700 border border-blue-100"
-                                  : "bg-amber-50 text-amber-700 border border-amber-100"
-                              }`}
-                            >
-                              {u.role}
-                            </span>
-                          </td>
                           <td className="px-5 py-4 text-right">
                             {u._id !== profile?._id ? (
                               <button
@@ -718,7 +734,7 @@ const Settings = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
+                        <td colSpan={4} className="px-5 py-8 text-center text-gray-400">
                           No staff users found.
                         </td>
                       </tr>
@@ -729,6 +745,106 @@ const Settings = () => {
             </Card>
           </Motion.div>
         )}
+
+        {/* LOGIN ACTIVITY & SESSION LOGS */}
+        <Motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="rounded-3xl border border-gray-200 shadow-sm p-6">
+            <div className="mb-6">
+              <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900">
+                <Lock className="h-5 w-5 text-emerald-600" />
+                Login History & Session Audit
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                View recent access logs, device details, and session status for security verification.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <th className="px-5 py-3">Logged In User</th>
+                    <th className="px-5 py-3">Login Time</th>
+                    <th className="px-5 py-3">Logout Time / Status</th>
+                    <th className="px-5 py-3">Device / Browser</th>
+                    <th className="px-5 py-3">Access Level</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loginLogs && loginLogs.length > 0 ? (
+                    loginLogs.map((log) => (
+                      <tr key={log._id} className="hover:bg-gray-50/50 transition">
+                        <td className="px-5 py-4 font-medium text-gray-900">
+                          <div>
+                            <p>{profile?.name || "Admin User"}</p>
+                            <p className="text-xs text-gray-500">{log.email}</p>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-gray-600 font-mono text-xs">
+                          {new Date(log.loginAt).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                          })}
+                        </td>
+                        <td className="px-5 py-4">
+                          {log.status === "Active" ? (
+                            <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700 border border-green-100">
+                              Active Session
+                            </span>
+                          ) : log.status === "Logged Out" ? (
+                            <div className="flex flex-col">
+                              <span className="inline-flex items-center self-start rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700 border border-gray-200">
+                                Logged Out
+                              </span>
+                              {log.logoutAt && (
+                                <span className="text-[10px] text-gray-400 mt-1 font-mono">
+                                  {new Date(log.logoutAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <span className="inline-flex items-center self-start rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 border border-amber-100">
+                                Expired / PW Reset
+                              </span>
+                              {log.logoutAt && (
+                                <span className="text-[10px] text-gray-400 mt-1 font-mono">
+                                  {new Date(log.logoutAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-gray-600">
+                          {log.browser || "Unknown"} on {log.os || "Unknown"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700 border border-purple-100 uppercase">
+                            {profile?.role || "admin"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
+                        No login history found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </Motion.div>
 
         {/* CHANGE PASSWORD DIALOG MODAL */}
         <Modal
@@ -856,18 +972,7 @@ const Settings = () => {
                 placeholder="Minimum 6 characters"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-600">Role / Profile Type</label>
-              <select
-                value={staffFields.role}
-                onChange={(e) => setStaffFields(prev => ({ ...prev, role: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-              >
-                <option value="sales">Sales Team</option>
-                <option value="operations">Operations Team</option>
-                <option value="admin">Administrator</option>
-              </select>
-            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"

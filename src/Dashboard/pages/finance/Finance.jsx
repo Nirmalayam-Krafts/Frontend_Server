@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Badge, Button, Input, Select, Modal, Pagination } from "../../components/ui";
 import { RevenueChart } from "../../components/charts";
@@ -16,12 +16,14 @@ import {
   Activity,
   Layers3
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { motion } from "framer-motion";
 import { useGetFinance } from "../../../../hook/finance";
 import { useGetAllOrders } from "../../../../hook/order";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useAuthContext } from "../../../context/Adminauth";
+import { exportToExcel } from "../../utils";
 import {
   BarChart,
   Bar,
@@ -38,13 +40,76 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// Helper: parse raw material transaction notes into structured data
+const parseExpenseNote = (note) => {
+  if (!note) return null;
+
+  // Pattern A: "5 kg added at ₹50/kg for KRAFT ROLL (Stock received...)"
+  const patternA = /([0-9.]+)\s*(\w+)\s*added\s*at\s*₹([0-9.]+)\/(\w+)\s*for\s*(.*?)(?:\s*\((.*?)\))?$/i;
+
+  // Pattern B: "Initial stock of 5 kg at ₹50 for KRAFT ROLL"
+  const patternB = /Initial\s*stock\s*of\s*([0-9.]+)\s*(\w+)\s*at\s*₹([0-9.]+)\s*for\s*(.*?)$/i;
+
+  // Pattern C: Adjustment deletion
+  const patternC = /Adjustment:\s*Reduced\s*expense\s*by\s*₹([0-9.]+)\s*as\s*([0-9.]+)\s*(\w+)\s*of\s*raw\s*material\s*'(.*?)'\s*was\s*deleted/i;
+
+  let match = note.match(patternA);
+  if (match) {
+    return {
+      type: "ADD",
+      quantity: match[1],
+      unit: match[2],
+      rate: match[3],
+      materialName: match[5],
+      comment: match[6] || "Stock received"
+    };
+  }
+
+  match = note.match(patternB);
+  if (match) {
+    return {
+      type: "INITIAL",
+      quantity: match[1],
+      unit: match[2],
+      rate: match[3],
+      materialName: match[4],
+      comment: "Initial stock creation"
+    };
+  }
+
+  match = note.match(patternC);
+  if (match) {
+    return {
+      type: "DELETE_ADJUSTMENT",
+      amountReduced: match[1],
+      quantity: match[2],
+      unit: match[3],
+      materialName: match[4],
+      comment: "Material deleted from system"
+    };
+  }
+
+  return null;
+};
+
 const Finance = () => {
   const { axiosInstance } = useAuthContext();
-  const { data, isLoading, isError, error, refetch } = useGetFinance();
+
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split("T")[0];
+  });
+
+  const { data, isLoading, isError, error, refetch } = useGetFinance({ from: startDate, to: endDate });
   const { data: ordersData } = useGetAllOrders({ limit: 10 });
 
   // Tab State
   const [activeTab, setActiveTab] = useState("overview");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Expense States
   const [expenseRange, setExpenseRange] = useState("7days");
@@ -52,6 +117,7 @@ const Finance = () => {
   const [expenses, setExpenses] = useState([]);
   const [expensesTotal, setExpensesTotal] = useState(0);
   const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expandedExpenseId, setExpandedExpenseId] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
@@ -63,7 +129,7 @@ const Finance = () => {
   const fetchExpensesList = async () => {
     setExpensesLoading(true);
     try {
-      const res = await axiosInstance.get(`/finance/transactions?excludeRevenue=true&page=${expensePage}&limit=10`);
+      const res = await axiosInstance.get(`/finance/transactions?excludeRevenue=true&page=${expensePage}&limit=10&from=${startDate}&to=${endDate}`);
       setExpenses(res.data?.data || []);
       setExpensesTotal(res.data?.total || 0);
     } catch (err) {
@@ -77,7 +143,7 @@ const Finance = () => {
   const fetchExpenseReport = async () => {
     setReportLoading(true);
     try {
-      const res = await axiosInstance.get(`/finance/expenses/report?range=${expenseRange}`);
+      const res = await axiosInstance.get(`/finance/expenses/report?range=${expenseRange}&from=${startDate}&to=${endDate}`);
       setReportData(res.data?.data || null);
     } catch (err) {
       console.error("Failed to fetch expense report", err);
@@ -86,17 +152,35 @@ const Finance = () => {
     }
   };
 
+  // Refresh all finance data
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetch(),
+        fetchExpensesList(),
+        fetchExpenseReport(),
+      ]);
+      toast.success("Finance data refreshed");
+    } catch {
+      toast.error("Failed to refresh data");
+    } finally {
+      setIsRefreshing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetch, expensePage, expenseRange, startDate, endDate]);
+
   useEffect(() => {
     if (activeTab === "expenses") {
       fetchExpensesList();
     }
-  }, [activeTab, expensePage]);
+  }, [activeTab, expensePage, startDate, endDate]);
 
   useEffect(() => {
     if (activeTab === "expenses") {
       fetchExpenseReport();
     }
-  }, [activeTab, expenseRange]);
+  }, [activeTab, expenseRange, startDate, endDate]);
 
   const handleRecordExpense = async (e) => {
     e.preventDefault();
@@ -126,7 +210,7 @@ const Finance = () => {
     }
   };
 
-  const exportToCSV = () => {
+  const handleExportExpenses = (format) => {
     if (expenses.length === 0) {
       alert("No expense records available to export");
       return;
@@ -140,18 +224,53 @@ const Finance = () => {
       e.note || ""
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + [headers, ...rows]
-          .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
-          .join("\n");
+    if (format === "csv") {
+      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Expenses_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } else {
+      exportToExcel(headers, rows, `Expenses_Report_${new Date().toISOString().slice(0, 10)}`);
+    }
+  };
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Nirmalyam_Expenses_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportFinance = (format) => {
+    if (!data) {
+      alert("No finance data available to export");
+      return;
+    }
+
+    const headers = ["Financial Metric", "Value"];
+    const rows = [
+      ["Monthly Revenue", data.monthlyRevenue || 0],
+      ["Pending Dues", data.pendingDues || 0],
+      ["Total Dispatched Orders", data.totalDispatched || 0],
+      ["Payment Collection Rate (%)", data.paymentRate || 0],
+      ["Total Income (₹)", data.income || 0],
+      ["Total Expense (₹)", data.expense || 0],
+      ["Net Profit (₹)", data.netProfit || 0],
+    ];
+
+    if (format === "csv") {
+      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Finance_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } else {
+      exportToExcel(headers, rows, `Finance_Report_${new Date().toISOString().slice(0, 10)}`);
+    }
   };
 
   // Transform revenueTrend from { month, total } to { month, revenue } for chart compatibility
@@ -323,7 +442,7 @@ const Finance = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-2">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Finance & Revenue
@@ -332,38 +451,92 @@ const Finance = () => {
                 Real-time tracking of orders, expenses, and financial overview.
               </p>
             </div>
+
+            {/* Custom Date Filter */}
+            <div className="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase">From</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  max={endDate || undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (endDate && val > endDate) {
+                      toast.error("'From' date cannot be after 'To' date");
+                      return;
+                    }
+                    setStartDate(val);
+                  }}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase">To</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (startDate && val < startDate) {
+                      toast.error("'To' date cannot be before 'From' date");
+                      return;
+                    }
+                    setEndDate(val);
+                  }}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  refetch();
-                  if (activeTab === "expenses") {
-                    fetchExpensesList();
-                    fetchExpenseReport();
-                  }
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
               >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                {isRefreshing ? "Refreshing..." : "Refresh"}
               </button>
               {activeTab === "overview" ? (
-                <button
-                  onClick={generateFinancePDF}
-                  disabled={isLoading || isError || !data}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </button>
+                <>
+                  <button
+                    onClick={() => handleExportFinance("csv")}
+                    disabled={isLoading || isError || !data}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => handleExportFinance("excel")}
+                    disabled={isLoading || isError || !data}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Export Excel
+                  </button>
+                </>
               ) : (
-                <button
-                  onClick={exportToCSV}
-                  disabled={expensesLoading || expenses.length === 0}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Export CSV
-                </button>
+                <>
+                  <button
+                    onClick={() => handleExportExpenses("csv")}
+                    disabled={expensesLoading || expenses.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => handleExportExpenses("excel")}
+                    disabled={expensesLoading || expenses.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Export Excel
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -410,7 +583,7 @@ const Finance = () => {
             {/* KPI Cards */}
             {!isLoading && !isError && data && (
               <motion.div
-                className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4"
+                className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ staggerChildren: 0.1 }}
@@ -500,6 +673,24 @@ const Finance = () => {
                       </div>
                       <div className="bg-primary-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
                         <CreditCard className="w-6 h-6" />
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
+                          GST Collected
+                        </p>
+                        <p className="text-2xl font-bold text-amber-600">
+                          {formatCurrency(data?.totalGstCollected || 0)}
+                        </p>
+                      </div>
+                      <div className="bg-amber-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
+                        <Layers3 className="w-6 h-6" />
                       </div>
                     </div>
                   </Card>
@@ -828,31 +1019,120 @@ const Finance = () => {
                         <td colSpan={5} className="py-10 text-center text-gray-400">No expense records found</td>
                       </tr>
                     ) : (
-                      expenses.map((expense) => (
-                        <tr key={expense._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                          <td className="py-3.5 px-4 text-gray-500">
-                            {new Date(expense.createdAt).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </td>
-                          <td className="py-3.5 px-4 font-medium text-gray-900">
-                            {expense.category || (expense.transactionType === "MATERIAL_COST" ? "Raw Materials" : expense.transactionType)}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-bold text-red-600">
-                            {formatCurrency(expense.amount)}
-                          </td>
-                          <td className="py-3.5 px-4 text-gray-700">
-                            {expense.adminId?.name || "System"}
-                          </td>
-                          <td className="py-3.5 px-4 text-gray-600 italic">
-                            {expense.note || "—"}
-                          </td>
-                        </tr>
-                      ))
+                      expenses.map((expense) => {
+                        const isExpanded = expandedExpenseId === expense._id;
+                        const parsed = parseExpenseNote(expense.note);
+
+                        return (
+                          <React.Fragment key={expense._id}>
+                            <tr
+                              onClick={() => setExpandedExpenseId(isExpanded ? null : expense._id)}
+                              className="border-b border-gray-50 hover:bg-gray-50/80 transition-colors cursor-pointer select-none"
+                            >
+                              <td className="py-3 px-4 text-gray-500 font-medium">
+                                {new Date(expense.createdAt).toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </td>
+                              <td className="py-3 px-4 font-bold text-gray-900">
+                                {expense.category || (expense.transactionType === "MATERIAL_COST" ? "Raw Materials" : expense.transactionType)}
+                              </td>
+                              <td className="py-3 px-4 text-right font-extrabold text-red-650">
+                                {formatCurrency(expense.amount)}
+                              </td>
+                              <td className="py-3 px-4 text-gray-700 font-semibold">
+                                {expense.adminId?.name || "System"}
+                              </td>
+                              <td className="py-3 px-4 text-gray-600 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="truncate max-w-[280px] font-medium">{expense.note || "—"}</span>
+                                  <span className="text-[10px] font-extrabold text-blue-600 hover:underline ml-2 flex-shrink-0">
+                                    {isExpanded ? "Collapse ▲" : "Details ▼"}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Expanded Detail Panel */}
+                            {isExpanded && (
+                              <tr className="bg-gray-50/50">
+                                <td colSpan={5} className="px-6 py-3.5 border-b border-gray-150">
+                                  <div className="rounded-md border border-gray-200 bg-white p-3 shadow-sm text-xs text-gray-800 space-y-2">
+                                    <div className="flex items-center gap-2 border-b border-gray-100 pb-1.5">
+                                      <span className="text-sm">📋</span>
+                                      <h4 className="font-extrabold text-[11px] uppercase tracking-wider text-gray-700">
+                                        Expense Breakdown Details
+                                      </h4>
+                                    </div>
+
+                                    {parsed ? (
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div>
+                                          <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Raw Material</span>
+                                          <span className="font-extrabold text-gray-900 text-sm">{parsed.materialName}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Quantity Action</span>
+                                          <span className="font-bold text-gray-800">
+                                            {parsed.type === "DELETE_ADJUSTMENT" ? "-" : "+"}
+                                            {parsed.quantity} {parsed.unit}
+                                          </span>
+                                        </div>
+                                        {parsed.rate && (
+                                          <div>
+                                            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Unit Price (Rate)</span>
+                                            <span className="font-bold text-gray-800">₹{parsed.rate} / {parsed.unit}</span>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Total Valuation Cost</span>
+                                          <span className="font-extrabold text-rose-700">
+                                            {formatCurrency(expense.amount)}
+                                          </span>
+                                        </div>
+
+                                        {parsed.comment && (
+                                          <div className="col-span-2 md:col-span-4 border-t border-gray-100 pt-2 text-[11px] text-gray-600">
+                                            <span className="font-bold text-gray-500">Transaction Memo: </span>
+                                            <span className="italic">{parsed.comment}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-1.5">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                          <div>
+                                            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Category</span>
+                                            <span className="font-bold text-gray-900">{expense.category || "General"}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Expense Cost</span>
+                                            <span className="font-extrabold text-rose-700">{formatCurrency(expense.amount)}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold block mb-0.5">Recorded By</span>
+                                            <span className="font-bold text-gray-850">{expense.adminId?.name || "System"}</span>
+                                          </div>
+                                        </div>
+                                        {expense.note && (
+                                          <div className="border-t border-gray-100 pt-2 text-[11px] text-gray-600">
+                                            <span className="font-bold text-gray-500">Note detail: </span>
+                                            <span>{expense.note}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

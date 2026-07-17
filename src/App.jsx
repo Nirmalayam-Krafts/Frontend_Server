@@ -23,6 +23,8 @@ import Dashboard from "./Dashboard/pages/dashboard/Dashboard";
 import Leads from "./Dashboard/pages/leads/Leads";
 import Inventory from "./Dashboard/pages/inventory/Inventory";
 import Orders from "./Dashboard/pages/orders/Orders";
+import Quotations from "./Dashboard/pages/orders/Quotations";
+import Receipts from "./Dashboard/pages/orders/Receipts";
 import Finance from "./Dashboard/pages/finance/Finance";
 import Analytics from "./Dashboard/pages/analytics/Analytics";
 import Settings from "./Dashboard/pages/settings/Settings";
@@ -78,7 +80,9 @@ function AppLayout() {
     "/analytics",
     "/settings",
     "/rawmaterial",
-    "/Product"
+    "/Product",
+    "/quotations",
+    "/receipts"
   ];
 
   const isDashboardRoute = dashboardRoutes.some((route) =>
@@ -159,6 +163,22 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/quotations"
+            element={
+              <ProtectedRoute>
+                <Quotations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/receipts"
+            element={
+              <ProtectedRoute>
+                <Receipts />
               </ProtectedRoute>
             }
           />

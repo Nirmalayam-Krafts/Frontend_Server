@@ -14,6 +14,7 @@ import { useUIStore } from "../../store";
 import {
   Plus,
   Download,
+  FileSpreadsheet,
   X,
   Search,
   Building2,
@@ -22,6 +23,7 @@ import {
   Mail,
   CalendarDays,
   TrendingUp,
+  History,
   Users,
   Filter,
   StickyNote,
@@ -41,6 +43,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "../../../context/Adminauth";
 import { useGetInventory } from "../../../../hook/inventory";
 import { useGetAllProducts } from "../../../../hook/Product";
+import { exportToExcel } from "../../utils";
 
 const FOLLOWUP_FLOW = [
   { key: "first_followup", label: "First Follow-up", order: 1, dayLabel: "Day 1" },
@@ -48,22 +51,33 @@ const FOLLOWUP_FLOW = [
   { key: "third_followup", label: "Third Follow-up", order: 3, dayLabel: "Day 7" },
 ];
 
-const initialOrderForm = {
+const emptyOrderLine = () => ({
+  id: Date.now() + Math.random(),
   selectedProductId: "",
-  bagSize: "",
-  color: "",
-  gsm: "",
   quantity: "",
-  length: "",
+  unit: "pcs",
+  gsm: "",
+  bf: "",
   width: "",
+  length: "",
   height: "",
   dimensionUnit: "inch",
-  notes: "",
+  color: "",
+  bagSize: "",
   customPrinting: false,
   brandingText: "",
   logo: "",
   logoName: "",
+  calculationMode: "auto",
+  convertedQuantity: "",
+  specsExpanded: true,
+});
+
+const initialOrderForm = {
+  orderLines: [emptyOrderLine()],
+  notes: "",
 };
+
 
 const getStatusSelectClass = (status) => {
   switch (String(status).toLowerCase()) {
@@ -74,6 +88,10 @@ const getStatusSelectClass = (status) => {
     case "interested":
       return "bg-purple-50 text-purple-700 border-purple-200 focus:border-purple-400 font-semibold";
     case "converted":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 focus:border-emerald-400 font-bold";
+    case "completed":
+      return "bg-teal-50 text-teal-700 border-teal-200 focus:border-teal-400 font-bold";
+    case "delivered":
       return "bg-emerald-50 text-emerald-700 border-emerald-200 focus:border-emerald-400 font-bold";
     case "lost":
       return "bg-rose-50 text-rose-700 border-rose-200 focus:border-rose-400 font-semibold";
@@ -98,12 +116,15 @@ const Leads = () => {
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
   const [noteInput, setNoteInput] = useState("");
 
   // NEW STATES
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [leadToConvert, setLeadToConvert] = useState(null);
   const [orderForm, setOrderForm] = useState(initialOrderForm);
+  const [statusChangeReason, setStatusChangeReason] = useState("");
 
   const itemsPerPage = 5;
   const rawLeads = data?.leads || [];
@@ -157,6 +178,7 @@ const Leads = () => {
         }),
         fullDate: lead.createdAt,
         notes: lead.notes || [],
+        statusHistory: lead.statusHistory || [],
         followupHistory,
         completedFollowups,
         subcategory: lead.subcategory || "—",
@@ -212,6 +234,8 @@ const Leads = () => {
     CONTACTED: "warning",
     INTERESTED: "info",
     CONVERTED: "secondary",
+    COMPLETED: "success",
+    DELIVERED: "success",
     LOST: "error",
   };
 
@@ -236,7 +260,7 @@ const Leads = () => {
     (lead) => lead.status === "CONTACTED"
   ).length;
   const convertedLeadsCount = formattedLeads.filter(
-    (l) => l.status === "CONVERTED"
+    (l) => ["CONVERTED", "COMPLETED", "DELIVERED"].includes(l.status)
   ).length;
 
   const totalLeads = formattedLeads.length;
@@ -281,37 +305,37 @@ const Leads = () => {
     setShowConvertModal(false);
     setLeadToConvert(null);
     setOrderForm(initialOrderForm);
+    setStatusChangeReason("");
   };
 
   const openConvertModal = (lead) => {
-    const preResolvedProductId = resolveProductIdForLead(lead, initialOrderForm);
+    const preResolvedProductId = resolveProductIdForLead(lead, {});
     const prod = productItems.find(
       (p) => String(p?._id || p?.id || p?.productId || "").trim() === preResolvedProductId
     );
-    setLeadToConvert(lead);
-    const isRoll = prod?.category?.toLowerCase().includes("roll") || lead?.productInterest?.toLowerCase().includes("roll");
-    setOrderForm({
-      ...initialOrderForm,
+    const isRollCat = prod?.category?.toLowerCase().includes("roll") || lead?.productInterest?.toLowerCase().includes("roll");
+    const firstLine = {
+      ...emptyOrderLine(),
+      id: Date.now(),
       selectedProductId: preResolvedProductId || "",
-      quantity:
-        lead?.quantity && lead.quantity !== "—" ? String(lead.quantity) : "",
+      quantity: lead?.quantity && lead.quantity !== "—" ? String(lead.quantity) : "",
       length: prod?.dimensions?.length || "",
       width: prod?.dimensions?.width || "",
       height: prod?.dimensions?.height || "",
       dimensionUnit: prod?.dimensions?.unit || "inch",
       gsm: prod?.gsm || "",
+      bf: prod?.bf ? String(prod.bf) : "",
       color: prod?.color || "",
       bagSize: prod?.bagSize || "",
       customPrinting: prod?.customPrinting || false,
-      brandingText: "",
-      logo: "",
-      logoName: "",
-      unit: isRoll ? "kg" : "pcs",
-      calculationMode: "auto",
-      convertedQuantity: "",
-    });
+      unit: isRollCat ? "kg" : "pcs",
+      specsExpanded: true,
+    };
+    setLeadToConvert(lead);
+    setOrderForm({ orderLines: [firstLine], notes: "" });
     setShowConvertModal(true);
   };
+
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -348,64 +372,117 @@ const Leads = () => {
   };
 
   const handleOrderFormChange = (field, value) => {
+    setOrderForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleLineChange = (lineId, field, value) => {
     setOrderForm((prev) => ({
       ...prev,
-      [field]: value,
+      orderLines: prev.orderLines.map((line) =>
+        line.id === lineId ? { ...line, [field]: value } : line
+      ),
     }));
   };
 
-  React.useEffect(() => {
-    const selectedProd = productItems.find(
-      (p) => String(p?._id || p?.id || p?.productId || "").trim() === orderForm.selectedProductId
-    );
-    const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || leadToConvert?.productInterest?.toLowerCase().includes("roll");
-    
-    if (orderForm.calculationMode === "auto") {
-      const qty = Number(orderForm.quantity || 0);
-      if (qty <= 0) {
-        setOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
-        return;
-      }
+  const addOrderLine = () => {
+    setOrderForm((prev) => ({
+      ...prev,
+      orderLines: [...prev.orderLines, emptyOrderLine()],
+    }));
+  };
 
-      if (!isRoll) {
-        if (orderForm.unit === "kg") {
-          const weight = Number(selectedProd?.weight || 0);
-          if (weight > 0) {
-            setOrderForm(prev => ({ ...prev, convertedQuantity: Math.ceil(qty / weight) }));
-          } else {
-            setOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
-          }
-        } else {
-          setOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
-        }
-      } else {
-        if (orderForm.unit === "m") {
-          const width = Number(orderForm.width || selectedProd?.dimensions?.width || 0);
-          const gsm = Number(orderForm.gsm || selectedProd?.gsm || 0);
-          if (width > 0 && gsm > 0) {
-            const calculated = Number(((width * 2.54 * qty * gsm) / 100000).toFixed(2));
-            setOrderForm(prev => ({ ...prev, convertedQuantity: calculated }));
-          } else {
-            setOrderForm(prev => ({ ...prev, convertedQuantity: "" }));
-          }
-        } else {
-          setOrderForm(prev => ({ ...prev, convertedQuantity: qty }));
-        }
-      }
-    }
-  }, [
-    orderForm.selectedProductId,
-    orderForm.quantity,
-    orderForm.unit,
-    orderForm.calculationMode,
-    orderForm.gsm,
-    orderForm.width
-  ]);
+  const removeOrderLine = (lineId) => {
+    setOrderForm((prev) => ({
+      ...prev,
+      orderLines: prev.orderLines.filter((l) => l.id !== lineId),
+    }));
+  };
+
+  const toggleLineSpecs = (lineId) => {
+    setOrderForm((prev) => ({
+      ...prev,
+      orderLines: prev.orderLines.map((line) =>
+        line.id === lineId ? { ...line, specsExpanded: !line.specsExpanded } : line
+      ),
+    }));
+  };
+
+  const applyProductToLine = (lineId, prodId) => {
+    const prod = productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === prodId
+    );
+    const isRollCat = prod?.category?.toLowerCase().includes("roll");
+    setOrderForm((prev) => ({
+      ...prev,
+      orderLines: prev.orderLines.map((line) =>
+        line.id === lineId
+          ? {
+              ...line,
+              selectedProductId: prodId,
+              length: prod?.dimensions?.length || "",
+              width: prod?.dimensions?.width || "",
+              height: prod?.dimensions?.height || "",
+              dimensionUnit: prod?.dimensions?.unit || "inch",
+              gsm: prod?.gsm || "",
+              bf: prod?.bf ? String(prod.bf) : "",
+              color: prod?.color || "",
+              bagSize: prod?.bagSize || "",
+              customPrinting: prod?.customPrinting || false,
+              unit: isRollCat ? "kg" : "pcs",
+              calculationMode: "auto",
+              convertedQuantity: "",
+              specsExpanded: true,
+            }
+          : line
+      ),
+    }));
+  };
+
+
 
   const handleUpdateLeadStatus = async (id, status, leadData = null) => {
+    const currentLead =
+      leadData || formattedLeads.find((item) => item.id === id) || null;
+
+    const oldStatus = currentLead?.statusLabel || "New";
+    const statusOrder = {
+      "New": 1,
+      "Contacted": 2,
+      "Interested": 3,
+      "Converted": 4,
+      "Completed": 5,
+      "Delivered": 6,
+      "Lost": 7
+    };
+
+    const isLockedStatus = ["Converted", "Completed", "Delivered"].includes(oldStatus);
+    const isMovingBackwards = (statusOrder[status] || 0) < (statusOrder[oldStatus] || 0);
+
+    let reason = "";
+    if (isLockedStatus || isMovingBackwards) {
+      const confirmChange = window.confirm(`Warning: You are modifying a finalized lead or changing status backward from "${oldStatus}" to "${status}". Are you sure you want to proceed?`);
+      if (!confirmChange) {
+        queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
+        refetch();
+        return;
+      }
+      const userReason = window.prompt(`Please enter the reason for changing status from "${oldStatus}" to "${status}":`);
+      if (userReason === null) {
+        queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
+        refetch();
+        return;
+      }
+      if (!userReason.trim()) {
+        toast.error("Reason is required to change lead status backward or modify a finalized lead.");
+        queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
+        refetch();
+        return;
+      }
+      reason = userReason.trim();
+    }
+
     if (status === "Converted") {
-      const currentLead =
-        leadData || formattedLeads.find((item) => item.id === id) || null;
+      setStatusChangeReason(reason);
       openConvertModal(currentLead);
       return;
     }
@@ -413,9 +490,10 @@ const Leads = () => {
     const loadingToast = toast.loading("Updating lead status...");
 
     try {
-      const payload = { status };
+      const payload = { status, reason };
 
-      await axiosInstance.patch(`/leads/${id}/status`, payload);
+      const response = await axiosInstance.patch(`/leads/${id}/status`, payload);
+      const updatedLead = response?.data?.data;
 
       toast.success("Lead status updated successfully 🎉", {
         id: loadingToast,
@@ -427,10 +505,42 @@ const Leads = () => {
 
       refetch();
 
-      if (selectedLead && selectedLead.id === id) {
-        setSelectedLead((prev) =>
-          prev ? { ...prev, statusLabel: status, status: status.toUpperCase() } : prev
-        );
+      if (updatedLead) {
+        const formattedUpdated = {
+          id: updatedLead._id,
+          name: updatedLead.name || "Unknown",
+          businessName: updatedLead.business_name || "—",
+          phone: updatedLead.phone || "—",
+          email: updatedLead.email || "—",
+          productInterest: updatedLead.product_category || "—",
+          productId: updatedLead.productId || "",
+          quantity: updatedLead.quantity || "—",
+          source: updatedLead.source || "—",
+          status: (updatedLead.status || "New").toUpperCase(),
+          statusLabel: updatedLead.status || "New",
+          duplicateExists: Boolean(updatedLead.duplicateExists),
+          date: new Date(updatedLead.createdAt).toLocaleString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          }),
+          fullDate: updatedLead.createdAt,
+          notes: updatedLead.notes || [],
+          statusHistory: updatedLead.statusHistory || [],
+          followupHistory: updatedLead.followupHistory || [],
+          completedFollowups: (updatedLead.followupHistory || []).filter((item) => item.done).length,
+          subcategory: updatedLead.subcategory || "—",
+          comments: updatedLead.comments || "—",
+          requirement: updatedLead.requirement || "—",
+          avatar: (updatedLead.name || "U").charAt(0).toUpperCase(),
+        };
+
+        setSelectedLead(formattedUpdated);
+        setShowDetailPanel(true);
       }
     } catch (error) {
       toast.error(
@@ -519,47 +629,61 @@ const Leads = () => {
 
   const handleConvertLeadToOrder = async (e) => {
     e.preventDefault();
+    if (!leadToConvert) { showNotification("Lead not found", "error"); return; }
 
-    if (!leadToConvert) {
-      showNotification("Lead not found", "error");
-      return;
-    }
+    const lines = orderForm.orderLines || [];
+    if (lines.length === 0) { showNotification("Add at least one product", "error"); return; }
 
-    const selectedProd = productItems.find(
-      (p) => String(p?._id || p?.id || p?.productId || "").trim() === orderForm.selectedProductId
-    );
-    const isRollProduct = selectedProd?.category?.toLowerCase().includes("roll") || leadToConvert?.productInterest?.toLowerCase().includes("roll");
-
-    if (
-      !orderForm.selectedProductId ||
-      !orderForm.quantity ||
-      !orderForm.width ||
-      (isRollProduct ? !orderForm.gsm : (!orderForm.bagSize || !orderForm.length || !orderForm.height))
-    ) {
-      showNotification("Please fill all required order details", "error");
-      return;
-    }
-
-    if (orderForm.customPrinting) {
-      if (!orderForm.brandingText?.trim() && !orderForm.logo?.trim()) {
-        toast.error("Either Branding Text or Logo upload is required for custom printing.");
+    for (const line of lines) {
+      const prod = productItems.find(
+        (p) => String(p?._id || p?.id || p?.productId || "").trim() === line.selectedProductId
+      );
+      const lineIsRoll = prod?.category?.toLowerCase().includes("roll");
+      if (!line.selectedProductId || !line.quantity || !line.width ||
+        (lineIsRoll ? !line.gsm : (!line.bagSize || !line.length || !line.height))) {
+        showNotification("Please fill all required fields for every product line", "error");
+        return;
+      }
+      if (line.customPrinting && !line.brandingText?.trim() && !line.logo?.trim()) {
+        toast.error("Either Branding Text or Logo is required for custom printing.");
         return;
       }
     }
 
     const loadingToast = toast.loading("Converting lead into order...");
-
     try {
-      const resolvedProductId =
-        String(orderForm.selectedProductId || "").trim() ||
-        resolveProductIdForLead(leadToConvert, orderForm);
-      if (!resolvedProductId) {
-        toast.error(
-          "Unable to match a valid product for this lead. Please update product mapping and try again.",
-          { id: loadingToast }
+      const orderDetailsList = lines.map((line) => {
+        const prod = productItems.find(
+          (p) => String(p?._id || p?.id || p?.productId || "").trim() === line.selectedProductId
         );
-        return;
-      }
+        const lineIsRoll = prod?.category?.toLowerCase().includes("roll");
+        return {
+          productId: line.selectedProductId || resolveProductIdForLead(leadToConvert, line),
+          bagSize: lineIsRoll ? undefined : line.bagSize,
+          color: lineIsRoll ? undefined : line.color,
+          quantity: Number(line.quantity),
+          hsnCode: prod?.hsnCode || "",
+          gstRate: prod?.gstRate ?? 18,
+          gsm: line.gsm ? Number(line.gsm) : undefined,
+          customPrinting: line.customPrinting || false,
+          brandingText: line.customPrinting ? line.brandingText : undefined,
+          logo: line.customPrinting ? line.logo : undefined,
+          unit: line.unit || (lineIsRoll ? "kg" : "pcs"),
+          calculationMode: line.calculationMode || "auto",
+          convertedQuantity: line.convertedQuantity ? Number(line.convertedQuantity) : undefined,
+          bf: lineIsRoll ? (line.bf ? Number(line.bf) : (prod?.bf ? Number(prod.bf) : undefined)) : undefined,
+          dimensions: {
+            length: lineIsRoll ? 0 : Number(line.length),
+            width: Number(line.width),
+            height: lineIsRoll ? 0 : Number(line.height),
+            unit: line.dimensionUnit,
+          },
+        };
+      });
+
+      const firstProd = productItems.find(
+        (p) => String(p?._id || p?.id || p?.productId || "").trim() === lines[0].selectedProductId
+      );
 
       const orderPayload = {
         leadId: leadToConvert.id,
@@ -567,73 +691,68 @@ const Leads = () => {
         businessName: leadToConvert.businessName,
         phone: leadToConvert.phone,
         email: leadToConvert.email,
-        productCategory: selectedProd?.category || leadToConvert.productInterest,
+        productCategory: firstProd?.category || leadToConvert.productInterest,
         source: leadToConvert.source,
-
-        orderDetails: {
-          productId: resolvedProductId,
-          bagSize: isRollProduct ? undefined : orderForm.bagSize,
-          color: isRollProduct ? undefined : orderForm.color,
-          quantity: Number(orderForm.quantity),
-          gsm: orderForm.gsm ? Number(orderForm.gsm) : undefined,
-          customPrinting: orderForm.customPrinting || false,
-          brandingText: orderForm.customPrinting ? orderForm.brandingText : undefined,
-          logo: orderForm.customPrinting ? orderForm.logo : undefined,
-          unit: orderForm.unit || (isRollProduct ? "kg" : "pcs"),
-          calculationMode: orderForm.calculationMode || "auto",
-          convertedQuantity: orderForm.convertedQuantity ? Number(orderForm.convertedQuantity) : undefined,
-          bf: isRollProduct && selectedProd?.bf ? Number(selectedProd.bf) : undefined,
-          dimensions: {
-            length: isRollProduct ? 0 : Number(orderForm.length),
-            width: Number(orderForm.width),
-            height: isRollProduct ? 0 : Number(orderForm.height),
-            unit: orderForm.dimensionUnit,
-          },
-        },
-
+        orderDetails: orderDetailsList[0],
+        orderDetailsList,
         payment: { paymentType: "partial", partialPaidAmount: 0 },
-
         notes: orderForm.notes,
       };
 
-      const data = await axiosInstance.post(`/order/create`, orderPayload);
-
-      await axiosInstance.patch(`/leads/${leadToConvert.id}/status`, {
+      await axiosInstance.post(`/order/create`, orderPayload);
+      const response = await axiosInstance.patch(`/leads/${leadToConvert.id}/status`, {
         status: "Converted",
+        reason: statusChangeReason
       });
+      const updatedLead = response?.data?.data;
 
-      toast.success("Lead converted to order successfully 🎉", {
-        id: loadingToast,
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["getAllLeads"],
-      });
-
+      toast.success("Lead converted to order successfully 🎉", { id: loadingToast });
+      queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
       await refetch();
 
-      if (selectedLead && selectedLead.id === leadToConvert.id) {
-        setSelectedLead((prev) =>
-          prev
-            ? {
-              ...prev,
-              statusLabel: "Converted",
-              status: "CONVERTED",
-            }
-            : prev
-        );
-      }
+      if (updatedLead) {
+        const formattedUpdated = {
+          id: updatedLead._id,
+          name: updatedLead.name || "Unknown",
+          businessName: updatedLead.businessName || "—",
+          phone: updatedLead.phone || "—",
+          email: updatedLead.email || "—",
+          productInterest: updatedLead.product_category || "—",
+          productId: updatedLead.productId || "",
+          quantity: updatedLead.quantity || "—",
+          source: updatedLead.source || "—",
+          status: (updatedLead.status || "New").toUpperCase(),
+          statusLabel: updatedLead.status || "New",
+          duplicateExists: Boolean(updatedLead.duplicateExists),
+          date: new Date(updatedLead.createdAt).toLocaleString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          }),
+          fullDate: updatedLead.createdAt,
+          notes: updatedLead.notes || [],
+          statusHistory: updatedLead.statusHistory || [],
+          followupHistory: updatedLead.followupHistory || [],
+          completedFollowups: (updatedLead.followupHistory || []).filter((item) => item.done).length,
+          subcategory: updatedLead.subcategory || "—",
+          comments: updatedLead.comments || "—",
+          requirement: updatedLead.requirement || "—",
+          avatar: (updatedLead.name || "U").charAt(0).toUpperCase(),
+        };
 
+        setSelectedLead(formattedUpdated);
+        setShowDetailPanel(true);
+      }
       resetConvertModal();
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message || "Failed to convert lead to order",
-        {
-          id: loadingToast,
-        }
-      );
+      toast.error(error?.response?.data?.message || "Failed to convert lead to order", { id: loadingToast });
     }
   };
+
 
   const handleDeleteLead = async (id) => {
     if (!window.confirm("Are you sure you want to delete this lead?")) return;
@@ -717,6 +836,42 @@ const Leads = () => {
     window.URL.revokeObjectURL(url);
 
     showNotification("CSV exported successfully", "success");
+  };
+
+  const handleExportExcel = () => {
+    if (!formattedLeads.length) {
+      showNotification("No leads available to export", "error");
+      return;
+    }
+
+    const headers = [
+      "Name",
+      "Business Name",
+      "Phone",
+      "Email",
+      "Product Category",
+      "Quantity",
+      "Source",
+      "Status",
+      "Follow-ups Done",
+      "Created At",
+    ];
+
+    const rows = formattedLeads.map((lead) => [
+      lead.name || "",
+      lead.businessName || "",
+      lead.phone || "",
+      lead.email || "",
+      lead.productInterest || "",
+      lead.quantity || "",
+      lead.source || "",
+      lead.statusLabel || "",
+      `${lead.completedFollowups || 0}/3`,
+      lead.date || "",
+    ]);
+
+    exportToExcel(headers, rows, "leads");
+    showNotification("Excel exported successfully", "success");
   };
 
   const handleAddNote = async () => {
@@ -819,32 +974,32 @@ const Leads = () => {
     return item || null;
   };
 
-  const colorOptionsForSelectedSize = [];
   const productSelectOptions = useMemo(() => {
     return productItems.map((item) => ({
       id: String(item?._id || item?.id || item?.productId || "").trim(),
-      label:
-        item?.name ||
-        item?.title ||
-        item?.productName ||
-        item?.sku ||
-        "Unnamed Product",
+      label: item?.name || item?.title || item?.productName || item?.sku || "Unnamed Product",
       sku: item?.sku || "",
     }));
   }, [productItems]);
 
-  const selectedProduct = useMemo(() => {
-    return productItems.find(
-      (p) => String(p?._id || p?.id || p?.productId || "").trim() === orderForm.selectedProductId
+  const getProductForLine = (line) =>
+    productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === line.selectedProductId
     ) || null;
-  }, [productItems, orderForm.selectedProductId]);
 
-  const isRoll = useMemo(() => {
-    if (selectedProduct) {
-      return selectedProduct.category?.toLowerCase().includes("roll");
-    }
+  const isLineRoll = (line) => {
+    const prod = getProductForLine(line);
+    if (prod) return !!prod.category?.toLowerCase().includes("roll");
     return String(leadToConvert?.productInterest || "").toLowerCase().includes("roll");
-  }, [selectedProduct, leadToConvert]);
+  };
+
+  // Legacy – used by Live Preview (first line)
+  const isRoll = useMemo(() => {
+    const first = (orderForm.orderLines || [])[0];
+    if (!first) return false;
+    return isLineRoll(first);
+  }, [orderForm.orderLines, leadToConvert, productItems]);
+
 
   return (
     <Layout>
@@ -865,11 +1020,21 @@ const Leads = () => {
 
             <div className="flex flex-wrap gap-3">
               <Button
-                variant="secondary"
+                variant="custom"
                 icon={Download}
                 onClick={handleExportCSV}
+                className="rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-4 py-2"
               >
                 Export CSV
+              </Button>
+
+              <Button
+                variant="custom"
+                icon={FileSpreadsheet}
+                onClick={handleExportExcel}
+                className="rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-4 py-2"
+              >
+                Export Excel
               </Button>
 
               <Button
@@ -976,7 +1141,7 @@ const Leads = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 items-center">
-            {["All", "New", "Contacted", "Interested", "Converted", "Lost"].map((status) => (
+            {["All", "New", "Contacted", "Interested", "Converted", "Completed", "Delivered", "Lost"].map((status) => (
               <button
                 key={status}
                 onClick={() => {
@@ -1148,6 +1313,8 @@ const Leads = () => {
                             <option value="Contacted">Contacted</option>
                             <option value="Interested">Interested</option>
                             <option value="Converted">Converted</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Delivered">Delivered</option>
                             <option value="Lost">Lost</option>
                           </select>
                         </td>
@@ -1210,6 +1377,129 @@ const Leads = () => {
               </div>
             )}
           </Card>
+
+          {selectedLead && (
+            <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm animate-fade-in">
+              <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-lg mb-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <History className="h-5 w-5 text-emerald-450" />
+                    Activity Logs & Status History — {selectedLead.name}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-300 opacity-90">
+                    Showing status transitions, reasons, and update audit log history for Lead {selectedLead.name} {selectedLead.businessName !== "—" ? `(${selectedLead.businessName})` : ""}
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setSelectedLead(null)} 
+                  variant="secondary" 
+                  className="bg-slate-700 hover:bg-slate-650 text-white border-none py-1.5 px-3 text-xs self-start sm:self-auto"
+                >
+                  Clear Selection
+                </Button>
+              </div>
+
+              {/* Date Filters */}
+              <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-gray-200 p-3 rounded-2xl mb-6 text-sm">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Logs by Date:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">From</span>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    max={logEndDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logEndDate && val > logEndDate) {
+                        toast.error("'From' date cannot be after 'To' date");
+                        return;
+                      }
+                      setLogStartDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">To</span>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    min={logStartDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logStartDate && val < logStartDate) {
+                        toast.error("'To' date cannot be before 'From' date");
+                        return;
+                      }
+                      setLogEndDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                {(logStartDate || logEndDate) && (
+                  <button
+                    onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold ml-auto"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {(() => {
+                  const getLocalDateString = (dateVal) => {
+                    if (!dateVal) return "";
+                    const d = new Date(dateVal);
+                    if (isNaN(d.getTime())) return "";
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                  };
+
+                  let sortedHistory = [...(selectedLead.statusHistory || [])].reverse();
+                  if (logStartDate) {
+                    sortedHistory = sortedHistory.filter(l => l.at && getLocalDateString(l.at) >= logStartDate);
+                  }
+                  if (logEndDate) {
+                    sortedHistory = sortedHistory.filter(l => l.at && getLocalDateString(l.at) <= logEndDate);
+                  }
+                  
+                  return sortedHistory.map((log, index) => (
+                    <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-full border border-emerald-150 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
+                              📝 Status Changed: {log.from} &rarr; {log.to}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-600 font-medium">
+                            <span className="font-semibold text-gray-800">Updated by:</span> {log.by}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-650 italic">
+                            <span className="font-semibold text-gray-850 not-italic">Reason/Note:</span> "{log.reason}"
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-xs text-gray-500 font-semibold">
+                            {new Date(log.at).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+
+                {(!selectedLead.statusHistory || selectedLead.statusHistory.length === 0) && (
+                  <div className="rounded-xl border border-dashed border-gray-250 p-6 text-center text-sm font-semibold text-gray-500 bg-gray-50">
+                    No status transition logs recorded for this lead yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <Modal
@@ -1227,506 +1517,553 @@ const Leads = () => {
           />
         </Modal>
 
-        {/* NEW ORDER CONVERSION MODAL */}
-        <Modal
-          isOpen={showConvertModal}
-          title="Convert Lead to Order"
-          onClose={resetConvertModal}
-        >
-          <div className="w-full max-w-5xl">
-            <form onSubmit={handleConvertLeadToOrder} className="space-y-6">
-              {/* Header / Lead Summary */}
-              <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 shadow-sm">
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-start gap-4">
-                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 shadow-sm">
-                      <ShoppingBag className="h-6 w-6" />
-                    </div>
+        {/* CONVERT LEAD TO ORDER — RIGHT SIDE PANEL */}
+        {showConvertModal && leadToConvert && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={resetConvertModal}
+            />
 
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        Order Conversion Details
-                      </h3>
-                      <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-600">
-                        Fill all bag specification, dimensions, and payment details to
-                        convert this lead into an order in a clean and structured way.
-                      </p>
-                    </div>
+            {/* Panel */}
+            <motion.div
+              className="relative flex h-screen w-full max-w-3xl flex-col bg-white shadow-2xl"
+              initial={{ x: 900 }}
+              animate={{ x: 0 }}
+              exit={{ x: 900 }}
+              transition={{ type: "spring", damping: 28, stiffness: 260 }}
+            >
+              {/* ── STICKY HEADER ── */}
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4 shadow-sm shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700">
+                    <ShoppingBag className="h-5 w-5" />
                   </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900">Convert Lead to Order</h2>
+                    <p className="text-xs text-gray-400">Fill specs & dimensions to create a structured order</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetConvertModal}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
+              {/* ── SCROLLABLE BODY ── */}
+              <form onSubmit={handleConvertLeadToOrder} className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                  {/* Lead Summary chips */}
                   {leadToConvert && (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                          Lead Name
-                        </p>
-                        <p className="mt-2 text-sm font-bold text-gray-900">
-                          {leadToConvert.name}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                          Business
-                        </p>
-                        <p className="mt-2 text-sm font-bold text-gray-900">
-                          {leadToConvert.businessName}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                          Source
-                        </p>
-                        <p className="mt-2 text-sm font-bold text-gray-900">
-                          {leadToConvert.source || "—"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Main Content */}
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 items-start">
-                {/* Left Form Area */}
-                <div className="space-y-6 xl:col-span-2">
-                  {/* Bag Details */}
-                  <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <div className="mb-5 flex items-center gap-2">
-                      <ShoppingBag className="h-5 w-5 text-emerald-600" />
-                      <h4 className="text-base font-bold text-gray-900">Bag Details</h4>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Product <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={orderForm.selectedProductId}
-                          onChange={(e) => {
-                            const prodId = e.target.value;
-                            const prod = productItems.find(p => String(p?._id || p?.id || p?.productId || "").trim() === prodId);
-                            const isRollCategory = prod?.category?.toLowerCase().includes("roll");
-                            setOrderForm(prev => ({
-                              ...prev,
-                              selectedProductId: prodId,
-                              length: prod?.dimensions?.length || "",
-                              width: prod?.dimensions?.width || "",
-                              height: prod?.dimensions?.height || "",
-                              dimensionUnit: prod?.dimensions?.unit || "inch",
-                              gsm: prod?.gsm || "",
-                              color: prod?.color || prev.color || "",
-                              bagSize: prod?.bagSize || prev.bagSize || "",
-                              customPrinting: prod?.customPrinting || false,
-                              unit: isRollCategory ? "kg" : "pcs",
-                              calculationMode: "auto",
-                              convertedQuantity: "",
-                            }));
-                          }}
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                          required
-                        >
-                          <option value="">Select product</option>
-                          {productSelectOptions.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.label}
-                              {product.sku ? ` (${product.sku})` : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {isRoll ? (
-                        <div>
-                          <label className="mb-2 block text-sm font-semibold text-gray-700">
-                            GSM <span className="text-red-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <input
-                              type="number"
-                              min="0"
-                              value={orderForm.gsm}
-                              onChange={(e) =>
-                                handleOrderFormChange("gsm", e.target.value)
-                              }
-                              placeholder="Enter GSM"
-                              className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                              required
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Bag Size <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                              <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                              <select
-                                value={orderForm.bagSize}
-                                onChange={(e) =>
-                                  handleOrderFormChange("bagSize", e.target.value)
-                                }
-                                className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                              >
-                                <option value="">Select bag size</option>
-                                {["Small", "Medium", "Large", "Extra Large"].map((size) => (
-                                  <option key={size} value={size}>
-                                    {size}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Bag Color
-                            </label>
-                            <div className="relative">
-                              <ShoppingBag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                              <select
-                                value={orderForm.color}
-                                onChange={(e) =>
-                                  handleOrderFormChange("color", e.target.value)
-                                }
-                                className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                              >
-                                <option value="">Select color</option>
-                                <option value="Brown">Brown</option>
-                                <option value="White">White</option>
-                              </select>
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Order Quantity <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex gap-2 min-w-0">
-                          <input
-                            type="number"
-                            min="1"
-                            value={orderForm.quantity}
-                            onChange={(e) =>
-                              handleOrderFormChange("quantity", e.target.value)
-                            }
-                            placeholder="Enter quantity"
-                            className="flex-1 min-w-0 rounded-2xl border border-gray-200 bg-white py-3.5 px-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                            required
-                          />
-                          <select
-                            value={orderForm.unit || (isRoll ? "kg" : "pcs")}
-                            onChange={(e) =>
-                              handleOrderFormChange("unit", e.target.value)
-                            }
-                            className="w-[85px] shrink-0 rounded-2xl border border-gray-200 bg-white px-2.5 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 animate-fade-in"
-                          >
-                            {isRoll ? (
-                              <>
-                                <option value="kg">kg</option>
-                                <option value="m">meter</option>
-                              </>
-                            ) : (
-                              <>
-                                <option value="pcs">pcs</option>
-                                <option value="kg">kg</option>
-                              </>
-                            )}
-                          </select>
-                        </div>
-                      </div>
-
-                      {((!isRoll && orderForm.unit === "kg") || (isRoll && orderForm.unit === "m")) && (
-                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Unit Conversion Mode
-                            </label>
-                            <select
-                              value={orderForm.calculationMode || "auto"}
-                              onChange={(e) =>
-                                handleOrderFormChange("calculationMode", e.target.value)
-                              }
-                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                            >
-                              <option value="auto">Auto via Formula</option>
-                              <option value="manual">Enter Manually</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              {isRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={orderForm.convertedQuantity || ""}
-                              onChange={(e) =>
-                                handleOrderFormChange("convertedQuantity", e.target.value)
-                              }
-                              placeholder={isRoll ? "Equivalent kg" : "Equivalent bags"}
-                              disabled={orderForm.calculationMode !== "manual"}
-                              className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                                orderForm.calculationMode === "manual"
-                                  ? "border-emerald-300 bg-white focus:border-emerald-500"
-                                  : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
-                              }`}
-                            />
-                            {orderForm.calculationMode === "auto" && (
-                              <p className="text-[11px] text-gray-500 mt-1 italic">
-                                Calculated dynamically from product parameters.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          {isRoll ? "Width Unit" : "Dimension Unit"}
-                        </label>
-                        <select
-                          value={orderForm.dimensionUnit}
-                          onChange={(e) =>
-                            handleOrderFormChange("dimensionUnit", e.target.value)
-                          }
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                        >
-                          <option value="inch">Inch</option>
-                          <option value="cm">CM</option>
-                          <option value="mm">MM</option>
-                          <option value="ft">Feet</option>
-                        </select>
-                      </div>
-                      
-                      <div className="md:col-span-2">
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Custom Printing
-                        </label>
-                        <label className="inline-flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3.5 text-sm font-medium text-gray-700 w-full bg-white cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={orderForm.customPrinting || false}
-                            onChange={(e) =>
-                              handleOrderFormChange("customPrinting", e.target.checked)
-                            }
-                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                          />
-                          Require Custom Printing
-                        </label>
-                      </div>
-
-                      {orderForm.customPrinting && (
-                        <div className="md:col-span-2 space-y-4 border-l-4 border-emerald-500 bg-emerald-50/50 p-4 rounded-xl">
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Branding Text (Optional if Logo is uploaded)
-                            </label>
-                            <input
-                              type="text"
-                              value={orderForm.brandingText || ""}
-                              onChange={(e) =>
-                                handleOrderFormChange("brandingText", e.target.value)
-                              }
-                              placeholder="Enter branding text to print on bags..."
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Upload Logo (Optional if Branding Text is entered)
-                            </label>
-                            <div className="flex items-center gap-3">
-                              <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-4 bg-white cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition">
-                                <input
-                                  type="file"
-                                  accept="image/png, image/jpeg, image/jpg, image/webp, application/pdf"
-                                  onChange={handleLogoUpload}
-                                  className="hidden"
-                                />
-                                <span className="text-sm font-medium text-gray-600">
-                                  {orderForm.logoName ? `Selected: ${orderForm.logoName}` : "Click to select logo (PNG, JPEG, JPG, WEBP, PDF)"}
-                                </span>
-                              </label>
-                              {orderForm.logo && (
-                                <a
-                                  href={`${axiosInstance.defaults.baseURL?.replace("/api", "") || ""}${orderForm.logo}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs font-semibold text-emerald-600 hover:underline shrink-0"
-                                >
-                                  View Logo
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Dimensions */}
-                  <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6 shadow-sm">
-                    <div className="mb-5 flex items-center gap-2">
-                      <Ruler className="h-5 w-5 text-emerald-600" />
-                      <h4 className="text-base font-bold text-gray-900">{isRoll ? "Roll Dimensions" : "Bag Dimensions"}</h4>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                      {!isRoll && (
-                        <div>
-                          <label className="mb-2 block text-sm font-semibold text-gray-700">
-                            Length <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={orderForm.length}
-                            onChange={(e) =>
-                              handleOrderFormChange("length", e.target.value)
-                            }
-                            placeholder="Length"
-                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                          />
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-gray-700">
-                          Width <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={orderForm.width}
-                          onChange={(e) =>
-                            handleOrderFormChange("width", e.target.value)
-                          }
-                          placeholder="Width"
-                          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                        />
-                      </div>
-
-                      {!isRoll && (
-                        <div>
-                          <label className="mb-2 block text-sm font-semibold text-gray-700">
-                            Height <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={orderForm.height}
-                            onChange={(e) =>
-                              handleOrderFormChange("height", e.target.value)
-                            }
-                            placeholder="Height"
-                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <label className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900">
-                      <FileText className="h-4 w-4 text-emerald-600" />
-                      Extra Notes
-                    </label>
-                    <textarea
-                      rows={5}
-                      value={orderForm.notes}
-                      onChange={(e) => handleOrderFormChange("notes", e.target.value)}
-                      placeholder="Write order note, design details, customer requirements, delivery notes, etc."
-                      className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Right Side */}
-                <div className="space-y-6">
-                </div>
-              </div>
-
-              {/* Order Preview */}
-              <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 shadow-sm">
-                <h4 className="text-base font-bold text-emerald-800">
-                  Live Order Preview
-                </h4>
-
-                <div className="mt-5 space-y-4 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">{isRoll ? "GSM" : "Bag Size"}</span>
-                    <span className="font-semibold text-gray-900">
-                      {(isRoll ? orderForm.gsm : orderForm.bagSize) || "—"}
-                    </span>
-                  </div>
-
-                  {!isRoll && (
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Bag Color</span>
-                      <span className="font-semibold text-gray-900">
-                        {orderForm.color || "—"}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        <span className="text-gray-400 font-normal">Lead:</span> {leadToConvert.name}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700">
+                        <span className="text-gray-400 font-normal">Business:</span> {leadToConvert.businessName}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700">
+                        <span className="text-gray-400 font-normal">Source:</span> {leadToConvert.source || "—"}
                       </span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600">Quantity</span>
-                    <span className="font-semibold text-gray-900">
-                      {orderForm.quantity || "—"}
-                    </span>
+                  {/* Details / Requirements */}
+                  {leadToConvert && (
+                    <div className="space-y-3">
+                      {leadToConvert.requirement && leadToConvert.requirement !== "—" && (
+                        <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Details / Requirements</p>
+                          <p className="mt-1 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">
+                            {leadToConvert.requirement}
+                          </p>
+                        </div>
+                      )}
+                      {leadToConvert.comments && leadToConvert.comments !== "—" && (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Chatbot Comments / Notes</p>
+                          <p className="mt-1 text-sm text-gray-700 italic font-medium">
+                            "{leadToConvert.comments}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+
+                  {/* ── MULTI-PRODUCT ORDER LINES ── */}
+                  <div className="space-y-4">
+                    {(orderForm.orderLines || []).map((line, lineIdx) => {
+                      const lineProd = getProductForLine(line);
+                      const lineRoll = isLineRoll(line);
+
+                      return (
+                        <div
+                          key={line.id}
+                          className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                        >
+                          {/* Line Header */}
+                          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+                                {lineIdx + 1}
+                              </div>
+                              <span className="text-sm font-semibold text-gray-800">
+                                {lineProd
+                                  ? lineProd.name || lineProd.title || lineProd.sku || "Product"
+                                  : `Product Line ${lineIdx + 1}`}
+                              </span>
+                              {lineProd && (
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${lineRoll ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {lineRoll ? "Roll" : "Bag"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {lineProd && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleLineSpecs(line.id)}
+                                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                                >
+                                  {line.specsExpanded ? "Hide Specs ▲" : "Show Specs ▼"}
+                                </button>
+                              )}
+                              {(orderForm.orderLines || []).length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeOrderLine(line.id)}
+                                  className="rounded-lg p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-4">
+                            {/* Product Selector */}
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                Product <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={line.selectedProductId}
+                                onChange={(e) => applyProductToLine(line.id, e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50"
+                                required
+                              >
+                                <option value="">Select product</option>
+                                {productSelectOptions.map((product) => (
+                                  <option key={product.id} value={product.id}>
+                                    {product.label}{product.sku ? ` (${product.sku})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Product Spec Card — expands after selection */}
+                            {lineProd && line.specsExpanded && (
+                              <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/60 to-teal-50/40 p-3">
+                                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Product Specifications</p>
+                                <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
+                                  {lineProd.sku && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">SKU</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.sku}</span>
+                                    </div>
+                                  )}
+                                  {lineProd.category && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Category</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.category}</span>
+                                    </div>
+                                  )}
+                                  {Boolean(lineProd.gsm) && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">GSM</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.gsm}</span>
+                                    </div>
+                                  )}
+                                  {Boolean(lineProd.bf) && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Burst Factor</span>
+                                      <span className="font-semibold text-emerald-700">{lineProd.bf}</span>
+                                    </div>
+                                  )}
+                                  {lineProd.color && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Color</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.color}</span>
+                                    </div>
+                                  )}
+                                  {Boolean(lineProd.weight) && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Weight</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.weight} g</span>
+                                    </div>
+                                  )}
+                                  {lineProd.dimensions?.width && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Width</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.dimensions.width} {lineProd.dimensions.unit || ""}</span>
+                                    </div>
+                                  )}
+                                  {!lineRoll && lineProd.dimensions?.length && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Length</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.dimensions.length} {lineProd.dimensions.unit || ""}</span>
+                                    </div>
+                                  )}
+                                  {!lineRoll && lineProd.dimensions?.height && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Height</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.dimensions.height} {lineProd.dimensions.unit || ""}</span>
+                                    </div>
+                                  )}
+                                  {(lineProd.bagSize || (lineProd.name && (lineProd.name.toLowerCase().includes("medium") ? "Medium" : lineProd.name.toLowerCase().includes("small") ? "Small" : lineProd.name.toLowerCase().includes("large") ? "Large" : ""))) && (
+                                    <div>
+                                      <span className="block text-gray-400 font-medium">Bag Size</span>
+                                      <span className="font-semibold text-gray-800">
+                                        {lineProd.bagSize || (lineProd.name.toLowerCase().includes("medium") ? "Medium" : lineProd.name.toLowerCase().includes("small") ? "Small" : lineProd.name.toLowerCase().includes("large") ? "Large" : "")}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {lineProd.customPrinting && (
+                                    <div className="col-span-3">
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                                        ✓ Custom Printing Available
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Fields Grid — only shown after product selected */}
+                            {line.selectedProductId && (
+                              <div className="grid grid-cols-2 gap-3">
+                                {/* GSM + BF (roll) or Bag Size (bag) */}
+                                {lineRoll ? (
+                                  <>
+                                    <div>
+                                      <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                        GSM <span className="text-red-500">*</span>
+                                      </label>
+                                      <div className="relative">
+                                        <Package className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                          type="number" min="0"
+                                          value={line.gsm}
+                                          onChange={(e) => handleLineChange(line.id, "gsm", e.target.value)}
+                                          placeholder="e.g. 120"
+                                          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-500"
+                                          required
+                                        />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                        Burst Factor (BF) <span className="text-red-500">*</span>
+                                      </label>
+                                      <div className="relative">
+                                        <input
+                                          type="number" min="0" step="0.1"
+                                          value={line.bf}
+                                          onChange={(e) => handleLineChange(line.id, "bf", e.target.value)}
+                                          placeholder="e.g. 20"
+                                          className="w-full rounded-xl border border-amber-300 bg-amber-50/40 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-50"
+                                          required
+                                        />
+                                      </div>
+                                      <p className="mt-1 text-[10px] text-gray-400">Pre-filled from product</p>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                      Bag Size <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                      value={line.bagSize}
+                                      onChange={(e) => handleLineChange(line.id, "bagSize", e.target.value)}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                    >
+                                      <option value="">Select size</option>
+                                      {["Small", "Medium", "Large", "Extra Large"].map((s) => (
+                                        <option key={s} value={s}>{s}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
+
+
+                                {/* Bag Color (non-roll) */}
+                                {!lineRoll ? (
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">Bag Color</label>
+                                    <select
+                                      value={line.color}
+                                      onChange={(e) => handleLineChange(line.id, "color", e.target.value)}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                    >
+                                      <option value="">Select color</option>
+                                      <option value="Brown">Brown</option>
+                                      <option value="White">White</option>
+                                    </select>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                      Width Unit
+                                    </label>
+                                    <select
+                                      value={line.dimensionUnit}
+                                      onChange={(e) => handleLineChange(line.id, "dimensionUnit", e.target.value)}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                    >
+                                      <option value="inch">Inch</option>
+                                      <option value="cm">CM</option>
+                                      <option value="mm">MM</option>
+                                      <option value="ft">Feet</option>
+                                    </select>
+                                  </div>
+                                )}
+
+                                {/* Order Quantity */}
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                    Quantity <span className="text-red-500">*</span>
+                                  </label>
+                                  <div className="flex gap-1.5">
+                                    <input
+                                      type="number" min="1"
+                                      value={line.quantity}
+                                      onChange={(e) => handleLineChange(line.id, "quantity", e.target.value)}
+                                      placeholder="Qty"
+                                      className="flex-1 min-w-0 rounded-xl border border-gray-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-emerald-500"
+                                      required
+                                    />
+                                    <select
+                                      value={line.unit || (lineRoll ? "kg" : "pcs")}
+                                      onChange={(e) => handleLineChange(line.id, "unit", e.target.value)}
+                                      className="w-[64px] shrink-0 rounded-xl border border-gray-200 bg-white px-1.5 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                    >
+                                      {lineRoll ? (
+                                        <>
+                                          <option value="kg">kg</option>
+                                          <option value="m">m</option>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <option value="pcs">pcs</option>
+                                          <option value="kg">kg</option>
+                                        </>
+                                      )}
+                                    </select>
+                                  </div>
+                                </div>
+
+                                {/* Dimension Unit (non-roll) */}
+                                {!lineRoll && (
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">Dimension Unit</label>
+                                    <select
+                                      value={line.dimensionUnit}
+                                      onChange={(e) => handleLineChange(line.id, "dimensionUnit", e.target.value)}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                    >
+                                      <option value="inch">Inch</option>
+                                      <option value="cm">CM</option>
+                                      <option value="mm">MM</option>
+                                      <option value="ft">Feet</option>
+                                    </select>
+                                  </div>
+                                )}
+
+                                {/* Width (always shown) */}
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                    Width <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="number" min="0"
+                                    value={line.width}
+                                    onChange={(e) => handleLineChange(line.id, "width", e.target.value)}
+                                    placeholder="Width"
+                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                  />
+                                </div>
+
+                                {/* Length & Height (bag only) */}
+                                {!lineRoll && (
+                                  <>
+                                    <div>
+                                      <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                        Length <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="number" min="0"
+                                        value={line.length}
+                                        onChange={(e) => handleLineChange(line.id, "length", e.target.value)}
+                                        placeholder="Length"
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                        Height <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="number" min="0"
+                                        value={line.height}
+                                        onChange={(e) => handleLineChange(line.id, "height", e.target.value)}
+                                        placeholder="Height"
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {/* Custom Printing */}
+                                <div className="col-span-2">
+                                  <label className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2.5 text-sm font-medium text-gray-700 w-full hover:bg-gray-100 transition">
+                                    <input
+                                      type="checkbox"
+                                      checked={line.customPrinting || false}
+                                      onChange={(e) => handleLineChange(line.id, "customPrinting", e.target.checked)}
+                                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    Require Custom Printing
+                                  </label>
+                                </div>
+
+                                {/* Branding fields */}
+                                {line.customPrinting && (
+                                  <div className="col-span-2 space-y-2 border-l-4 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl">
+                                    <input
+                                      type="text"
+                                      value={line.brandingText || ""}
+                                      onChange={(e) => handleLineChange(line.id, "brandingText", e.target.value)}
+                                      placeholder="Branding text to print on bags..."
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Add Another Product Button */}
+                    <button
+                      type="button"
+                      onClick={addOrderLine}
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 transition"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Another Product
+                    </button>
                   </div>
 
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-gray-600">Dimensions</span>
-                    <span className="text-right font-semibold text-gray-900">
-                      {isRoll
-                        ? `Width ${orderForm.width || "0"} ${orderForm.dimensionUnit}`
-                        : `${orderForm.length || "0"} × ${orderForm.width || "0"} × ${orderForm.height || "0"} ${orderForm.dimensionUnit}`}
-                    </span>
+                  {/* ── SECTION: Live Preview ── */}
+                  <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
+                    <div className="mb-3 flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      <h4 className="text-sm font-bold text-emerald-800">Order Summary</h4>
+                      <span className="ml-auto text-xs font-semibold text-emerald-600">
+                        {(orderForm.orderLines || []).length} Product{(orderForm.orderLines || []).length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {(orderForm.orderLines || []).map((line, idx) => {
+                        const lprod = getProductForLine(line);
+                        const lroll = isLineRoll(line);
+                        return (
+                          <div key={line.id} className="rounded-lg bg-white/70 px-3 py-2 border border-emerald-100">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="font-semibold text-gray-700 truncate max-w-[150px]">
+                                {lprod?.name || `Product ${idx + 1}`}
+                              </span>
+                              <span className="font-bold text-emerald-700 shrink-0">
+                                {line.quantity || "—"} {line.unit || "pcs"}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-[11px] text-gray-500">
+                              {lroll && line.gsm && <span>GSM: <b className="text-gray-700">{line.gsm}</b></span>}
+                              {!lroll && line.bagSize && <span>Size: <b className="text-gray-700">{line.bagSize}</b></span>}
+                              {!lroll && line.color && <span>Color: <b className="text-gray-700">{line.color}</b></span>}
+                              {line.width && (
+                                <span>Dim: <b className="text-gray-700">
+                                  {lroll
+                                    ? `W: ${line.width} ${line.dimensionUnit}`
+                                    : `${line.length || "0"}×${line.width}×${line.height || "0"} ${line.dimensionUnit}`}
+                                </b></span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="border-t border-emerald-200 pt-2 flex justify-between text-sm">
+                        <span className="font-bold text-gray-700">Total Products</span>
+                        <span className="font-bold text-emerald-700">{(orderForm.orderLines || []).length} Line{(orderForm.orderLines || []).length !== 1 ? "s" : ""}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="h-px bg-emerald-100" />
 
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-600 font-bold">Total Quote Items</span>
-                    <span className="font-bold text-emerald-700">
-                      {orderForm.quantity || "—"} Units
-                    </span>
+                  {/* ── SECTION: Notes ── */}
+                  <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                    <label className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-900">
+                      <FileText className="h-4 w-4 text-emerald-600" />
+                      Extra Notes
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={orderForm.notes}
+                      onChange={(e) => handleOrderFormChange("notes", e.target.value)}
+                      placeholder="Order notes, design details, customer requirements, delivery notes..."
+                      className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50"
+                    />
                   </div>
+
+                </div>{/* end scrollable body */}
+
+                {/* ── STICKY FOOTER ── */}
+                <div className="sticky bottom-0 shrink-0 flex items-center justify-between gap-3 border-t border-gray-100 bg-white px-6 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={resetConvertModal}
+                    className="min-w-[110px]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 min-w-[200px] font-semibold"
+                  >
+                    Convert &amp; Create Order
+                  </Button>
                 </div>
-              </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
 
-              {/* Footer */}
-              <div className="sticky bottom-0 flex flex-col gap-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={resetConvertModal}
-                  className="sm:min-w-[140px]"
-                >
-                  Cancel
-                </Button>
 
-                <Button
-                  type="submit"
-                  className="bg-emerald-600 px-6 hover:bg-emerald-700 sm:min-w-[200px]"
-                >
-                  Convert & Create Order
-                </Button>
-              </div>
-            </form>
-          </div>
-        </Modal>
 
         {showDetailPanel && selectedLead && (
           <motion.div
@@ -1740,287 +2077,253 @@ const Leads = () => {
             />
 
             <motion.div
-              className="relative h-screen w-full max-w-md overflow-y-auto bg-white shadow-2xl"
+              className="relative h-screen w-full max-w-2xl overflow-y-auto bg-white shadow-2xl"
               initial={{ x: 400 }}
               animate={{ x: 0 }}
               exit={{ x: 400 }}
             >
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">Lead Detail</h2>
-                  <button
-                    onClick={() => setShowDetailPanel(false)}
-                    className="text-gray-500"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="mb-6 rounded-2xl bg-emerald-50 p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                      {selectedLead.avatar}
-                    </div>
-                    <div>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {selectedLead.name}
-                      </p>
-                      <p className="text-sm text-gray-500">{selectedLead.email}</p>
-                    </div>
+              {/* Sticky header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-5 py-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+                    {selectedLead.avatar}
                   </div>
-
-                  <div className="mt-4 flex items-center justify-between rounded-xl border border-emerald-100 bg-white px-4 py-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-gray-500">
-                        Phone / WhatsApp
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-gray-900 flex items-center gap-1.5">
-                        {selectedLead.phone}
-                        {selectedLead.duplicateExists && (
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 animate-pulse" title="Another record with this phone number exists.">
-                            ⚠️ Duplicate
-                          </span>
-                        )}
-                      </p>
-                    </div>
-
-                    {selectedLead.phone !== "—" && (
-                      <a
-                        href={`https://wa.me/${String(selectedLead.phone).replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-green-700"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        WhatsApp
-                      </a>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900 leading-tight">{selectedLead.name}</h2>
+                    {selectedLead.email && selectedLead.email !== "—" && (
+                      <p className="text-xs text-gray-400">{selectedLead.email}</p>
                     )}
                   </div>
+                  <Badge variant={statusColors[selectedLead.status] || "primary"} className="ml-1">
+                    {selectedLead.statusLabel}
+                  </Badge>
                 </div>
+                <div className="flex items-center gap-2">
+                  {selectedLead.phone !== "—" && (
+                    <a
+                      href={`https://wa.me/${String(selectedLead.phone).replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-green-700"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      WhatsApp
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setShowDetailPanel(false)}
+                    className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
+              <div className="px-5 py-4 space-y-4">
+
+                {/* Duplicate alert */}
                 {selectedLead.duplicateExists && (
-                  <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 flex items-start gap-3 animate-fade-in">
-                    <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5 animate-pulse" />
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
                     <div>
-                      <p className="font-bold">Duplicate Lead Exists</p>
-                      <p className="mt-0.5 text-xs text-amber-700">Another record with this phone number exists. Keep both but verify context before conversion.</p>
+                      <p className="font-bold text-xs">Duplicate Lead Exists</p>
+                      <p className="text-xs text-amber-700 mt-0.5">Another record with this phone number exists. Verify before conversion.</p>
                     </div>
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Business
+                {/* Top info grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Phone</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900 flex items-center gap-1">
+                      {selectedLead.phone}
+                      {selectedLead.duplicateExists && (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">⚠️ DUP</span>
+                      )}
                     </p>
-                    <p className="mt-1 text-gray-900">{selectedLead.businessName}</p>
                   </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Product Interest
-                    </p>
-                    <p className="mt-1 text-gray-900">{selectedLead.productInterest}</p>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Source</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900">{selectedLead.source}</p>
                   </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Quantity
-                    </p>
-                    <p className="mt-1 text-gray-900">{selectedLead.quantity}</p>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Business</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900">{selectedLead.businessName}</p>
                   </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Created On</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900">{selectedLead.date}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Product Interest</p>
+                    <p className="mt-0.5 text-sm font-semibold text-emerald-700">{selectedLead.productInterest}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Quantity</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900">{selectedLead.quantity}</p>
+                  </div>
+                </div>
 
-                  {selectedLead.requirement && selectedLead.requirement !== "—" && (
-                    <div className="rounded-2xl border border-gray-100 p-4">
-                      <p className="text-xs font-semibold uppercase text-gray-500">
-                        Details / Requirements
-                      </p>
-                      <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedLead.requirement}</p>
+                {/* Details / Requirements */}
+                {selectedLead.requirement && selectedLead.requirement !== "—" && (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Details / Requirements</p>
+                    <p className="mt-1 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{selectedLead.requirement}</p>
+                  </div>
+                )}
+
+                {/* Subcategory */}
+                {selectedLead.subcategory && selectedLead.subcategory !== "—" && (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Sub Category</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900">{selectedLead.subcategory}</p>
+                  </div>
+                )}
+
+                {/* Chatbot Comments */}
+                {selectedLead.comments && selectedLead.comments !== "—" && (
+                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Chatbot Comments / Notes</p>
+                    <p className="mt-1 text-sm text-gray-700 italic">"{selectedLead.comments}"</p>
+                  </div>
+                )}
+
+                {/* Follow-up Check-ins */}
+                <div className="rounded-xl border border-gray-100 px-3 py-3">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Clock3 className="h-3.5 w-3.5 text-emerald-600" />
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Follow-up Check-ins</p>
                     </div>
-                  )}
-
-                  {selectedLead.subcategory && selectedLead.subcategory !== "—" && (
-                    <div className="rounded-2xl border border-gray-100 p-4">
-                      <p className="text-xs font-semibold uppercase text-gray-500">
-                        Sub Category
-                      </p>
-                      <p className="mt-1 text-gray-900">{selectedLead.subcategory}</p>
-                    </div>
-                  )}
-
-                  {selectedLead.comments && selectedLead.comments !== "—" && (
-                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-4">
-                      <p className="text-xs font-semibold uppercase text-gray-500">
-                        Chatbot Comments / Notes
-                      </p>
-                      <p className="mt-1 text-sm text-gray-800 italic">"{selectedLead.comments}"</p>
-                    </div>
-                  )}
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Source
-                    </p>
-                    <p className="mt-1 text-gray-900">{selectedLead.source}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Status
-                    </p>
-                    <div className="mt-2">
-                      <Badge variant={statusColors[selectedLead.status] || "primary"}>
-                        {selectedLead.statusLabel}
-                      </Badge>
+                    <div className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                      {selectedLead.completedFollowups || 0}/3 done
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">
-                      Created On
-                    </p>
-                    <p className="mt-1 text-gray-900">{selectedLead.date}</p>
-                  </div>
+                  <div className="space-y-2">
+                    {FOLLOWUP_FLOW.map((flow) => {
+                      const flowStatus = getFlowStatus(selectedLead, flow.key);
+                      const isDone = !!flowStatus?.done;
 
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Clock3 className="h-4 w-4 text-emerald-600" />
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          Follow-up Check-ins
-                        </p>
-                      </div>
-
-                      <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                        {selectedLead.completedFollowups || 0}/3 done
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {FOLLOWUP_FLOW.map((flow) => {
-                        const flowStatus = getFlowStatus(selectedLead, flow.key);
-                        const isDone = !!flowStatus?.done;
-
-                        return (
-                          <div
-                            key={flow.key}
-                            className={`rounded-2xl border p-4 transition ${isDone
+                      return (
+                        <div
+                          key={flow.key}
+                          className={`rounded-xl border px-3 py-2.5 transition ${
+                            isDone
                               ? "border-emerald-200 bg-emerald-50"
                               : "border-gray-200 bg-white"
-                              }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  {isDone ? (
-                                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                                  ) : (
-                                    <Clock3 className="h-5 w-5 text-amber-500" />
-                                  )}
-                                  <p className="font-semibold text-gray-900">
-                                    {flow.label}
-                                  </p>
-                                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {isDone ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <Clock3 className="h-4 w-4 text-amber-500 shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-semibold text-gray-900">{flow.label}</p>
+                                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
                                     {flowStatus?.stageDay ? `Day ${flowStatus.stageDay}` : flow.dayLabel}
                                   </span>
                                 </div>
-
-                                <p className="mt-1 text-sm text-gray-500">
+                                <p className="text-xs text-gray-500 mt-0.5">
                                   {isDone
-                                    ? `Completed on ${new Date(flowStatus.updatedAt).toLocaleString()}`
-                                    : "Pending follow-up"}
+                                    ? `Done · ${new Date(flowStatus.updatedAt).toLocaleDateString()}`
+                                    : "Pending"}
                                 </p>
                                 {isDone && (
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                                       {getFollowupSourceLabel(flowStatus)}
                                     </span>
                                     {getFollowupChannelLabel(flowStatus) && (
-                                      <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-600 ring-1 ring-gray-200">
+                                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200">
                                         {getFollowupChannelLabel(flowStatus)}
                                       </span>
                                     )}
                                   </div>
                                 )}
                               </div>
-
-                              <Button
-                                onClick={() => handleMarkFollowup(flow.key)}
-                                disabled={isDone}
-                                className={`${isDone
-                                  ? "cursor-not-allowed bg-gray-300"
-                                  : "bg-emerald-600 hover:bg-emerald-700"
-                                  }`}
-                              >
-                                {isDone ? "Completed" : "Mark Done"}
-                              </Button>
                             </div>
+
+                            <Button
+                              onClick={() => handleMarkFollowup(flow.key)}
+                              disabled={isDone}
+                              className={`shrink-0 text-xs px-3 py-1.5 ${
+                                isDone
+                                  ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              }`}
+                            >
+                              {isDone ? "✓ Done" : "Mark Done"}
+                            </Button>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="rounded-xl border border-gray-100 px-3 py-3">
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <StickyNote className="h-3.5 w-3.5 text-emerald-600" />
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Notes</p>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <StickyNote className="h-4 w-4 text-emerald-600" />
-                      <p className="text-xs font-semibold uppercase text-gray-500">
-                        Notes
-                      </p>
-                    </div>
+                  <div className="space-y-2">
+                    <textarea
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      rows={2}
+                      placeholder="Write a note for this lead..."
+                      className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-emerald-500"
+                    />
 
-                    <div className="space-y-3">
-                      <textarea
-                        value={noteInput}
-                        onChange={(e) => setNoteInput(e.target.value)}
-                        rows={3}
-                        placeholder="Write a note for this lead..."
-                        className="w-full resize-none rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-700 outline-none focus:border-emerald-500"
-                      />
+                    <Button onClick={handleAddNote} className="w-full bg-green-700 text-sm py-1.5">
+                      Add Note
+                    </Button>
 
-                      <Button onClick={handleAddNote} className="w-full bg-green-700">
-                        Add Note
-                      </Button>
-
-                      <div className="space-y-2 pt-1">
-                        {(selectedLead?.notes || []).length > 0 ? (
-                          selectedLead.notes
-                            .slice()
-                            .reverse()
-                            .map((note) => (
-                              <div
-                                key={note._id}
-                                className="rounded-xl border border-gray-100 bg-gray-50 p-3"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm text-gray-800">{note.text}</p>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                      {new Date(note.at).toLocaleString()}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                        ) : (
-                          <p className="text-sm text-gray-500">No notes added yet.</p>
-                        )}
-                      </div>
+                    <div className="space-y-1.5 pt-1">
+                      {(selectedLead?.notes || []).length > 0 ? (
+                        selectedLead.notes
+                          .slice()
+                          .reverse()
+                          .map((note) => (
+                            <div
+                              key={note._id}
+                              className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                            >
+                              <p className="text-sm text-gray-800">{note.text}</p>
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                {new Date(note.at).toLocaleString()}
+                              </p>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-sm text-gray-400">No notes added yet.</p>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 flex gap-2">
+
+                {/* Action buttons */}
+                <div className="flex gap-2 pb-2">
                   <Button
                     variant="secondary"
                     onClick={() => setShowDetailPanel(false)}
+                    className="text-sm"
                   >
                     Close
                   </Button>
 
                   {showDeleted ? (
                     <Button
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm"
                       onClick={() => {
                         handleRecoverLead(selectedLead.id);
                         setShowDetailPanel(false);
@@ -2031,6 +2334,7 @@ const Leads = () => {
                   ) : (
                     <>
                       <Button
+                        className="text-sm"
                         onClick={() => {
                           setEditingLead(selectedLead);
                           setShowModal(true);
@@ -2042,6 +2346,7 @@ const Leads = () => {
 
                       <Button
                         variant="danger"
+                        className="text-sm"
                         onClick={() => {
                           handleDeleteLead(selectedLead.id);
                           setShowDetailPanel(false);

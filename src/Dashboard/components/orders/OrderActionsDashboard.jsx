@@ -14,6 +14,7 @@ import {
   FileDown,
   Send,
   Eye,
+  RotateCcw,
 } from "lucide-react";
 
 const OrderActionsDashboard = ({
@@ -23,6 +24,7 @@ const OrderActionsDashboard = ({
   onProcessOrder,
   onCompleteOrder,
   onCreateQuotation,
+  onInitiateReturn,
 }) => {
   // Use global stats from backend when available, fall back to page-local counts
   const hasGlobal = globalStats && typeof globalStats === "object";
@@ -45,6 +47,9 @@ const OrderActionsDashboard = ({
   const cancelledOrders = hasGlobal
     ? (globalStats.statusCounts?.Cancelled || 0)
     : orders.filter((o) => o.orderStatusKey === "CANCELLED").length;
+  const returnedOrders = hasGlobal
+    ? (globalStats.statusCounts?.Returned || 0)
+    : orders.filter((o) => o.orderStatusKey === "RETURNED" || o.orderStatus === "Returned").length;
 
   const pendingQuotations = hasGlobal
     ? (globalStats.pendingQuotations || 0)
@@ -130,6 +135,19 @@ const OrderActionsDashboard = ({
       textColor: "text-red-700",
       action: "View Cancelled",
     },
+    {
+      title: "Returned Orders",
+      count: returnedOrders,
+      description: "Mistakes & returned lines",
+      icon: RotateCcw,
+      color: "rose",
+      gradient: "from-rose-50 to-red-50/30",
+      borderColor: "border-rose-200",
+      iconBg: "bg-rose-100",
+      iconColor: "text-rose-600",
+      textColor: "text-rose-700",
+      action: "Initiate Return",
+    },
   ];
 
   const quickStats = [
@@ -209,7 +227,7 @@ const OrderActionsDashboard = ({
             transition={{ delay: index * 0.1 }}
             className={`bg-gradient-to-r ${card.gradient} rounded-2xl border ${card.borderColor} p-6 hover:shadow-lg transition-all duration-300 cursor-pointer group`}
             onClick={() => {
-              // Filter and show relevant orders
+              // Filter and show relevant orders in sidebar drawer
               if (card.title === "Pending Orders") {
                 onViewOrder?.("PENDING");
               } else if (card.title === "Quotations Needed") {
@@ -220,6 +238,8 @@ const OrderActionsDashboard = ({
                 onViewOrder?.("CONFIRMED");
               } else if (card.title === "Cancelled Orders") {
                 onViewOrder?.("CANCELLED");
+              } else if (card.title === "Returned Orders") {
+                onViewOrder?.("RETURNED_ORDERS");
               }
             }}
           >
@@ -247,7 +267,25 @@ const OrderActionsDashboard = ({
                   {card.count === 0 ? "All caught up!" : `${card.count} orders need attention`}
                 </span>
               </div>
-              <div className={`flex items-center gap-1 text-sm font-semibold ${card.iconColor} group-hover:gap-2 transition-all`}>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (card.title === "Returned Orders") {
+                    onInitiateReturn?.();
+                  } else if (card.title === "Pending Orders") {
+                    onViewOrder?.("PENDING");
+                  } else if (card.title === "Quotations Needed") {
+                    onCreateQuotation?.();
+                  } else if (card.title === "Processing Orders") {
+                    onViewOrder?.("PROCESSING");
+                  } else if (card.title === "Ready to Complete") {
+                    onCompleteOrder?.();
+                  } else if (card.title === "Cancelled Orders") {
+                    onViewOrder?.("CANCELLED");
+                  }
+                }}
+                className={`flex items-center gap-1 text-sm font-semibold ${card.iconColor} hover:underline cursor-pointer group-hover:gap-2 transition-all`}
+              >
                 {card.action}
                 <ArrowRight className="w-4 h-4" />
               </div>

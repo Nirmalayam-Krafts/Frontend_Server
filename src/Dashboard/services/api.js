@@ -474,9 +474,12 @@ export const dashboardAPI = {
 
 // Finance APIs
 export const financeAPI = {
-  async getFinanceSummary() {
+  async getFinanceSummary(filters = {}) {
     try {
-      const response = await apiClient.get("/finance/stats");
+      const params = {};
+      if (filters.from) params.from = filters.from;
+      if (filters.to)   params.to = filters.to;
+      const response = await apiClient.get("/finance/stats", { params });
       const payload = getPayload(response) || {};
       const revenueTrend = buildRevenueSeries(payload);
 
@@ -504,9 +507,12 @@ export const financeAPI = {
     }
   },
 
-  async getRevenueTrend() {
+  async getRevenueTrend(filters = {}) {
     try {
-      const response = await apiClient.get("/finance/stats");
+      const params = {};
+      if (filters.from) params.from = filters.from;
+      if (filters.to)   params.to = filters.to;
+      const response = await apiClient.get("/finance/stats", { params });
       return { success: true, data: buildRevenueSeries(getPayload(response) || {}) };
     } catch (error) {
       return failureResponse(error, "Failed to load revenue trend");
@@ -529,10 +535,19 @@ export const financeAPI = {
 
 // Analytics APIs
 export const analyticsAPI = {
-  async getLeadConversionData() {
+  async getLeadConversionData(filters = {}) {
     try {
       const response = await apiClient.get("/leads", { params: { page: 1, limit: 1000 } });
-      return { success: true, data: buildLeadFunnel(getArrayPayload(response, "leads")) };
+      let leads = getArrayPayload(response, "leads");
+      if (filters.from) {
+        const fromDate = new Date(filters.from);
+        leads = leads.filter(l => l?.createdAt && new Date(l.createdAt) >= fromDate);
+      }
+      if (filters.to) {
+        const toDate = new Date(filters.to);
+        leads = leads.filter(l => l?.createdAt && new Date(l.createdAt) <= toDate);
+      }
+      return { success: true, data: buildLeadFunnel(leads) };
     } catch (error) {
       return failureResponse(error, "Failed to load lead conversion data");
     }
@@ -565,42 +580,62 @@ export const analyticsAPI = {
     }
   },
 
-  async getRevenueData() {
+  async getRevenueData(filters = {}) {
     try {
-      const response = await apiClient.get("/finance/stats");
+      const params = {};
+      if (filters.from) params.from = filters.from;
+      if (filters.to)   params.to = filters.to;
+      const response = await apiClient.get("/finance/stats", { params });
       return { success: true, data: buildRevenueSeries(getPayload(response) || {}) };
     } catch (error) {
       return failureResponse(error, "Failed to load revenue data");
     }
   },
 
-  async getAnalyticsSummary() {
+  async getAnalyticsSummary(filters = {}) {
     try {
+      const params = {};
+      if (filters.from) params.from = filters.from;
+      if (filters.to)   params.to = filters.to;
+
       const [leadsRes, ordersRes, financeRes] = await Promise.all([
         apiClient.get("/leads", { params: { page: 1, limit: 1000 } }),
         apiClient.get("/orders", { params: { page: 1, limit: 1000 } }),
-        apiClient.get("/finance/stats"),
+        apiClient.get("/finance/stats", { params }),
       ]);
 
       const leads  = getArrayPayload(leadsRes,  "leads");
       const orders = getArrayPayload(ordersRes,  "orders");
       const finance = getPayload(financeRes) || {};
 
+      let filteredLeads = leads;
+      let filteredOrders = orders;
+      if (filters.from) {
+        const fromDate = new Date(filters.from);
+        filteredLeads = filteredLeads.filter(l => l?.createdAt && new Date(l.createdAt) >= fromDate);
+        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) >= fromDate);
+      }
+      if (filters.to) {
+        const toDate = new Date(filters.to);
+        filteredLeads = filteredLeads.filter(l => l?.createdAt && new Date(l.createdAt) <= toDate);
+        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) <= toDate);
+      }
+
       const now = new Date();
       const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const periodLeads = leads.filter((l) => l?.createdAt && new Date(l.createdAt) >= periodStart);
+      const periodLeads = filteredLeads.filter((l) => l?.createdAt && new Date(l.createdAt) >= periodStart);
 
       const totalRevenue    = toNumber(finance?.monthlyRevenue);
-      const converted       = leads.filter((l) => String(l?.status || "").toUpperCase() === "CONVERTED").length;
-      const conversionRate  = leads.length ? Math.round((converted / leads.length) * 100) : 0;
+      const converted       = filteredLeads.filter((l) => String(l?.status || "").toUpperCase() === "CONVERTED").length;
+      const conversionRate  = filteredLeads.length ? Math.round((converted / filteredLeads.length) * 100) : 0;
 
-      const paidOrders      = orders.filter((o) => toNumber(o?.totalAmount) > 0);
+      const paidOrders      = filteredOrders.filter((o) => toNumber(o?.totalAmount) > 0);
       const avgOrderValue   = paidOrders.length
         ? Math.round(paidOrders.reduce((sum, o) => sum + toNumber(o.totalAmount), 0) / paidOrders.length)
         : 0;
 
       const prevPeriodStart = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-      const prevLeads = leads.filter((l) => {
+      const prevLeads = filteredLeads.filter((l) => {
         const d = l?.createdAt ? new Date(l.createdAt) : null;
         return d && d >= prevPeriodStart && d < periodStart;
       });
@@ -620,6 +655,34 @@ export const analyticsAPI = {
       };
     } catch (error) {
       return failureResponse(error, "Failed to load analytics summary");
+    }
+  },
+
+  async getOrders(filters = {}) {
+    try {
+      const response = await apiClient.get("/orders", { params: { page: 1, limit: 1000 } });
+      const orders = getArrayPayload(response, "orders");
+      let filteredOrders = orders;
+      if (filters.from) {
+        const fromDate = new Date(filters.from);
+        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) >= fromDate);
+      }
+      if (filters.to) {
+        const toDate = new Date(filters.to);
+        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) <= toDate);
+      }
+      return { success: true, data: filteredOrders };
+    } catch (error) {
+      return failureResponse(error, "Failed to load orders data");
+    }
+  },
+
+  async getProducts() {
+    try {
+      const response = await apiClient.get("/products");
+      return { success: true, data: getArrayPayload(response) };
+    } catch (error) {
+      return failureResponse(error, "Failed to load products");
     }
   },
 };

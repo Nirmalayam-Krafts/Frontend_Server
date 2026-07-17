@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { getProductTaxInfo, exportToExcel } from "../../utils";
 import { Layout } from "../../components/common/Layout";
 import {
   Card,
@@ -16,6 +17,7 @@ import OrderActionsDashboard from "../../components/orders/OrderActionsDashboard
 import OrderListSection from "../../components/orders/OrderListSection";
 import {
   Plus,
+  ArrowRight,
   Search,
   Eye,
   ShoppingBag,
@@ -48,6 +50,10 @@ import {
   ListOrdered,
   Info,
   Edit,
+  Trash2,
+  Truck,
+  ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -57,6 +63,7 @@ import { useUIStore } from "../../store";
 import { useGetAllOrders, useGetOrderStats } from "../../../../hook/order";
 import { useGetInventory } from "../../../../hook/inventory";
 import { useGetAllProducts } from "../../../../hook/Product";
+import { useGetAllRawMaterials } from "../../../../hook/RawMaterial";
 
 const initialManualOrderForm = {
   customerName: "",
@@ -73,11 +80,13 @@ const initialManualOrderForm = {
   width: "",
   height: "",
   gsm: "",
+  bf: "",
   dimensionUnit: "inch",
   notes: "",
   unit: "",
   calculationMode: "auto",
   convertedQuantity: "",
+  editReason: "",
 };
 
 const initialConfirmOrderForm = {
@@ -107,25 +116,110 @@ const DEDUCTION_MODE_HELP = {
     "Finished bags only. Raw material BOM is not evaluated — use this when you only sell from shelf stock.",
 };
 
+const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
+  let totalSuggestedOfAll = 0;
+  const lineSuggestedVals = lines.map(l => {
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
+    const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
+    const suggested = Number(l.quantity || 0) * price;
+    totalSuggestedOfAll += suggested;
+    return { lineId: l.productId || l._id, suggested };
+  });
+
+  const match = lineSuggestedVals.find(v => String(v.lineId) === String(line.productId || line._id));
+  const lineSuggested = match ? match.suggested : 0;
+  const lineShareFraction = totalSuggestedOfAll > 0 ? (lineSuggested / totalSuggestedOfAll) : (1 / lines.length);
+  return subtotal * lineShareFraction;
+};
+
+const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
+  const lines = order?.orderDetailsList?.length > 0
+    ? order.orderDetailsList
+    : [order?.orderDetails].filter(Boolean);
+
+  const sub = Number(subtotal || 0);
+
+  let totalSuggestedOfAll = 0;
+  const lineSuggestedVals = lines.map(line => {
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+    const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
+    const suggested = Number(line.quantity || 0) * price;
+    totalSuggestedOfAll += suggested;
+    return { line, suggested };
+  });
+
+  return lineSuggestedVals.map(({ line, suggested }) => {
+    const lineShareFraction = totalSuggestedOfAll > 0 ? (suggested / totalSuggestedOfAll) : (1 / lines.length);
+    const lineSubtotal = sub * lineShareFraction;
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+    const taxInfo = getProductTaxInfo(prod || line);
+    const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
+    const lineHsn = line.hsnCode || taxInfo.hsnCode;
+
+    return {
+      productName: prod?.name || order.productCategory || "Product",
+      productId: line.productId,
+      hsnCode: lineHsn,
+      gstRate: lineGstRate,
+      subtotal: lineSubtotal,
+      gstAmount: lineSubtotal * (lineGstRate / 100),
+    };
+  });
+};
+
 const Orders = () => {
   const navigate = useNavigate();
   const { axiosInstance } = useAuthContext();
   const queryClient = useQueryClient();
   const showNotification = useUIStore((state) => state.showNotification);
   const [showLogsModal, setShowLogsModal] = useState(false);
-  const [search, setSearch] = useState("");
+  const [logoBase64, setLogoBase64] = useState("");
+
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      setLogoBase64(canvas.toDataURL("image/png"));
+    };
+    img.src = "/Nirmalyam_Logo-removebg-preview.webp";
+  }, []);
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => {
+    const ref = searchParams.get("orderRef") || searchParams.get("search") || "";
+    return ref.replace("#", "");
+  });
   const [orderStatusFilter, setOrderStatusFilter] = useState("All");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Automatically reset status filters when redirecting to look up a specific orderRef
+  useEffect(() => {
+    const targetRef = searchParams.get("orderRef");
+    if (targetRef) {
+      setOrderStatusFilter("All");
+      setPaymentStatusFilter("All");
+    }
+  }, [searchParams]);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
   const [viewMode, setViewMode] = useState("dashboard"); // "dashboard" or "table"
+  const [actionDrawerType, setActionDrawerType] = useState(null);
+  const [activeTrackerOrderId, setActiveTrackerOrderId] = useState(null);
 
   const [showReportPreview, setShowReportPreview] = useState(false);
 
   const [manualOrderForm, setManualOrderForm] = useState(initialManualOrderForm);
+  const [manualSelectedProducts, setManualSelectedProducts] = useState([]);
+  const [expandedProductIndex, setExpandedProductIndex] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [editOrderForm, setEditOrderForm] = useState(initialManualOrderForm);
@@ -137,7 +231,9 @@ const Orders = () => {
   const [availabilityResult, setAvailabilityResult] = useState(null);
   const [deductionMode, setDeductionMode] = useState("AUTO");
   const [confirmOrderForm, setConfirmOrderForm] = useState(initialConfirmOrderForm);
+  const [confirmPath, setConfirmPath] = useState("reserve"); // "reserve" or "dispatch"
   const [useAvailableStock, setUseAvailableStock] = useState(false);
+  const [activeLogOrder, setActiveLogOrder] = useState(null);
   
   // BILL GENERATOR STATES
   const [showBillModal, setShowBillModal] = useState(false);
@@ -151,6 +247,12 @@ const Orders = () => {
   const [billNotes, setBillNotes] = useState("Thank you for your business!");
   const [billSubtotal, setBillSubtotal] = useState("0");
   const [billOther, setBillOther] = useState("0");
+  const [isBillSaved, setIsBillSaved] = useState(false);
+  const [billPaymentMode, setBillPaymentMode] = useState("cash");
+  const [showPaymentInfo, setShowPaymentInfo] = useState(() => 
+    localStorage.getItem("nirmalyam_show_payment_info") === "true"
+  );
+  const [lastReceipt, setLastReceipt] = useState(null);
 
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [quotationOrder, setQuotationOrder] = useState(null);
@@ -166,6 +268,7 @@ const Orders = () => {
   const [quotationSubtotalInput, setQuotationSubtotalInput] = useState("");
   const [processingActionId, setProcessingActionId] = useState(null);
   const [completeActionId, setCompleteActionId] = useState(null);
+  const [deliveredActionId, setDeliveredActionId] = useState(null);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: "", paymentMode: "cash", note: "" });
@@ -175,6 +278,18 @@ const Orders = () => {
   const [manualLossInput, setManualLossInput] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [deliveryTargetOrder, setDeliveryTargetOrder] = useState(null);
+  const [deliveryForm, setDeliveryForm] = useState({
+    receiverName: "",
+    receiverPhone: "",
+    deliveryMode: "courier",
+    deliveryAddress: "",
+    deliveryDate: "",
+    dispatchDate: "",
+    deliveryNotes: "",
+  });
 
   const limit = 10;
 
@@ -188,9 +303,30 @@ const Orders = () => {
       : {}),
   });
 
-  const { data: inventoryData } = useGetInventory();
+  useEffect(() => {
+    const targetRef = searchParams.get("orderRef");
+    if (targetRef && data?.orders && data.orders.length > 0) {
+      const cleanTarget = targetRef.replace("#", "").toLowerCase().trim();
+      const matched = data.orders.find(o => 
+        (o.reference && o.reference.toLowerCase().includes(cleanTarget)) ||
+        (o._id && o._id.toLowerCase().includes(cleanTarget))
+      );
+      if (matched) {
+        setSelectedOrder(matched);
+        setShowDetailPanel(true);
+      }
+    }
+  }, [data, searchParams]);
+
+  const { data: inventoryData, refetch: refetchInventory } = useGetInventory();
   const { data: productsData } = useGetAllProducts();
-  const { data: orderStats } = useGetOrderStats();
+  const { data: orderStats, refetch: refetchOrderStats } = useGetOrderStats();
+  const { data: rawMaterialsData } = useGetAllRawMaterials();
+
+  const rawMaterials = useMemo(() => {
+    if (Array.isArray(rawMaterialsData)) return rawMaterialsData;
+    return [];
+  }, [rawMaterialsData]);
 
   const inventoryItems = useMemo(() => {
     if (Array.isArray(inventoryData)) return inventoryData;
@@ -207,6 +343,19 @@ const Orders = () => {
     if (Array.isArray(productsData?.data)) return productsData.data;
     return [];
   }, [productsData]);
+
+  const currentActiveOrder = useMemo(() => {
+    if (!activeLogOrder) return null;
+    const allOrders = data?.orders || [];
+    const found = allOrders.find(o => String(o.id || o._id) === String(activeLogOrder.id || activeLogOrder._id));
+    return found || activeLogOrder;
+  }, [data, activeLogOrder]);
+
+  useEffect(() => {
+    if (!activeLogOrder && data?.orders?.length > 0) {
+      setActiveLogOrder(data.orders[0]);
+    }
+  }, [data, activeLogOrder]);
 
   useEffect(() => {
     const selProd = productItems.find(
@@ -412,6 +561,9 @@ const Orders = () => {
           .join("")
           .slice(0, 2)
           .toUpperCase(),
+        orderDetailsList: order?.orderDetailsList || [],
+        modificationHistory: order?.modificationHistory || [],
+        returns: order?.returns || [],
       };
     });
   }, [rawOrders]);
@@ -441,6 +593,7 @@ const Orders = () => {
     PROCESSING: "primary",
     CONFIRMED: "success",
     COMPLETED: "success",
+    DELIVERED: "success",
     CANCELLED: "danger",
   };
 
@@ -457,6 +610,7 @@ const Orders = () => {
     CONFIRMED: { label: "Confirmed", icon: ShieldCheck, tone: "text-emerald-700" },
     PROCESSING: { label: "Processing", icon: RefreshCw, tone: "text-blue-700" },
     COMPLETED: { label: "Completed", icon: CheckCircle2, tone: "text-emerald-700" },
+    DELIVERED: { label: "Delivered", icon: CheckCircle2, tone: "text-emerald-700" },
     CANCELLED: { label: "Cancelled", icon: AlertTriangle, tone: "text-red-700" },
   };
 
@@ -467,21 +621,148 @@ const Orders = () => {
   };
 
   const handleFormChange = (field, value) => {
+    let cleanVal = value;
+    if (field === "phone") {
+      cleanVal = value.replace(/\D/g, "").slice(0, 10);
+    }
     setManualOrderForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: cleanVal,
     }));
   };
 
   const resetManualOrderForm = () => {
     setManualOrderForm(initialManualOrderForm);
+    setManualSelectedProducts([]);
+    setExpandedProductIndex(null);
     setShowCreateModal(false);
   };
 
+  const handleAddProductToManualList = () => {
+    if (!manualOrderForm.customerName) {
+      toast.error("Customer Name is required");
+      return;
+    }
+    if (!manualOrderForm.phone) {
+      toast.error("Phone number is required");
+      return;
+    }
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(manualOrderForm.phone)) {
+      toast.error("Please enter a valid 10-digit phone number");
+      return;
+    }
+    if (manualOrderForm.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(manualOrderForm.email)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+    }
+
+    const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === manualOrderForm.productId);
+    if (!selProd) {
+      toast.error("Please select a product first");
+      return;
+    }
+    const isRoll = !!(selProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll"));
+    
+    if (!manualOrderForm.quantity || Number(manualOrderForm.quantity) <= 0) {
+      toast.error("Please enter a valid order quantity");
+      return;
+    }
+    if (!manualOrderForm.width || Number(manualOrderForm.width) <= 0) {
+      toast.error("Please enter a valid width");
+      return;
+    }
+    if (isRoll) {
+      if (!manualOrderForm.gsm || Number(manualOrderForm.gsm) <= 0) {
+        toast.error("Please enter a valid GSM");
+        return;
+      }
+      if (!manualOrderForm.bf || Number(manualOrderForm.bf) <= 0) {
+        toast.error("Please enter a valid BF");
+        return;
+      }
+    } else {
+      if (!manualOrderForm.bagSize) {
+        toast.error("Please enter bag size");
+        return;
+      }
+      if (!manualOrderForm.length || Number(manualOrderForm.length) <= 0) {
+        toast.error("Please enter a valid length");
+        return;
+      }
+      if (!manualOrderForm.height || Number(manualOrderForm.height) <= 0) {
+        toast.error("Please enter a valid height");
+        return;
+      }
+    }
+
+    const newProductEntry = {
+      productId: manualOrderForm.productId,
+      productName: selProd.name,
+      productSku: selProd.sku,
+      productCategory: selProd.category || manualOrderForm.productCategory || "Kraft Rolls",
+      bagSize: isRoll ? undefined : manualOrderForm.bagSize,
+      color: isRoll ? undefined : manualOrderForm.color,
+      quantity: Number(manualOrderForm.quantity),
+      unit: manualOrderForm.unit || (isRoll ? "kg" : "pcs"),
+      gsm: manualOrderForm.gsm ? Number(manualOrderForm.gsm) : undefined,
+      bf: isRoll && manualOrderForm.bf ? Number(manualOrderForm.bf) : undefined,
+      calculationMode: manualOrderForm.calculationMode || "auto",
+      convertedQuantity: manualOrderForm.convertedQuantity ? Number(manualOrderForm.convertedQuantity) : undefined,
+      dimensions: {
+        length: isRoll ? 0 : Number(manualOrderForm.length),
+        width: Number(manualOrderForm.width),
+        height: isRoll ? 0 : Number(manualOrderForm.height),
+        unit: manualOrderForm.dimensionUnit,
+      },
+      basePrice: selProd.basePrice || 0,
+      estimationConfig: selProd.estimationConfig || {},
+      hsnCode: selProd.hsnCode || "",
+      gstRate: selProd.gstRate ?? 18,
+    };
+
+    setManualSelectedProducts(prev => [...prev, newProductEntry]);
+
+    // Reset ONLY the product-specific fields in manualOrderForm, keep customer details!
+    setManualOrderForm(prev => ({
+      ...prev,
+      productId: "",
+      productCategory: "",
+      bagSize: "",
+      color: "",
+      quantity: "",
+      length: "",
+      width: "",
+      height: "",
+      gsm: "",
+      bf: "",
+      dimensionUnit: "inch",
+      unit: "",
+      calculationMode: "auto",
+      convertedQuantity: "",
+    }));
+  };
+
+  const handleRemoveProductFromManualList = (index) => {
+    setManualSelectedProducts(prev => prev.filter((_, i) => i !== index));
+    if (expandedProductIndex === index) {
+      setExpandedProductIndex(null);
+    } else if (expandedProductIndex > index) {
+      setExpandedProductIndex(expandedProductIndex - 1);
+    }
+  };
+
   const handleEditFormChange = (field, value) => {
+    let cleanVal = value;
+    if (field === "phone") {
+      cleanVal = value.replace(/\D/g, "").slice(0, 10);
+    }
     setEditOrderForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: cleanVal,
     }));
   };
 
@@ -492,9 +773,13 @@ const Orders = () => {
   };
 
   const handleConfirmOrderChange = (field, value) => {
+    let cleanVal = value;
+    if (field === "receiverPhone") {
+      cleanVal = value.replace(/\D/g, "").slice(0, 10);
+    }
     setConfirmOrderForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: cleanVal,
     }));
   };
 
@@ -675,13 +960,15 @@ const Orders = () => {
         const qOther = existingQuotation.otherCharges || 0;
         const qTotal = existingQuotation.totalQuoted || (qSubtotal * (1 + qTaxRate / 100) + qShipping + qOther);
 
+        const remainingToPay = Math.max(0, qTotal - (order.paidAmount || 0));
+
         setConfirmOrderForm({
           totalAmount: String(qTotal > 0 ? qTotal : ""),
           subtotalAmount: String(qSubtotal > 0 ? qSubtotal : ""),
           taxRate: String(qTaxRate),
           shippingCharges: String(qShipping),
           otherCharges: String(qOther),
-          paidAmount: String(order.paidAmount || ""),
+          paidAmount: String(remainingToPay),
           paymentMode: "cash",
           deliveryMode: order.delivery?.deliveryMode || "courier",
           deliveryAddress: order.delivery?.deliveryAddress || "",
@@ -707,12 +994,16 @@ const Orders = () => {
           materialRequirements: resData.materialRequirements,
           missingMaterials: resData.missingMaterials,
           productionScalingMeta: resData.productionScalingMeta || null,
-          requiredQty: Number(order?.orderDetails?.quantity || 0),
+          perProductResults: resData.perProductResults || null,
+          productCount: resData.productCount || 1,
+          requiredQty: resData.perProductResults
+            ? resData.perProductResults.reduce((sum, pr) => sum + Number(pr.quantity || 0), 0)
+            : Number(order?.orderDetails?.quantity || 0),
           message: !productResolved
             ? resData.adminHint ||
             "No catalog product matched this order label. Use suggestions below or set product ID on the order."
             : resData.isAvailable
-              ? "Order can be fulfilled using current logic mode."
+              ? `Order can be fulfilled using current logic mode.${resData.productCount > 1 ? ` (${resData.productCount} products checked)` : ""}`
               : "Insufficient raw materials or stock for this mode.",
           matchInsight,
         });
@@ -796,19 +1087,29 @@ const Orders = () => {
       return;
     }
 
-    if (
-      !confirmOrderForm.deliveryAddress ||
-      !confirmOrderForm.deliveryDate ||
-      !confirmOrderForm.dispatchDate
-    ) {
-      showNotification("Please fill all confirm order details", "error");
-      return;
+    const isDispatch = confirmPath === "dispatch";
+
+    if (isDispatch) {
+      if (!confirmOrderForm.receiverName || !confirmOrderForm.receiverPhone) {
+        showNotification("Please fill On-site Contact Person Name and Phone", "error");
+        return;
+      }
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(confirmOrderForm.receiverPhone)) {
+        showNotification("Please enter a valid 10-digit receiver phone number", "error");
+        return;
+      }
+      if (!confirmOrderForm.deliveryDate || !confirmOrderForm.dispatchDate) {
+        showNotification("Please fill Delivery and Dispatch dates", "error");
+        return;
+      }
     }
 
-    const loadingToast = toast.loading("Confirming order...");
+    const loadingToast = toast.loading(isDispatch ? "Dispatching order..." : "Confirming order...");
 
     try {
       const payload = {
+        dispatchDirectly: isDispatch,
         totalAmount: Number(confirmOrderForm.totalAmount || 0),
         subtotalAmount: Number(confirmOrderForm.subtotalAmount || 0),
         taxRate: Number(confirmOrderForm.taxRate || 0),
@@ -819,8 +1120,8 @@ const Orders = () => {
         receiverName: confirmOrderForm.receiverName,
         receiverPhone: confirmOrderForm.receiverPhone,
         deliveryAddress: confirmOrderForm.deliveryAddress,
-        deliveryDate: confirmOrderForm.deliveryDate,
-        dispatchDate: confirmOrderForm.dispatchDate,
+        deliveryDate: confirmOrderForm.deliveryDate || null,
+        dispatchDate: confirmOrderForm.dispatchDate || null,
         deliveryMode: confirmOrderForm.deliveryMode,
         deliveryNotes: confirmOrderForm.deliveryNotes,
         productId: availabilityOrder.orderDetails?.productId || null,
@@ -840,7 +1141,7 @@ const Orders = () => {
 
       await axiosInstance.patch(`/orders/${availabilityOrder.id}/confirm`, payload);
 
-      toast.success("Order confirmed successfully 🎉", { id: loadingToast });
+      toast.success(isDispatch ? "Order dispatched successfully! ✓" : "Order confirmed and stock reserved! 🎉", { id: loadingToast });
 
       resetAvailabilityModal();
 
@@ -849,6 +1150,9 @@ const Orders = () => {
       });
       queryClient.invalidateQueries({
         queryKey: ["getOrderStats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
       });
 
       await refetch();
@@ -860,8 +1164,60 @@ const Orders = () => {
     }
   };
 
+  const handleUnconfirmExistingOrder = async () => {
+    if (!availabilityOrder) return;
+
+    const reason = prompt("Please enter the reason for unconfirming this order:");
+    if (reason === null) return; // User cancelled the prompt
+
+    const loadingToast = toast.loading("Reverting order confirmation...");
+    try {
+      await axiosInstance.patch(`/orders/${availabilityOrder.id}/unconfirm`, {
+        reason: reason || "Unconfirmed by administrator",
+      });
+
+      toast.success("Order unconfirmed successfully! Stock has been returned to available.", { id: loadingToast });
+
+      resetAvailabilityModal();
+
+      queryClient.invalidateQueries({
+        queryKey: ["getAllOrders"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getOrderStats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getInventoryData"],
+      });
+
+      await refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to unconfirm order", { id: loadingToast });
+    }
+  };
+
   const openBillModal = (order) => {
+    setIsBillSaved(false);
+    setLastReceipt(null);
     setBillOrder(order);
+
+    const fetchLastReceipt = async () => {
+      try {
+        const ref = getOrderReference(order.id || order._id);
+        const resp = await axiosInstance.get(`/receipts`, {
+          params: { search: ref.replace("#", "") }
+        });
+        const list = resp?.data?.data?.receipts || [];
+        if (list.length > 0) {
+          setLastReceipt(list[0]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch last receipt", err);
+      }
+    };
+    fetchLastReceipt();
+
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -876,22 +1232,48 @@ const Orders = () => {
     dueDate.setDate(dueDate.getDate() + 7);
     setBillDueDate(dueDate.toISOString().slice(0, 10));
 
-    const savedTaxRate = order.taxRate ?? order.quotation?.taxRate ?? 0;
-    const savedShipping = order.shippingCharges ?? order.quotation?.shippingCharges ?? 0;
-    const savedOther = order.otherCharges ?? order.quotation?.otherCharges ?? 0;
-    const savedSubtotal = order.subtotalAmount ?? order.quotation?.subtotalAmount ?? order.totalAmount ?? 0;
+    // Auto-populate GST rate: first from quotation, then from order items' product gstRate
+    const items = order.orderDetailsList?.length > 0
+      ? order.orderDetailsList
+      : [order.orderDetails].filter(Boolean);
+    // Look up product gstRate from productItems catalogue
+    const getProductGstRate = (line) => {
+      if (line?.gstRate != null) return Number(line.gstRate);
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      return prod?.gstRate ?? 18;
+    };
+    const productGstRates = items.map(getProductGstRate);
+    const dominantGstRate = productGstRates.length > 0 ? productGstRates[0] : 18;
+    const savedTaxRate = order.quotation?.taxRate || order.taxRate || dominantGstRate;
 
-    setBillSubtotal(String(savedSubtotal));
+    let orderTotalVal = order.totalAmount || order.quotation?.totalQuoted || 0;
+    if (orderTotalVal === 0) {
+      let computedTotal = 0;
+      for (const line of items) {
+        const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+        const price = prod?.unitPrice || prod?.sellingPrice || 5;
+        computedTotal += Number(line?.quantity || 0) * price;
+      }
+      orderTotalVal = computedTotal;
+    }
+    const remainingTotal = Math.max(0, orderTotalVal - (order.paidAmount || 0));
+    const approvedSubtotal = order.subtotalAmount || order.quotation?.subtotalAmount || orderTotalVal;
+    const defaultSubtotal = orderTotalVal > 0 
+      ? Number(((remainingTotal / orderTotalVal) * approvedSubtotal).toFixed(2))
+      : 0;
+    const defaultShipping = 0;
+    const defaultOther = 0;
+
+    setBillSubtotal(String(defaultSubtotal));
     setBillTaxRate(String(savedTaxRate));
-    setBillShipping(String(savedShipping));
-    setBillOther(String(savedOther));
+    setBillShipping(String(defaultShipping));
+    setBillOther(String(defaultOther));
     setBillDiscount("0");
     setBillNotes("Thank you for doing business with Nirmalyam Krafts!");
     setShowBillModal(true);
   };
 
-  const getBillShareText = (order, meta) => {
-    const qty = Number(order.orderDetails?.quantity || 1);
+  const getBillShareText = (order, meta, productItems) => {
     const subtotal = Number(meta.billSubtotal || order.subtotalAmount || order.totalAmount || 0);
     const discountVal = Number(meta.billDiscount || 0);
     const shippingVal = Number(meta.billShipping || 0);
@@ -900,7 +1282,9 @@ const Orders = () => {
     const taxVal = (subtotal - discountVal) * (taxRate / 100);
     const grandTotal = subtotal - discountVal + taxVal + shippingVal + otherVal;
     const balance = Math.max(0, grandTotal - Number(order.paidAmount || 0));
-    
+
+    const productSummary = getWhatsAppProductSummary(order, productItems);
+
     return `*${COMPANY_NAME} — Invoice/Bill*
 
 Invoice Number: ${meta.billNumber}
@@ -911,10 +1295,9 @@ Due Date: ${meta.billDueDate}
 Customer: ${order.customerName}
 Business: ${order.businessName || "—"}
 
-*Item Specifications:*
-Product: ${order.productCategory}
-Size: ${order.orderDetails?.bagSize || "—"}
-Quantity: ${qty} ${order.orderDetails?.unit || "pcs"}
+*Products Details:*
+${productSummary}
+
 Grand Total: ₹${grandTotal.toFixed(2)}
 Amount Paid: ₹${Number(order.paidAmount || 0).toFixed(2)}
 *Balance Due: ₹${balance.toFixed(2)}*
@@ -935,7 +1318,7 @@ Note: ${meta.billNotes || "—"}`;
       billSubtotal,
       billOther
     };
-    const text = getBillShareText(billOrder, meta);
+    const text = getBillShareText(billOrder, meta, productItems);
     const encodedText = encodeURIComponent(text);
     const cleanPhone = String(billOrder.phone || "").replace(/[^0-9]/g, "");
     const waUrl = `https://wa.me/${cleanPhone.startsWith("91") ? cleanPhone : "91" + cleanPhone}?text=${encodedText}`;
@@ -955,10 +1338,521 @@ Note: ${meta.billNotes || "—"}`;
       billSubtotal,
       billOther
     };
-    const text = getBillShareText(billOrder, meta);
+    const text = getBillShareText(billOrder, meta, productItems);
     const subject = encodeURIComponent(`${COMPANY_NAME} — Invoice ${billNumber}`);
     const body = encodeURIComponent(text);
     window.open(`mailto:${billOrder.email || ""}?subject=${subject}&body=${body}`, "_blank");
+  };
+
+  const handleSaveBill = async () => {
+    if (!billOrder) return;
+    const toastId = toast.loading("Saving bill/invoice...");
+    try {
+      const itemBreakdown = getQuotationItemsBreakdown(billOrder, null, Number(billSubtotal || 0), productItems);
+      const perProductGst = itemBreakdown.reduce((s, r) => s + r.gstAmount, 0);
+      const computedGrandTotal = Number((Number(billSubtotal || 0) - Number(billDiscount || 0) + perProductGst + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2));
+
+      await axiosInstance.post("/receipts/bill", {
+        orderId: billOrder.id || billOrder._id,
+        billNumber,
+        billDate,
+        billDueDate,
+        billTaxRate: Number(billTaxRate || 0),
+        billShipping: Number(billShipping || 0),
+        billDiscount: Number(billDiscount || 0),
+        billNotes,
+        billSubtotal: Number(billSubtotal || 0),
+        billOther: Number(billOther || 0),
+        billGrandTotal: computedGrandTotal,
+        billItemGst: perProductGst,
+        paymentMode: billPaymentMode,
+      });
+      setIsBillSaved(true);
+      toast.success("Bill/Invoice saved successfully! You can now share or download.", { id: toastId });
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to save bill/invoice", { id: toastId });
+    }
+  };
+
+  const generateInvoicePDF = (rc, mode = "download") => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    const brand = [10, 92, 67]; // Emerald Green
+    const gold = [212, 175, 55]; // Gold accent
+
+    // Draw top layout headers
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    
+    doc.setFillColor(gold[0], gold[1], gold[2]);
+    doc.rect(0, 40, pageWidth, 2, "F");
+    
+    // Header company logo & details
+    try {
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+      } else {
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+      }
+    } catch (e) {
+      console.warn("Failed to load logo in PDF:", e);
+    }
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text(COMPANY_NAME, 46, 18);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+    
+    // Title "INVOICE" on the right side of header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text("INVOICE", pageWidth - 15, 20, { align: "right" });
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text(`Invoice No: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
+    doc.text(`Date: ${rc.paidAt ? new Date(rc.paidAt).toLocaleDateString() : new Date().toLocaleDateString()}`, pageWidth - 15, 33, { align: "right" });
+    
+    // Client & Invoice details
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILL TO:", 15, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 58);
+    doc.text(`Business: ${rc.businessName || "—"}`, 15, 63);
+    doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
+    doc.text(`Email: ${rc.email || "—"}`, 15, 73);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("DELIVERY DETAILS:", 110, 52);
+    doc.setFont("helvetica", "normal");
+    const addressLines = doc.splitTextToSize(rc.deliveryAddress || "Pickup / Standard Delivery", 85);
+    doc.text(addressLines, 110, 58);
+    
+    // Invoice Meta Table or Section
+    const termsY = 85;
+    doc.setFillColor(245, 247, 246);
+    doc.rect(15, termsY, pageWidth - 30, 10, "F");
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Due Date: ${rc.billDetails?.dueDate ? new Date(rc.billDetails.dueDate).toLocaleDateString() : "—"}`, 20, termsY + 6.5);
+    doc.text(`Payment Mode: ${String(rc.paymentMode || "invoice").toUpperCase()}  |  Payment Status: ${rc.isPaidInFull ? "PAID IN FULL" : "PARTIAL PAID"}`, 95, termsY + 6.5);
+    
+    // Item Table
+    const billDetails = rc.billDetails || {};
+    const subtotal = Number(billDetails.subtotal || rc.amount || 0);
+    const discountVal = Number(billDetails.discount || 0);
+    const shippingVal = Number(billDetails.shipping || 0);
+    const otherVal = Number(billDetails.other || 0);
+    const taxRate = Number(billDetails.taxRate || 0);
+    
+    const lines = rc.orderDetailsList || [];
+    const totalQty = lines.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    // Per-line GST breakdown accumulator by rate
+    const gstByRate = {}; // { "18": { taxableAmount, taxAmount }, "12": { ... } }
+
+    const tableBody = lines.map((line, index) => {
+      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
+      const lineQty = Number(line.quantity || 0);
+      const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
+      const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / (lines.length || 1));
+      const rate = lineQty > 0 ? (lineSubtotal / lineQty) : lineSubtotal;
+
+      // Resolve HSN and GST: check line data first, then look up product catalogue
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
+      const taxInfo = getProductTaxInfo(prod || line);
+      const lineHsn = line.hsnCode || taxInfo.hsnCode;
+      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
+
+      // Accumulate GST by rate
+      const rateKey = String(lineGstRate);
+      const taxableBase = lineSubtotal - (discountVal * lineFraction);
+      const lineTax = taxableBase * (lineGstRate / 100);
+      if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
+      gstByRate[rateKey].taxableAmount += taxableBase;
+      gstByRate[rateKey].taxAmount += lineTax;
+
+      return [
+        specDetails,
+        lineHsn,
+        `${lineGstRate}%`,
+        `Rs. ${lineTax.toFixed(2)}`,
+        `${line.quantity || 0} ${line.unit || "pcs"}`,
+        `Rs. ${rate.toFixed(2)}`,
+        `Rs. ${lineSubtotal.toFixed(2)}`
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: termsY + 16,
+      head: [["Item Description & Specifications", "HSN Code", "GST %", "GST Amt", "Quantity", "Rate", "Amount"]],
+      body: tableBody,
+      theme: "striped",
+      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
+      headStyles: { fillColor: brand, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: "auto" },
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "center", cellWidth: 14 },
+        3: { halign: "right", cellWidth: 20 },
+        4: { halign: "center", cellWidth: 18 },
+        5: { halign: "right", cellWidth: 22 },
+        6: { halign: "right", cellWidth: 24 }
+      }
+    });
+    
+    const finalY = doc.lastAutoTable.finalY + 8;
+    
+    // Totals Grid
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 80, 80);
+    
+    const rightAlignX = pageWidth - 15;
+    const labelX = pageWidth - 90;
+    
+    let currentY = finalY;
+    doc.text("Subtotal:", labelX, currentY);
+    doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    if (discountVal > 0) {
+      currentY += 6;
+      doc.text("Discount:", labelX, currentY);
+      doc.text(`- Rs. ${discountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    // GST Breakdown by rate
+    const gstRateKeys = Object.keys(gstByRate).sort((a, b) => Number(a) - Number(b));
+    let totalGstCollected = 0;
+    
+    if (gstRateKeys.length > 0) {
+      for (const rk of gstRateKeys) {
+        totalGstCollected += gstByRate[rk].taxAmount;
+      }
+    }
+    
+    const grandTotal = subtotal - discountVal + totalGstCollected + shippingVal + otherVal;
+
+    if (gstRateKeys.length > 1) {
+      // Multiple GST rates — show per-rate breakdown
+      for (const rk of gstRateKeys) {
+        const { taxAmount: ta } = gstByRate[rk];
+        currentY += 6;
+        doc.setFontSize(9);
+        doc.text(`GST @ ${rk}%:`, labelX, currentY);
+        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      }
+      currentY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(`Total GST Collected:`, labelX, currentY);
+      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+    } else if (gstRateKeys.length === 1) {
+      const rk = gstRateKeys[0];
+      const { taxAmount: ta } = gstByRate[rk];
+      if (ta > 0) {
+        currentY += 6;
+        doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
+        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      }
+    } else if (taxRate > 0) {
+      // Fallback
+      const fallbackTax = (subtotal - discountVal) * (taxRate / 100);
+      currentY += 6;
+      doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
+      doc.text(`Rs. ${fallbackTax.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+    
+    if (shippingVal > 0) {
+      currentY += 6;
+      doc.text("Shipping Charges:", labelX, currentY);
+      doc.text(`Rs. ${shippingVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    if (otherVal > 0) {
+      currentY += 6;
+      doc.text("Other Charges:", labelX, currentY);
+      doc.text(`Rs. ${otherVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+    
+    currentY += 8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text("Grand Total:", labelX, currentY);
+    doc.text(`Rs. ${grandTotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    currentY += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text("Amount Paid So Far:", labelX, currentY);
+    doc.text(`Rs. ${Number(rc.paidSoFar || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    
+    currentY += 7;
+    doc.setFillColor(254, 242, 242);
+    doc.rect(labelX - 4, currentY - 5, 83, 8, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(185, 28, 28);
+    const balanceDue = Math.max(0, grandTotal - Number(rc.paidSoFar || 0));
+    doc.text("Balance Due:", labelX, currentY);
+    doc.text(`Rs. ${balanceDue.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
+    const approvedTotal = Number(rc.totalOrderAmount || 0);
+    const remainingToInvoiceVal = Math.max(0, approvedTotal - grandTotal);
+    if (remainingToInvoiceVal > 0.01) {
+      currentY += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(120, 110, 30);
+      doc.text("Remaining Order Bal. to Invoice:", labelX, currentY);
+      doc.text(`Rs. ${remainingToInvoiceVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+    
+    // Notes & Payment instructions on bottom left (below totals to prevent collision)
+    const notesY = currentY + 12;
+    doc.setTextColor(60, 60, 60);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Notes:", 15, notesY);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const noteTextLines = doc.splitTextToSize(billDetails.notes || "Please clear payment within due date.", 90);
+    doc.text(noteTextLines, 15, notesY + 5);
+
+    // Terms & Conditions (loaded from localStorage or default)
+    const tcString = localStorage.getItem("nirmalyam_invoice_terms") || 
+      "1. Payment is strict Net due upon receipt.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Subject to local jurisdiction.";
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Terms & Conditions:", 15, notesY + 18);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    const tcLines = doc.splitTextToSize(tcString, 90);
+    doc.text(tcLines, 15, notesY + 23);
+
+    // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
+    const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
+    if (isPaymentInfoEnabled) {
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+      const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
+      const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
+      const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
+      const bUpi    = localStorage.getItem("nirmalyam_bank_upi")    || "nirmalyam@sbi";
+
+      const bankY = notesY;
+      doc.setTextColor(60, 60, 60);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("Bank Details for Payment:", 115, bankY);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Account Name: ${bHolder}`, 115, bankY + 5);
+      doc.text(`Bank Name: ${bName}`, 115, bankY + 10);
+      doc.text(`A/C Number: ${bAcc}`, 115, bankY + 15);
+      doc.text(`IFSC Code: ${bIfsc}`, 115, bankY + 20);
+      doc.text(`UPI ID: ${bUpi}`, 115, bankY + 25);
+    }
+    
+    // Footer
+    const footY = pageHeight - 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 140, 140);
+    doc.text(
+      "Thank you for doing business with Nirmalyam Krafts! This is a system-generated invoice.",
+      pageWidth / 2,
+      footY,
+      { align: "center" }
+    );
+    
+    if (mode === "view") {
+      const blob = doc.output("blob");
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } else {
+      doc.save(`Nirmalyam_Invoice_${rc.receiptNumber}.pdf`);
+    }
+  };
+
+  const downloadReceiptPDF = (rc, mode = "download") => {
+    if (rc.type === "bill") {
+      generateInvoicePDF(rc, mode);
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const brand = [10, 92, 67]; // Emerald Green
+    const gold = [212, 175, 55]; // Gold accent
+
+    // Draw header band
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    doc.setFillColor(gold[0], gold[1], gold[2]);
+    doc.rect(0, 40, pageWidth, 2, "F");
+
+    // Logo
+    try {
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+      } else {
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+      }
+    } catch (e) {
+      console.warn("Logo load failed:", e);
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text(COMPANY_NAME, 46, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+
+    // Title on right side
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text("PAYMENT RECEIPT", pageWidth - 15, 20, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(230, 245, 238);
+    doc.text(`Receipt No: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
+    doc.text(`Date & Time: ${new Date(rc.paidAt).toLocaleString()}`, pageWidth - 15, 33, { align: "right" });
+
+    // Client details
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("RECEIVED FROM:", 15, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 58);
+    doc.text(`Business: ${rc.businessName || "—"}`, 15, 63);
+    doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
+    doc.text(`Email: ${rc.email || "—"}`, 15, 73);
+
+    // Payment details
+    doc.setFont("helvetica", "bold");
+    doc.text("RECEIPT DETAILS:", 110, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Order Reference: ${rc.orderRef || "—"}`, 110, 58);
+    doc.text(`Quotation Number: ${rc.quotationNumber || "—"}`, 110, 63);
+    doc.text(`Payment Mode: ${String(rc.paymentMode || "cash").toUpperCase()}`, 110, 68);
+    doc.text(`Payment Status: ${rc.isPaidInFull ? "Paid in Full" : "Partial Payment"}`, 110, 73);
+
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.5);
+    doc.line(15, 78, pageWidth - 15, 78);
+
+    // Build Table Body (multi-product compatible)
+    const lines = rc.orderDetailsList || [];
+    const tableBody = lines.map((line, index) => {
+      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
+
+      return [
+        specDetails,
+        `${line.quantity || 0} ${line.unit || "pcs"}`,
+        `Rs. ${Number(rc.amount || 0).toFixed(2)}`
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 84,
+      head: [["Order Item Details & Specifications", "Quantity Ordered", "Transaction Amount"]],
+      body: tableBody,
+      theme: "striped",
+      styles: { fontSize: 9.5, cellPadding: 5, valign: "middle" },
+      headStyles: { fillColor: brand, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: "auto" },
+        1: { halign: "center", cellWidth: 40 },
+        2: { halign: "right", cellWidth: 45 }
+      }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 8;
+
+    // Totals Grid
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+
+    const rightAlignX = pageWidth - 15;
+    const labelX = pageWidth - 70;
+
+    let currentY = finalY;
+    doc.text("Total Order Value:", labelX, currentY);
+    doc.text(`Rs. ${Number(rc.totalOrderAmount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text("This Payment Amount:", labelX, currentY);
+    doc.text(`Rs. ${Number(rc.amount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text("Cumulative Paid So Far:", labelX, currentY);
+    doc.text(`Rs. ${Number(rc.paidSoFar || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    if (rc.isPaidInFull) {
+      doc.setTextColor(brand[0], brand[1], brand[2]);
+      doc.text("Balance Remaining:", labelX, currentY);
+      doc.text("Rs. 0.00 (Fully Paid)", rightAlignX, currentY, { align: "right" });
+    } else {
+      doc.setTextColor(190, 30, 30); // Red
+      doc.text("Balance Remaining:", labelX, currentY);
+      doc.text(`Rs. ${Number(rc.remainingAmount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
+
+    // Receipt note block on bottom left (below totals to prevent collision)
+    const tcY = currentY + 12;
+    doc.setTextColor(60, 60, 60);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Payment Notes / Reference:", 15, tcY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(rc.note || "No custom payment remarks.", 15, tcY + 6);
+
+    if (mode === "view") {
+      const blob = doc.output("blob");
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } else {
+      doc.save(`Nirmalyam_Receipt_${rc.receiptNumber}.pdf`);
+    }
   };
 
   const generateBillPDF = (order, meta) => {
@@ -976,16 +1870,26 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFillColor(gold[0], gold[1], gold[2]);
     doc.rect(0, 40, pageWidth, 2, "F");
     
-    // Header text
+    // Header company logo & details
+    try {
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+      } else {
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+      }
+    } catch (e) {
+      console.warn("Failed to load logo in PDF:", e);
+    }
+    
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.text(COMPANY_NAME, 15, 18);
+    doc.text(COMPANY_NAME, 46, 18);
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 15, 27);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
     
     // Title "INVOICE" on the right side of header
     doc.setFont("helvetica", "bold");
@@ -1024,7 +1928,7 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text(`Due Date: ${meta.billDueDate}`, 20, termsY + 6.5);
-    doc.text(`Payment Status: ${(order.paymentStatus || "Unpaid").toUpperCase()}`, 110, termsY + 6.5);
+    doc.text(`Payment Mode: ${String(billPaymentMode || "invoice").toUpperCase()}  |  Payment Status: ${(order.paymentStatus || "Unpaid").toUpperCase()}`, 95, termsY + 6.5);
     
     // Item Table
     const qty = Number(order.orderDetails?.quantity || 1);
@@ -1038,14 +1942,7 @@ Note: ${meta.billNotes || "—"}`;
     const grandTotal = subtotal - discountVal + taxVal + shippingVal + otherVal;
     const rate = qty > 0 ? (subtotal / qty) : subtotal;
     
-    const isRoll = order.productCategory?.toLowerCase().includes("roll");
-    const dimsLabel = isRoll
-      ? `Width: ${order.orderDetails?.dimensions?.width || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`
-      : `${order.orderDetails?.dimensions?.length || 0} × ${order.orderDetails?.dimensions?.width || 0} × ${order.orderDetails?.dimensions?.height || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`;
-
-    const specDetails = `Product: ${order.productCategory || "Product"}\n` +
-      `Bag Size: ${order.orderDetails?.bagSize || "—"} · Color: ${order.orderDetails?.color || "—"}\n` +
-      `Dimensions: ${dimsLabel}`;
+    const specDetails = getPDFSpecDetails(order.orderDetails || {}, order.productCategory, productItems);
 
     const tableBody = [
       [
@@ -1078,7 +1975,7 @@ Note: ${meta.billNotes || "—"}`;
     doc.setTextColor(80, 80, 80);
     
     const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 70;
+    const labelX = pageWidth - 90;
     
     let currentY = finalY;
     doc.text("Subtotal:", labelX, currentY);
@@ -1124,15 +2021,27 @@ Note: ${meta.billNotes || "—"}`;
     
     currentY += 7;
     doc.setFillColor(254, 242, 242);
-    doc.rect(labelX - 4, currentY - 5, 70, 8, "F");
+    doc.rect(labelX - 4, currentY - 5, 83, 8, "F");
     doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const balanceDue = Math.max(0, grandTotal - Number(order.paidAmount || 0));
     doc.text("Balance Due:", labelX, currentY);
     doc.text(`Rs. ${balanceDue.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
+    const approvedTotal = Number(order.totalAmount || order.quotation?.totalQuoted || 0);
+    const remainingToInvoiceVal = Math.max(0, approvedTotal - grandTotal);
+    if (remainingToInvoiceVal > 0.01) {
+      currentY += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(120, 110, 30);
+      doc.text("Remaining Order Bal. to Invoice:", labelX, currentY);
+      doc.text(`Rs. ${remainingToInvoiceVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
     
-    // Notes & Payment instructions on bottom left
-    const notesY = finalY;
+    // Notes & Payment instructions on bottom left (below totals to prevent collision)
+    const notesY = currentY + 12;
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
@@ -1158,6 +2067,81 @@ Note: ${meta.billNotes || "—"}`;
     );
     
     doc.save(`${COMPANY_NAME.replace(/\s+/g, "_")}_Invoice_${meta.billNumber}.pdf`);
+  };
+
+  const getWhatsAppProductSummary = (order, productItems) => {
+    const list = order.orderDetailsList && order.orderDetailsList.length > 0
+      ? order.orderDetailsList
+      : order.orderDetails ? [order.orderDetails] : [];
+
+    if (list.length === 0) return "*No products listed*";
+
+    return list.map((item, idx) => {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+      const realProductName = item.productName || prod?.name || order.productCategory || "Product";
+      const isRoll = String(realProductName).toLowerCase().includes("roll");
+      
+      let specStr = "";
+      if (isRoll) {
+        const wVal = item.dimensions?.width ?? item.width ?? prod?.dimensions?.width ?? "—";
+        const uVal = item.dimensions?.unit ?? item.dimensionUnit ?? prod?.dimensions?.unit ?? "inch";
+        const gVal = item.gsm ?? prod?.gsm ?? "—";
+        specStr = `GSM: ${gVal} · Width: ${wVal} ${uVal}`;
+      } else {
+        const sizeStr = item.bagSize || prod?.bagSize || "—";
+        const len = item.dimensions?.length ?? item.length ?? prod?.dimensions?.length ?? 0;
+        const wid = item.dimensions?.width ?? item.width ?? prod?.dimensions?.width ?? 0;
+        const hei = item.dimensions?.height ?? item.height ?? prod?.dimensions?.height ?? 0;
+        const unit = item.dimensions?.unit ?? item.dimensionUnit ?? prod?.dimensions?.unit ?? "inch";
+        const dimStr = (len || wid) ? `${len} × ${wid} × ${hei} ${unit}` : "—";
+        specStr = `Size: ${sizeStr} · Dim: ${dimStr}`;
+      }
+
+      const colorVal = item.color || prod?.color || "";
+      const colorStr = colorVal ? ` · Color: ${colorVal}` : "";
+      return `  *Product #${idx + 1}:* ${realProductName}${colorStr} · ${item.quantity || 0} ${item.unit || "pcs"} [${specStr}]`;
+    }).join("\n");
+  };
+
+  const getReportProductsRows = (order, productItems) => {
+    const list = order.orderDetailsList && order.orderDetailsList.length > 0
+      ? order.orderDetailsList
+      : order.orderDetails ? [order.orderDetails] : [];
+
+    if (list.length === 0) {
+      return [["Products", "No products listed"]];
+    }
+
+    const rows = [];
+    list.forEach((item, idx) => {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+      const realProductName = item.productName || prod?.name || order.productCategory || "Product";
+      const isRoll = String(realProductName).toLowerCase().includes("roll");
+      
+      let specStr = "";
+      if (isRoll) {
+        const wVal = item.dimensions?.width ?? item.width ?? prod?.dimensions?.width ?? "—";
+        const uVal = item.dimensions?.unit ?? item.dimensionUnit ?? prod?.dimensions?.unit ?? "inch";
+        const gVal = item.gsm ?? prod?.gsm ?? "—";
+        specStr = `GSM: ${gVal} · Width: ${wVal} ${uVal}`;
+      } else {
+        const sizeStr = item.bagSize || prod?.bagSize || "—";
+        const len = item.dimensions?.length ?? item.length ?? prod?.dimensions?.length ?? 0;
+        const wid = item.dimensions?.width ?? item.width ?? prod?.dimensions?.width ?? 0;
+        const hei = item.dimensions?.height ?? item.height ?? prod?.dimensions?.height ?? 0;
+        const unit = item.dimensions?.unit ?? item.dimensionUnit ?? prod?.dimensions?.unit ?? "inch";
+        const dimStr = (len || wid) ? `${len} × ${wid} × ${hei} ${unit}` : "—";
+        specStr = `Size: ${sizeStr} · Dim: ${dimStr}`;
+      }
+
+      const colorVal = item.color || prod?.color || "";
+      const colorStr = colorVal ? ` (${colorVal})` : "";
+      rows.push([
+        `Product #${idx + 1}`,
+        `${realProductName}${colorStr} · ${item.quantity || 0} ${item.unit || "pcs"} [${specStr}]`
+      ]);
+    });
+    return rows;
   };
 
   const getOrderReportData = (order) => {
@@ -1200,6 +2184,220 @@ Note: ${meta.billNotes || "—"}`;
     };
   };
 
+  const generateReturnReceiptPDF = (order, returnDetails, mode = "download") => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const redTheme = [185, 28, 28]; // Rose red
+    const gold = [212, 175, 55]; // Gold accent
+
+    // Draw header band
+    doc.setFillColor(redTheme[0], redTheme[1], redTheme[2]);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    doc.setFillColor(gold[0], gold[1], gold[2]);
+    doc.rect(0, 40, pageWidth, 2, "F");
+
+    // Logo
+    try {
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+      } else {
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+      }
+    } catch (e) {
+      console.warn("Logo load failed:", e);
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text(COMPANY_NAME, 46, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(250, 230, 230);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+
+    // Title on right side
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text("RETURN RECEIPT", pageWidth - 15, 20, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(250, 230, 230);
+    doc.text(`Return Ref: ${returnDetails.returnNumber}`, pageWidth - 15, 28, { align: "right" });
+    doc.text(`Date & Time: ${new Date(returnDetails.returnedAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 15, 33, { align: "right" });
+
+    // Client details
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("RETURNED BY:", 15, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Customer: ${order.customerName || "—"}`, 15, 58);
+    doc.text(`Business: ${order.businessName || "—"}`, 15, 63);
+    doc.text(`Phone: ${order.phone || "—"}`, 15, 68);
+    doc.text(`Email: ${order.email || "—"}`, 15, 73);
+
+    // Return details
+    doc.setFont("helvetica", "bold");
+    doc.text("RETURN DETAILS:", 110, 52);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 58);
+    doc.text(`Return Type: ${String(returnDetails.notes ? "Partial / Special" : "Standard").toUpperCase()}`, 110, 63);
+    doc.text(`GST Status: Refund Configured`, 110, 68);
+    doc.text(`Refund Status: Stock Restored`, 110, 73);
+
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.5);
+    doc.line(15, 78, pageWidth - 15, 78);
+
+    // Solve exact per-line GST-inclusive allocation using the same linear system as the UI
+    const orderSubtotal = Number(order.subtotalAmount || 0);
+    const orderTotalPaid = Number(order.totalPaidAmount || order.totalInvoiceAmount || order.totalAmount || 0);
+
+    // Enrich items with selling-price weight and GST rate
+    const enrichedItems = returnDetails.items.map(it => {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
+      const taxInfo = getProductTaxInfo(prod || it);
+      const hsnCode = it.hsnCode || taxInfo.hsnCode;
+      const gstRateVal = it.gstRate != null ? Number(it.gstRate) : taxInfo.gstRate;
+      const sellPrice = Number(prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || it.unitPrice || 0) || 1;
+      const weight = Number(it.quantity || 0) * sellPrice;
+      return { ...it, hsnCode, gstRateVal, weight };
+    });
+
+    // Group items by GST rate to solve the linear system
+    const rateGroups = {};
+    enrichedItems.forEach(d => {
+      if (!rateGroups[d.gstRateVal]) rateGroups[d.gstRateVal] = { totalWeight: 0, members: [] };
+      rateGroups[d.gstRateVal].totalWeight += d.weight;
+      rateGroups[d.gstRateVal].members.push(d);
+    });
+    const rates = Object.keys(rateGroups).map(Number);
+
+    let groupSubtotals = {};
+    if (rates.length === 1) {
+      groupSubtotals[rates[0]] = orderSubtotal;
+    } else if (rates.length === 2) {
+      const [r1, r2] = rates;
+      const denom = (r1 - r2) / 100;
+      if (Math.abs(denom) < 1e-9) {
+        groupSubtotals[r1] = orderSubtotal; groupSubtotals[r2] = 0;
+      } else {
+        const S1 = (orderTotalPaid - orderSubtotal * (1 + r2 / 100)) / denom;
+        groupSubtotals[r1] = Math.max(0, S1);
+        groupSubtotals[r2] = Math.max(0, orderSubtotal - S1);
+      }
+    } else {
+      const totalW = enrichedItems.reduce((s, d) => s + d.weight, 0) || 1;
+      rates.forEach(r => { groupSubtotals[r] = orderSubtotal * (rateGroups[r].totalWeight / totalW); });
+    }
+
+    // Per-item allocation
+    const itemAllocations = {};
+    enrichedItems.forEach(d => {
+      const grp = rateGroups[d.gstRateVal];
+      const groupSubtotal = groupSubtotals[d.gstRateVal] || 0;
+      // Find the corresponding order line to get its original quantity
+      const orderLines = (order.orderDetailsList?.length ? order.orderDetailsList : order.orderDetails ? [order.orderDetails] : []);
+      const orderLine = orderLines.find(l => String(l.productId?._id || l.productId || "").trim() === String(d.productId || "").trim());
+      const orderQty = Number(orderLine?.quantity || 0) || Number(d.quantity || 0);
+      const withinFrac = grp.totalWeight > 0 ? (d.weight / grp.totalWeight) : (1 / grp.members.length);
+      const lineSubtotal = groupSubtotal * withinFrac;           // pre-tax share for this product
+      const lineGstInclPerUnit = orderQty > 0 ? (lineSubtotal * (1 + d.gstRateVal / 100)) / orderQty : 0;
+      const retQty = Number(d.quantity || 0);
+      const lineGstIncl = retQty * lineGstInclPerUnit;           // GST-inclusive amount for returned qty
+      const lineGstPortion = lineGstIncl * (d.gstRateVal / (100 + d.gstRateVal)); // GST extracted
+      itemAllocations[String(d.productId)] = { lineGstIncl, lineGstPortion };
+    });
+
+    const tableBody = enrichedItems.map((it, index) => {
+      const alloc = itemAllocations[String(it.productId)] || {};
+      return [
+        `Item ${index + 1}: ${it.productName || "Product"}`,
+        it.hsnCode,
+        `${it.gstRateVal}%`,
+        `Rs. ${(alloc.lineGstPortion || 0).toFixed(2)}`,
+        `${it.quantity || 0} ${it.unit || "pcs"}`,
+        `Returned`
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 84,
+      head: [["Returned Item Details", "HSN Code", "GST %", "GST Refund", "Qty Returned", "Status"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "—", "—", "0", "—"]],
+      theme: "striped",
+      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
+      headStyles: { fillColor: redTheme, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: "auto" },
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "center", cellWidth: 14 },
+        3: { halign: "right", cellWidth: 20 },
+        4: { halign: "center", cellWidth: 22 },
+        5: { halign: "center", cellWidth: 24 }
+      }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 8;
+
+    // Totals Grid
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+
+    const rightAlignX = pageWidth - 15;
+    const labelX = pageWidth - 90;
+
+    let currentY = finalY;
+    const baseRefund = Number(returnDetails.refundAmount || 0);
+    const gstRefund  = Number(returnDetails.gstRefundAmount || 0);
+    const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
+
+    doc.text("Base Refund Amount:", labelX, currentY);
+    doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 6;
+    doc.text(`GST Refund:`, labelX, currentY);
+    doc.text(`Rs. ${gstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(redTheme[0], redTheme[1], redTheme[2]);
+    doc.text("Total Amount Refunded:", labelX, currentY);
+    doc.text(`Rs. ${totalRefunded.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    // Note block
+    const tcY = Math.max(currentY + 12, doc.lastAutoTable.finalY + 15);
+    doc.setTextColor(60, 60, 60);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Return Notes / Remarks:", 15, tcY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(returnDetails.notes || "No custom return remarks added.", 15, tcY + 6);
+
+    // Footer
+    const footY = pageHeight - 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(150, 150, 150);
+    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Krafts.", 15, footY);
+
+    if (mode === "view") {
+      window.open(doc.output("bloburl"), "_blank");
+    } else {
+      doc.save(`Return_Receipt_${returnDetails.returnNumber}.pdf`);
+    }
+  };
+
   const generateOrderPDF = (order) => {
     const report = getOrderReportData(order);
     const doc = new jsPDF();
@@ -1237,15 +2435,8 @@ Note: ${meta.billNotes || "—"}`;
 
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 10,
-      head: [["Product Details", "Value"]],
-      body: [
-        ["Product Category", report.productCategory],
-        ["Bag Size", report.bagSize],
-        ["Color", report.color],
-        ["Quantity", String(report.quantity)],
-        ["Dimensions", `${report.length} × ${report.width} × ${report.height} ${report.unit}`],
-        ["Order Status", report.orderStatus],
-      ],
+      head: [["Product Item", "Specifications / Details"]],
+      body: getReportProductsRows(order, productItems),
       theme: "grid",
       styles: { fontSize: 10, cellPadding: 3 },
       headStyles: { fillColor: [10, 92, 67] },
@@ -1298,6 +2489,7 @@ Note: ${meta.billNotes || "—"}`;
 
   const handleShareOrder = async (order) => {
     const report = getOrderReportData(order);
+    const productSummary = getWhatsAppProductSummary(order, productItems);
 
     const shareText = `
 Nirmalyam Krafts - Order Report
@@ -1305,14 +2497,17 @@ Nirmalyam Krafts - Order Report
 Customer: ${report.customerName}
 Business: ${report.businessName}
 Phone: ${report.phone}
-Product: ${report.productCategory}
-Bag Size: ${report.bagSize}
-Color: ${report.color}
-Quantity: ${report.quantity}
-Dimensions: ${report.length} × ${report.width} × ${report.height} ${report.unit}
+
+Products Details:
+${productSummary}
+
 Order Status: ${report.orderStatus}
 Payment Status: ${report.paymentStatus}
 Delivery Address: ${report.deliveryAddress}
+Delivery Mode: ${report.deliveryMode}
+Delivery Date: ${report.deliveryDate}
+Dispatch Date: ${report.dispatchDate}
+Notes: ${report.notes}
     `.trim();
 
     if (navigator.share) {
@@ -1332,6 +2527,7 @@ Delivery Address: ${report.deliveryAddress}
 
   const handleWhatsAppShare = (order) => {
     const report = getOrderReportData(order);
+    const productSummary = getWhatsAppProductSummary(order, productItems);
 
     const message = `
 *Nirmalyam Krafts - Order Report*
@@ -1339,11 +2535,10 @@ Delivery Address: ${report.deliveryAddress}
 *Customer:* ${report.customerName}
 *Business:* ${report.businessName}
 *Phone:* ${report.phone}
-*Product:* ${report.productCategory}
-*Bag Size:* ${report.bagSize}
-*Color:* ${report.color}
-*Quantity:* ${report.quantity}
-*Dimensions:* ${report.length} × ${report.width} × ${report.height} ${report.unit}
+
+*Products Details:*
+${productSummary}
+
 *Order Status:* ${report.orderStatus}
 *Payment Status:* ${report.paymentStatus}
 *Delivery Address:* ${report.deliveryAddress}
@@ -1356,6 +2551,58 @@ Delivery Address: ${report.deliveryAddress}
     const phone = String(order?.phone || "").replace(/\D/g, "");
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
+  };
+
+  const handleExportOrders = (format) => {
+    if (!formattedOrders.length) {
+      showNotification("No orders available to export", "error");
+      return;
+    }
+
+    const headers = [
+      "Order ID",
+      "Customer Name",
+      "Business Name",
+      "Phone",
+      "Product Category",
+      "Order Status",
+      "Payment Status",
+      "Grand Total (₹)",
+      "Paid Amount (₹)",
+      "Due Amount (₹)",
+      "Created At",
+    ];
+
+    const rows = formattedOrders.map((o) => [
+      o.reference || "",
+      o.customerName || "",
+      o.businessName || "",
+      o.phone || "",
+      o.productCategory || "",
+      o.orderStatus || "",
+      o.paymentStatus || "",
+      o.amount || 0,
+      o.paidAmount || 0,
+      o.pendingAmount || 0,
+      o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN") : "",
+    ]);
+
+    if (format === "csv") {
+      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "orders.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showNotification("CSV exported successfully", "success");
+    } else {
+      exportToExcel(headers, rows, "orders");
+      showNotification("Excel exported successfully", "success");
+    }
   };
 
   const handleUpdateStatus = async (orderId, newStatus, opts = {}) => {
@@ -1454,6 +2701,48 @@ Delivery Address: ${report.deliveryAddress}
     }
   };
 
+  const handleMarkAsDelivered = async (order) => {
+    setDeliveredActionId(order.id);
+    const loadingToast = toast.loading("Marking as delivered...");
+    try {
+      const response = await axiosInstance.patch(`/orders/${order.id}/status`, {
+        newStatus: "Delivered",
+      });
+      if (response.data.success) {
+        toast.success("Order marked as delivered ✓", { id: loadingToast });
+        queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+        queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
+        await refetch();
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to mark as delivered", {
+        id: loadingToast,
+      });
+    } finally {
+      setDeliveredActionId(null);
+    }
+  };
+
+  const handleRestoreState = async (orderId, snapshotId, restoreReason) => {
+    const loadingToast = toast.loading("Restoring order state...");
+    try {
+      const response = await axiosInstance.patch(`/orders/${orderId}/restore`, {
+        snapshotId,
+        restoreReason,
+      });
+      if (response.data.success) {
+        toast.success("Order state restored successfully ✓", { id: loadingToast });
+        queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+        await refetch();
+        setShowLogsModal(false);
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to restore state", {
+        id: loadingToast,
+      });
+    }
+  };
+
   const handleCancelOrderSubmit = async () => {
     if (!cancelOrderTarget) return;
     if (!cancellationReasonInput.trim()) {
@@ -1510,7 +2799,8 @@ Delivery Address: ${report.deliveryAddress}
         note: paymentForm.note.trim() || undefined,
       });
       if (response.data.success) {
-        toast.success(`₹${amount} recorded — ${response.data.data.paymentStatus}`, { id: loadingToast });
+        const rcNum = response.data.data.receipt?.receiptNumber || "";
+        toast.success(`₹${amount} recorded successfully! Receipt: ${rcNum}`, { id: loadingToast });
         setShowPaymentModal(false);
         setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
         queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
@@ -1753,34 +3043,54 @@ Delivery Address: ${report.deliveryAddress}
   };
 
   const getSuggestedQuotationTotal = (pricing, order) => {
-    const orderQty = Number(order?.orderDetails?.quantity || 0);
-    const exactInventoryLine = findExactInventoryLineForOrder(order);
-    const exactInventoryQty = getInventoryAvailableBags(exactInventoryLine);
-    const stockQty = Math.max(Number(pricing?.canFulfillFromStock || 0), exactInventoryQty);
-    const productionCost = getDerivedMaterialCost(pricing, order);
-    const stockUnitPrice = getStockUnitQuotePrice(pricing, order);
+    let suggestedTotal = 0;
+    if (pricing?.perProductResults && pricing.perProductResults.length > 0) {
+      for (const pr of pricing.perProductResults) {
+        const itemStockQty = Number(pr.canFulfillFromStock || 0);
+        const itemQty = Number(pr.quantity || 1) || 1;
+        const itemRequiredProd = Number(pr.requiredFromProduction || 0);
+        const itemProdCost = (Number(pr.totalOrderMaterialCost || 0) / itemQty) * itemRequiredProd;
 
-    if (orderQty > 0 && stockQty > 0 && stockUnitPrice > 0) {
-      const stockCovered = Math.min(orderQty, stockQty);
-      const stockQuoteValue = stockCovered * stockUnitPrice;
-      // If some quantity still needs production, add production estimate.
-      if (stockCovered < orderQty) {
-        const total = stockQuoteValue + Math.max(productionCost, 0);
-        return total > 0 ? total : Number(order?.totalAmount || 0);
+        const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
+        const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
+        suggestedTotal += (itemStockQty * itemStockUnitPrice) + itemProdCost;
       }
-      return stockQuoteValue;
+      return suggestedTotal;
     }
 
-    if (productionCost > 0) return productionCost;
+    // Fallback single product calculation
+    const stockCovered = Number(pricing?.canFulfillFromStock || 0);
+    const stockUnitPrice = Number(getStockUnitQuotePrice(pricing, order) || 0);
+    const itemQty = Number(order?.orderDetails?.quantity || order?.quantity || 1) || 1;
+    const itemRequiredProd = Number(pricing?.requiredFromProduction || 0);
+    const prodCost = (Number(pricing?.totalOrderMaterialCost || 0) / itemQty) * itemRequiredProd;
+
+    suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
+    if (suggestedTotal > 0) return suggestedTotal;
+
+    const lines = order?.orderDetailsList?.length > 0 ? order.orderDetailsList : [order?.orderDetails].filter(Boolean);
+    if (lines.length > 0) {
+      let computedTotal = 0;
+      for (const line of lines) {
+        const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
+        const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 5;
+        computedTotal += Number(line.quantity || 0) * price;
+      }
+      if (computedTotal > 0) return computedTotal;
+    }
+
     return Number(order?.totalAmount || 0);
   };
 
   const recalculateQuotationTotal = (subtotal, tax, shipping, other) => {
     const s = Number(subtotal || 0);
-    const t = Number(tax || 0);
     const sh = Number(shipping || 0);
     const o = Number(other || 0);
-    const total = s * (1 + t / 100) + sh + o;
+
+    if (!quotationOrder) return;
+    const breakdown = getQuotationItemsBreakdown(quotationOrder, quotationPricing, s, productItems);
+    const totalGst = breakdown.reduce((sum, item) => sum + item.gstAmount, 0);
+    const total = s + totalGst + sh + o;
     setQuotationTotalInput(total > 0 ? String(Number(total.toFixed(2))) : "0");
   };
 
@@ -1801,6 +3111,56 @@ Delivery Address: ${report.deliveryAddress}
     recalculateQuotationTotal(quotationSubtotalInput, quotationTaxRateInput, quotationShippingInput, val);
   };
 
+  const openDeliveryModal = (order) => {
+    setDeliveryTargetOrder(order);
+    setDeliveryForm({
+      receiverName: order.delivery?.receiverName || "",
+      receiverPhone: order.delivery?.receiverPhone || "",
+      deliveryMode: order.delivery?.deliveryMode || "courier",
+      deliveryAddress: order.delivery?.deliveryAddress || "",
+      deliveryDate: order.delivery?.deliveryDate ? new Date(order.delivery.deliveryDate).toISOString().slice(0, 10) : "",
+      dispatchDate: order.delivery?.dispatchDate ? new Date(order.delivery.dispatchDate).toISOString().slice(0, 10) : "",
+      deliveryNotes: order.delivery?.deliveryNotes || "",
+    });
+    setShowDeliveryModal(true);
+  };
+
+  const handleSaveDeliveryDetails = async (e) => {
+    e.preventDefault();
+    if (!deliveryTargetOrder) return;
+
+    if (deliveryForm.receiverPhone) {
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(deliveryForm.receiverPhone)) {
+        showNotification("Please enter a valid 10-digit receiver phone number", "error");
+        return;
+      }
+    }
+
+    const loadingToast = toast.loading("Updating delivery details...");
+    try {
+      const resp = await axiosInstance.patch(
+        `/orders/${deliveryTargetOrder.id || deliveryTargetOrder._id}/delivery`,
+        deliveryForm
+      );
+      if (resp.data.success) {
+        toast.success("Delivery details updated successfully! ✓", { id: loadingToast });
+        setShowDeliveryModal(false);
+        queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+        queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
+        await refetch();
+        if (selectedOrder && (selectedOrder.id === deliveryTargetOrder.id || selectedOrder._id === deliveryTargetOrder._id)) {
+          setSelectedOrder(resp.data.data);
+        }
+      } else {
+        toast.error(resp.data.message || "Failed to update delivery details", { id: loadingToast });
+      }
+    } catch (error) {
+      console.error("Error saving delivery details:", error);
+      toast.error(error?.response?.data?.message || "Failed to update delivery details", { id: loadingToast });
+    }
+  };
+
   const openQuotationModal = (order) => {
     setQuotationOrder(order);
     setQuotationPricing(null);
@@ -1814,9 +3174,11 @@ Delivery Address: ${report.deliveryAddress}
     const defaultUntil = new Date();
     defaultUntil.setDate(defaultUntil.getDate() + 7);
     setQuotationValidUntil(defaultUntil.toISOString().slice(0, 10));
-    const existingQn = order.quotation?.quotationNumber || "";
-    const isTimestamp = /^QT-\d{10,}$/.test(existingQn) || /^[0-9a-fA-F]{24}$/.test(existingQn.replace("QT-", ""));
-    setQuotationNumberInput(isTimestamp ? "" : existingQn);
+    
+    const shortId = String(order.id || order._id || "").slice(-6).toUpperCase();
+    const defaultQn = `QT-${shortId}`;
+    const existingQn = order.quotation?.quotationNumber || defaultQn;
+    setQuotationNumberInput(existingQn);
     setShowQuotationModal(true);
   };
 
@@ -1836,11 +3198,23 @@ Delivery Address: ${report.deliveryAddress}
         const existingSubtotal = quotationOrder.quotation?.subtotalAmount;
         const initialSubtotal = existingSubtotal > 0 ? existingSubtotal : (quotationOrder.quotation?.totalQuoted || suggested);
         setQuotationSubtotalInput(String(initialSubtotal > 0 ? initialSubtotal : ""));
-
-        const taxRate = Number(quotationOrder.quotation?.taxRate ?? 0);
+        // Auto-populate GST from product if no existing rate on quotation
+        const existingTaxRate = quotationOrder.quotation?.taxRate;
+        const items = quotationOrder.orderDetailsList?.length > 0
+          ? quotationOrder.orderDetailsList
+          : (quotationOrder.orderDetails ? [quotationOrder.orderDetails] : []);
+        const productGstRate = items.length > 0 ? Number(items[0].gstRate ?? 18) : 18;
+        const taxRate = (existingTaxRate != null && existingTaxRate > 0)
+          ? Number(existingTaxRate)
+          : productGstRate;
+        if (!existingTaxRate || existingTaxRate === 0) {
+          setQuotationTaxRateInput(String(taxRate));
+        }
         const shipping = Number(quotationOrder.quotation?.shippingCharges ?? 0);
         const other = Number(quotationOrder.quotation?.otherCharges ?? 0);
-        const calcTotal = Number(initialSubtotal || 0) * (1 + taxRate / 100) + shipping + other;
+        const breakdown = getQuotationItemsBreakdown(quotationOrder, d, Number(initialSubtotal || 0), productItems);
+        const totalGst = breakdown.reduce((sum, item) => sum + item.gstAmount, 0);
+        const calcTotal = Number(initialSubtotal || 0) + totalGst + shipping + other;
         setQuotationTotalInput(String(calcTotal > 0 ? Number(calcTotal.toFixed(2)) : ""));
         if (!cancelled && d.productResolved === false) {
           showNotification(
@@ -1863,6 +3237,55 @@ Delivery Address: ${report.deliveryAddress}
     };
   }, [showQuotationModal, quotationOrder?.id, quotationMode, axiosInstance]);
 
+  const getPDFSpecDetails = (line, productCategory, productItems) => {
+    const pObj = productItems?.find(p => String(p?._id || p?.id || p?.productId || "").trim() === String(line.productId || "").trim());
+    const lineCategory = pObj?.name || pObj?.category || productCategory || "Product";
+    const lineIsRoll = lineCategory.toLowerCase().includes("roll") || String(line.unit).toLowerCase() === "kg" || String(line.unit).toLowerCase() === "m";
+
+    const dimsLabel = lineIsRoll
+      ? `Width: ${line.dimensions?.width || 0} ${line.dimensions?.unit || "inch"}`
+      : `${line.dimensions?.length || 0} × ${line.dimensions?.width || 0} × ${line.dimensions?.height || 0} ${line.dimensions?.unit || "inch"}`;
+
+    const specParts = [];
+    specParts.push(`Product: ${lineCategory}`);
+
+    const sizeColorParts = [];
+    if (line.bagSize && line.bagSize !== "—" && line.bagSize !== "None") {
+      sizeColorParts.push(`Size: ${line.bagSize}`);
+    }
+    if (line.color && line.color !== "—" && line.color !== "None") {
+      sizeColorParts.push(`Color: ${line.color}`);
+    }
+    if (sizeColorParts.length > 0) {
+      specParts.push(sizeColorParts.join(" · "));
+    }
+
+    const rollParts = [];
+    if (Number(line.gsm) > 0) {
+      rollParts.push(`GSM: ${line.gsm}`);
+    }
+    if (Number(line.bf) > 0) {
+      rollParts.push(`BF: ${line.bf}`);
+    }
+    if (rollParts.length > 0) {
+      specParts.push(rollParts.join(" · "));
+    }
+
+    const printParts = [];
+    if (line.customPrinting) {
+      printParts.push(`Custom Printing: Yes`);
+    }
+    if (line.brandingText && line.brandingText !== "—" && line.brandingText !== "None") {
+      printParts.push(`Branding: ${line.brandingText}`);
+    }
+    if (printParts.length > 0) {
+      specParts.push(printParts.join(" · "));
+    }
+
+    specParts.push(`Dimensions: ${dimsLabel}`);
+    return specParts.join("\n");
+  };
+
   const generateQuotationPDF = (order, pricing, meta) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1876,8 +3299,6 @@ Delivery Address: ${report.deliveryAddress}
     const taxRate = Number(meta.taxRate || 0);
     const shippingVal = Number(meta.shippingCharges || 0);
     const otherVal = Number(meta.otherCharges || 0);
-    const taxVal = subtotal * (taxRate / 100);
-    const grandTotal = subtotal + taxVal + shippingVal + otherVal;
 
     const validUntil = meta.validUntil || "—";
     const brand = [10, 92, 67]; // Emerald Green
@@ -1889,16 +3310,25 @@ Delivery Address: ${report.deliveryAddress}
     doc.setFillColor(gold[0], gold[1], gold[2]);
     doc.rect(0, 40, pageWidth, 2, "F");
 
-    // Header company details
+    // Header company logo & details
+    try {
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+      } else {
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+      }
+    } catch (e) {
+      console.warn("Failed to load logo in PDF:", e);
+    }
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.text(COMPANY_NAME, 15, 18);
+    doc.text(COMPANY_NAME, 46, 18);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 15, 27);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
 
     // Title "QUOTATION" on the right side of header
     doc.setFont("helvetica", "bold");
@@ -1933,8 +3363,7 @@ Delivery Address: ${report.deliveryAddress}
     doc.setFont("helvetica", "normal");
     doc.text(`Validity: Valid until ${validUntil}`, 110, 58);
     doc.text(`Status: ${statusLabel}`, 110, 63);
-    doc.text(`GSM: ${order.orderDetails?.gsm || "—"}`, 110, 68);
-    doc.text(`Source: ${order.source || "Dashboard"}`, 110, 73);
+    doc.text(`Source: ${order.source || "Dashboard"}`, 110, 68);
 
     // Divider line
     doc.setDrawColor(220, 220, 220);
@@ -1943,45 +3372,79 @@ Delivery Address: ${report.deliveryAddress}
 
     // Items table header
     const tableY = 84;
-    const qty = Number(order.orderDetails?.quantity || 1);
-    const unitPrice = qty > 0 ? (subtotal / qty) : subtotal;
 
-    // Detailed Quotation Item Table
-    const isRoll = order.productCategory?.toLowerCase().includes("roll");
-    const dimsLabel = isRoll
-      ? `Width: ${order.orderDetails?.dimensions?.width || 0} ${order.orderDetails?.dimensions?.unit || "inch"} (Roll Category)`
-      : `${order.orderDetails?.dimensions?.length || 0} × ${order.orderDetails?.dimensions?.width || 0} × ${order.orderDetails?.dimensions?.height || 0} ${order.orderDetails?.dimensions?.unit || "inch"}`;
+    // Multi-product compatibility: loop through orderDetailsList (fall back to orderDetails)
+    const lines = order.orderDetailsList && order.orderDetailsList.length > 0
+      ? order.orderDetailsList
+      : [order.orderDetails].filter(Boolean);
 
-    const specDetails = `Product: ${order.productCategory || "—"}\n` +
-      `Size: ${order.orderDetails?.bagSize || "—"} · Color: ${order.orderDetails?.color || "—"}\n` +
-      `GSM: ${order.orderDetails?.gsm || "—"} · Custom Printing: ${order.orderDetails?.customPrinting ? "Yes" : "No"}\n` +
-      `Branding: ${order.orderDetails?.brandingText || "—"}\n` +
-      `Dimensions: ${dimsLabel}`;
+    const totalQty = lines.reduce((acc, l) => acc + Number(l?.quantity || 0), 0) || 1;
 
-    const tableBody = [
-      [
+    // Per-line GST breakdown accumulator by rate
+    const gstByRate = {};
+
+    const tableBody = lines.map((line, index) => {
+      const lineQty = Number(line?.quantity || 0);
+      const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems, pricing);
+      const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / lines.length);
+      const lineUnitPrice = lineQty > 0 ? (lineSubtotal / lineQty) : lineSubtotal;
+
+      // Resolve HSN and GST: check line data first, then look up product catalogue
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      const lineHsn = line.hsnCode || prod?.hsnCode || "—";
+      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : (prod?.gstRate ?? taxRate ?? 18);
+
+      // Accumulate GST by rate
+      const rateKey = String(lineGstRate);
+      const lineTax = lineSubtotal * (lineGstRate / 100);
+      if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
+      gstByRate[rateKey].taxableAmount += lineSubtotal;
+      gstByRate[rateKey].taxAmount += lineTax;
+
+      const specDetails = getPDFSpecDetails(line, order.productCategory, productItems);
+
+      return [
         specDetails,
-        `${qty} ${order.orderDetails?.unit || "pcs"}`,
-        `Rs. ${unitPrice.toFixed(2)}`,
-        `Rs. ${subtotal.toFixed(2)}`
-      ]
-    ];
+        lineHsn,
+        `${lineGstRate}%`,
+        `Rs. ${lineTax.toFixed(2)}`,
+        `${lineQty} ${line.unit || "pcs"}`,
+        `Rs. ${lineUnitPrice.toFixed(2)}`,
+        `Rs. ${lineSubtotal.toFixed(2)}`
+      ];
+    });
 
     autoTable(doc, {
       startY: tableY,
-      head: [["Item Details & Specifications", "Quantity", "Unit Rate", "Total Amount"]],
+      head: [["Item Details & Specifications", "HSN Code", "GST %", "GST Amt", "Quantity", "Unit Rate", "Amount"]],
       body: tableBody,
       theme: "striped",
-      styles: { fontSize: 9.5, cellPadding: 5, valign: "middle" },
+      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
       headStyles: { fillColor: brand, fontStyle: "bold" },
       columnStyles: {
-        1: { halign: "center", cellWidth: 30 },
-        2: { halign: "right", cellWidth: 30 },
-        3: { halign: "right", cellWidth: 35 }
+        0: { cellWidth: "auto" },
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "center", cellWidth: 14 },
+        3: { halign: "right", cellWidth: 20 },
+        4: { halign: "center", cellWidth: 18 },
+        5: { halign: "right", cellWidth: 22 },
+        6: { halign: "right", cellWidth: 24 }
       }
     });
 
     const finalY = doc.lastAutoTable.finalY + 8;
+
+    // GST Breakdown by rate
+    const gstRateKeys = Object.keys(gstByRate).sort((a, b) => Number(a) - Number(b));
+    let totalGstCollected = 0;
+    
+    if (gstRateKeys.length > 0) {
+      for (const rk of gstRateKeys) {
+        totalGstCollected += gstByRate[rk].taxAmount;
+      }
+    }
+    
+    const grandTotal = subtotal + totalGstCollected + shippingVal + otherVal;
 
     // Totals Grid
     doc.setFont("helvetica", "normal");
@@ -1989,16 +3452,41 @@ Delivery Address: ${report.deliveryAddress}
     doc.setTextColor(80, 80, 80);
 
     const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 70;
+    const labelX = pageWidth - 90;
 
     let currentY = finalY;
     doc.text("Subtotal:", labelX, currentY);
     doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    if (taxVal > 0) {
+    if (gstRateKeys.length > 1) {
+      for (const rk of gstRateKeys) {
+        const { taxAmount: ta } = gstByRate[rk];
+        currentY += 6;
+        doc.setFontSize(9);
+        doc.text(`GST @ ${rk}%:`, labelX, currentY);
+        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      }
+      currentY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(`Total GST Collected:`, labelX, currentY);
+      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+    } else if (gstRateKeys.length === 1) {
+      const rk = gstRateKeys[0];
+      const { taxAmount: ta } = gstByRate[rk];
+      if (ta > 0) {
+        currentY += 6;
+        doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
+        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      }
+    } else if (taxRate > 0) {
+      // Fallback
+      const fallbackTax = subtotal * (taxRate / 100);
       currentY += 6;
       doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
-      doc.text(`Rs. ${taxVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.text(`Rs. ${fallbackTax.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
 
     if (shippingVal > 0) {
@@ -2020,19 +3508,43 @@ Delivery Address: ${report.deliveryAddress}
     doc.text("Grand Total:", labelX, currentY);
     doc.text(`Rs. ${grandTotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    // Terms & Conditions block on bottom left
-    const tcY = finalY + 12;
+    // Terms & Conditions block on bottom left (below totals to prevent collision)
+    const tcY = currentY + 12;
+    const tcString = localStorage.getItem("nirmalyam_quotation_terms") || 
+      `1. Validity: This quotation is strictly valid until ${validUntil}.\n2. Payment Terms: 50% advance payment required to initiate production. Remaining 50% before dispatch.\n3. Delivery: Standard production lead time of 7-10 working days.\n4. Taxes & Shipping: Prices are ex-factory. GST and transport extra.`;
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.text("Terms & Conditions:", 15, tcY);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text(`1. Validity: This quotation is strictly valid until ${validUntil}.`, 15, tcY + 6);
-    doc.text("2. Payment Terms: 50% advance payment required to initiate production. Remaining 50% before dispatch.", 15, tcY + 11);
-    doc.text("3. Delivery: Standard production lead time of 7-10 working days from advance payment.", 15, tcY + 16);
-    doc.text("4. Taxes & Shipping: Prices are ex-factory. GST (18%) and transport charges are extra as actuals.", 15, tcY + 21);
+    doc.setFontSize(7.5);
+    const tcLines = doc.splitTextToSize(tcString, 90);
+    doc.text(tcLines, 15, tcY + 5);
+
+    // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
+    const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
+    if (isPaymentInfoEnabled) {
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+      const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
+      const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
+      const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
+      const bUpi    = localStorage.getItem("nirmalyam_bank_upi")    || "nirmalyam@sbi";
+
+      const bankY = tcY;
+      doc.setTextColor(60, 60, 60);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("Bank Details for Payment:", 115, bankY);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Account Name: ${bHolder}`, 115, bankY + 5);
+      doc.text(`Bank Name: ${bName}`, 115, bankY + 10);
+      doc.text(`A/C Number: ${bAcc}`, 115, bankY + 15);
+      doc.text(`IFSC Code: ${bIfsc}`, 115, bankY + 20);
+      doc.text(`UPI ID: ${bUpi}`, 115, bankY + 25);
+    }
 
     // Footer
     const footY = pageHeight - 12;
@@ -2054,7 +3566,7 @@ Delivery Address: ${report.deliveryAddress}
     const loadingToast = toast.loading("Saving quotation...");
     try {
       const totalQuoted = Number(quotationTotalInput || 0);
-      if (totalQuoted <= 0) {
+      if (status !== "draft" && totalQuoted <= 0) {
         toast.error("Enter a valid quotation amount greater than 0", {
           id: loadingToast,
         });
@@ -2082,42 +3594,93 @@ Delivery Address: ${report.deliveryAddress}
     }
   };
 
-  const getQuotationShareText = (order, pricing) => {
+  const handleRecreateQuotation = async () => {
+    if (!quotationOrder) return;
+    const reason = window.prompt("Please enter the reason for recreating this quotation:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("A reason is required to recreate the quotation.");
+      return;
+    }
+
+    const loadingToast = toast.loading("Recreating quotation...");
+    try {
+      await axiosInstance.patch(`/orders/${quotationOrder.id}/quotation`, {
+        status: "draft",
+        note: `Recreated quotation. Reason: ${reason.trim()}`,
+        totalQuoted: Number(quotationTotalInput || 0),
+        validUntil: quotationValidUntil,
+        quotationNumber: quotationNumberInput,
+        taxRate: Number(quotationTaxRateInput || 0),
+        shippingCharges: Number(quotationShippingInput || 0),
+        otherCharges: Number(quotationOtherInput || 0),
+        subtotalAmount: Number(quotationSubtotalInput || 0),
+      });
+
+      toast.success("Quotation status reset to draft. Fields unlocked.", { id: loadingToast });
+      setShowQuotationModal(false);
+      queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
+      queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
+      await refetch();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to recreate quotation", {
+        id: loadingToast,
+      });
+    }
+  };
+
+  const getQuotationShareText = (order, pricing, productItems) => {
     const total = Number(quotationTotalInput || pricing?.totalOrderMaterialCost || order.totalAmount || 0);
-    const lines = (pricing?.materialRequirements || [])
-      .slice(0, 8)
-      .map((m) => `• ${m.name}: ${m.totalQuantity}${m.unit || ""} (~₹${m.totalPrice})`)
-      .join("\n");
+    const productSummary = getWhatsAppProductSummary(order, productItems);
     return `
 *${COMPANY_NAME} — Quotation*
 
 Customer: ${order.customerName}
-Product: ${order.productCategory}
-Qty: ${order.orderDetails?.quantity}
-Total quoted: ₹${total.toLocaleString()}
-Valid until: ${quotationValidUntil || "—"}
-On-demand lines: ${pricing?.onDemandCount ?? "—"}
+Business: ${order.businessName || "—"}
 
-${lines || "(See PDF for full BOM)"}
+Products Details:
+${productSummary}
+
+Total Quoted: ₹${total.toLocaleString()}
+Valid Until: ${quotationValidUntil || "—"}
     `.trim();
   };
 
   const handleQuotationWhatsApp = () => {
     if (!quotationOrder) return;
-    const text = getQuotationShareText(quotationOrder, quotationPricing);
+    const text = getQuotationShareText(quotationOrder, quotationPricing, productItems);
     const phone = String(quotationOrder.phone || "").replace(/\D/g, "");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const handleQuotationMailto = () => {
     if (!quotationOrder) return;
-    const subject = encodeURIComponent(`${COMPANY_NAME} — Quotation for ${quotationOrder.productCategory}`);
-    const body = encodeURIComponent(getQuotationShareText(quotationOrder, quotationPricing));
+    const subject = encodeURIComponent(`${COMPANY_NAME} — Quotation`);
+    const body = encodeURIComponent(getQuotationShareText(quotationOrder, quotationPricing, productItems));
     window.location.href = `mailto:${quotationOrder.email || ""}?subject=${subject}&body=${body}`;
   };
 
   const handleEditOrder = (order) => {
     setEditingOrder(order);
+    const dList = order.orderDetailsList && order.orderDetailsList.length > 0
+      ? order.orderDetailsList.map(item => ({
+          productId: item.productId || "",
+          productCategory: item.productCategory || order.productCategory || "",
+          bagSize: item.bagSize || "",
+          color: item.color || "",
+          quantity: item.quantity || "",
+          length: item.dimensions?.length || 0,
+          width: item.dimensions?.width || 0,
+          height: item.dimensions?.height || 0,
+          gsm: item.gsm || "",
+          dimensionUnit: item.dimensions?.unit || "inch",
+          unit: item.unit || "pcs",
+          calculationMode: item.calculationMode || "auto",
+          convertedQuantity: item.convertedQuantity || "",
+          bf: item.bf || "",
+        }))
+      : [];
+
     setEditOrderForm({
       customerName: order.customerName || "",
       businessName: order.businessName || "",
@@ -2138,6 +3701,8 @@ ${lines || "(See PDF for full BOM)"}
       unit: order.orderDetails?.unit || "",
       calculationMode: order.orderDetails?.calculationMode || "auto",
       convertedQuantity: order.orderDetails?.convertedQuantity || "",
+      orderDetailsList: dList,
+      editReason: "",
     });
     setShowEditModal(true);
   };
@@ -2145,21 +3710,54 @@ ${lines || "(See PDF for full BOM)"}
   const handleUpdateOrderSubmit = async (e) => {
     e.preventDefault();
 
-    const selectedProd = productItems.find(
-      (p) => String(p?._id || p?.id || "").trim() === editOrderForm.productId
-    );
-    const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll");
-
-    if (
-      !editOrderForm.customerName ||
-      !editOrderForm.phone ||
-      !editOrderForm.productId ||
-      !editOrderForm.quantity ||
-      !editOrderForm.width ||
-      (isRoll ? !editOrderForm.gsm : (!editOrderForm.bagSize || !editOrderForm.length || !editOrderForm.height))
-    ) {
-      showNotification("Please fill all required fields", "error");
+    if (!editOrderForm.customerName || !editOrderForm.phone) {
+      showNotification("Please fill all customer required fields", "error");
       return;
+    }
+
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(editOrderForm.phone)) {
+      showNotification("Please enter a valid 10-digit phone number", "error");
+      return;
+    }
+
+    if (!editOrderForm.editReason || !editOrderForm.editReason.trim()) {
+      showNotification("Please enter a reason for this edit", "error");
+      return;
+    }
+
+    const isMultiProduct = editOrderForm.orderDetailsList && editOrderForm.orderDetailsList.length > 1;
+
+    if (isMultiProduct) {
+      for (let i = 0; i < editOrderForm.orderDetailsList.length; i++) {
+        const item = editOrderForm.orderDetailsList[i];
+        const selProdItem = productItems.find(p => String(p?._id || p?.id || "").trim() === item.productId);
+        const isItemRoll = selProdItem?.category?.toLowerCase().includes("roll") || item.productCategory?.toLowerCase().includes("roll");
+
+        if (!item.productId || !item.quantity || !item.width) {
+          showNotification(`Please fill all required fields for Item #${i + 1}`, "error");
+          return;
+        }
+        if (isItemRoll ? !item.gsm : (!item.bagSize || !item.length || !item.height)) {
+          showNotification(`Please fill specifications for Item #${i + 1}`, "error");
+          return;
+        }
+      }
+    } else {
+      const selectedProd = productItems.find(
+        (p) => String(p?._id || p?.id || "").trim() === editOrderForm.productId
+      );
+      const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll");
+
+      if (
+        !editOrderForm.productId ||
+        !editOrderForm.quantity ||
+        !editOrderForm.width ||
+        (isRoll ? !editOrderForm.gsm : (!editOrderForm.bagSize || !editOrderForm.length || !editOrderForm.height))
+      ) {
+        showNotification("Please fill all required product fields", "error");
+        return;
+      }
     }
 
     const loadingToast = toast.loading("Updating order...");
@@ -2170,9 +3768,44 @@ ${lines || "(See PDF for full BOM)"}
         businessName: editOrderForm.businessName,
         phone: editOrderForm.phone,
         email: editOrderForm.email,
-        productCategory: editOrderForm.productCategory || selectedProd?.category || "Kraft Rolls",
         source: editOrderForm.source,
-        orderDetails: {
+        notes: editOrderForm.notes,
+        editReason: editOrderForm.editReason.trim(),
+      };
+
+      if (isMultiProduct) {
+        payload.orderDetailsList = editOrderForm.orderDetailsList.map(p => {
+          const sel = productItems.find(x => String(x?._id || x?.id || "").trim() === p.productId);
+          const isRoll = sel?.category?.toLowerCase().includes("roll") || p.productCategory?.toLowerCase().includes("roll");
+          return {
+            productId: p.productId,
+            bagSize: isRoll ? undefined : p.bagSize,
+            color: isRoll ? undefined : p.color,
+            quantity: Number(p.quantity),
+            gsm: p.gsm ? Number(p.gsm) : undefined,
+            unit: p.unit || (isRoll ? "kg" : "pcs"),
+            calculationMode: p.calculationMode || "auto",
+            convertedQuantity: p.convertedQuantity ? Number(p.convertedQuantity) : undefined,
+            bf: isRoll && sel?.bf ? Number(sel.bf) : undefined,
+            dimensions: {
+              length: isRoll ? 0 : Number(p.length || 0),
+              width: Number(p.width || 0),
+              height: isRoll ? 0 : Number(p.height || 0),
+              unit: p.dimensionUnit,
+            },
+          };
+        });
+        payload.orderDetails = payload.orderDetailsList[0];
+        payload.productCategory = editOrderForm.orderDetailsList.map(p => {
+          const sel = productItems.find(x => String(x?._id || x?.id || "").trim() === p.productId);
+          return sel?.category || p.productCategory || "Product";
+        }).join(", ");
+      } else {
+        const selectedProd = productItems.find(
+          (p) => String(p?._id || p?.id || "").trim() === editOrderForm.productId
+        );
+        const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll");
+        payload.orderDetails = {
           productId: editOrderForm.productId,
           bagSize: isRoll ? undefined : editOrderForm.bagSize,
           color: isRoll ? undefined : editOrderForm.color,
@@ -2188,9 +3821,10 @@ ${lines || "(See PDF for full BOM)"}
             height: isRoll ? 0 : Number(editOrderForm.height),
             unit: editOrderForm.dimensionUnit,
           },
-        },
-        notes: editOrderForm.notes,
-      };
+        };
+        payload.productCategory = editOrderForm.productCategory || selectedProd?.category || "Kraft Rolls";
+        payload.orderDetailsList = [payload.orderDetails];
+      }
 
       await axiosInstance.patch(`/orders/${editingOrder.id}/update`, payload);
 
@@ -2217,51 +3851,51 @@ ${lines || "(See PDF for full BOM)"}
   const handleCreateManualOrder = async (e) => {
     e.preventDefault();
 
-    const selectedProd = productItems.find(
-      (p) => String(p?._id || p?.id || "").trim() === manualOrderForm.productId
-    );
-    const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll");
-
-    if (
-      !manualOrderForm.customerName ||
-      !manualOrderForm.phone ||
-      !manualOrderForm.productId ||
-      !manualOrderForm.quantity ||
-      !manualOrderForm.width ||
-      (isRoll ? !manualOrderForm.gsm : (!manualOrderForm.bagSize || !manualOrderForm.length || !manualOrderForm.height))
-    ) {
-      showNotification("Please fill all required fields", "error");
+    if (!manualOrderForm.customerName) {
+      showNotification("Customer Name is required", "error");
       return;
     }
-
-    if (
-      manualOrderForm.paymentType === "partial" &&
-      !manualOrderForm.partialPaidAmount
-    ) {
-      showNotification("Please enter partial paid amount", "error");
+    if (!manualOrderForm.phone) {
+      showNotification("Phone number is required", "error");
       return;
     }
-
-    if (
-      manualOrderForm.paymentType === "full" &&
-      !manualOrderForm.fullPaidAmount
-    ) {
-      showNotification("Please enter full paid amount", "error");
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(manualOrderForm.phone)) {
+      showNotification("Please enter a valid 10-digit phone number", "error");
       return;
     }
+    if (manualOrderForm.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(manualOrderForm.email)) {
+        showNotification("Please enter a valid email address", "error");
+        return;
+      }
+    }
 
-    const loadingToast = toast.loading("Creating manual order...");
+    let productsToSubmit = [...manualSelectedProducts];
 
-    try {
-      const payload = {
-        customerName: manualOrderForm.customerName,
-        businessName: manualOrderForm.businessName,
-        phone: manualOrderForm.phone,
-        email: manualOrderForm.email,
-        productCategory: manualOrderForm.productCategory || selectedProd?.category || "Kraft Rolls",
-        source: manualOrderForm.source,
-        orderDetails: {
+    // Auto-add current form inputs as a product if list is empty but product is configured
+    if (productsToSubmit.length === 0 && manualOrderForm.productId) {
+      const selectedProd = productItems.find(
+        (p) => String(p?._id || p?.id || "").trim() === manualOrderForm.productId
+      );
+      if (selectedProd) {
+        const isRoll = selectedProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll");
+        
+        if (
+          !manualOrderForm.quantity ||
+          !manualOrderForm.width ||
+          (isRoll ? (!manualOrderForm.gsm || !manualOrderForm.bf) : (!manualOrderForm.bagSize || !manualOrderForm.length || !manualOrderForm.height))
+        ) {
+          showNotification("Please configure the product fully before adding or creating order", "error");
+          return;
+        }
+
+        productsToSubmit.push({
           productId: manualOrderForm.productId,
+          productName: selectedProd.name,
+          productSku: selectedProd.sku,
+          productCategory: selectedProd?.category || manualOrderForm.productCategory || "Kraft Rolls",
           bagSize: isRoll ? undefined : manualOrderForm.bagSize,
           color: isRoll ? undefined : manualOrderForm.color,
           quantity: Number(manualOrderForm.quantity),
@@ -2269,21 +3903,73 @@ ${lines || "(See PDF for full BOM)"}
           unit: manualOrderForm.unit || (isRoll ? "kg" : "pcs"),
           calculationMode: manualOrderForm.calculationMode || "auto",
           convertedQuantity: manualOrderForm.convertedQuantity ? Number(manualOrderForm.convertedQuantity) : undefined,
-          bf: isRoll && selectedProd?.bf ? Number(selectedProd.bf) : undefined,
+          bf: isRoll && manualOrderForm.bf ? Number(manualOrderForm.bf) : undefined,
           dimensions: {
             length: isRoll ? 0 : Number(manualOrderForm.length),
             width: Number(manualOrderForm.width),
             height: isRoll ? 0 : Number(manualOrderForm.height),
             unit: manualOrderForm.dimensionUnit,
           },
+          hsnCode: selectedProd.hsnCode || "",
+          gstRate: selectedProd.gstRate ?? 18,
+        });
+      }
+    }
+
+    if (productsToSubmit.length === 0) {
+      showNotification("Please select/add at least one product to the order", "error");
+      return;
+    }
+
+    const loadingToast = toast.loading(`Creating order with ${productsToSubmit.length} products...`);
+
+
+    try {
+      // Build ONE order with all products in orderDetailsList
+      // orderDetails = primary (first) product; orderDetailsList = all products
+      const primaryProduct = productsToSubmit[0];
+      const payload = {
+        customerName: manualOrderForm.customerName,
+        businessName: manualOrderForm.businessName,
+        phone: manualOrderForm.phone,
+        email: manualOrderForm.email,
+        productCategory: productsToSubmit.map(p => p.productCategory).join(", "),
+        source: manualOrderForm.source,
+        orderDetails: {
+          productId: primaryProduct.productId,
+          bagSize: primaryProduct.bagSize,
+          color: primaryProduct.color,
+          quantity: primaryProduct.quantity,
+          gsm: primaryProduct.gsm,
+          unit: primaryProduct.unit,
+          calculationMode: primaryProduct.calculationMode,
+          convertedQuantity: primaryProduct.convertedQuantity,
+          bf: primaryProduct.bf,
+          dimensions: primaryProduct.dimensions,
+          hsnCode: primaryProduct.hsnCode,
+          gstRate: primaryProduct.gstRate,
         },
+        orderDetailsList: productsToSubmit.map(p => ({
+          productId: p.productId,
+          bagSize: p.bagSize,
+          color: p.color,
+          quantity: p.quantity,
+          gsm: p.gsm,
+          unit: p.unit,
+          calculationMode: p.calculationMode,
+          convertedQuantity: p.convertedQuantity,
+          bf: p.bf,
+          dimensions: p.dimensions,
+          hsnCode: p.hsnCode,
+          gstRate: p.gstRate,
+        })),
         payment: { paymentType: "partial", partialPaidAmount: 0 },
         notes: manualOrderForm.notes,
       };
 
       await axiosInstance.post("/order/create", payload);
 
-      toast.success("Order created successfully 🎉", { id: loadingToast });
+      toast.success(`Order created with ${productsToSubmit.length} product${productsToSubmit.length > 1 ? "s" : ""} 🎉`, { id: loadingToast });
 
       queryClient.invalidateQueries({
         queryKey: ["getAllOrders"],
@@ -2296,11 +3982,161 @@ ${lines || "(See PDF for full BOM)"}
       resetManualOrderForm();
     } catch (error) {
       toast.error(
-        error?.response?.data?.message || "Failed to create order",
+        error?.response?.data?.message || "Failed to create order(s)",
         { id: loadingToast }
       );
     }
   };
+  const getSnapshotDiff = (snapshot, nextState) => {
+    const changes = [];
+    if (!snapshot || !nextState) return changes;
+
+    if (snapshot.customerName !== nextState.customerName) {
+      changes.push(`Customer: "${snapshot.customerName || ''}" ➔ "${nextState.customerName || ''}"`);
+    }
+    if (snapshot.businessName !== nextState.businessName) {
+      changes.push(`Business: "${snapshot.businessName || ''}" ➔ "${nextState.businessName || ''}"`);
+    }
+    if (snapshot.phone !== nextState.phone) {
+      changes.push(`Phone: "${snapshot.phone || ''}" ➔ "${nextState.phone || ''}"`);
+    }
+    if (snapshot.email !== nextState.email) {
+      changes.push(`Email: "${snapshot.email || ''}" ➔ "${nextState.email || ''}"`);
+    }
+    if (snapshot.notes !== nextState.notes) {
+      changes.push(`Notes updated`);
+    }
+
+    const snapDetails = snapshot.orderDetails || {};
+    const nextDetails = nextState.orderDetails || {};
+
+    if (snapDetails.productId !== nextDetails.productId) {
+      changes.push(`Product category/ID changed`);
+    }
+    if (snapDetails.gsm !== nextDetails.gsm) {
+      changes.push(`GSM: ${snapDetails.gsm || '—'} ➔ ${nextDetails.gsm || '—'}`);
+    }
+    if (snapDetails.quantity !== nextDetails.quantity || snapDetails.unit !== nextDetails.unit) {
+      changes.push(`Quantity: ${snapDetails.quantity || 0} ${snapDetails.unit || ''} ➔ ${nextDetails.quantity || 0} ${nextDetails.unit || ''}`);
+    }
+    if (snapDetails.bf !== nextDetails.bf) {
+      changes.push(`BF: ${snapDetails.bf || '—'} ➔ ${nextDetails.bf || '—'}`);
+    }
+    if (snapDetails.bagSize !== nextDetails.bagSize) {
+      changes.push(`Bag Size: "${snapDetails.bagSize || ''}" ➔ "${nextDetails.bagSize || ''}"`);
+    }
+    if (snapDetails.color !== nextDetails.color) {
+      changes.push(`Color: "${snapDetails.color || ''}" ➔ "${nextDetails.color || ''}"`);
+    }
+
+    const snapDim = snapDetails.dimensions || {};
+    const nextDim = nextDetails.dimensions || {};
+    if (
+      snapDim.length !== nextDim.length ||
+      snapDim.width !== nextDim.width ||
+      snapDim.height !== nextDim.height ||
+      snapDim.unit !== nextDim.unit
+    ) {
+      const snapL = snapDim.length || 0;
+      const snapW = snapDim.width || 0;
+      const snapH = snapDim.height || 0;
+      const snapU = snapDim.unit || '';
+      const nextL = nextDim.length || 0;
+      const nextW = nextDim.width || 0;
+      const nextH = nextDim.height || 0;
+      const nextU = nextDim.unit || '';
+      changes.push(`Dimensions: ${snapL}x${snapW}x${snapH} ${snapU} ➔ ${nextL}x${nextW}x${nextH} ${nextU}`);
+    }
+
+    return changes;
+  };
+
+  const buildFilteredActivityLogs = (order) => {
+    if (!order) return [];
+    const logs = [];
+
+    if (Array.isArray(order.editHistory)) {
+      order.editHistory.forEach((historyItem, idx) => {
+        let nextState;
+        if (idx < order.editHistory.length - 1) {
+          nextState = order.editHistory[idx + 1].snapshot;
+        } else {
+          nextState = {
+            customerName: order.customerName,
+            businessName: order.businessName,
+            phone: order.phone,
+            email: order.email,
+            notes: order.notes,
+            orderDetails: order.orderDetails,
+          };
+        }
+
+        const diffList = getSnapshotDiff(historyItem.snapshot, nextState);
+
+        logs.push({
+          type: "update",
+          title: `ORDER_UPDATED`,
+          by: historyItem.by,
+          reason: historyItem.reason,
+          time: historyItem.at,
+          changes: diffList,
+          snapshotId: historyItem._id,
+        });
+      });
+    }
+
+    if (Array.isArray(order.workflowLogs)) {
+      order.workflowLogs.forEach((w) => {
+        const actionUpper = String(w.action || "").toUpperCase();
+        if (
+          actionUpper.includes("PAYMENT") ||
+          actionUpper.includes("STATUS") ||
+          actionUpper.includes("CONFIRMED") ||
+          actionUpper.includes("COMPLETED") ||
+          actionUpper.includes("CANCELLED") ||
+          actionUpper.includes("DELIVERED") ||
+          actionUpper.includes("RESTORED")
+        ) {
+          let title = w.action;
+          if (actionUpper === "PAYMENT_RECORDED") title = "💰 PAYMENT_RECORDED";
+          else if (actionUpper === "STATUS_CHANGED") title = "🔄 STATUS_CHANGED";
+          else if (actionUpper === "ORDER_CONFIRMED") title = "✅ ORDER_CONFIRMED";
+          else if (actionUpper === "ORDER_UNCONFIRMED") title = "⏪ ORDER_UNCONFIRMED";
+          else if (actionUpper === "ORDER_COMPLETED") title = "📦 ORDER_COMPLETED";
+          else if (actionUpper === "ORDER_CANCELLED") title = "❌ ORDER_CANCELLED";
+          else if (actionUpper === "ORDER_RESTORED") title = "⏪ ORDER_RESTORED";
+
+          logs.push({
+            type: "workflow",
+            title: title,
+            description: w.note || "",
+            time: w.at,
+          });
+        }
+      });
+    }
+
+    const getLocalDateString = (dateVal) => {
+      if (!dateVal) return "";
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return "";
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    let filteredLogs = logs;
+    if (logStartDate) {
+      filteredLogs = filteredLogs.filter(l => l.time && getLocalDateString(l.time) >= logStartDate);
+    }
+    if (logEndDate) {
+      filteredLogs = filteredLogs.filter(l => l.time && getLocalDateString(l.time) <= logEndDate);
+    }
+
+    return filteredLogs.sort((a, b) => new Date(b.time) - new Date(a.time));
+  };
+
   const buildClientOrderLogs = (order) => {
     if (!order) return [];
 
@@ -2533,6 +4369,24 @@ ${lines || "(See PDF for full BOM)"}
 
             <div className="flex flex-wrap gap-3">
               <Button
+                variant="custom"
+                icon={Download}
+                onClick={() => handleExportOrders("csv")}
+                className="rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-5 py-3"
+              >
+                Export CSV
+              </Button>
+
+              <Button
+                variant="custom"
+                icon={FileSpreadsheet}
+                onClick={() => handleExportOrders("excel")}
+                className="rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-5 py-3"
+              >
+                Export Excel
+              </Button>
+
+              <Button
                 icon={Plus}
                 onClick={() => setShowCreateModal(true)}
                 className="rounded-2xl bg-yellow-400 px-5 py-3 font-bold text-emerald-950 hover:bg-yellow-300"
@@ -2614,35 +4468,37 @@ ${lines || "(See PDF for full BOM)"}
         </motion.div>
 
         {/* View Mode Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between bg-white rounded-2xl border border-gray-200 p-2"
-        >
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewMode("dashboard")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "dashboard"
-                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-100"
-                }`}
-            >
-              📊 Dashboard View
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "table"
-                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-100"
-                }`}
-            >
-              📋 Table View
-            </button>
-          </div>
-          <div className="text-sm text-gray-500 pr-4">
-            {totalOrders} total orders
-          </div>
-        </motion.div>
+        {viewMode !== "returns" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between bg-white rounded-2xl border border-gray-200 p-2"
+          >
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode("dashboard")}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "dashboard"
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+                  }`}
+              >
+                📊 Dashboard View
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === "table"
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+                  }`}
+              >
+                📋 Table View
+              </button>
+            </div>
+            <div className="text-sm text-gray-500 pr-4">
+              {totalOrders} total orders
+            </div>
+          </motion.div>
+        )}
 
         {/* Dashboard View */}
         {viewMode === "dashboard" && (
@@ -2650,28 +4506,35 @@ ${lines || "(See PDF for full BOM)"}
             orders={formattedOrders}
             globalStats={orderStats}
             onViewOrder={(filter) => {
-              setViewMode("table");
               if (filter === "PENDING") {
-                setOrderStatusFilter("Pending");
-              } else if (filter === "CONFIRMED") {
-                setOrderStatusFilter("Confirmed");
-              } else if (filter === "PROCESSING") {
-                setOrderStatusFilter("Processing");
+                setActionDrawerType("CONFIRM_ORDERS");
               } else if (filter === "PENDING_QUOTE") {
-                setOrderStatusFilter("Pending");
+                setActionDrawerType("QUOTATIONS_NEEDED");
+              } else if (filter === "PROCESSING") {
+                setActionDrawerType("TRACK_PRODUCTION");
+              } else if (filter === "RETURNED_ORDERS") {
+                setActionDrawerType("RETURNED_ORDERS");
+              } else {
+                setViewMode("table");
+                if (filter === "CONFIRMED") {
+                  setOrderStatusFilter("Confirmed");
+                } else if (filter === "CANCELLED") {
+                  setOrderStatusFilter("Cancelled");
+                }
               }
             }}
             onCreateQuotation={() => {
-              if (firstPendingQuotationOrder) {
-                openQuotationModal(firstPendingQuotationOrder);
-                return;
-              }
-              showNotification("No pending orders need quotation right now", "success");
+              setActionDrawerType("QUOTATIONS_NEEDED");
+            }}
+            onInitiateReturn={() => {
+              setViewMode("returns");
             }}
           />
         )}
 
-        <motion.div
+        {viewMode !== "returns" && (
+          <>
+            <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto]"
@@ -2699,6 +4562,7 @@ ${lines || "(See PDF for full BOM)"}
             <option value="Processing">Processing</option>
             <option value="Confirmed">Confirmed</option>
             <option value="Completed">Completed</option>
+            <option value="Delivered">Delivered</option>
             <option value="Cancelled">Cancelled</option>
           </select>
 
@@ -2785,9 +4649,23 @@ ${lines || "(See PDF for full BOM)"}
                                   {order.businessName}
                                 </p>
                               )}
-                              <p className="text-xs text-gray-500 mt-1 font-semibold">
-                                {order.productCategory}
-                              </p>
+                              {/* Show all products from orderDetailsList */}
+                              {order.orderDetailsList?.length > 1 ? (
+                                <div className="mt-1 space-y-0.5">
+                                  {order.orderDetailsList.slice(0, 3).map((det, i) => (
+                                    <p key={i} className="text-xs text-gray-500 font-semibold truncate">
+                                      • {det.quantity} {det.unit || "pcs"}{det.bagSize ? ` (${det.bagSize})` : ""}
+                                    </p>
+                                  ))}
+                                  {order.orderDetailsList.length > 3 && (
+                                    <p className="text-[10px] text-emerald-600 font-bold">+{order.orderDetailsList.length - 3} more products</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 mt-1 font-semibold">
+                                  {order.productCategory}
+                                </p>
+                              )}
                               <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                                 <span className="flex items-center gap-1">
                                   <Mail className="h-3 w-3" />
@@ -2801,22 +4679,43 @@ ${lines || "(See PDF for full BOM)"}
                         {/* Order Details */}
                         <td className="px-6 py-4">
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-500">Quantity:</span>
-                              <span className="font-bold text-blue-600">
-                                {order.orderDetails?.quantity || 0} {order.orderDetails?.unit || "pcs"}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-500">
-                                {order.productCategory?.toLowerCase().includes("roll") ? "GSM:" : "Size:"}
-                              </span>
-                              <span className="font-semibold text-gray-900">
-                                {order.productCategory?.toLowerCase().includes("roll")
-                                  ? (order.orderDetails?.gsm || "—")
-                                  : (order.orderDetails?.bagSize || "—")}
-                              </span>
-                            </div>
+                            {order.orderDetailsList?.length > 1 ? (
+                              /* Multi-product: show each product's qty + size */
+                              <div className="space-y-1.5">
+                                {order.orderDetailsList.map((det, i) => (
+                                  <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-2 py-1 border border-gray-100">
+                                    <span className="text-gray-500 font-medium truncate max-w-[80px]">
+                                      {det.bagSize || `Item ${i + 1}`}
+                                    </span>
+                                    <span className="font-bold text-blue-600 ml-1">
+                                      {det.quantity || 0} {det.unit || "pcs"}
+                                    </span>
+                                  </div>
+                                ))}
+                                <div className="text-[10px] text-emerald-600 font-bold text-center">
+                                  Total: {order.orderDetailsList.reduce((s, d) => s + Number(d.quantity || 0), 0)} pcs
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">Quantity:</span>
+                                  <span className="font-bold text-blue-600">
+                                    {order.orderDetails?.quantity || 0} {order.orderDetails?.unit || "pcs"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">
+                                    {order.productCategory?.toLowerCase().includes("roll") ? "GSM:" : "Size:"}
+                                  </span>
+                                  <span className="font-semibold text-gray-900">
+                                    {order.productCategory?.toLowerCase().includes("roll")
+                                      ? (order.orderDetails?.gsm || "—")
+                                      : (order.orderDetails?.bagSize || "—")}
+                                  </span>
+                                </div>
+                              </>
+                            )}
                             {order.productCategory?.toLowerCase().includes("roll") ? (
                               <div className="text-xs text-gray-500 pt-1 border-t border-gray-100">
                                 <span className="font-medium">Width:</span>{" "}
@@ -2899,6 +4798,7 @@ ${lines || "(See PDF for full BOM)"}
                             <button
                               onClick={() => {
                                 setSelectedOrder(order);
+                                setActiveLogOrder(order);
                                 setShowDetailPanel(true);
                               }}
                               className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 transition-all duration-200"
@@ -2908,15 +4808,17 @@ ${lines || "(See PDF for full BOM)"}
                               <span>View</span>
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleEditOrder(order)}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-indigo-750 hover:bg-indigo-50 transition-all duration-200"
-                              title="Edit Order Details"
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                              <span>Edit</span>
-                            </button>
+                            {order.orderStatusKey !== "COMPLETED" && order.orderStatusKey !== "DELIVERED" && order.orderStatusKey !== "CANCELLED" && (
+                              <button
+                                type="button"
+                                onClick={() => handleEditOrder(order)}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-indigo-750 hover:bg-indigo-50 transition-all duration-200"
+                                title="Edit Order Details"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                                <span>Edit</span>
+                              </button>
+                            )}
 
                             <button
                               type="button"
@@ -3018,6 +4920,7 @@ ${lines || "(See PDF for full BOM)"}
                 formatCurrency={formatCurrency}
                 onViewOrder={(order) => {
                   setSelectedOrder(order);
+                  setActiveLogOrder(order);
                   setShowDetailPanel(true);
                 }}
                 onCheckAvailability={handleCheckOrderAvailability}
@@ -3025,7 +4928,9 @@ ${lines || "(See PDF for full BOM)"}
                 onOpenBill={openBillModal}
                 onMoveToProcessing={handleMoveToProcessing}
                 onCompleteOrder={handleCompleteOrder}
+                onMarkAsDelivered={handleMarkAsDelivered}
                 onEditOrder={handleEditOrder}
+                onEditDelivery={openDeliveryModal}
               />
             )}
 
@@ -3039,362 +4944,886 @@ ${lines || "(See PDF for full BOM)"}
               </div>
             )}
           </Card>
+
+          {currentActiveOrder && (
+            <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm">
+              <div className="rounded-3xl border border-indigo-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-lg mb-6">
+                <h3 className="text-lg font-bold">Activity Logs & Modification History — {currentActiveOrder.customerName}</h3>
+                <p className="mt-1 text-xs text-slate-300 opacity-90">
+                  Showing payment recordings, state transitions, and specifications modifications for Order #{currentActiveOrder.id?.slice(-6).toUpperCase() || currentActiveOrder._id?.slice(-6).toUpperCase()}
+                </p>
+              </div>
+
+              {/* Date Filters */}
+              <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-gray-200 p-3 rounded-2xl mb-6 text-sm">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Logs by Date:</span>
+                 <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">From</span>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    max={logEndDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logEndDate && val > logEndDate) {
+                        toast.error("'From' date cannot be after 'To' date");
+                        return;
+                      }
+                      setLogStartDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">To</span>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    min={logStartDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logStartDate && val < logStartDate) {
+                        toast.error("'To' date cannot be before 'From' date");
+                        return;
+                      }
+                      setLogEndDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                {(logStartDate || logEndDate) && (
+                  <button
+                    onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold ml-auto"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {buildFilteredActivityLogs(currentActiveOrder).map((log, index) => {
+                  const canRestore = currentActiveOrder.orderStatusKey !== "COMPLETED" && currentActiveOrder.orderStatusKey !== "DELIVERED" && currentActiveOrder.orderStatusKey !== "CANCELLED";
+
+                  if (log.type === "update") {
+                    return (
+                      <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-indigo-50 border border-indigo-150 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 uppercase">
+                                🔄 {log.title}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Updated by:</span> {log.by}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Reason:</span> {log.reason}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="text-xs text-gray-500 font-semibold">
+                              {new Date(log.time).toLocaleString()}
+                            </span>
+                            {canRestore && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const reason = window.prompt("Enter reason/note for restoring this snapshot:");
+                                  if (reason === null) return;
+                                  if (!reason.trim()) {
+                                    toast.error("Reason is required to revert state");
+                                    return;
+                                  }
+                                  handleRestoreState(currentActiveOrder.id || currentActiveOrder._id, log.snapshotId, reason);
+                                }}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 transition shadow-sm border border-teal-200"
+                              >
+                                Restore State
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {log.changes && log.changes.length > 0 ? (
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Changed fields:</p>
+                            <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700 font-semibold">
+                              {log.changes.map((changeStr, cIdx) => (
+                                <li key={cIdx}>{changeStr}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <div className="bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500">
+                            No specification details changed (metadata or note edit).
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    // workflow type
+                    return (
+                      <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <span className="rounded-full bg-emerald-50 border border-emerald-150 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase">
+                              {log.title}
+                            </span>
+                            <p className="mt-2 text-sm text-gray-750 font-semibold">{log.description}</p>
+                          </div>
+                          <span className="text-xs text-gray-500 font-semibold">
+                            {new Date(log.time).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            </div>
+          )}
         </motion.div>
+          </>
+        )}
+
+        {viewMode === "returns" && (
+          <OrderReturnsWorkspace
+            axiosInstance={axiosInstance}
+            onBack={() => setViewMode("dashboard")}
+            refetchStats={() => {
+              refetch();
+              refetchOrderStats();
+              refetchInventory();
+            }}
+            generateReturnReceiptPDF={generateReturnReceiptPDF}
+            downloadReceiptPDF={downloadReceiptPDF}
+            productItems={productItems}
+          />
+        )}
 
         <Modal
           isOpen={showCreateModal}
           title="Create Manual Order"
           onClose={resetManualOrderForm}
+          size="xl"
         >
           {(() => {
             const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === manualOrderForm.productId);
             const isManualRoll = !!(selProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll"));
+            const matchedInventory = selProd
+              ? inventoryItems.find((inv) =>
+                  String(inv.productId || inv.product?._id || inv.product?.id || "").trim() === String(selProd?._id || selProd?.id || "").trim()
+                )
+              : null;
+            const availableStock = matchedInventory
+              ? (matchedInventory.availableForSale ?? matchedInventory.availableBags ?? matchedInventory.stockLevel ?? matchedInventory.availableStock ?? matchedInventory.quantity ?? 0)
+              : 0;
 
             return (
-              <form onSubmit={handleCreateManualOrder} className="space-y-5">
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
-                      <ShoppingBag className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900">Manual Order Details</h3>
-                      <p className="mt-1 text-sm text-gray-600">
-                        Create a new order manually.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-gray-100 p-4">
-                  <div className="mb-4 flex items-center gap-2">
-                    <User2 className="h-4 w-4 text-emerald-600" />
-                    <p className="text-sm font-bold text-gray-800">Customer & Product Details</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Customer Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={manualOrderForm.customerName}
-                        onChange={(e) => handleFormChange("customerName", e.target.value)}
-                        placeholder="Customer Name"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Business Name
-                      </label>
-                      <input
-                        type="text"
-                        value={manualOrderForm.businessName}
-                        onChange={(e) => handleFormChange("businessName", e.target.value)}
-                        placeholder="Business Name"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Phone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={manualOrderForm.phone}
-                        onChange={(e) => handleFormChange("phone", e.target.value)}
-                        placeholder="Phone"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={manualOrderForm.email}
-                        onChange={(e) => handleFormChange("email", e.target.value)}
-                        placeholder="Email"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Product <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={manualOrderForm.productId}
-                        onChange={(e) => {
-                          const prodId = e.target.value;
-                          const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
-                          const isRollCategory = prod?.category?.toLowerCase().includes("roll");
-                          setManualOrderForm(prev => ({
-                            ...prev,
-                            productId: prodId,
-                            productCategory: prod?.category || "",
-                            length: prod?.dimensions?.length || "",
-                            width: prod?.dimensions?.width || "",
-                            height: prod?.dimensions?.height || "",
-                            dimensionUnit: prod?.dimensions?.unit || "inch",
-                            gsm: prod?.gsm || "",
-                            color: prod?.color || prev.color || "",
-                            bagSize: prod?.bagSize || prev.bagSize || "",
-                            unit: isRollCategory ? "kg" : "pcs",
-                            calculationMode: "auto",
-                            convertedQuantity: "",
-                          }));
-                        }}
-                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                        required
-                      >
-                        <option value="">Select Product</option>
-                        {productItems.map((product) => (
-                          <option key={product._id || product.id} value={product._id || product.id}>
-                            {product.name} {product.sku ? `(${product.sku})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Source
-                      </label>
-                      <input
-                        type="text"
-                        value={manualOrderForm.source}
-                        onChange={(e) => handleFormChange("source", e.target.value)}
-                        placeholder="Source"
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Order Quantity <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={manualOrderForm.quantity}
-                          onChange={(e) => handleFormChange("quantity", e.target.value)}
-                          placeholder="Quantity"
-                          className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                          required
-                        />
-                        <select
-                          value={manualOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
-                          onChange={(e) => handleFormChange("unit", e.target.value)}
-                          className="w-[90px] rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500"
-                        >
-                          {isManualRoll ? (
-                            <>
-                              <option value="kg">kg</option>
-                              <option value="m">meter</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="pcs">pcs</option>
-                              <option value="kg">kg</option>
-                            </>
-                          )}
-                        </select>
+              <form onSubmit={handleCreateManualOrder} className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                  {/* Left Column: Form Configuration (3 cols) */}
+                  <div className="lg:col-span-3 space-y-4">
+                    {/* Customer Info Card */}
+                    <div className="rounded-2xl border border-gray-100 p-4 bg-white shadow-sm">
+                      <div className="mb-3 flex items-center gap-2">
+                        <User2 className="h-4 w-4 text-emerald-600" />
+                        <p className="text-sm font-bold text-gray-800">Customer Details</p>
                       </div>
-                    </div>
 
-                    {((!isManualRoll && manualOrderForm.unit === "kg") || (isManualRoll && manualOrderForm.unit === "m")) && (
-                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Unit Conversion Mode
-                          </label>
-                          <select
-                            value={manualOrderForm.calculationMode || "auto"}
-                            onChange={(e) =>
-                              handleFormChange("calculationMode", e.target.value)
-                            }
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                          >
-                            <option value="auto">Auto via Formula</option>
-                            <option value="manual">Enter Manually</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={manualOrderForm.convertedQuantity || ""}
-                            onChange={(e) =>
-                              handleFormChange("convertedQuantity", e.target.value)
-                            }
-                            placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
-                            disabled={manualOrderForm.calculationMode !== "manual"}
-                            className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                              manualOrderForm.calculationMode === "manual"
-                                ? "border-emerald-300 bg-white focus:border-emerald-500"
-                                : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        {isManualRoll ? "Width Unit" : "Dimension Unit"}
-                      </label>
-                      <select
-                        value={manualOrderForm.dimensionUnit}
-                        onChange={(e) => handleFormChange("dimensionUnit", e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                      >
-                        <option value="inch">Inch</option>
-                        <option value="cm">CM</option>
-                        <option value="mm">MM</option>
-                        <option value="ft">Feet</option>
-                      </select>
-                    </div>
-
-                    {/* Roll vs Bag Conditional Fields */}
-                    {isManualRoll ? (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            GSM <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={manualOrderForm.gsm}
-                            onChange={(e) => handleFormChange("gsm", e.target.value)}
-                            placeholder="GSM"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Width <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={manualOrderForm.width}
-                            onChange={(e) => handleFormChange("width", e.target.value)}
-                            placeholder="Width"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Bag Size <span className="text-red-500">*</span>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Customer Name <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
-                            value={manualOrderForm.bagSize}
-                            onChange={(e) => handleFormChange("bagSize", e.target.value)}
-                            placeholder="Bag Size"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            value={manualOrderForm.customerName}
+                            onChange={(e) => handleFormChange("customerName", e.target.value)}
+                            placeholder="Customer Name"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                             required
                           />
                         </div>
+
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Color
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Business Name
+                          </label>
+                          <input
+                            type="text"
+                            value={manualOrderForm.businessName}
+                            onChange={(e) => handleFormChange("businessName", e.target.value)}
+                            placeholder="Business Name"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Phone <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={manualOrderForm.phone}
+                            onChange={(e) => handleFormChange("phone", e.target.value)}
+                            placeholder="Phone"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            value={manualOrderForm.email}
+                            onChange={(e) => handleFormChange("email", e.target.value)}
+                            placeholder="Email"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Source
+                          </label>
+                          <input
+                            type="text"
+                            value={manualOrderForm.source}
+                            onChange={(e) => handleFormChange("source", e.target.value)}
+                            placeholder="Source"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Product Configuration Card */}
+                    <div className="rounded-2xl border border-gray-100 p-4 bg-white shadow-sm">
+                      <div className="mb-3 flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                        <p className="text-sm font-bold text-gray-800">Add Product Parameters</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Product <span className="text-red-500">*</span>
                           </label>
                           <select
-                            value={manualOrderForm.color}
-                            onChange={(e) => handleFormChange("color", e.target.value)}
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            value={manualOrderForm.productId}
+                            onChange={(e) => {
+                              const prodId = e.target.value;
+                              const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
+                              const isRollCategory = prod?.category?.toLowerCase().includes("roll");
+                              setManualOrderForm(prev => ({
+                                ...prev,
+                                productId: prodId,
+                                productCategory: prod?.category || "",
+                                length: prod?.dimensions?.length || "",
+                                width: prod?.dimensions?.width || "",
+                                height: prod?.dimensions?.height || "",
+                                dimensionUnit: prod?.dimensions?.unit || "inch",
+                                gsm: prod?.gsm || "",
+                                color: prod?.color || prev.color || "",
+                                bagSize: prod?.bagSize || prev.bagSize || "",
+                                unit: isRollCategory ? "kg" : "pcs",
+                                calculationMode: "auto",
+                                convertedQuantity: "",
+                              }));
+                            }}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                           >
-                            <option value="">Select color</option>
-                            <option value="Brown">Brown</option>
-                            <option value="White">White</option>
+                            <option value="">Select Product</option>
+                            {productItems.map((product) => (
+                              <option key={product._id || product.id} value={product._id || product.id}>
+                                {product.name} {product.sku ? `(${product.sku})` : ""}
+                              </option>
+                            ))}
                           </select>
                         </div>
+
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Length <span className="text-red-500">*</span>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            Order Quantity <span className="text-red-500">*</span>
                           </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={manualOrderForm.length}
-                            onChange={(e) => handleFormChange("length", e.target.value)}
-                            placeholder="Length"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={manualOrderForm.quantity}
+                              onChange={(e) => handleFormChange("quantity", e.target.value)}
+                              placeholder="Quantity"
+                              className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                            />
+                            <select
+                              value={manualOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
+                              onChange={(e) => handleFormChange("unit", e.target.value)}
+                              className="w-[90px] rounded-xl border border-gray-200 bg-white px-2 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                            >
+                              {isManualRoll ? (
+                                <>
+                                  <option value="kg">kg</option>
+                                  <option value="m">meter</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value="pcs">pcs</option>
+                                  <option value="kg">kg</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
                         </div>
+
+                        {((!isManualRoll && manualOrderForm.unit === "kg") || (isManualRoll && manualOrderForm.unit === "m")) && (
+                          <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 border-l-4 border-amber-500 bg-amber-50/50 p-3 rounded-xl">
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Unit Conversion Mode
+                              </label>
+                              <select
+                                value={manualOrderForm.calculationMode || "auto"}
+                                onChange={(e) =>
+                                  handleFormChange("calculationMode", e.target.value)
+                                }
+                                className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              >
+                                <option value="auto">Auto via Formula</option>
+                                <option value="manual">Enter Manually</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={manualOrderForm.convertedQuantity || ""}
+                                onChange={(e) =>
+                                  handleFormChange("convertedQuantity", e.target.value)
+                                }
+                                placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
+                                disabled={manualOrderForm.calculationMode !== "manual"}
+                                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${
+                                  manualOrderForm.calculationMode === "manual"
+                                    ? "border-emerald-300 bg-white focus:border-emerald-500 text-gray-900 font-medium"
+                                    : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        )}
+
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Width <span className="text-red-500">*</span>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            {isManualRoll ? "Width Unit" : "Dimension Unit"}
                           </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={manualOrderForm.width}
-                            onChange={(e) => handleFormChange("width", e.target.value)}
-                            placeholder="Width"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
+                          <select
+                            value={manualOrderForm.dimensionUnit}
+                            onChange={(e) => handleFormChange("dimensionUnit", e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                          >
+                            <option value="inch">Inch</option>
+                            <option value="cm">CM</option>
+                            <option value="mm">MM</option>
+                            <option value="ft">Feet</option>
+                          </select>
                         </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Height <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={manualOrderForm.height}
-                            onChange={(e) => handleFormChange("height", e.target.value)}
-                            placeholder="Height"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
+
+                        {/* Roll vs Bag Conditional Fields */}
+                        {isManualRoll ? (
+                          <>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                GSM <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.gsm}
+                                onChange={(e) => handleFormChange("gsm", e.target.value)}
+                                placeholder="GSM"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Width <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.width}
+                                onChange={(e) => handleFormChange("width", e.target.value)}
+                                placeholder="Width"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                BF (Burst Factor) <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.bf}
+                                onChange={(e) => handleFormChange("bf", e.target.value)}
+                                placeholder="BF"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Bag Size <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={manualOrderForm.bagSize}
+                                onChange={(e) => handleFormChange("bagSize", e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              >
+                                <option value="">Select Size</option>
+                                <option value="Small">Small</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Large">Large</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Color
+                              </label>
+                              <select
+                                value={manualOrderForm.color}
+                                onChange={(e) => handleFormChange("color", e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              >
+                                <option value="">Select color</option>
+                                <option value="Brown">Brown</option>
+                                <option value="White">White</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Length <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.length}
+                                onChange={(e) => handleFormChange("length", e.target.value)}
+                                placeholder="Length"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Width <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.width}
+                                onChange={(e) => handleFormChange("width", e.target.value)}
+                                placeholder="Width"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
+                                Height <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.height}
+                                onChange={(e) => handleFormChange("height", e.target.value)}
+                                placeholder="Height"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          type="button"
+                          onClick={handleAddProductToManualList}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm text-sm"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>Add Product to Order</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Specs & Stock Comparison Card */}
+                    {selProd && (
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                          <div className="flex items-center gap-1.5">
+                            <Info className="h-4 w-4 text-emerald-700" />
+                            <p className="text-sm font-bold text-emerald-800">Product Specs & Stock Status</p>
+                          </div>
+                          {availableStock >= (Number(manualOrderForm.quantity) || 0) ? (
+                            <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                              In Stock
+                            </span>
+                          ) : (
+                            <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                              Insufficient Stock
+                            </span>
+                          )}
                         </div>
-                      </>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Left Panel: Actual Product Details */}
+                          <div className="bg-white rounded-xl p-3 border border-emerald-50">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-100">
+                              Actual Product Details (DB)
+                            </p>
+                            <div className="space-y-1.5 text-xs text-gray-700">
+                              <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">Category:</span>
+                                <span className="font-bold text-gray-900">{selProd.category}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">SKU:</span>
+                                <span className="font-bold text-gray-900">{selProd.sku || "—"}</span>
+                              </div>
+                              {isManualRoll ? (
+                                <>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500 font-medium">Actual GSM:</span>
+                                    <span className="font-bold text-gray-900">{selProd.gsm || "—"}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500 font-medium">Actual Width:</span>
+                                    <span className="font-bold text-gray-900">
+                                      {selProd.dimensions?.width} {selProd.dimensions?.unit}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500 font-medium">Actual BF:</span>
+                                    <span className="font-bold text-gray-900">{selProd.bf || "—"}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500 font-medium">Actual Size:</span>
+                                    <span className="font-bold text-gray-900">{selProd.bagSize || "—"}</span>
+                                  </div>
+                                  {selProd.color && (
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500 font-medium">Actual Color:</span>
+                                      <span className="font-bold text-gray-900">{selProd.color}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500 font-medium">Actual Dims:</span>
+                                    <span className="font-bold text-gray-900">
+                                      {selProd.dimensions?.length} × {selProd.dimensions?.width} × {selProd.dimensions?.height} {selProd.dimensions?.unit}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex justify-between pt-1.5 border-t border-dashed border-gray-150">
+                                <span className="text-emerald-800 font-bold">Available Stock:</span>
+                                <span className="font-extrabold text-emerald-700">
+                                  {availableStock} {isManualRoll ? "kg" : "pcs"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Panel: Requested vs Actual Comparison */}
+                          {(() => {
+                            const comparisonParams = [];
+                            if (selProd) {
+                              if (isManualRoll) {
+                                comparisonParams.push({
+                                  name: "GSM",
+                                  requested: manualOrderForm.gsm ? `${manualOrderForm.gsm} GSM` : "—",
+                                  actual: selProd.gsm ? `${selProd.gsm} GSM` : "—",
+                                  isMatch: manualOrderForm.gsm && Number(manualOrderForm.gsm) === Number(selProd.gsm),
+                                });
+                                comparisonParams.push({
+                                  name: "Width",
+                                  requested: manualOrderForm.width ? `${manualOrderForm.width} ${manualOrderForm.dimensionUnit}` : "—",
+                                  actual: selProd.dimensions?.width ? `${selProd.dimensions.width} ${selProd.dimensions.unit}` : "—",
+                                  isMatch: manualOrderForm.width && Number(manualOrderForm.width) === Number(selProd.dimensions?.width),
+                                });
+                                comparisonParams.push({
+                                  name: "BF",
+                                  requested: manualOrderForm.bf ? `${manualOrderForm.bf}` : "—",
+                                  actual: selProd.bf ? `${selProd.bf}` : "—",
+                                  isMatch: manualOrderForm.bf && Number(manualOrderForm.bf) === Number(selProd.bf),
+                                });
+                              } else {
+                                comparisonParams.push({
+                                  name: "Bag Size",
+                                  requested: manualOrderForm.bagSize || "—",
+                                  actual: selProd.bagSize || "—",
+                                  isMatch: (manualOrderForm.bagSize || "").toLowerCase().trim() === String(selProd.bagSize || "").toLowerCase().trim(),
+                                });
+                                comparisonParams.push({
+                                  name: "Color",
+                                  requested: manualOrderForm.color || "—",
+                                  actual: selProd.color || "—",
+                                  isMatch: !manualOrderForm.color || !selProd.color || manualOrderForm.color.toLowerCase().trim() === String(selProd.color || "").toLowerCase().trim(),
+                                });
+                                comparisonParams.push({
+                                  name: "Length",
+                                  requested: manualOrderForm.length ? `${manualOrderForm.length} ${manualOrderForm.dimensionUnit}` : "—",
+                                  actual: selProd.dimensions?.length ? `${selProd.dimensions.length} ${selProd.dimensions.unit}` : "—",
+                                  isMatch: manualOrderForm.length && Number(manualOrderForm.length) === Number(selProd.dimensions?.length),
+                                });
+                                comparisonParams.push({
+                                  name: "Width",
+                                  requested: manualOrderForm.width ? `${manualOrderForm.width} ${manualOrderForm.dimensionUnit}` : "—",
+                                  actual: selProd.dimensions?.width ? `${selProd.dimensions.width} ${selProd.dimensions.unit}` : "—",
+                                  isMatch: manualOrderForm.width && Number(manualOrderForm.width) === Number(selProd.dimensions?.width),
+                                });
+                                comparisonParams.push({
+                                  name: "Height",
+                                  requested: manualOrderForm.height ? `${manualOrderForm.height} ${manualOrderForm.dimensionUnit}` : "—",
+                                  actual: selProd.dimensions?.height ? `${selProd.dimensions.height} ${selProd.dimensions.unit}` : "—",
+                                  isMatch: manualOrderForm.height && Number(manualOrderForm.height) === Number(selProd.dimensions?.height),
+                                });
+                              }
+
+                              const reqQty = Number(manualOrderForm.quantity || 0);
+                              comparisonParams.push({
+                                name: "Quantity",
+                                requested: reqQty ? `${reqQty} ${manualOrderForm.unit || (isManualRoll ? "kg" : "pcs")}` : "—",
+                                actual: `${availableStock} ${isManualRoll ? "kg" : "pcs"}`,
+                                isMatch: reqQty <= availableStock,
+                              });
+                            }
+
+                            return (
+                              <div className="bg-white rounded-xl p-3 border border-emerald-50">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-100">
+                                  Requested vs Available Specs
+                                </p>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                      <tr className="border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[9px]">
+                                        <th className="pb-1.5 text-gray-400">Parameter</th>
+                                        <th className="pb-1.5 text-gray-400">Requested</th>
+                                        <th className="pb-1.5 text-gray-400">Actual / Stock</th>
+                                        <th className="pb-1.5 text-right text-gray-400">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                      {comparisonParams.map((param, pIdx) => (
+                                        <tr key={pIdx}>
+                                          <td className="py-2 text-gray-900 font-bold">{param.name}</td>
+                                          <td className="py-2 text-gray-600">{param.requested}</td>
+                                          <td className="py-2 text-gray-950 font-bold">{param.actual}</td>
+                                          <td className="py-2 text-right">
+                                            {param.name === "BF" ? (
+                                              <span className="text-blue-750 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-150 text-[10px] font-bold">
+                                                Info
+                                              </span>
+                                            ) : param.isMatch ? (
+                                              <span className="text-green-750 bg-green-50/50 px-1.5 py-0.5 rounded border border-green-150 text-[10px] font-bold">
+                                                Match
+                                              </span>
+                                            ) : (
+                                              <span className="text-amber-750 bg-amber-50/50 px-1.5 py-0.5 rounded border border-amber-150 text-[10px] font-bold">
+                                                Diff
+                                              </span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
                     )}
+
+                    {/* Notes Card */}
+                    <div className="rounded-2xl border border-gray-100 p-4 bg-white shadow-sm">
+                      <label className="mb-1 block text-xs font-bold text-gray-700">
+                        Notes
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={manualOrderForm.notes}
+                        onChange={(e) => handleFormChange("notes", e.target.value)}
+                        placeholder="Notes"
+                        className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Selected Products Sidebar (2 cols) */}
+                  <div className="lg:col-span-2">
+                    <div className="rounded-2xl border border-gray-150 p-4 bg-gray-50/50 sticky top-0 max-h-[75vh] overflow-y-auto">
+                      <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center justify-between border-b border-gray-200 pb-2">
+                        <span>Selected Products</span>
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold">
+                          {manualSelectedProducts.length}
+                        </span>
+                      </h3>
+
+                      {manualSelectedProducts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-dashed border-gray-200 p-4">
+                          <ShoppingBag className="w-10 h-10 text-gray-300 mb-2" />
+                          <p className="text-xs font-bold text-gray-500">No products added yet</p>
+                          <p className="text-[11px] text-gray-400 mt-1 leading-normal">
+                            Configure parameters on the left and click "Add Product to Order" to display items here.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {manualSelectedProducts.map((prod, idx) => {
+                            const isExpanded = expandedProductIndex === idx;
+                            const isRoll = prod.productCategory?.toLowerCase().includes("roll");
+                            const matchedInv = inventoryItems.find((inv) =>
+                              String(inv.productId || inv.product?._id || inv.product?.id || "").trim() === String(prod.productId).trim()
+                            );
+                            const availStock = matchedInv
+                              ? (matchedInv.availableForSale ?? matchedInv.availableBags ?? matchedInv.stockLevel ?? matchedInv.availableStock ?? matchedInv.quantity ?? 0)
+                              : 0;
+
+                            return (
+                              <div
+                                key={idx}
+                                className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:shadow-md cursor-pointer"
+                                onClick={() => setExpandedProductIndex(isExpanded ? null : idx)}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-gray-950 text-sm truncate">
+                                      {prod.productName}
+                                    </p>
+                                    <p className="text-xs font-bold text-emerald-700 mt-0.5">
+                                      Qty: {prod.quantity} {prod.unit}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveProductFromManualList(idx);
+                                    }}
+                                    className="text-gray-400 hover:text-red-650 p-1 rounded transition"
+                                    title="Remove Product"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                {isExpanded && (
+                                  <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600 space-y-2 animate-fadeIn">
+                                    <div className="flex justify-between">
+                                      <span className="font-bold text-gray-500">Category:</span>
+                                      <span className="font-bold text-gray-900">{prod.productCategory}</span>
+                                    </div>
+                                    {isRoll ? (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span className="font-bold text-gray-500">GSM:</span>
+                                          <span className="font-bold text-gray-900">{prod.gsm}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="font-bold text-gray-500">Width:</span>
+                                          <span className="font-bold text-gray-900">
+                                            {prod.dimensions?.width} {prod.dimensions?.unit}
+                                          </span>
+                                        </div>
+                                        {prod.bf && (
+                                          <div className="flex justify-between">
+                                            <span className="font-bold text-gray-500">BF:</span>
+                                            <span className="font-bold text-gray-900">{prod.bf}</span>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span className="font-bold text-gray-500">Bag Size:</span>
+                                          <span className="font-bold text-gray-900">{prod.bagSize}</span>
+                                        </div>
+                                        {prod.color && (
+                                          <div className="flex justify-between">
+                                            <span className="font-bold text-gray-500">Color:</span>
+                                            <span className="font-bold text-gray-900">{prod.color}</span>
+                                          </div>
+                                        )}
+                                        <div className="flex justify-between">
+                                          <span className="font-bold text-gray-500">Dimensions:</span>
+                                          <span className="font-bold text-gray-900">
+                                            {prod.dimensions?.length} × {prod.dimensions?.width} × {prod.dimensions?.height} {prod.dimensions?.unit}
+                                          </span>
+                                        </div>
+                                      </>
+                                    )}
+                                    {prod.convertedQuantity && (
+                                      <div className="flex justify-between bg-amber-50 p-1.5 rounded border border-amber-100">
+                                        <span className="font-bold text-amber-800">
+                                          {isRoll ? "Weight (kg):" : "Bags (pcs):"}
+                                        </span>
+                                        <span className="font-bold text-amber-950">{prod.convertedQuantity}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-dashed border-gray-150 text-[11px]">
+                                      <span className="font-bold text-emerald-800">Available Stock:</span>
+                                      <span className="font-bold text-emerald-700">{availStock} {prod.unit}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[11px] pb-1">
+                                      <span className="font-bold text-gray-500">Stock Status:</span>
+                                      {availStock >= prod.quantity ? (
+                                        <span className="text-green-650 bg-green-50 px-1 rounded border border-green-150">In Stock</span>
+                                      ) : (
+                                        <span className="text-amber-700 bg-amber-50 px-1 rounded border border-amber-100">Shortage ({prod.quantity - availStock} {prod.unit})</span>
+                                      )}
+                                    </div>
+                                    <div className="flex justify-between pt-1.5 border-t border-dashed border-gray-150">
+                                      <span className="font-bold text-gray-800">Base Price:</span>
+                                      <span className="font-bold text-gray-900">₹{Number(prod.basePrice || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-emerald-800">
+                                      <span>Total Cost:</span>
+                                      <span>
+                                        ₹{(Number(prod.quantity) * Number(prod.basePrice || 0)).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 p-4">
-                  <label className="mb-2 block text-xs font-semibold text-gray-600">
-                    Notes
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={manualOrderForm.notes}
-                    onChange={(e) => handleFormChange("notes", e.target.value)}
-                    placeholder="Notes"
-                    className="w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+                <div className="flex flex-col gap-3 pt-3 border-t border-gray-150 sm:flex-row sm:justify-end">
                   <Button type="button" variant="secondary" onClick={resetManualOrderForm}>
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl">
                     Create Order
                   </Button>
                 </div>
@@ -3412,8 +5841,21 @@ ${lines || "(See PDF for full BOM)"}
             const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === editOrderForm.productId);
             const isManualRoll = !!(selProd?.category?.toLowerCase().includes("roll") || editOrderForm.productCategory?.toLowerCase().includes("roll"));
 
+            const isOrderPaid = editingOrder?.paymentStatusKey === "PAID" || editingOrder?.paymentStatus === "Paid";
+
             return (
               <form onSubmit={handleUpdateOrderSubmit} className="space-y-5">
+                {isOrderPaid && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800 flex items-start gap-2.5 shadow-sm">
+                    <span>⚠️</span>
+                    <div>
+                      <p>Order is fully Paid</p>
+                      <p className="mt-0.5 text-xs text-amber-700 font-medium">
+                        Product specifications, quantities, units, and dimension properties cannot be changed on fully paid orders.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                   <div className="flex items-start gap-3">
                     <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
@@ -3431,7 +5873,7 @@ ${lines || "(See PDF for full BOM)"}
                 <div className="rounded-2xl border border-gray-100 p-4">
                   <div className="mb-4 flex items-center gap-2">
                     <User2 className="h-4 w-4 text-emerald-600" />
-                    <p className="text-sm font-bold text-gray-800">Customer & Product Details</p>
+                    <p className="text-sm font-bold text-gray-800">Customer details</p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -3491,44 +5933,6 @@ ${lines || "(See PDF for full BOM)"}
 
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Product <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={editOrderForm.productId}
-                        onChange={(e) => {
-                          const prodId = e.target.value;
-                          const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
-                          const isRollCategory = prod?.category?.toLowerCase().includes("roll");
-                          setEditOrderForm(prev => ({
-                            ...prev,
-                            productId: prodId,
-                            productCategory: prod?.category || "",
-                            length: prod?.dimensions?.length || "",
-                            width: prod?.dimensions?.width || "",
-                            height: prod?.dimensions?.height || "",
-                            dimensionUnit: prod?.dimensions?.unit || "inch",
-                            gsm: prod?.gsm || "",
-                            color: prod?.color || prev.color || "",
-                            bagSize: prod?.bagSize || prev.bagSize || "",
-                            unit: isRollCategory ? "kg" : "pcs",
-                            calculationMode: "auto",
-                            convertedQuantity: "",
-                          }));
-                        }}
-                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                        required
-                      >
-                        <option value="">Select Product</option>
-                        {productItems.map((product) => (
-                          <option key={product._id || product.id} value={product._id || product.id}>
-                            {product.name} {product.sku ? `(${product.sku})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
                         Source
                       </label>
                       <input
@@ -3539,211 +5943,519 @@ ${lines || "(See PDF for full BOM)"}
                         className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        Order Quantity <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={editOrderForm.quantity}
-                          onChange={(e) => handleEditFormChange("quantity", e.target.value)}
-                          placeholder="Quantity"
-                          className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                          required
-                        />
-                        <select
-                          value={editOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
-                          onChange={(e) => handleEditFormChange("unit", e.target.value)}
-                          className="w-[90px] rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500"
-                        >
-                          {isManualRoll ? (
-                            <>
-                              <option value="kg">kg</option>
-                              <option value="m">meter</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="pcs">pcs</option>
-                              <option value="kg">kg</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
+                {editOrderForm.orderDetailsList && editOrderForm.orderDetailsList.length > 1 ? (
+                  <div className="space-y-4">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">Product Specifications ({editOrderForm.orderDetailsList.length} Items)</p>
+                    {editOrderForm.orderDetailsList.map((item, index) => {
+                      const selProdItem = productItems.find(p => String(p?._id || p?.id || "").trim() === item.productId);
+                      const isItemRoll = !!(selProdItem?.category?.toLowerCase().includes("roll") || item.productCategory?.toLowerCase().includes("roll"));
+                      
+                      return (
+                        <div key={index} className="rounded-2xl border border-gray-200 bg-gray-50/50 p-4 space-y-4 shadow-3xs">
+                          <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                            <span className="text-xs font-extrabold text-emerald-800 uppercase">Item #{index + 1}: {selProdItem?.name || "Product"}</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                Product <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={item.productId}
+                                disabled={isOrderPaid}
+                                onChange={(e) => {
+                                  const prodId = e.target.value;
+                                  const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
+                                  const isRollCategory = prod?.category?.toLowerCase().includes("roll");
+                                  const newList = [...editOrderForm.orderDetailsList];
+                                  newList[index] = {
+                                    ...newList[index],
+                                    productId: prodId,
+                                    productCategory: prod?.category || "",
+                                    length: prod?.dimensions?.length || "",
+                                    width: prod?.dimensions?.width || "",
+                                    height: prod?.dimensions?.height || "",
+                                    dimensionUnit: prod?.dimensions?.unit || "inch",
+                                    gsm: prod?.gsm || "",
+                                    color: prod?.color || "",
+                                    bagSize: prod?.bagSize || "",
+                                    unit: isRollCategory ? "kg" : "pcs",
+                                  };
+                                  setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                }}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-emerald-500"
+                                required
+                              >
+                                <option value="">Select Product</option>
+                                {productItems.map((product) => (
+                                  <option key={product._id || product.id} value={product._id || product.id}>
+                                    {product.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                Order Quantity <span className="text-red-500">*</span>
+                              </label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].quantity = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  placeholder="Quantity"
+                                  className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                  required
+                                />
+                                <select
+                                  value={item.unit}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].unit = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  className="w-[70px] rounded-xl border border-gray-200 bg-white px-1 py-2 text-xs outline-none focus:border-emerald-500"
+                                >
+                                  {isItemRoll ? (
+                                    <>
+                                      <option value="kg">kg</option>
+                                      <option value="m">m</option>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <option value="pcs">pcs</option>
+                                      <option value="kg">kg</option>
+                                    </>
+                                  )}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                Dimension Unit
+                              </label>
+                              <select
+                                value={item.dimensionUnit || "inch"}
+                                disabled={isOrderPaid}
+                                onChange={(e) => {
+                                  const newList = [...editOrderForm.orderDetailsList];
+                                  newList[index].dimensionUnit = e.target.value;
+                                  setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                }}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                              >
+                                <option value="inch">Inch</option>
+                                <option value="cm">CM</option>
+                                <option value="mm">MM</option>
+                              </select>
+                            </div>
+
+                            {!isItemRoll ? (
+                              <>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                    Bag Size <span className="text-red-500">*</span>
+                                  </label>
+                                  <select
+                                    value={item.bagSize}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].bagSize = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                    required
+                                  >
+                                    <option value="">Select Size</option>
+                                    <option value="Small">Small</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Large">Large</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                    Color
+                                  </label>
+                                  <select
+                                    value={item.color}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].color = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                  >
+                                    <option value="">Select color</option>
+                                    <option value="Brown">Brown</option>
+                                    <option value="White">White</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Length <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="number"
+                                    value={item.length}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].length = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="number"
+                                    value={item.width}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].width = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Height <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="number"
+                                    value={item.height}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].height = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                    required
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">GSM <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="number"
+                                    value={item.gsm}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].gsm = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="number"
+                                    value={item.width}
+                                    disabled={isOrderPaid}
+                                    onChange={(e) => {
+                                      const newList = [...editOrderForm.orderDetailsList];
+                                      newList[index].width = e.target.value;
+                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                    required
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <div className="mb-4 flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                      <p className="text-sm font-bold text-gray-800">Product Specifications</p>
                     </div>
 
-                    {((!isManualRoll && editOrderForm.unit === "kg") || (isManualRoll && editOrderForm.unit === "m")) && (
-                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Unit Conversion Mode
-                          </label>
-                          <select
-                            value={editOrderForm.calculationMode || "auto"}
-                            onChange={(e) =>
-                              handleEditFormChange("calculationMode", e.target.value)
-                            }
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                          >
-                            <option value="auto">Auto via Formula</option>
-                            <option value="manual">Enter Manually</option>
-                          </select>
-                        </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">
+                          Product <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={editOrderForm.productId}
+                          disabled={isOrderPaid}
+                          onChange={(e) => {
+                            const prodId = e.target.value;
+                            const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
+                            const isRollCategory = prod?.category?.toLowerCase().includes("roll");
+                            setEditOrderForm(prev => ({
+                              ...prev,
+                              productId: prodId,
+                              productCategory: prod?.category || "",
+                              length: prod?.dimensions?.length || "",
+                              width: prod?.dimensions?.width || "",
+                              height: prod?.dimensions?.height || "",
+                              dimensionUnit: prod?.dimensions?.unit || "inch",
+                              gsm: prod?.gsm || "",
+                              color: prod?.color || prev.color || "",
+                              bagSize: prod?.bagSize || prev.bagSize || "",
+                              unit: isRollCategory ? "kg" : "pcs",
+                              calculationMode: "auto",
+                              convertedQuantity: "",
+                            }));
+                          }}
+                          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                          required
+                        >
+                          <option value="">Select Product</option>
+                          {productItems.map((product) => (
+                            <option key={product._id || product.id} value={product._id || product.id}>
+                              {product.name} {product.sku ? `(${product.sku})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
-                          </label>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">
+                          Order Quantity <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex gap-2">
                           <input
                             type="number"
                             min="1"
-                            value={editOrderForm.convertedQuantity || ""}
-                            onChange={(e) =>
-                              handleEditFormChange("convertedQuantity", e.target.value)
-                            }
-                            placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
-                            disabled={editOrderForm.calculationMode !== "manual"}
-                            className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                              editOrderForm.calculationMode === "manual"
-                                ? "border-emerald-300 bg-white focus:border-emerald-500"
-                                : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">
-                        {isManualRoll ? "Width Unit" : "Dimension Unit"}
-                      </label>
-                      <select
-                        value={editOrderForm.dimensionUnit}
-                        onChange={(e) => handleEditFormChange("dimensionUnit", e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                      >
-                        <option value="inch">Inch</option>
-                        <option value="cm">CM</option>
-                        <option value="mm">MM</option>
-                        <option value="ft">Feet</option>
-                      </select>
-                    </div>
-
-                    {isManualRoll ? (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            GSM <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editOrderForm.gsm}
-                            onChange={(e) => handleEditFormChange("gsm", e.target.value)}
-                            placeholder="GSM"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            value={editOrderForm.quantity}
+                            disabled={isOrderPaid}
+                            onChange={(e) => handleEditFormChange("quantity", e.target.value)}
+                            placeholder="Quantity"
+                            className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                             required
                           />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Width <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editOrderForm.width}
-                            onChange={(e) => handleEditFormChange("width", e.target.value)}
-                            placeholder="Width"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Bag Size <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={editOrderForm.bagSize}
-                            onChange={(e) => handleEditFormChange("bagSize", e.target.value)}
-                            placeholder="Bag Size"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Color
-                          </label>
                           <select
-                            value={editOrderForm.color}
-                            onChange={(e) => handleEditFormChange("color", e.target.value)}
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                            value={editOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
+                            disabled={isOrderPaid}
+                            onChange={(e) => handleEditFormChange("unit", e.target.value)}
+                            className="w-[90px] rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                           >
-                            <option value="">Select color</option>
-                            <option value="Brown">Brown</option>
-                            <option value="White">White</option>
+                            {isManualRoll ? (
+                              <>
+                                <option value="kg">kg</option>
+                                <option value="m">meter</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="pcs">pcs</option>
+                                <option value="kg">kg</option>
+                              </>
+                            )}
                           </select>
                         </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Length <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editOrderForm.length}
-                            onChange={(e) => handleEditFormChange("length", e.target.value)}
-                            placeholder="Length"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
+                      </div>
+
+                      {((!isManualRoll && editOrderForm.unit === "kg") || (isManualRoll && editOrderForm.unit === "m")) && (
+                        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Unit Conversion Mode
+                            </label>
+                            <select
+                              value={editOrderForm.calculationMode || "auto"}
+                              disabled={isOrderPaid}
+                              onChange={(e) =>
+                                handleEditFormChange("calculationMode", e.target.value)
+                              }
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            >
+                              <option value="auto">Auto via Formula</option>
+                              <option value="manual">Enter Manually</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editOrderForm.convertedQuantity || ""}
+                              onChange={(e) =>
+                                handleEditFormChange("convertedQuantity", e.target.value)
+                              }
+                              placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
+                              disabled={editOrderForm.calculationMode !== "manual" || isOrderPaid}
+                              className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
+                                (editOrderForm.calculationMode === "manual" && !isOrderPaid)
+                                  ? "border-emerald-300 bg-white focus:border-emerald-500"
+                                  : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
+                              }`}
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Width <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editOrderForm.width}
-                            onChange={(e) => handleEditFormChange("width", e.target.value)}
-                            placeholder="Width"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">
-                            Height <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editOrderForm.height}
-                            onChange={(e) => handleEditFormChange("height", e.target.value)}
-                            placeholder="Height"
-                            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            required
-                          />
-                        </div>
-                      </>
-                    )}
+                      )}
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">
+                          {isManualRoll ? "Width Unit" : "Dimension Unit"}
+                        </label>
+                        <select
+                          value={editOrderForm.dimensionUnit}
+                          disabled={isOrderPaid}
+                          onChange={(e) => handleEditFormChange("dimensionUnit", e.target.value)}
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        >
+                          <option value="inch">Inch</option>
+                          <option value="cm">CM</option>
+                          <option value="mm">MM</option>
+                          <option value="ft">Feet</option>
+                        </select>
+                      </div>
+
+                      {isManualRoll ? (
+                        <>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              GSM <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editOrderForm.gsm}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("gsm", e.target.value)}
+                              placeholder="GSM"
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Width <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editOrderForm.width}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("width", e.target.value)}
+                              placeholder="Width"
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                              required
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Bag Size <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={editOrderForm.bagSize}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("bagSize", e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed text-gray-900 font-medium"
+                              required
+                            >
+                              <option value="">Select Size</option>
+                              <option value="Small">Small</option>
+                              <option value="Medium">Medium</option>
+                              <option value="Large">Large</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Color
+                            </label>
+                            <select
+                              value={editOrderForm.color}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("color", e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            >
+                              <option value="">Select color</option>
+                              <option value="Brown">Brown</option>
+                              <option value="White">White</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Length <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editOrderForm.length}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("length", e.target.value)}
+                              placeholder="Length"
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Width <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editOrderForm.width}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("width", e.target.value)}
+                              placeholder="Width"
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Height <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editOrderForm.height}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("height", e.target.value)}
+                              placeholder="Height"
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                              required
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="rounded-2xl border border-gray-100 p-4">
                   <label className="mb-2 block text-xs font-semibold text-gray-600">
                     Notes
                   </label>
                   <textarea
-                    rows={4}
+                    rows={3}
                     value={editOrderForm.notes}
                     onChange={(e) => handleEditFormChange("notes", e.target.value)}
                     placeholder="Notes"
@@ -3751,17 +6463,166 @@ ${lines || "(See PDF for full BOM)"}
                   />
                 </div>
 
+                <div className="rounded-2xl border border-red-100 bg-red-50/20 p-4">
+                  <label className="mb-2 block text-xs font-bold text-gray-700">
+                    Reason for Edit <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editOrderForm.editReason || ""}
+                    onChange={(e) => handleEditFormChange("editReason", e.target.value)}
+                    placeholder="Provide a clear explanation for this modification (e.g. customer requested dimension adjustment)..."
+                    className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                    required
+                  />
+                </div>
+
                 <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
                   <Button type="button" variant="secondary" onClick={resetEditOrderForm}>
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl">
                     Save Changes
                   </Button>
                 </div>
               </form>
             );
           })()}
+        </Modal>
+
+        <Modal
+          isOpen={showDeliveryModal}
+          title="Update Delivery & Dispatch Details"
+          onClose={() => {
+            setShowDeliveryModal(false);
+            setDeliveryTargetOrder(null);
+          }}
+        >
+          {deliveryTargetOrder && (
+            <form onSubmit={handleSaveDeliveryDetails} className="space-y-4">
+              <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                <p className="text-sm font-bold text-gray-900">{deliveryTargetOrder.customerName}</p>
+                <p className="text-xs text-gray-600">
+                  {deliveryTargetOrder.productCategory} · Qty {deliveryTargetOrder.orderDetails?.quantity || deliveryTargetOrder.quantity}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Receiver Name
+                  </label>
+                  <input
+                    type="text"
+                    value={deliveryForm.receiverName}
+                    onChange={(e) => setDeliveryForm({ ...deliveryForm, receiverName: e.target.value })}
+                    placeholder="Enter receiver's name"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Receiver Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={deliveryForm.receiverPhone}
+                    onChange={(e) => setDeliveryForm({ ...deliveryForm, receiverPhone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                    placeholder="Enter phone number"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Delivery Mode
+                  </label>
+                  <select
+                    value={deliveryForm.deliveryMode}
+                    onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryMode: e.target.value })}
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 text-gray-900 font-medium"
+                  >
+                    <option value="courier">Courier</option>
+                    <option value="transport">Transport</option>
+                    <option value="pickup">Pickup</option>
+                    <option value="self">Self Delivery</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-2 block text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+                      Delivery Date
+                    </label>
+                    <input
+                      type="date"
+                      value={deliveryForm.deliveryDate}
+                      onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryDate: e.target.value })}
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none transition focus:border-emerald-500 text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+                      Dispatch Date
+                    </label>
+                    <input
+                      type="date"
+                      value={deliveryForm.dispatchDate}
+                      onChange={(e) => setDeliveryForm({ ...deliveryForm, dispatchDate: e.target.value })}
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none transition focus:border-emerald-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Delivery Address <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={deliveryForm.deliveryAddress}
+                    onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryAddress: e.target.value })}
+                    placeholder="Enter full shipping/delivery address"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 text-gray-900 font-medium"
+                    required
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Delivery Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={deliveryForm.deliveryNotes}
+                    onChange={(e) => setDeliveryForm({ ...deliveryForm, deliveryNotes: e.target.value })}
+                    placeholder="Any specific delivery instructions..."
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 text-gray-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowDeliveryModal(false);
+                    setDeliveryTargetOrder(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl"
+                >
+                  Update Details
+                </Button>
+              </div>
+            </form>
+          )}
         </Modal>
 
         <Modal
@@ -3796,11 +6657,80 @@ ${lines || "(See PDF for full BOM)"}
                     )}
                   </div>
 
+                  <div className="flex justify-between items-center bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                    <span className="text-xs font-bold text-gray-750">Fulfillment Mode:</span>
+                    <div className="flex gap-1 bg-gray-200/60 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setQuotationMode("AUTO")}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                          quotationMode === "AUTO"
+                            ? "bg-white text-emerald-700 shadow-xs"
+                            : "text-gray-600 hover:text-gray-800"
+                        }`}
+                      >
+                        Smart Stock Match
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuotationMode("RAW_ONLY")}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                          quotationMode === "RAW_ONLY"
+                            ? "bg-white text-emerald-700 shadow-xs"
+                            : "text-gray-600 hover:text-gray-800"
+                        }`}
+                      >
+                        Production BOM (Manufacture)
+                      </button>
+                    </div>
+                  </div>
+
                   {(() => {
-                    const stockCovered = Number(quotationPricing?.canFulfillFromStock || 0);
-                    const stockUnitPrice = Number(getStockUnitQuotePrice(quotationPricing, quotationOrder) || 0);
-                    const prodCost = Number(quotationPricing?.totalOrderMaterialCost || 0);
-                    const suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
+                    let suggestedTotal = 0;
+                    const itemsBreakdown = [];
+
+                    if (quotationPricing?.perProductResults && quotationPricing.perProductResults.length > 0) {
+                      for (const pr of quotationPricing.perProductResults) {
+                        const itemQty = Number(pr.quantity || 0);
+                        const itemStockQty = Number(pr.canFulfillFromStock || 0);
+                        const itemRequiredProd = Number(pr.requiredFromProduction || 0);
+                        const itemProdCost = (Number(pr.totalOrderMaterialCost || 0) / (itemQty || 1)) * itemRequiredProd;
+                        const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
+                        const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
+                        const itemStockVal = itemStockQty * itemStockUnitPrice;
+                        suggestedTotal += itemStockVal + itemProdCost;
+
+                        itemsBreakdown.push({
+                          productName: pr.productName || pObj?.name || "Product",
+                          hsnCode: pObj?.hsnCode || "—",
+                          stockQty: itemStockQty,
+                          unitPrice: itemStockUnitPrice,
+                          prodCost: Number(pr.totalOrderMaterialCost || 0),
+                          requiredFromProduction: itemRequiredProd,
+                          fullQty: itemQty,
+                        });
+                      }
+                    } else {
+                      const stockCovered = Number(quotationPricing?.canFulfillFromStock || 0);
+                      const stockUnitPrice = Number(getStockUnitQuotePrice(quotationPricing, quotationOrder) || 0);
+                      const fullQty = Number(quotationOrder.orderDetails?.quantity || quotationOrder.quantity || 1) || 1;
+                      const requiredFromProduction = Number(quotationPricing?.requiredFromProduction || 0);
+                      const prodCost = (Number(quotationPricing?.totalOrderMaterialCost || 0) / (fullQty || 1)) * requiredFromProduction;
+                      suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
+                      const pObj = productItems.find(p => 
+                        String(p?._id || p?.id || "").trim() === String(quotationOrder.productId || quotationOrder.orderDetails?.productId || "").trim()
+                      );
+
+                      itemsBreakdown.push({
+                        productName: quotationOrder.productCategory || pObj?.name || "Product",
+                        hsnCode: pObj?.hsnCode || "—",
+                        stockQty: stockCovered,
+                        unitPrice: stockUnitPrice,
+                        prodCost: Number(quotationPricing?.totalOrderMaterialCost || 0),
+                        requiredFromProduction: requiredFromProduction,
+                        fullQty: fullQty,
+                      });
+                    }
 
                     return quotationPricing && (
                       <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4 space-y-3">
@@ -3818,145 +6748,256 @@ ${lines || "(See PDF for full BOM)"}
 
                         <div className="border-t border-violet-100 pt-3">
                           <p className="text-xs font-bold text-gray-900">Pricing Breakdown & Formula:</p>
-                          <div className="mt-2 text-xs text-gray-700 space-y-1.5 bg-white rounded-xl p-3 border border-violet-50">
+                          <div className="mt-2 text-xs text-gray-700 space-y-3 bg-white rounded-xl p-3 border border-violet-50">
                             <p className="font-mono text-[10px] text-violet-800 font-bold bg-violet-50 px-2 py-1 rounded inline-block">
                               Formula: (Stock Qty × Stock Sell Price) + Raw Material Cost
                             </p>
-                            <ul className="list-inside list-disc pl-1 space-y-1 text-gray-600 mt-1">
-                              <li>
-                                Stock covered: <span className="font-semibold text-gray-800">{stockCovered} units</span> (at ₹{stockUnitPrice}/unit = ₹{(stockCovered * stockUnitPrice).toLocaleString()})
-                              </li>
-                              <li>
-                                Production material cost: <span className="font-semibold text-gray-800">₹{prodCost.toLocaleString()}</span> (for {Number(quotationPricing.requiredFromProduction || 0)} units)
-                              </li>
-                            </ul>
+                            {itemsBreakdown.map((item, idx) => {
+                              const itemRequiredProd = Number(item.requiredFromProduction || 0);
+                              const fullQty = Number(item.fullQty || 1) || 1;
+                              const prodCostForRequired = (item.prodCost / fullQty) * itemRequiredProd;
+
+                              return (
+                                <div key={idx} className="border-t border-violet-100/50 first:border-0 pt-2 first:pt-0">
+                                  <p className="font-bold text-[11px] text-violet-950">
+                                    {item.productName} {item.hsnCode && item.hsnCode !== "—" ? `(HSN: ${item.hsnCode})` : ""}
+                                  </p>
+                                  <ul className="list-inside list-disc pl-1 space-y-0.5 text-gray-600 mt-1">
+                                    <li>
+                                      Stock covered: <span className="font-semibold text-gray-800">{item.stockQty} units</span> (at ₹{item.unitPrice}/unit = ₹{(item.stockQty * item.unitPrice).toLocaleString()})
+                                    </li>
+                                    <li>
+                                      Raw material cost: <span className="font-semibold text-gray-800">₹{item.prodCost.toLocaleString()}</span> (BOM cost for {fullQty} units)
+                                    </li>
+                                    <li>
+                                      Production material cost: <span className="font-semibold text-gray-800">₹{prodCostForRequired.toLocaleString()}</span> (for {itemRequiredProd} units required from production)
+                                    </li>
+                                  </ul>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
                     );
                   })()}
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Quote Number</label>
-                      <input
-                        type="text"
-                        value={quotationNumberInput}
-                        onChange={(e) => setQuotationNumberInput(e.target.value)}
-                        placeholder="e.g. QT-1002"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Subtotal Amount (₹)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={quotationSubtotalInput}
-                        onChange={(e) => handleSubtotalChange(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={quotationTaxRateInput}
-                        onChange={(e) => handleTaxChange(e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Shipping Charges (₹)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={quotationShippingInput}
-                        onChange={(e) => handleShippingChange(e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Other Charges (₹)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={quotationOtherInput}
-                        onChange={(e) => handleOtherChange(e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Total Quoted (₹) [Calculated]</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={quotationTotalInput}
-                        readOnly
-                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Valid until</label>
-                      <input
-                        type="date"
-                        value={quotationValidUntil}
-                        onChange={(e) => setQuotationValidUntil(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
+                  {(() => {
+                    const isApproved = String(quotationOrder?.quotation?.status || "").toLowerCase() === "approved";
+                    const itemBreakdown = getQuotationItemsBreakdown(quotationOrder, quotationPricing, Number(quotationSubtotalInput || 0), productItems);
+                    const totalGst = itemBreakdown.reduce((s, r) => s + r.gstAmount, 0);
+                    const totalSub = itemBreakdown.reduce((s, r) => s + r.subtotal, 0);
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      className="rounded-2xl bg-emerald-700 hover:bg-emerald-800"
-                      onClick={() =>
-                        generateQuotationPDF(quotationOrder, quotationPricing, {
-                          totalQuoted: quotationTotalInput,
-                          validUntil: quotationValidUntil,
-                          quotationNumber: quotationNumberInput,
-                          taxRate: quotationTaxRateInput,
-                          shippingCharges: quotationShippingInput,
-                          otherCharges: quotationOtherInput,
-                          subtotalAmount: quotationSubtotalInput,
-                        })
-                      }
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PDF
-                    </Button>
-                    <Button type="button" variant="secondary" className="rounded-2xl" onClick={handleQuotationWhatsApp}>
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      WhatsApp
-                    </Button>
-                    <Button type="button" variant="secondary" className="rounded-2xl" onClick={handleQuotationMailto}>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Email
-                    </Button>
-                    <Button type="button" variant="secondary" className="rounded-2xl" onClick={() => patchQuotation("draft")}>
-                      Save draft
-                    </Button>
-                    <Button
-                      type="button"
-                      className="rounded-2xl bg-violet-700 hover:bg-violet-800"
-                      onClick={() => patchQuotation("sent")}
-                    >
-                      Mark sent
-                    </Button>
-                    <Button
-                      type="button"
-                      className="rounded-2xl bg-teal-700 hover:bg-teal-800"
-                      onClick={() => patchQuotation("approved")}
-                    >
-                      Approve
-                    </Button>
-                  </div>
+                    return (
+                      <>
+                        {itemBreakdown.length > 0 && (
+                          <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-2 mb-4 animate-fade-in">
+                            <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                              <span>📋</span> Product-wise HSN &amp; GST Breakdown
+                            </p>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-blue-800 text-white font-semibold">
+                                    <th className="px-3 py-2 text-left rounded-tl-lg">Product</th>
+                                    <th className="px-3 py-2 text-center">HSN Code</th>
+                                    <th className="px-3 py-2 text-center">GST %</th>
+                                    <th className="px-3 py-2 text-right">Taxable Amt</th>
+                                    <th className="px-3 py-2 text-right rounded-tr-lg">GST Amt (₹)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {itemBreakdown.map((row, idx) => (
+                                    <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-blue-50/60"}>
+                                      <td className="px-3 py-2 font-medium text-gray-800">{row.productName}</td>
+                                      <td className="px-3 py-2 text-center font-mono text-gray-600">{row.hsnCode}</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <span className="inline-block rounded-full bg-blue-100 text-blue-800 font-bold px-2 py-0.5">{row.gstRate}%</span>
+                                      </td>
+                                      <td className="px-3 py-2 text-right text-gray-700">₹{row.subtotal.toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-right font-semibold text-blue-900">₹{row.gstAmount.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="border-t-2 border-blue-200 bg-blue-100/60 font-bold">
+                                    <td colSpan={3} className="px-3 py-2 text-right text-gray-700">Total GST Collected:</td>
+                                    <td className="px-3 py-2 text-right text-gray-700">₹{totalSub.toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-right text-blue-900">₹{totalGst.toFixed(2)}</td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Quote Number</label>
+                            <input
+                              type="text"
+                              value={quotationNumberInput}
+                              onChange={(e) => setQuotationNumberInput(e.target.value)}
+                              placeholder="e.g. QT-1002"
+                              disabled={isApproved}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Subtotal Amount (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={quotationSubtotalInput}
+                              onChange={(e) => handleSubtotalChange(e.target.value)}
+                              disabled={isApproved}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate</label>
+                            <div className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700">
+                              Product-wise (Auto-applied)
+                            </div>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Total GST (₹) [Calculated]</label>
+                            <input
+                              type="text"
+                              value={`₹${totalGst.toFixed(2)}`}
+                              readOnly
+                              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Shipping Charges (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={quotationShippingInput}
+                              onChange={(e) => handleShippingChange(e.target.value)}
+                              placeholder="0"
+                              disabled={isApproved}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Other Charges (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={quotationOtherInput}
+                              onChange={(e) => handleOtherChange(e.target.value)}
+                              placeholder="0"
+                              disabled={isApproved}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Total Bill / Quoted (₹) [Calculated]</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={quotationTotalInput}
+                              readOnly
+                              disabled={isApproved}
+                              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none disabled:cursor-not-allowed"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Valid until</label>
+                            <input
+                              type="date"
+                              value={quotationValidUntil}
+                              onChange={(e) => setQuotationValidUntil(e.target.value)}
+                              disabled={isApproved}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-150 flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="showPaymentInfoQuoteModal"
+                              checked={showPaymentInfo}
+                              onChange={(e) => {
+                                setShowPaymentInfo(e.target.checked);
+                                localStorage.setItem("nirmalyam_show_payment_info", e.target.checked ? "true" : "false");
+                              }}
+                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                            />
+                            <label htmlFor="showPaymentInfoQuoteModal" className="text-xs font-bold text-gray-750 cursor-pointer">
+                              Show Bank details &amp; Payment info on this quotation
+                            </label>
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-mono font-semibold">Configured in Ledgers</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {isApproved ? (
+                            <>
+                              <Button
+                                type="button"
+                                className="rounded-2xl bg-emerald-700 hover:bg-emerald-800"
+                                onClick={() =>
+                                  generateQuotationPDF(quotationOrder, quotationPricing, {
+                                    totalQuoted: quotationTotalInput,
+                                    validUntil: quotationValidUntil,
+                                    quotationNumber: quotationNumberInput,
+                                    taxRate: quotationTaxRateInput,
+                                    shippingCharges: quotationShippingInput,
+                                    otherCharges: quotationOtherInput,
+                                    subtotalAmount: quotationSubtotalInput,
+                                  })
+                                }
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Download PDF
+                              </Button>
+                              <Button type="button" variant="secondary" className="rounded-2xl" onClick={handleQuotationWhatsApp}>
+                                <MessageCircle className="mr-2 h-4 w-4" />
+                                WhatsApp
+                              </Button>
+                              <Button type="button" variant="secondary" className="rounded-2xl" onClick={handleQuotationMailto}>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Email
+                              </Button>
+                              <Button
+                                type="button"
+                                className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white ml-auto"
+                                onClick={handleRecreateQuotation}
+                              >
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Recreate New Quotation
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button type="button" variant="secondary" className="rounded-2xl" onClick={() => patchQuotation("draft")}>
+                                Save draft
+                              </Button>
+                              <Button
+                                type="button"
+                                className="rounded-2xl bg-violet-700 hover:bg-violet-800"
+                                onClick={() => patchQuotation("sent")}
+                              >
+                                Mark sent
+                              </Button>
+                              <Button
+                                type="button"
+                                className="rounded-2xl bg-teal-700 hover:bg-teal-800"
+                                onClick={() => patchQuotation("approved")}
+                              >
+                                Approve
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -3974,18 +7015,69 @@ ${lines || "(See PDF for full BOM)"}
           {billOrder && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 animate-fade-in space-y-1">
-                <p className="text-sm font-bold text-gray-900">{billOrder.customerName}</p>
-                <p className="text-xs text-gray-600">
-                  {billOrder.productCategory} · Qty {billOrder.orderDetails?.quantity} {billOrder.orderDetails?.unit || "pcs"}
-                </p>
-                <div className="mt-2 pt-2 border-t border-emerald-100/60 text-[11px] text-emerald-800 grid grid-cols-2 gap-y-1 gap-x-4">
-                  <span>Approved Total: ₹{Number(billOrder.totalAmount || 0).toLocaleString()}</span>
-                  <span>Approved Subtotal: ₹{Number(billOrder.subtotalAmount || billOrder.totalAmount || 0).toLocaleString()}</span>
-                  <span>Approved Tax: {billOrder.taxRate || 0}%</span>
-                  <span>Approved Shipping: ₹{Number(billOrder.shippingCharges || 0).toLocaleString()}</span>
-                  {billOrder.otherCharges > 0 && <span>Approved Other: ₹{Number(billOrder.otherCharges || 0).toLocaleString()}</span>}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">{billOrder.customerName}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {billOrder.orderDetailsList && billOrder.orderDetailsList.length > 1 ? (
+                        <>
+                          {billOrder.orderDetailsList.length} Products · Total Qty {billOrder.orderDetailsList.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} pcs
+                        </>
+                      ) : (
+                        <>
+                          {billOrder.productCategory} · Qty {billOrder.orderDetails?.quantity} {billOrder.orderDetails?.unit || "pcs"}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/80">Remaining to Invoice</p>
+                    <p className="text-sm font-black text-emerald-950">
+                      ₹{Number(Math.max(0, (billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0) - (billOrder.paidAmount || 0))).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-emerald-100/65 text-[11px] text-emerald-800 grid grid-cols-2 gap-y-1 gap-x-4">
+                  <span>Approved Total: ₹{Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0).toLocaleString()}</span>
+                  <span>Approved Subtotal: ₹{Number(billOrder.subtotalAmount || billOrder.quotation?.subtotalAmount || billOrder.totalAmount || 0).toLocaleString()}</span>
+                  <span>Approved Tax: {billOrder.taxRate || billOrder.quotation?.taxRate || 0}%</span>
+                  <span>Approved Shipping: ₹{Number(billOrder.shippingCharges || billOrder.quotation?.shippingCharges || 0).toLocaleString()}</span>
+                  <span>Paid So Far: ₹{Number(billOrder.paidAmount || 0).toLocaleString()}</span>
+                  {(billOrder.otherCharges || billOrder.quotation?.otherCharges) > 0 && <span>Approved Other: ₹{Number(billOrder.otherCharges || billOrder.quotation?.otherCharges || 0).toLocaleString()}</span>}
                 </div>
               </div>
+
+              {lastReceipt && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3.5 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-blue-950 flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span>Last Invoiced Installment: {lastReceipt.receiptNumber}</span>
+                    </p>
+                    <p className="text-blue-700">
+                      Amount: <span className="font-bold text-blue-900">₹{Number(lastReceipt.amount).toLocaleString()}</span> · Date: {new Date(lastReceipt.paidAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => downloadReceiptPDF(lastReceipt, "view")}
+                      className="rounded-xl bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 font-semibold transition shadow-sm text-[11px] flex items-center gap-1"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadReceiptPDF(lastReceipt, "download")}
+                      className="rounded-xl bg-white border border-blue-200 hover:bg-blue-50 text-blue-800 px-3 py-1.5 font-semibold transition shadow-sm text-[11px] flex items-center gap-1"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -3996,6 +7088,21 @@ ${lines || "(See PDF for full BOM)"}
                     onChange={(e) => setBillNumber(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600 font-bold">Payment Mode</label>
+                  <select
+                    value={billPaymentMode}
+                    onChange={(e) => setBillPaymentMode(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="card">Card / Cheque</option>
+                    <option value="invoice">Invoice (Unpaid/Default)</option>
+                    <option value="refund">Refund</option>
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">Invoice Date</label>
@@ -4026,33 +7133,12 @@ ${lines || "(See PDF for full BOM)"}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={billTaxRate}
-                    onChange={(e) => setBillTaxRate(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">Shipping/Transport Charges (₹)</label>
                   <input
                     type="number"
                     min="0"
                     value={billShipping}
                     onChange={(e) => setBillShipping(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-gray-600">Other Charges (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={billOther}
-                    onChange={(e) => setBillOther(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -4066,17 +7152,109 @@ ${lines || "(See PDF for full BOM)"}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
                   />
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-semibold text-gray-600">Grand Total (₹) [Calculated]</label>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Other Charges (₹)</label>
                   <input
                     type="number"
                     min="0"
-                    value={Number(((Number(billSubtotal || 0) - Number(billDiscount || 0)) * (1 + Number(billTaxRate || 0) / 100) + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2))}
-                    readOnly
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none"
+                    value={billOther}
+                    onChange={(e) => setBillOther(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
                   />
                 </div>
+                <div className="sm:col-span-2 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-150 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="showPaymentInfoBillModal"
+                      checked={showPaymentInfo}
+                      onChange={(e) => {
+                        setShowPaymentInfo(e.target.checked);
+                        localStorage.setItem("nirmalyam_show_payment_info", e.target.checked ? "true" : "false");
+                      }}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                    />
+                    <label htmlFor="showPaymentInfoBillModal" className="text-xs font-bold text-gray-750 cursor-pointer">
+                      Show Bank details &amp; Payment info on this invoice
+                    </label>
+                  </div>
+                  <span className="text-[10px] text-gray-400 font-mono font-semibold">Configured in Ledgers</span>
+                </div>
+                {(() => {
+                    const itemBreakdown = getQuotationItemsBreakdown(billOrder, null, Number(billSubtotal || 0), productItems);
+                    const totalGst = itemBreakdown.reduce((s, r) => s + r.gstAmount, 0);
+                    const discountVal = Number(billDiscount || 0);
+                    const computedGrandTotal = Number((Number(billSubtotal || 0) - discountVal + totalGst + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2));
+                    const approvedTotal = Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0);
+                    const remainingToInvoiceVal = Number((approvedTotal - Number(billOrder.paidAmount || 0) - computedGrandTotal).toFixed(2));
+                    return (
+                      <div className="sm:col-span-2 space-y-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">Grand Total (₹) [Calculated]</label>
+                          <input
+                            type="text"
+                            value={`₹${computedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            readOnly
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none"
+                          />
+                        </div>
+                        {remainingToInvoiceVal > 0.01 && (
+                          <div className="rounded-xl bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-800 animate-fade-in">
+                            <p className="font-bold flex items-center gap-1 text-amber-900"><span>⚠️ Partial Invoice Detected</span></p>
+                            <p className="mt-0.5">Remaining approved order balance to be invoiced later: <span className="font-bold text-amber-950">₹{remainingToInvoiceVal.toLocaleString()}</span></p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
               </div>
+
+              {(() => {
+                const itemBreakdown = getQuotationItemsBreakdown(billOrder, null, Number(billSubtotal || 0), productItems);
+                if (itemBreakdown.length === 0) return null;
+                const totalGst = itemBreakdown.reduce((s, r) => s + r.gstAmount, 0);
+                const totalSub = itemBreakdown.reduce((s, r) => s + r.subtotal, 0);
+                return (
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-2">
+                    <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                      <span>📋</span> Product-wise HSN &amp; GST Breakdown
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-blue-800 text-white">
+                            <th className="px-3 py-2 text-left font-semibold rounded-tl-lg">Product</th>
+                            <th className="px-3 py-2 text-center font-semibold">HSN Code</th>
+                            <th className="px-3 py-2 text-center font-semibold">GST %</th>
+                            <th className="px-3 py-2 text-right font-semibold">Taxable Amt</th>
+                            <th className="px-3 py-2 text-right font-semibold rounded-tr-lg">GST Amt (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {itemBreakdown.map((row, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-blue-50/60"}>
+                              <td className="px-3 py-2 font-medium text-gray-800">{row.productName}</td>
+                              <td className="px-3 py-2 text-center font-mono text-gray-600">{row.hsnCode}</td>
+                              <td className="px-3 py-2 text-center">
+                                <span className="inline-block rounded-full bg-blue-100 text-blue-800 font-bold px-2 py-0.5">{row.gstRate}%</span>
+                              </td>
+                              <td className="px-3 py-2 text-right text-gray-700">₹{row.subtotal.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right font-semibold text-blue-900">₹{row.gstAmount.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-blue-200 bg-blue-100/60 font-bold">
+                            <td colSpan={3} className="px-3 py-2 text-right text-gray-700">Total GST Collected:</td>
+                            <td className="px-3 py-2 text-right text-gray-700">₹{totalSub.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right text-blue-900">₹{totalGst.toFixed(2)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-600">Bill/Invoice Notes</label>
@@ -4089,34 +7267,54 @@ ${lines || "(See PDF for full BOM)"}
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
-                <Button
-                  type="button"
-                  className="rounded-2xl bg-emerald-700 hover:bg-emerald-800"
-                  onClick={() =>
-                    generateBillPDF(billOrder, {
-                      billNumber,
-                      billDate,
-                      billDueDate,
-                      billTaxRate,
-                      billShipping,
-                      billDiscount,
-                      billNotes,
-                      billSubtotal,
-                      billOther
-                    })
-                  }
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF Bill
-                </Button>
-                <Button type="button" variant="secondary" className="rounded-2xl bg-green-900 text-white hover:bg-green-800" onClick={handleBillWhatsApp}>
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Share WhatsApp
-                </Button>
-                <Button type="button" variant="secondary" className="rounded-2xl bg-blue-700 text-white hover:bg-blue-800" onClick={handleBillEmail}>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Email Bill
-                </Button>
+                {!isBillSaved ? (
+                  <Button
+                    type="button"
+                    className="rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold w-full"
+                    onClick={handleSaveBill}
+                  >
+                    Save Bill / Invoice
+                  </Button>
+                ) : (
+                  <div className="flex flex-wrap gap-2 w-full">
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white"
+                      onClick={() =>
+                        generateBillPDF(billOrder, {
+                          billNumber,
+                          billDate,
+                          billDueDate,
+                          billTaxRate,
+                          billShipping,
+                          billDiscount,
+                          billNotes,
+                          billSubtotal,
+                          billOther
+                        })
+                      }
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PDF Bill
+                    </Button>
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-green-700 text-white hover:bg-green-800"
+                      onClick={handleBillWhatsApp}
+                    >
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Share WhatsApp
+                    </Button>
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-blue-700 text-white hover:bg-blue-800"
+                      onClick={handleBillEmail}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Email Bill
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4127,122 +7325,151 @@ ${lines || "(See PDF for full BOM)"}
           title="Order Availability Check"
           onClose={resetAvailabilityModal}
         >
-          <div className="space-y-5">
+          <div className="space-y-3.5">
             {availabilityOrder && (
               <>
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                      {availabilityOrder.avatar}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{availabilityOrder.customerName}</p>
-                      <p className="text-sm text-gray-500">{availabilityOrder.productCategory}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-xs font-semibold text-gray-500">
-                        {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "GSM" : "Bag Size"}
-                      </p>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {availabilityOrder.productCategory?.toLowerCase().includes("roll")
-                          ? (availabilityOrder.orderDetails?.gsm || "—")
-                          : (availabilityOrder.orderDetails?.bagSize || "—")}
-                      </p>
+                {/* Compact Details Header Row */}
+                <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 shrink-0">
+                        {availabilityOrder.avatar}
+                      </div>
+                      <div>
+                        <p className="text-xs font-extrabold text-gray-900 leading-tight">{availabilityOrder.customerName}</p>
+                        <p className="text-[10px] text-gray-500 font-medium leading-tight">{availabilityOrder.productCategory}</p>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-xs font-semibold text-gray-500">
-                        {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "Weight (kg)" : "Quantity (pcs)"}
-                      </p>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {availabilityOrder.orderDetails?.quantity || "—"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-xs font-semibold text-gray-500">Dimensions</p>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {availabilityOrder.productCategory?.toLowerCase().includes("roll")
-                          ? `Width: ${availabilityOrder.orderDetails?.dimensions?.width || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`
-                          : `${availabilityOrder.orderDetails?.dimensions?.length || 0} × ${availabilityOrder.orderDetails?.dimensions?.width || 0} × ${availabilityOrder.orderDetails?.dimensions?.height || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
-                  <div className="flex items-start gap-2">
-                    <ListOrdered className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
-                    <div>
-                      <p className="text-xs font-bold text-sky-900">Where this step sits in your process</p>
-                      <ol className="mt-2 list-inside list-decimal space-y-1 text-[11px] leading-relaxed text-sky-900/90">
-                        <li>Quotation — price and terms with the customer</li>
-                        <li>Order confirmation — agree SKU, qty, delivery (record on the order)</li>
-                        <li>
-                          <span className="font-semibold">Availability check (this screen)</span> — finished
-                          stock + raw material math before you process
-                        </li>
-                        <li>Process — reserve inventory / start production</li>
-                        <li>Complete — dispatch and close</li>
-                      </ol>
-                      <p className="mt-2 flex items-start gap-1.5 text-[11px] text-sky-800/95">
-                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        Your existing actions (quotation, confirm, process, complete) are unchanged; this only adds
-                        clearer numbers for the availability step.
-                      </p>
-                    </div>
+                    {/* Multi-product pills or single-product chip */}
+                    {(availabilityOrder.orderDetailsList?.length > 1) ? (
+                      <div className="flex flex-col gap-1 sm:items-end">
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{availabilityOrder.orderDetailsList.length} Products</span>
+                        <div className="flex flex-wrap gap-1">
+                          {availabilityOrder.orderDetailsList.map((det, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                              {det.quantity} {det.unit || "pcs"}
+                              {det.bagSize ? ` · ${det.bagSize}` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-150/60 shadow-xs sm:self-center">
+                        <div>
+                          <span className="font-semibold text-gray-400">
+                            {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "GSM" : "Size"}:
+                          </span>{" "}
+                          <span className="font-bold text-gray-800">
+                            {availabilityOrder.productCategory?.toLowerCase().includes("roll")
+                              ? (availabilityOrder.orderDetails?.gsm || "—")
+                              : (availabilityOrder.orderDetails?.bagSize || "—")}
+                          </span>
+                        </div>
+                        <div className="hidden sm:block border-l border-gray-250 h-3" />
+                        <div>
+                          <span className="font-semibold text-gray-400">
+                            {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "Weight" : "Qty"}:
+                          </span>{" "}
+                          <span className="font-bold text-gray-800">
+                            {availabilityOrder.orderDetails?.quantity || "—"} {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs"}
+                          </span>
+                        </div>
+                        <div className="hidden sm:block border-l border-gray-250 h-3" />
+                        <div>
+                          <span className="font-semibold text-gray-400">Dims:</span>{" "}
+                          <span className="font-bold text-gray-800">
+                            {availabilityOrder.productCategory?.toLowerCase().includes("roll")
+                              ? `${availabilityOrder.orderDetails?.dimensions?.width || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`
+                              : `${availabilityOrder.orderDetails?.dimensions?.length || 0}×${availabilityOrder.orderDetails?.dimensions?.width || 0}×${availabilityOrder.orderDetails?.dimensions?.height || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Collapsible Workflow Guide to save vertical space */}
+                <details className="group rounded-xl border border-sky-100 bg-sky-50/30">
+                  <summary className="flex items-center justify-between cursor-pointer p-2.5 text-xs text-sky-850 select-none font-bold">
+                    <div className="flex items-center gap-2">
+                      <ListOrdered className="h-3.5 w-3.5 text-sky-700" />
+                      <span>Where this step sits in your process (Click to view guide)</span>
+                    </div>
+                    <span className="text-gray-400 group-open:rotate-180 transition-transform text-[10px]">▼</span>
+                  </summary>
+                  <div className="px-3 pb-2.5 pt-1 border-t border-sky-100/60 text-xs text-sky-900">
+                    <ol className="list-inside list-decimal space-y-0.5 text-[11px] leading-relaxed">
+                      <li>Quotation — price and terms with the customer</li>
+                      <li>Order confirmation — agree SKU, qty, delivery (record on the order)</li>
+                      <li>
+                        <span className="font-semibold text-sky-950">Availability check (this screen)</span> — finished
+                        stock + raw material math before you process
+                      </li>
+                      <li>Process — reserve inventory / start production</li>
+                      <li>Complete — dispatch and close</li>
+                    </ol>
+                    <p className="mt-1.5 flex items-start gap-1 text-[10px] text-sky-800">
+                      <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>Your existing actions (quotation, confirm, process, complete) are unchanged; this only adds clearer numbers for the availability step.</span>
+                    </p>
+                  </div>
+                </details>
 
                 {availabilityResult && (
-                  <div className="flex justify-end">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Deduction Mode: {deductionMode}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setShowAdvancedAvailability(!showAdvancedAvailability)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-gray-250 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 hover:underline transition cursor-pointer"
                     >
-                      {showAdvancedAvailability ? "💡 Hide advanced options" : "🔧 Show advanced details & settings"}
+                      {showAdvancedAvailability ? "💡 Hide advanced settings" : "🔧 Advanced settings"}
                     </button>
                   </div>
                 )}
 
                 {showAdvancedAvailability && (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
-                    <label className="mb-2 block text-sm font-bold text-emerald-900">
-                      Choose Deduction Logic Mode
-                    </label>
-                    <select
-                      value={deductionMode}
-                      onChange={(e) => setDeductionMode(e.target.value)}
-                      className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                    >
-                      <option value="AUTO">AUTO (Search Finished Bags then Raw Materials)</option>
-                      <option value="RAW_ONLY">FORCE PRODUCTION (Raw Materials Only)</option>
-                      <option value="STOCK_ONLY">FORCE STOCK (Finished Bags Only)</option>
-                    </select>
-                    <button
-                      onClick={() => handleCheckOrderAvailability(availabilityOrder)}
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${checkingOrderId ? "animate-spin" : ""}`} />
-                      Apply Mode & Re-Check
-                    </button>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                        Choose Deduction Logic Mode
+                      </label>
+                      <select
+                        value={deductionMode}
+                        onChange={(e) => setDeductionMode(e.target.value)}
+                        className="w-full rounded-xl border border-emerald-250 bg-white px-3 py-2.5 text-xs outline-none transition focus:border-emerald-500"
+                      >
+                        <option value="AUTO">AUTO (Search Finished Bags then Raw Materials)</option>
+                        <option value="RAW_ONLY">FORCE PRODUCTION (Raw Materials Only)</option>
+                        <option value="STOCK_ONLY">FORCE STOCK (Finished Bags Only)</option>
+                      </select>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!availabilityOrder) return;
-                        setAvailabilityModalOpen(false);
-                        openQuotationModal(availabilityOrder);
-                      }}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-700 py-2.5 text-sm font-bold text-white transition hover:bg-violet-800"
-                    >
-                      <FileDown className="h-4 w-4" />
-                      Open Quotation
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCheckOrderAvailability(availabilityOrder)}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 cursor-pointer"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${checkingOrderId ? "animate-spin" : ""}`} />
+                        <span>Apply & Re-Check</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!availabilityOrder) return;
+                          setAvailabilityModalOpen(false);
+                          openQuotationModal(availabilityOrder);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-violet-750 py-2 text-xs font-bold text-white transition hover:bg-violet-850 cursor-pointer"
+                      >
+                        <FileDown className="h-3.5 w-3.5" />
+                        <span>Open Quotation</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -4250,17 +7477,15 @@ ${lines || "(See PDF for full BOM)"}
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-sm"
+                    className="overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-xs"
                   >
-                    <div className="flex items-center gap-4 px-5 py-5">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
-                        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-                      </div>
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <Loader2 className="h-4.5 w-4.5 animate-spin text-emerald-600 shrink-0" />
                       <div>
-                        <p className="text-base font-bold text-emerald-900">
+                        <p className="text-xs font-bold text-emerald-950">
                           Analyzing inventory with {deductionMode} mode...
                         </p>
-                        <p className="mt-1 text-sm text-emerald-700">
+                        <p className="text-[10px] text-emerald-700">
                           Calculating material scaling and checking reservations
                         </p>
                       </div>
@@ -4269,49 +7494,63 @@ ${lines || "(See PDF for full BOM)"}
                 ) : availabilityResult ? (
                   <>
                     {!showAdvancedAvailability ? (
-                      <div className="space-y-5">
+                      <div className="space-y-3">
                         {availabilityResult.productResolved === false ? (
-                          <div className="rounded-3xl border-2 border-indigo-200 bg-indigo-50 p-6 text-center shadow-md animate-fade-in">
-                            <span className="text-5xl">🔗</span>
-                            <h3 className="mt-3 text-xl font-black text-indigo-900">Product Not Matched</h3>
-                            <p className="mt-1 text-sm text-indigo-700 font-bold">
+                          <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4 text-center shadow-xs animate-fade-in space-y-1">
+                            <span className="text-3xl">🔗</span>
+                            <h3 className="text-sm font-bold text-indigo-900">Product Not Matched</h3>
+                            <p className="text-xs text-indigo-700 font-semibold">
                               {availabilityResult.message || "Please edit the order or link it in catalog."}
                             </p>
                           </div>
                         ) : (
                           <>
+                            {/* Premium Compact Status Alerts */}
                             {availabilityResult.enoughStock ? (
-                              <div className="rounded-3xl border-2 border-emerald-505 bg-emerald-50 p-6 text-center shadow-md animate-fade-in">
-                                <span className="text-5xl">👍</span>
-                                <h3 className="mt-3 text-2xl font-black text-emerald-950">Ready to Go!</h3>
-                                <p className="mt-1 text-sm text-emerald-700 font-bold">
-                                  We have all the stock and materials. You can confirm this order!
-                                </p>
+                              <div className="rounded-xl border border-emerald-250 bg-emerald-50/70 p-3.5 flex items-center gap-3 animate-fade-in shadow-xs">
+                                <span className="text-3xl leading-none">
+                                  {Number(availabilityResult.canFulfillFromStock || 0) >= Number(availabilityResult.requiredQty || 0) ? "📦" : "🏭"}
+                                </span>
+                                <div>
+                                  <h3 className="text-sm font-black text-emerald-950 leading-tight">
+                                    {Number(availabilityResult.canFulfillFromStock || 0) >= Number(availabilityResult.requiredQty || 0)
+                                      ? "Ready from Stock!"
+                                      : "Production Ready!"}
+                                  </h3>
+                                  <p className="text-[11px] text-emerald-700 font-bold leading-snug">
+                                    {Number(availabilityResult.canFulfillFromStock || 0) >= Number(availabilityResult.requiredQty || 0)
+                                      ? "We have all finished units in stock. Fulfill order immediately!"
+                                      : "We have all raw materials. You can start production immediately!"}
+                                  </p>
+                                </div>
                               </div>
                             ) : (
-                              <div className="rounded-3xl border-2 border-red-500 bg-red-50 p-6 text-center shadow-md animate-fade-in">
-                                <span className="text-5xl">⚠️</span>
-                                <h3 className="mt-3 text-2xl font-black text-red-950">Materials Missing!</h3>
-                                <p className="mt-1 text-sm text-red-700 font-bold">
-                                  We need to buy some raw materials first. Check the shopping list below.
-                                </p>
+                              <div className="rounded-xl border border-red-200 bg-red-50/70 p-3.5 flex items-center gap-3 animate-fade-in shadow-xs">
+                                <span className="text-3xl leading-none">⚠️</span>
+                                <div>
+                                  <h3 className="text-sm font-black text-red-950 leading-tight">Materials Missing!</h3>
+                                  <p className="text-[11px] text-red-755 font-bold leading-snug">
+                                    We need to buy some raw materials first. Check the shopping list below.
+                                  </p>
+                                </div>
                               </div>
                             )}
 
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                              <div className="rounded-2xl bg-emerald-50 p-4 text-center ring-1 ring-emerald-250/20">
-                                <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wide">📦 Ready on Shelf</p>
-                                <p className="mt-2 text-3xl font-black text-emerald-950">
-                                  {availabilityResult.canFulfillFromStock} <span className="text-xs font-semibold text-emerald-700">units</span>
+                            {/* Compact Side-by-side Metrics */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="rounded-xl bg-emerald-50/40 p-3 text-center border border-emerald-100 shadow-2xs">
+                                <p className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">📦 Ready on Shelf</p>
+                                <p className="mt-1 text-2xl font-black text-emerald-950 leading-tight">
+                                  {availabilityResult.canFulfillFromStock} <span className="text-[11px] font-semibold text-emerald-700">units</span>
                                 </p>
-                                <p className="mt-1 text-[11px] text-emerald-600 font-medium">Bags/rolls ready in inventory</p>
+                                <p className="mt-0.5 text-[10px] text-emerald-600 font-medium">Bags/rolls in inventory</p>
                               </div>
-                              <div className="rounded-2xl bg-blue-50 p-4 text-center ring-1 ring-blue-250/20">
-                                <p className="text-xs font-extrabold text-blue-700 uppercase tracking-wide">🏭 Make in Factory</p>
-                                <p className="mt-2 text-3xl font-black text-blue-950">
-                                  {availabilityResult.requiredFromProduction} <span className="text-xs font-semibold text-blue-700">units</span>
+                              <div className="rounded-xl bg-blue-50/40 p-3 text-center border border-blue-100 shadow-2xs">
+                                <p className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">🏭 Make in Factory</p>
+                                <p className="mt-1 text-2xl font-black text-blue-950 leading-tight">
+                                  {availabilityResult.requiredFromProduction} <span className="text-[11px] font-semibold text-blue-700">units</span>
                                 </p>
-                                <p className="mt-1 text-[11px] text-blue-600 font-medium">Bags/rolls we need to manufacture</p>
+                                <p className="mt-0.5 text-[10px] text-blue-600 font-medium">Need to manufacture</p>
                               </div>
                             </div>
 
@@ -4319,19 +7558,19 @@ ${lines || "(See PDF for full BOM)"}
                               const missingMats = availabilityResult.materialRequirements?.filter(m => !m.isAvailable) || [];
                               if (missingMats.length > 0) {
                                 return (
-                                  <div className="rounded-3xl border-2 border-dashed border-red-200 bg-white p-5">
-                                    <h4 className="text-sm font-extrabold text-red-950 flex items-center gap-2">
+                                  <div className="rounded-2xl border border-dashed border-red-200 bg-white p-3 space-y-2">
+                                    <h4 className="text-xs font-black text-red-955 flex items-center gap-1.5">
                                       🛒 Shopping List (Need to Buy)
                                     </h4>
-                                    <p className="text-[11px] text-gray-500 mt-1">Please buy the following amounts of missing raw materials:</p>
-                                    <ul className="mt-3 space-y-2">
+                                    <p className="text-[10px] text-gray-400 font-medium">Please buy the following amounts of missing raw materials:</p>
+                                    <ul className="space-y-1.5">
                                       {missingMats.map((mat, i) => {
                                         const usable = mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0;
                                         const shortfall = Math.max(0, Number(mat.totalQuantity) - usable);
                                         return (
-                                          <li key={i} className="flex items-center justify-between rounded-xl bg-red-50/50 px-4 py-2.5 text-xs font-bold text-red-950 ring-1 ring-red-100">
+                                          <li key={i} className="flex items-center justify-between rounded-xl bg-red-50/30 px-3 py-2 text-xs font-bold text-red-950 border border-red-100/50">
                                             <span>❌ {mat.name}</span>
-                                            <span className="bg-red-100 px-2 py-0.5 rounded-full text-[11px] font-extrabold text-red-800">
+                                            <span className="bg-red-100 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold text-red-800">
                                               Need {shortfall.toFixed(2)} {mat.unit || 'kg'} more
                                             </span>
                                           </li>
@@ -4342,15 +7581,15 @@ ${lines || "(See PDF for full BOM)"}
                                 );
                               } else if (!availabilityResult.enoughStock) {
                                 return (
-                                  <div className="rounded-3xl border-2 border-dashed border-red-250 bg-white p-5">
-                                    <h4 className="text-sm font-extrabold text-red-950 flex items-center gap-2">
+                                  <div className="rounded-2xl border border-dashed border-red-200 bg-white p-3 space-y-2">
+                                    <h4 className="text-xs font-black text-red-955 flex items-center gap-1.5">
                                       📦 Need Finished Stock
                                     </h4>
-                                    <p className="text-[11px] text-gray-500 mt-1">We don't have enough finished units in stock:</p>
-                                    <ul className="mt-3 space-y-2">
-                                      <li className="flex items-center justify-between rounded-xl bg-red-50/50 px-4 py-2.5 text-xs font-bold text-red-950 ring-1 ring-red-100">
+                                    <p className="text-[10px] text-gray-400 font-medium">We don't have enough finished units in stock:</p>
+                                    <ul className="space-y-1.5">
+                                      <li className="flex items-center justify-between rounded-xl bg-red-50/30 px-3 py-2 text-xs font-bold text-red-950 border border-red-100/50">
                                         <span>❌ Finished Goods</span>
-                                        <span className="bg-red-100 px-2 py-0.5 rounded-full text-[11px] font-extrabold text-red-850">
+                                        <span className="bg-red-100 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold text-red-850">
                                           Need {Number(availabilityResult.requiredQty || 0) - Number(availabilityResult.canFulfillFromStock || 0)} more units
                                         </span>
                                       </li>
@@ -4362,26 +7601,55 @@ ${lines || "(See PDF for full BOM)"}
                             })()}
 
                             {((!availabilityResult.enoughStock && availabilityResult.canFulfillFromStock > 0) || useAvailableStock) && (
-                              <div className="rounded-2xl border border-amber-250 bg-amber-50/70 p-4 shadow-sm animate-fade-in">
-                                <label className="flex items-start gap-3 cursor-pointer">
+                              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 shadow-2xs animate-fade-in">
+                                <label className="flex items-start gap-2.5 cursor-pointer">
                                   <input
                                     type="checkbox"
                                     checked={useAvailableStock}
                                     onChange={(e) => {
                                       handleCheckOrderAvailability(availabilityOrder, e.target.checked);
                                     }}
-                                    className="mt-1 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
+                                    className="mt-0.5 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
                                   />
                                   <div>
-                                    <p className="text-sm font-extrabold text-amber-950">
+                                    <p className="text-xs font-extrabold text-amber-950 leading-none">
                                       "Use This Stock" Override Option
                                     </p>
-                                    <p className="mt-1 text-xs text-amber-800 leading-relaxed font-semibold">
-                                      Reserve the available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. 
-                                      The remaining shortage will trigger an urgent alert for manual stock addition.
+                                    <p className="mt-1 text-[11px] text-amber-800 leading-normal font-medium">
+                                      Reserve available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. Remaining shortage triggers manual alert.
                                     </p>
                                   </div>
                                 </label>
+                              </div>
+                            )}
+
+                            {/* Per-product breakdown for multi-product orders */}
+                            {availabilityResult.perProductResults?.length > 1 && (
+                              <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3 space-y-2 animate-fade-in">
+                                <h4 className="text-xs font-black text-blue-900 flex items-center gap-1.5">
+                                  📋 Per-Product Stock Breakdown
+                                </h4>
+                                <div className="space-y-2">
+                                  {availabilityResult.perProductResults.map((pr, idx) => (
+                                    <div key={idx} className={`rounded-lg border p-2.5 flex items-center justify-between ${pr.isAvailable ? "border-emerald-200 bg-emerald-50/50" : "border-red-200 bg-red-50/50"}`}>
+                                      <div>
+                                        <p className="text-xs font-bold text-gray-900">{pr.productName || `Product ${idx + 1}`}</p>
+                                        <p className="text-[10px] text-gray-500">{pr.quantity} {pr.unit || "pcs"}{pr.bagSize ? ` · ${pr.bagSize}` : ""}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${pr.isAvailable ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}>
+                                          {pr.isAvailable ? "✅ Ready" : "⚠️ Shortage"}
+                                        </span>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                          Stock: {pr.canFulfillFromStock} | Factory: {pr.requiredFromProduction}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-blue-700 font-medium flex items-center gap-1">
+                                  💡 Total combined cost: ₹{Number(availabilityResult.totalOrderMaterialCost || 0).toFixed(2)}
+                                </p>
                               </div>
                             )}
                           </>
@@ -4980,113 +8248,135 @@ ${lines || "(See PDF for full BOM)"}
                       </motion.div>
                     )}
 
-                    {availabilityResult.enoughStock && (
+                    {availabilityOrder?.isConfirmed ? (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
+                        className="rounded-3xl border border-rose-200 bg-rose-50/20 p-6 shadow-sm space-y-5"
                       >
-                        <div className="mb-5 flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-100 text-rose-700">
                             <ShieldCheck className="h-5 w-5" />
                           </div>
                           <div>
                             <h3 className="text-base font-bold text-gray-900">
-                              Confirm Order Details
+                              Order is Already Confirmed
                             </h3>
-                            <p className="text-sm text-gray-500">
-                              Fill payment and delivery details for this order.
+                            <p className="text-xs text-gray-500">
+                              Stock has been reserved and allocated for this order. To release the stock and return the order to pending status, click below.
                             </p>
                           </div>
                         </div>
 
+                        <div className="rounded-2xl border border-gray-150 bg-slate-50/70 p-4 space-y-3">
+                          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                            Fulfillment Details
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium text-gray-700">
+                            <p><strong>Fulfillment Mode:</strong> {availabilityOrder.orderStatus === "Completed" || availabilityOrder.orderStatus === "Delivered" ? "Dispatched" : "Reserved Stock"}</p>
+                            <p><strong>Approved Total:</strong> ₹{Number(availabilityOrder.totalAmount || 0).toLocaleString()}</p>
+                            <p><strong>Paid So Far:</strong> ₹{Number(availabilityOrder.paidAmount || 0).toLocaleString()}</p>
+                            {availabilityOrder.confirmedAt && <p><strong>Confirmed At:</strong> {new Date(availabilityOrder.confirmedAt).toLocaleString()}</p>}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end border-t border-gray-100 pt-5">
+                          <Button
+                            type="button"
+                            className="rounded-2xl bg-red-700 hover:bg-red-800 px-6 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            onClick={handleUnconfirmExistingOrder}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            <span>Unconfirm & Release Stock</span>
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ) : availabilityResult.enoughStock && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm space-y-6"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                              <ShieldCheck className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">
+                                Confirm Order Details
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                Select fulfillment path and confirm payment/delivery details.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Fulfillment Path Selection Selector */}
+                          <div className="flex rounded-xl bg-gray-100 p-1 shrink-0 self-start sm:self-center">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmPath("reserve")}
+                              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                                confirmPath === "reserve"
+                                  ? "bg-white text-emerald-800 shadow-sm"
+                                  : "text-gray-500 hover:text-gray-900"
+                              }`}
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              <span>Reserve Stock</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmPath("dispatch")}
+                              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                                confirmPath === "dispatch"
+                                  ? "bg-white text-emerald-800 shadow-sm"
+                                  : "text-gray-500 hover:text-gray-900"
+                              }`}
+                            >
+                              <Truck className="h-3.5 w-3.5" />
+                              <span>Dispatch Directly</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Payment & Invoice Summary */}
+                        <div className="rounded-2xl border border-gray-150 bg-slate-50/70 p-4 space-y-3">
+                          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                            Invoice & Payment Summary
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm font-semibold">
+                            <div className="rounded-xl bg-white p-3 border border-gray-100">
+                              <p className="text-[10px] uppercase font-bold text-gray-400">Total Invoice Amount</p>
+                              <p className="mt-1 text-lg font-black text-slate-800">
+                                ₹{Number(confirmOrderForm.totalAmount || 0).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-white p-3 border border-gray-100">
+                              <p className="text-[10px] uppercase font-bold text-gray-400">Paid So Far</p>
+                              <p className="mt-1 text-lg font-black text-emerald-700">
+                                ₹{Number(availabilityOrder.paidAmount || 0).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-white p-3 border border-gray-100">
+                              <p className="text-[10px] uppercase font-bold text-gray-400">Remaining Balance</p>
+                              <p className={`mt-1 text-lg font-black ${
+                                (Number(confirmOrderForm.totalAmount || 0) - Number(availabilityOrder.paidAmount || 0) - Number(confirmOrderForm.paidAmount || 0)) <= 0
+                                  ? "text-emerald-700"
+                                  : "text-amber-700"
+                              }`}>
+                                ₹{Math.max(0, Number(confirmOrderForm.totalAmount || 0) - Number(availabilityOrder.paidAmount || 0) - Number(confirmOrderForm.paidAmount || 0)).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Record Payment Advance Inputs */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="block text-sm font-semibold text-gray-700">
-                                Subtotal Amount (₹)
-                              </label>
-                              <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                Suggested: ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
-                              </span>
-                            </div>
-                            <input
-                              type="number"
-                              min="0"
-                              value={confirmOrderForm.subtotalAmount}
-                              onChange={(e) =>
-                                handleConfirmOrderPriceChange("subtotalAmount", e.target.value)
-                              }
-                              placeholder="Enter subtotal amount"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              GST/Tax Rate (%)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={confirmOrderForm.taxRate}
-                              onChange={(e) =>
-                                handleConfirmOrderPriceChange("taxRate", e.target.value)
-                              }
-                              placeholder="0"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Shipping Charges (₹)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={confirmOrderForm.shippingCharges}
-                              onChange={(e) =>
-                                handleConfirmOrderPriceChange("shippingCharges", e.target.value)
-                              }
-                              placeholder="0"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Other Charges (₹)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={confirmOrderForm.otherCharges}
-                              onChange={(e) =>
-                                handleConfirmOrderPriceChange("otherCharges", e.target.value)
-                              }
-                              placeholder="0"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Total Invoice Amount (₹) [Calculated]
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={confirmOrderForm.totalAmount}
-                              readOnly
-                              className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-emerald-800 outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Advance Paid (₹)
+                            <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                              {confirmPath === "dispatch" ? "Payment Recorded Now (₹)" : "Advance Paid Now (₹)"}
                             </label>
                             <input
                               type="number"
@@ -5095,13 +8385,13 @@ ${lines || "(See PDF for full BOM)"}
                               onChange={(e) =>
                                 handleConfirmOrderChange("paidAmount", e.target.value)
                               }
-                              placeholder="Optional advance"
+                              placeholder="0"
                               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
                             />
                           </div>
 
                           <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
+                            <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
                               Payment Mode
                             </label>
                             <select
@@ -5117,132 +8407,147 @@ ${lines || "(See PDF for full BOM)"}
                               <option value="card">Card</option>
                             </select>
                           </div>
-
-                          <div className="sm:col-span-2 rounded-2xl bg-gray-50 p-4 border border-gray-100 flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-500">Remaining Balance:</span>
-                            <span className={`text-lg font-bold ${(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)) <= 0
-                              ? "text-emerald-600"
-                              : "text-amber-600"
-                              }`}>
-                              ₹{(Number(confirmOrderForm.totalAmount || 0) - Number(confirmOrderForm.paidAmount || 0)).toLocaleString()}
-                            </span>
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Receiver Name
-                            </label>
-                            <input
-                              type="text"
-                              value={confirmOrderForm.receiverName}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("receiverName", e.target.value)
-                              }
-                              placeholder="Enter receiver name"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Receiver Phone
-                            </label>
-                            <input
-                              type="text"
-                              value={confirmOrderForm.receiverPhone}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("receiverPhone", e.target.value)
-                              }
-                              placeholder="Enter receiver phone"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Delivery Mode
-                            </label>
-                            <select
-                              value={confirmOrderForm.deliveryMode}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("deliveryMode", e.target.value)
-                              }
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            >
-                              <option value="courier">Courier</option>
-                              <option value="transport">Transport</option>
-                              <option value="pickup">Pickup</option>
-                              <option value="self">Self Delivery</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Delivery Date
-                            </label>
-                            <input
-                              type="date"
-                              value={confirmOrderForm.deliveryDate}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("deliveryDate", e.target.value)
-                              }
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Dispatch Date
-                            </label>
-                            <input
-                              type="date"
-                              value={confirmOrderForm.dispatchDate}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("dispatchDate", e.target.value)
-                              }
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Delivery Address
-                            </label>
-                            <textarea
-                              rows={3}
-                              value={confirmOrderForm.deliveryAddress}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("deliveryAddress", e.target.value)
-                              }
-                              placeholder="Enter full delivery address"
-                              className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Delivery Notes
-                            </label>
-                            <textarea
-                              rows={3}
-                              value={confirmOrderForm.deliveryNotes}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("deliveryNotes", e.target.value)
-                              }
-                              placeholder="Special delivery instructions"
-                              className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
-                          </div>
                         </div>
 
-                        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                          <Button
-                            type="button"
-                            className="rounded-2xl bg-green-900 px-6 hover:bg-emerald-700"
-                            onClick={handleConfirmExistingOrder}
-                          >
-                            Confirm order and RESERVE STOCK
-                          </Button>
+                        {/* Delivery details path ONLY for Dispatch path */}
+                        {confirmPath === "dispatch" && (
+                          <div className="border-t border-gray-100 pt-5 space-y-4">
+                            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                              <Truck className="h-4.5 w-4.5 text-emerald-600" />
+                              <span>Dispatch & Delivery Information</span>
+                            </h4>
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                              <div>
+                                <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                  On-site Contact Person Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={confirmOrderForm.receiverName}
+                                  onChange={(e) =>
+                                    handleConfirmOrderChange("receiverName", e.target.value)
+                                  }
+                                  placeholder="Enter name"
+                                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                  On-site Contact Person Phone <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={confirmOrderForm.receiverPhone}
+                                  onChange={(e) =>
+                                    handleConfirmOrderChange("receiverPhone", e.target.value)
+                                  }
+                                  placeholder="Enter phone number"
+                                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                  Delivery Mode
+                                </label>
+                                <select
+                                  value={confirmOrderForm.deliveryMode}
+                                  onChange={(e) =>
+                                    handleConfirmOrderChange("deliveryMode", e.target.value)
+                                  }
+                                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                                >
+                                  <option value="courier">Courier</option>
+                                  <option value="transport">Transport</option>
+                                  <option value="pickup">Pickup</option>
+                                  <option value="self">Self Delivery</option>
+                                </select>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="mb-2 block text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+                                    Delivery Date <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={confirmOrderForm.deliveryDate}
+                                    onChange={(e) =>
+                                      handleConfirmOrderChange("deliveryDate", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none transition focus:border-emerald-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-2 block text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+                                    Dispatch Date <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={confirmOrderForm.dispatchDate}
+                                    onChange={(e) =>
+                                      handleConfirmOrderChange("dispatchDate", e.target.value)
+                                    }
+                                    className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none transition focus:border-emerald-500"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="sm:col-span-2">
+                                <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                  Delivery Address <span className="text-xs text-gray-400 font-normal">(Optional)</span>
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={confirmOrderForm.deliveryAddress}
+                                  onChange={(e) =>
+                                    handleConfirmOrderChange("deliveryAddress", e.target.value)
+                                  }
+                                  placeholder="Enter delivery address"
+                                  className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                                />
+                              </div>
+
+                              <div className="sm:col-span-2">
+                                <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                  Delivery Notes <span className="text-xs text-gray-400 font-normal">(Optional)</span>
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={confirmOrderForm.deliveryNotes}
+                                  onChange={(e) =>
+                                    handleConfirmOrderChange("deliveryNotes", e.target.value)
+                                  }
+                                  placeholder="Special delivery instructions"
+                                  className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end border-t border-gray-100 pt-5">
+                          {confirmPath === "reserve" ? (
+                            <Button
+                              type="button"
+                              className="rounded-2xl bg-green-900 px-6 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5"
+                              onClick={handleConfirmExistingOrder}
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                              <span>Confirm & Reserve Stock</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              className="rounded-2xl bg-emerald-700 px-6 hover:bg-emerald-800 text-white font-bold flex items-center gap-1.5"
+                              onClick={handleConfirmExistingOrder}
+                            >
+                              <Truck className="h-4 w-4" />
+                              <span>Save & Dispatch Order</span>
+                            </Button>
+                          )}
                         </div>
                       </motion.div>
                     )}
@@ -5278,19 +8583,69 @@ ${lines || "(See PDF for full BOM)"}
 
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <h3 className="mb-3 text-sm font-bold text-gray-800">Product Details</h3>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p><span className="font-semibold">Product:</span> {selectedOrder.productCategory}</p>
-                    <p><span className="font-semibold">Bag Size:</span> {selectedOrder.orderDetails?.bagSize || "—"}</p>
-                    <p><span className="font-semibold">Color:</span> {selectedOrder.orderDetails?.color || "—"}</p>
-                    <p><span className="font-semibold">Quantity:</span> {selectedOrder.orderDetails?.quantity || "—"}</p>
-                    <p>
-                      <span className="font-semibold">Dimensions:</span>{" "}
-                      {selectedOrder.orderDetails?.dimensions?.length || 0} ×{" "}
-                      {selectedOrder.orderDetails?.dimensions?.width || 0} ×{" "}
-                      {selectedOrder.orderDetails?.dimensions?.height || 0}{" "}
-                      {selectedOrder.orderDetails?.dimensions?.unit || "inch"}
-                    </p>
-                  </div>
+                  {selectedOrder.orderDetailsList && selectedOrder.orderDetailsList.length > 1 ? (
+                    <div className="space-y-3.5">
+                      {selectedOrder.orderDetailsList.map((item, idx) => {
+                        const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+                        const pName = prod?.name || item.productName || item.productCategory || selectedOrder.productCategory || "Product";
+                        const isItemRoll = pName.toLowerCase().includes("roll") || String(item.unit).toLowerCase() === "kg" || String(item.unit).toLowerCase() === "m";
+                        const hsnCode = item.hsnCode || prod?.hsnCode;
+                        const gstRate = item.gstRate != null ? item.gstRate : prod?.gstRate;
+                        return (
+                          <div key={idx} className="rounded-xl border border-gray-200/60 bg-white p-3 shadow-3xs">
+                            <h4 className="font-extrabold text-xs text-emerald-800 mb-1.5">Item {idx + 1}: {pName}</h4>
+                            <div className="space-y-1.5 text-xs text-gray-700">
+                              <p><span className="font-semibold text-gray-500">Bag Size:</span> {item.bagSize || "—"}</p>
+                              <p><span className="font-semibold text-gray-500">Color:</span> {item.color || "—"}</p>
+                              <p><span className="font-semibold text-gray-500">Quantity:</span> {item.quantity} {item.unit || "pcs"}</p>
+                              <p>
+                                <span className="font-semibold text-gray-500">Dimensions:</span>{" "}
+                                {item.dimensions?.length || 0} ×{" "}
+                                {item.dimensions?.width || 0} ×{" "}
+                                {item.dimensions?.height || 0}{" "}
+                                {item.dimensions?.unit || "inch"}
+                              </p>
+                              {hsnCode && (
+                                <p><span className="font-semibold text-emerald-700">HSN Code:</span> <span className="font-mono font-bold text-emerald-800">{hsnCode}</span></p>
+                              )}
+                              {gstRate != null && (
+                                <p><span className="font-semibold text-emerald-700">GST Rate:</span> <span className="font-bold text-emerald-800">{gstRate}%</span></p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-sm text-gray-700">
+                      {(() => {
+                        const singleItem = selectedOrder.orderDetails || {};
+                        const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(singleItem?.productId || "").trim());
+                        const pName = prod?.name || singleItem?.productName || selectedOrder.productCategory || "Product";
+                        const hsnCode = singleItem?.hsnCode || prod?.hsnCode;
+                        const gstRate = singleItem?.gstRate != null ? singleItem.gstRate : prod?.gstRate;
+                        return (<>
+                          <p><span className="font-semibold">Product:</span> {pName}</p>
+                          <p><span className="font-semibold">Bag Size:</span> {singleItem?.bagSize || "—"}</p>
+                          <p><span className="font-semibold">Color:</span> {singleItem?.color || "—"}</p>
+                          <p><span className="font-semibold">Quantity:</span> {singleItem?.quantity || "—"}</p>
+                          <p>
+                            <span className="font-semibold">Dimensions:</span>{" "}
+                            {singleItem?.dimensions?.length || 0} ×{" "}
+                            {singleItem?.dimensions?.width || 0} ×{" "}
+                            {singleItem?.dimensions?.height || 0}{" "}
+                            {singleItem?.dimensions?.unit || "inch"}
+                          </p>
+                          {hsnCode && (
+                            <p><span className="font-semibold text-emerald-700">HSN Code:</span> <span className="font-mono font-bold text-emerald-800">{hsnCode}</span></p>
+                          )}
+                          {gstRate != null && (
+                            <p><span className="font-semibold text-emerald-700">GST Rate:</span> <span className="font-bold text-emerald-800">{gstRate}%</span></p>
+                          )}
+                        </>);
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -5305,7 +8660,23 @@ ${lines || "(See PDF for full BOM)"}
                 </div>
 
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                  <h3 className="mb-3 text-sm font-bold text-gray-800">Delivery Details</h3>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-bold text-gray-800">Delivery Details</h3>
+                      {(!selectedOrder.delivery?.deliveryAddress || selectedOrder.delivery.deliveryAddress === "Not added") && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                          ⚠️ Missing Address
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openDeliveryModal(selectedOrder)}
+                      className="text-xs font-bold text-violet-750 hover:text-violet-950 transition hover:underline cursor-pointer"
+                    >
+                      {(!selectedOrder.delivery?.deliveryAddress || selectedOrder.delivery.deliveryAddress === "Not added") ? "Add Address" : "Edit"}
+                    </button>
+                  </div>
                   <div className="space-y-2 text-sm text-gray-700">
                     <p><span className="font-semibold">Receiver:</span> {selectedOrder.delivery?.receiverName || "Not added"}</p>
                     <p><span className="font-semibold">Receiver Phone:</span> {selectedOrder.delivery?.receiverPhone || "Not added"}</p>
@@ -5393,33 +8764,16 @@ ${lines || "(See PDF for full BOM)"}
                 </div>
 
                 <div className="mb-6 flex flex-wrap gap-3">
-                  <Button
-                    type="button"
-                    className="rounded-2xl bg-emerald-600 px-4 py-2 hover:bg-emerald-700"
-                    onClick={() => setShowReportPreview(true)}
-                  >
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Preview Report
-                  </Button>
-
-                  <Button
-                    type="button"
-                    className="rounded-2xl bg-indigo-600 px-4 py-2 hover:bg-indigo-700 text-white"
-                    onClick={() => handleEditOrder(selectedOrder)}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Order
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="rounded-2xl px-4 py-2"
-                    onClick={() => generateOrderPDF(selectedOrder)}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </Button>
+                  {selectedOrder.orderStatusKey !== "COMPLETED" && selectedOrder.orderStatusKey !== "DELIVERED" && selectedOrder.orderStatusKey !== "CANCELLED" && (
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-indigo-600 px-4 py-2 hover:bg-indigo-700 text-white"
+                      onClick={() => handleEditOrder(selectedOrder)}
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Order
+                    </Button>
+                  )}
 
                   <Button
                     type="button"
@@ -5476,7 +8830,7 @@ ${lines || "(See PDF for full BOM)"}
                     </>
                   )}
 
-                  {selectedOrder.orderStatusKey === "PROCESSING" && (
+                   {selectedOrder.orderStatusKey === "PROCESSING" && (
                     <Button
                       type="button"
                       className="rounded-2xl bg-emerald-700 px-4 py-2 hover:bg-emerald-800"
@@ -5492,6 +8846,22 @@ ${lines || "(See PDF for full BOM)"}
                     </Button>
                   )}
 
+                  {selectedOrder.orderStatusKey === "COMPLETED" && (
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-teal-600 px-4 py-2 hover:bg-teal-700 text-white font-bold"
+                      onClick={() => handleMarkAsDelivered(selectedOrder)}
+                      disabled={deliveredActionId === selectedOrder.id}
+                    >
+                      {deliveredActionId === selectedOrder.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Package className="mr-2 h-4 w-4" />
+                      )}
+                      Mark as Delivered
+                    </Button>
+                  )}
+
                   {selectedOrder.orderStatusKey !== "CANCELLED" && selectedOrder.paymentStatusKey !== "PAID" && (
                     <Button
                       type="button"
@@ -5503,7 +8873,7 @@ ${lines || "(See PDF for full BOM)"}
                     </Button>
                   )}
 
-                  {selectedOrder.orderStatusKey !== "COMPLETED" && selectedOrder.orderStatusKey !== "CANCELLED" && (
+                  {selectedOrder.orderStatusKey !== "COMPLETED" && selectedOrder.orderStatusKey !== "DELIVERED" && selectedOrder.orderStatusKey !== "CANCELLED" && (
                     <Button
                       type="button"
                       className="rounded-2xl bg-red-650 px-4 py-2 hover:bg-red-750 text-white"
@@ -5516,94 +8886,147 @@ ${lines || "(See PDF for full BOM)"}
                       <XCircle className="mr-2 h-4 w-4" />
                       Cancel Order
                     </Button>
-                  )}
+                  )}                </div>
 
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="rounded-2xl px-4 py-2"
-                    onClick={() => setShowLogsModal(true)}
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    View Logs
-                  </Button>
-                </div>
-                <Modal
-                  isOpen={showLogsModal}
-                  title="Order Logs & Timeline"
-                  onClose={() => setShowLogsModal(false)}
-                >
-                  {selectedOrder && (
-                    <div className="space-y-5">
-                      <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-700 to-teal-600 p-5 text-white">
-                        <h2 className="text-xl font-bold">Order Timeline</h2>
-                        <p className="mt-1 text-sm text-emerald-50">
-                          Full frontend-generated order history for {selectedOrder.customerName}
-                        </p>
-                      </div>
+                <OrderDetail order={selectedOrder} onEditDelivery={openDeliveryModal} />
 
-                      <div className="space-y-4">
-                        {buildClientOrderLogs(selectedOrder).map((log, index) => (
-                          <div key={index} className="relative pl-8">
-                            {index !== buildClientOrderLogs(selectedOrder).length - 1 && (
-                              <div className="absolute left-[11px] top-8 h-[calc(100%+12px)] w-[2px] bg-gray-200" />
-                            )}
+                <div className="mt-8 border-t border-gray-200 pt-8 space-y-6">
+                  <div className="rounded-3xl border border-blue-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-lg">
+                    <h3 className="text-lg font-bold">Activity Logs (Updations & Payments)</h3>
+                    <p className="mt-1 text-xs text-slate-300 opacity-90">
+                      Audit history of payment recordings, state reversions, and order specifications modifications
+                    </p>
+                  </div>
 
-                            <div
-                              className={`absolute left-0 top-1 h-6 w-6 rounded-full border-4 border-white shadow ${getLogDotClasses(
-                                log.status
-                              )}`}
-                            />
+                  {/* Date Filters */}
+                  <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-gray-200 p-3 rounded-2xl mb-4 text-sm">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Logs by Date:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-500">From</span>
+                      <input
+                        type="date"
+                        value={logStartDate}
+                        max={logEndDate || undefined}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (logEndDate && val > logEndDate) {
+                            toast.error("'From' date cannot be after 'To' date");
+                            return;
+                          }
+                          setLogStartDate(val);
+                        }}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-500">To</span>
+                      <input
+                        type="date"
+                        value={logEndDate}
+                        min={logStartDate || undefined}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (logStartDate && val < logStartDate) {
+                            toast.error("'To' date cannot be before 'From' date");
+                            return;
+                          }
+                          setLogEndDate(val);
+                        }}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                      />
+                    </div>
+                    {(logStartDate || logEndDate) && (
+                      <button
+                        onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                        className="text-xs text-red-500 hover:text-red-700 font-bold ml-auto"
+                      >
+                        Clear Filter
+                      </button>
+                    )}
+                  </div>
 
-                            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-bold text-gray-900">{log.title}</p>
-                                    <span
-                                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getLogBadgeClasses(
-                                        log.status
-                                      )}`}
-                                    >
-                                      {log.status}
-                                    </span>
-                                  </div>
+                  <div className="space-y-4">
+                    {buildFilteredActivityLogs(selectedOrder).map((log, index) => {
+                      const canRestore = selectedOrder.orderStatusKey !== "COMPLETED" && selectedOrder.orderStatusKey !== "DELIVERED" && selectedOrder.orderStatusKey !== "CANCELLED";
 
-                                  <p className="mt-1 text-sm text-gray-600">{log.description}</p>
+                      if (log.type === "update") {
+                        return (
+                          <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-full bg-indigo-50 border border-indigo-150 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 uppercase">
+                                    🔄 {log.title}
+                                  </span>
                                 </div>
-
-                                <div className="text-xs text-gray-500">
-                                  {log.time
-                                    ? new Date(log.time).toLocaleString()
-                                    : "No date available"}
-                                </div>
+                                <p className="mt-2 text-sm text-gray-600 font-medium">
+                                  <span className="font-semibold text-gray-800">Updated by:</span> {log.by}
+                                </p>
+                                <p className="mt-1 text-sm text-gray-600 font-medium">
+                                  <span className="font-semibold text-gray-800">Reason:</span> {log.reason}
+                                </p>
                               </div>
+                              <div className="flex flex-col items-end gap-2">
+                                <span className="text-xs text-gray-500 font-semibold">
+                                  {new Date(log.time).toLocaleString()}
+                                </span>
+                                {canRestore && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const reason = window.prompt("Enter reason/note for restoring this snapshot:");
+                                      if (reason === null) return;
+                                      if (!reason.trim()) {
+                                        toast.error("Reason is required to revert state");
+                                        return;
+                                      }
+                                      handleRestoreState(selectedOrder.id, log.snapshotId, reason);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 transition shadow-sm border border-teal-200"
+                                  >
+                                    Restore State
+                                  </button>
+                                )}
+                              </div>
+                            </div>
 
-                              {log.meta && Object.keys(log.meta).length > 0 && (
-                                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                  {Object.entries(log.meta).map(([key, value]) => (
-                                    <div
-                                      key={key}
-                                      className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3"
-                                    >
-                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                        {key.replace(/([A-Z])/g, " $1")}
-                                      </p>
-                                      <p className="mt-1 text-sm font-medium text-gray-900 break-words">
-                                        {String(value ?? "—")}
-                                      </p>
-                                    </div>
+                            {log.changes && log.changes.length > 0 ? (
+                              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Changed fields:</p>
+                                <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700 font-semibold">
+                                  {log.changes.map((changeStr, cIdx) => (
+                                    <li key={cIdx}>{changeStr}</li>
                                   ))}
-                                </div>
-                              )}
+                                </ul>
+                              </div>
+                            ) : (
+                              <div className="bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500">
+                                No specification details changed (metadata or note edit).
+                              </div>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        // workflow type
+                        return (
+                          <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <span className="rounded-full bg-emerald-50 border border-emerald-150 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase">
+                                  {log.title}
+                                </span>
+                                <p className="mt-2 text-sm text-gray-750 font-semibold">{log.description}</p>
+                              </div>
+                              <span className="text-xs text-gray-500 font-semibold">
+                                {new Date(log.time).toLocaleString()}
+                              </span>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </Modal>
-                <OrderDetail order={selectedOrder} />
+                        );
+                      }
+                    })}
+                  </div>
+                </div>
                 <div className="mt-6 flex justify-end">
                   <Button variant="secondary" onClick={() => setShowDetailPanel(false)}>
                     Close
@@ -5664,79 +9087,164 @@ ${lines || "(See PDF for full BOM)"}
                         <p className="mt-1 text-gray-900">{selectedOrder.source}</p>
                       </div>
 
-                      <div className="rounded-2xl border border-gray-100 p-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <ShoppingBag className="h-4 w-4 text-emerald-600" />
-                          <p className="text-xs font-semibold uppercase text-gray-500">Bag Details</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Bag Size</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.bagSize || "—"}
-                            </p>
+                      {selectedOrder.orderDetailsList && selectedOrder.orderDetailsList.length > 1 ? (
+                        <div className="rounded-2xl border border-gray-100 p-4 space-y-4">
+                          <div className="flex items-center gap-2">
+                            <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                            <p className="text-xs font-semibold uppercase text-gray-500">Order Items Details ({selectedOrder.orderDetailsList.length})</p>
                           </div>
+                          
+                          <div className="space-y-3">
+                            {selectedOrder.orderDetailsList.map((item, idx) => {
+                              const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+                              const pName = pObj?.name || item.productCategory || selectedOrder.productCategory || "Product";
+                              const isItemRoll = pName.toLowerCase().includes("roll") || String(item.unit).toLowerCase() === "kg" || String(item.unit).toLowerCase() === "m";
 
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Color</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.color || "—"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Quantity</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.quantity || "—"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Amount</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {formatCurrency(selectedOrder.amount)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-gray-100 p-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <Ruler className="h-4 w-4 text-emerald-600" />
-                          <p className="text-xs font-semibold uppercase text-gray-500">Dimensions</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Length</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.dimensions?.length || "—"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Width</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.dimensions?.width || "—"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Height</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.dimensions?.height || "—"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-gray-50 p-3">
-                            <p className="text-xs font-semibold text-gray-500">Unit</p>
-                            <p className="mt-1 font-semibold text-gray-900">
-                              {selectedOrder.orderDetails?.dimensions?.unit || "—"}
-                            </p>
+                              return (
+                                <div key={idx} className="rounded-xl border border-gray-200 bg-white p-3.5 space-y-2">
+                                  <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                                    <p className="text-xs font-bold text-emerald-800">Item #{idx + 1}: {pName}</p>
+                                    <span className="rounded-md bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase">
+                                      {item.quantity} {item.unit || "pcs"}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+                                    {!isItemRoll && (
+                                      <>
+                                        <p><span className="text-gray-500 font-semibold">Size:</span> {item.bagSize || "—"}</p>
+                                        <p><span className="text-gray-500 font-semibold">Color:</span> {item.color || "—"}</p>
+                                      </>
+                                    )}
+                                    {isItemRoll && (
+                                      <>
+                                        {Number(item.gsm) > 0 && <p><span className="text-gray-500 font-semibold">GSM:</span> {item.gsm}</p>}
+                                        {Number(item.bf) > 0 && <p><span className="text-gray-500 font-semibold">BF:</span> {item.bf}</p>}
+                                      </>
+                                    )}
+                                    <p className="col-span-2">
+                                      <span className="text-gray-500 font-semibold">Dimensions:</span>{" "}
+                                      {isItemRoll
+                                        ? `Width: ${item.dimensions?.width || 0} ${item.dimensions?.unit || "inch"}`
+                                        : `${item.dimensions?.length || 0} × ${item.dimensions?.width || 0} × ${item.dimensions?.height || 0} ${item.dimensions?.unit || "inch"}`}
+                                    </p>
+                                    <p className="col-span-2">
+                                      <span className="text-gray-500 font-semibold">Custom Printing:</span> {item.customPrinting ? "Yes" : "No"}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div className="rounded-2xl border border-gray-100 p-4">
+                            <div className="mb-3 flex items-center gap-2">
+                              <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                              <p className="text-xs font-semibold uppercase text-gray-500">Bag Details</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Bag Size</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.bagSize || "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Color</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.color || "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Quantity</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.quantity || "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Amount</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {formatCurrency(selectedOrder.amount)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl border border-gray-100 p-4">
+                            <div className="mb-3 flex items-center gap-2">
+                              <Ruler className="h-4 w-4 text-emerald-600" />
+                              <p className="text-xs font-semibold uppercase text-gray-500">Dimensions</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Length</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.dimensions?.length || "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Width</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.dimensions?.width || "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Height</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.dimensions?.height || "—"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-xl bg-gray-50 p-3">
+                                <p className="text-xs font-semibold text-gray-500">Unit</p>
+                                <p className="mt-1 font-semibold text-gray-900">
+                                  {selectedOrder.orderDetails?.dimensions?.unit || "—"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* HSN Code & GST Rate panel for single-item order */}
+                          {(() => {
+                            const singleItem = selectedOrder.orderDetails;
+                            const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(singleItem?.productId || "").trim());
+                            const hsnCode = singleItem?.hsnCode || prod?.hsnCode;
+                            const gstRate = singleItem?.gstRate != null ? singleItem.gstRate : prod?.gstRate;
+                            if (!hsnCode && gstRate == null) return null;
+                            return (
+                              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                                <div className="mb-3 flex items-center gap-2">
+                                  <span className="text-emerald-700 font-bold text-xs">🏷️</span>
+                                  <p className="text-xs font-semibold uppercase text-emerald-700">Tax Classification</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  {hsnCode && (
+                                    <div className="rounded-xl bg-white border border-emerald-100 p-3">
+                                      <p className="text-xs font-semibold text-gray-500">HSN Code</p>
+                                      <p className="mt-1 font-mono font-bold text-emerald-800">{hsnCode}</p>
+                                    </div>
+                                  )}
+                                  {gstRate != null && (
+                                    <div className="rounded-xl bg-white border border-emerald-100 p-3">
+                                      <p className="text-xs font-semibold text-gray-500">GST Rate</p>
+                                      <p className="mt-1 font-bold text-emerald-800">{gstRate}%</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
 
                       <div className="rounded-2xl border border-gray-100 p-4">
                         <div className="mb-3 flex items-center gap-2">
@@ -5792,6 +9300,321 @@ ${lines || "(See PDF for full BOM)"}
             </motion.div>
           </motion.div>
         )}
+
+        {actionDrawerType && (
+          <motion.div
+            className="fixed inset-0 z-40 flex items-center justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={() => {
+                setActionDrawerType(null);
+                setActiveTrackerOrderId(null);
+              }}
+            />
+
+            <motion.div
+              className="relative h-screen w-full max-w-2xl bg-slate-50 shadow-2xl flex flex-col z-50"
+              initial={{ x: 400 }}
+              animate={{ x: 0 }}
+            >
+              {/* Drawer Header */}
+              <div className="p-6 bg-white border-b border-gray-200 flex items-center justify-between shadow-xs">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {actionDrawerType === "QUOTATIONS_NEEDED" && "Quotations Needed"}
+                    {actionDrawerType === "CONFIRM_ORDERS" && "Review & Confirm Orders"}
+                    {actionDrawerType === "TRACK_PRODUCTION" && "Production Stock Tracker"}
+                    {actionDrawerType === "RETURNED_ORDERS" && "Returned Orders History"}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {actionDrawerType === "QUOTATIONS_NEEDED" && "Select a pending order to configure & send price quote"}
+                    {actionDrawerType === "CONFIRM_ORDERS" && "Review payment slabs, receiver specs and confirm order"}
+                    {actionDrawerType === "TRACK_PRODUCTION" && "Monitor raw material stock levels and print production notes"}
+                    {actionDrawerType === "RETURNED_ORDERS" && "View return details and download returned amount receipts"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setActionDrawerType(null);
+                    setActiveTrackerOrderId(null);
+                  }}
+                  className="rounded-lg p-1.5 hover:bg-gray-100 text-gray-500 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {(() => {
+                  let filteredList = [];
+                  if (actionDrawerType === "QUOTATIONS_NEEDED") {
+                    filteredList = formattedOrders.filter((o) => {
+                      const hasQuotation =
+                        !!o?.quotation?.quotationNumber ||
+                        ["sent", "approved"].includes(String(o?.quotation?.status || "").toLowerCase());
+                      return o?.orderStatusKey === "PENDING" && !hasQuotation;
+                    });
+                  } else if (actionDrawerType === "CONFIRM_ORDERS") {
+                    filteredList = formattedOrders.filter(
+                      (o) => o?.orderStatusKey === "PENDING" &&
+                        o?.quotation &&
+                        ["sent", "approved"].includes(String(o?.quotation?.status || "").toLowerCase())
+                    );
+                  } else if (actionDrawerType === "TRACK_PRODUCTION") {
+                    filteredList = formattedOrders.filter((o) => o?.orderStatusKey === "PROCESSING");
+                  } else if (actionDrawerType === "RETURNED_ORDERS") {
+                    filteredList = formattedOrders.filter((o) => o?.orderStatus === "Returned" || (o?.returns && o?.returns?.length > 0));
+                  }
+
+                  if (filteredList.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-2xl border border-gray-150 p-6">
+                        <div className="rounded-full bg-emerald-50 p-3 text-emerald-600 mb-3">
+                          <CheckCircle2 className="w-8 h-8" />
+                        </div>
+                        <h4 className="text-sm font-bold text-gray-800">All caught up!</h4>
+                        <p className="text-xs text-gray-500 mt-1">No orders require this action right now.</p>
+                      </div>
+                    );
+                  }
+
+                  return filteredList.map((order) => {
+                    const isExpanded = activeTrackerOrderId === order.id;
+                    return (
+                      <div
+                        key={order.id}
+                        className="bg-white rounded-xl border border-gray-200 shadow-xs hover:border-emerald-300 transition-all duration-200 overflow-hidden"
+                      >
+                        <div
+                          onClick={() => {
+                            if (actionDrawerType === "QUOTATIONS_NEEDED") {
+                              setActionDrawerType(null);
+                              openQuotationModal(order);
+                            } else if (actionDrawerType === "CONFIRM_ORDERS") {
+                              setActionDrawerType(null);
+                              handleCheckOrderAvailability(order);
+                            } else if (actionDrawerType === "TRACK_PRODUCTION" || actionDrawerType === "RETURNED_ORDERS") {
+                              setActiveTrackerOrderId(isExpanded ? null : order.id);
+                            }
+                          }}
+                          className="p-4 cursor-pointer hover:bg-gray-50/50 flex items-center justify-between select-none"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-extrabold text-emerald-950">
+                                {order.customerName}
+                              </span>
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold uppercase">
+                                {order.productCategory}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-500">
+                              <span>Order ID: <b>{order.shortId || order.id?.substring(0, 8)}</b></span>
+                              <span>•</span>
+                              <span>Date: {new Date(order.createdAt).toLocaleDateString("en-IN")}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {actionDrawerType === "TRACK_PRODUCTION" || actionDrawerType === "RETURNED_ORDERS" ? (
+                              <button
+                                type="button"
+                                className="text-xs font-semibold text-emerald-600 flex items-center gap-1 hover:underline"
+                              >
+                                {actionDrawerType === "RETURNED_ORDERS" 
+                                  ? (isExpanded ? "Hide Return Logs ▲" : "View Return Logs ▼")
+                                  : (isExpanded ? "Hide Details ▲" : "Track Production Details ▼")
+                                }
+                              </button>
+                            ) : (
+                              <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600 hover:bg-emerald-105 transition-colors">
+                                <ArrowRight className="w-4 h-4" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {actionDrawerType === "TRACK_PRODUCTION" && isExpanded && (
+                          <div className="p-4 bg-slate-50/50 border-t border-gray-150 space-y-4">
+                            <div className="space-y-2.5">
+                              <h4 className="text-xs font-extrabold text-gray-800 uppercase tracking-wide">
+                                Production Material Requirements
+                              </h4>
+                              
+                              {(() => {
+                                const orderItems = order.orderDetailsList && order.orderDetailsList.length > 0
+                                  ? order.orderDetailsList
+                                  : [order.orderDetails].filter(Boolean);
+
+                                if (orderItems.length === 0) {
+                                  return <p className="text-xs text-gray-500">No item details added for this order.</p>;
+                                }
+
+                                return orderItems.map((item, detIdx) => {
+                                  const catalogProd = productItems.find(
+                                    (p) => String(p._id || p.id).trim() === String(item.productId || "").trim()
+                                  );
+
+                                  const matchedMaterials = catalogProd?.rawMaterials || [];
+
+                                  return (
+                                    <div key={detIdx} className="space-y-2 bg-white p-3 rounded-lg border border-gray-200">
+                                      <div className="flex justify-between items-center pb-1.5 border-b border-gray-100">
+                                        <p className="text-xs font-bold text-gray-900">
+                                          {item.productCategory || order.productCategory} ({item.quantity} {item.unit || "pcs"})
+                                        </p>
+                                        <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-gray-600 font-medium">
+                                          {item.bagSize || (item.gsm ? `${item.gsm} GSM` : "No size")}
+                                        </span>
+                                      </div>
+
+                                      {matchedMaterials.length === 0 ? (
+                                        <p className="text-[11px] text-gray-500 italic">
+                                          No raw materials mapped in product catalog.
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          {matchedMaterials.map((rm, rmIdx) => {
+                                            const dbRm = rawMaterials.find(
+                                              (m) =>
+                                                String(m._id || m.id).trim() === String(rm.rawMaterialId || "").trim() ||
+                                                m.name?.toLowerCase().trim() === rm.rawMaterialName?.toLowerCase().trim()
+                                            );
+
+                                            const requiredQtyPerBag = Number(rm.requiredQuantityPerBag || 0);
+                                            const totalRequired = requiredQtyPerBag * Number(item.quantity || 0);
+                                            const availableStock = dbRm ? Number(dbRm.availableStock || 0) : 0;
+                                            const isAvailable = availableStock >= totalRequired;
+                                            const progressPercent = Math.min(100, (availableStock / (totalRequired || 1)) * 100);
+
+                                            return (
+                                              <div key={rmIdx} className="space-y-1.5 text-xs">
+                                                <div className="flex justify-between items-start">
+                                                  <div>
+                                                    <p className="font-semibold text-gray-900">
+                                                      {rm.rawMaterialName}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-500">
+                                                      BOM: {requiredQtyPerBag} {rm.unit}/bag
+                                                    </p>
+                                                  </div>
+                                                  <div className="text-right">
+                                                    <p className="font-bold text-gray-900">
+                                                      {totalRequired.toFixed(2)} {rm.unit} req.
+                                                    </p>
+                                                    <p className={`text-[10px] font-bold ${isAvailable ? "text-emerald-600" : "text-amber-600"}`}>
+                                                      Stock: {availableStock.toFixed(2)} {rm.unit} ({isAvailable ? "OK" : "Shortage"})
+                                                    </p>
+                                                  </div>
+                                                </div>
+
+                                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                  <div
+                                                    className={`h-full rounded-full ${isAvailable ? "bg-emerald-500" : "bg-amber-400"}`}
+                                                    style={{ width: `${progressPercent}%` }}
+                                                  />
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-gray-150">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="rounded-xl text-xs py-1.5"
+                                onClick={() => {
+                                  setActionDrawerType(null);
+                                  setSelectedOrder(order);
+                                  setShowDetailPanel(true);
+                                }}
+                              >
+                                View Full Order Workspace
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="rounded-xl text-xs py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() => {
+                                  setActionDrawerType(null);
+                                  handleCompleteOrder(order);
+                                }}
+                              >
+                                Complete Production
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {actionDrawerType === "RETURNED_ORDERS" && isExpanded && (
+                          <div className="p-4 bg-slate-50/50 border-t border-gray-150 space-y-4">
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-extrabold text-gray-800 uppercase tracking-wide">
+                                Return Transactions & Receipts
+                              </h4>
+                              {order.returns && order.returns.length > 0 ? (
+                                <div className="space-y-3">
+                                  {order.returns.map((ret, idx) => (
+                                    <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-3xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                      <div>
+                                        <p className="font-bold text-gray-950 text-sm">{ret.returnNumber}</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">Date: {new Date(ret.returnedAt).toLocaleDateString("en-IN")}</p>
+                                        <p className="text-xs text-gray-600 mt-1.5"><span className="font-semibold text-gray-500">Reason:</span> {ret.notes || "No remarks"}</p>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-2">
+                                        <span className="font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full text-xs">
+                                          -₹{(Number(ret.refundAmount || 0) + Number(ret.gstRefundAmount || 0)).toLocaleString("en-IN")}
+                                        </span>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => generateReturnReceiptPDF(order, ret, "view")}
+                                            className="rounded-lg flex items-center gap-1 hover:bg-gray-150 text-xs px-2.5 py-1"
+                                          >
+                                            <Eye className="w-3.5 h-3.5" />
+                                            <span>View</span>
+                                          </Button>
+                                          <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => generateReturnReceiptPDF(order, ret, "download")}
+                                            className="rounded-lg flex items-center gap-1 hover:bg-gray-150 text-xs px-2.5 py-1"
+                                          >
+                                            <Download className="w-3.5 h-3.5 text-red-600" />
+                                            <span className="text-red-650">Download</span>
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 italic">No detailed return transaction lines registered on order database record.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </div>
 
       {/* ── Record Payment Modal ───────────────────────────────────── */}
@@ -5820,6 +9643,43 @@ ${lines || "(See PDF for full BOM)"}
                     {" · "}Balance: <span className="font-semibold text-red-600">₹{Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)).toLocaleString()}</span>
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* Quick Slabs Helper */}
+            <div className="space-y-1.5 rounded-2xl border border-gray-150 bg-gray-50 p-4">
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Quick Slabs / Advance Helper</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const balance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0));
+                    setPaymentForm((p) => ({ ...p, amount: String(Number((balance * 0.5).toFixed(2))) }));
+                  }}
+                  className="rounded-xl border border-amber-200 bg-amber-100/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-150 transition"
+                >
+                  50% Slab (₹{Math.ceil(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)) * 0.5).toLocaleString()})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const balance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0));
+                    setPaymentForm((p) => ({ ...p, amount: String(Number((balance * 0.3).toFixed(2))) }));
+                  }}
+                  className="rounded-xl border border-amber-200 bg-amber-100/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-150 transition"
+                >
+                  30% Slab (₹{Math.ceil(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)) * 0.3).toLocaleString()})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const balance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0));
+                    setPaymentForm((p) => ({ ...p, amount: String(Number(balance.toFixed(2))) }));
+                  }}
+                  className="rounded-xl border border-emerald-250 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-150 transition"
+                >
+                  Clear Balance (₹{Math.ceil(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))).toLocaleString()})
+                </button>
               </div>
             </div>
 
@@ -5985,6 +9845,1038 @@ ${lines || "(See PDF for full BOM)"}
         )}
       </Modal>
     </Layout>
+  );
+};
+
+const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateReturnReceiptPDF, downloadReceiptPDF, productItems }) => {
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [completedOrders, setCompletedOrders] = useState([]);
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [receipts, setReceipts] = useState([]);
+  
+  // Return form states
+  const [returnType, setReturnType] = useState("complete"); // complete, partial
+  const [selectedItems, setSelectedItems] = useState({}); // { [productId]: boolean }
+  const [returnQuantities, setReturnQuantities] = useState({}); // { [productId]: number }
+  const [refundType, setRefundType] = useState("full"); // full, partial
+  const [customRefundAmount, setCustomRefundAmount] = useState("");
+  const [gstType, setGstType] = useState("complete"); // complete, custom
+  const [customGstRate, setCustomGstRate] = useState("18");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [successDetails, setSuccessDetails] = useState(null);
+
+  const handleReceiptAction = (rec, mode = "download") => {
+    if (rec.paymentMode === "refund") {
+      // Map standard receipt to returnDetails format expected by generateReturnReceiptPDF
+      const returnDetails = {
+        returnNumber: rec.receiptNumber,
+        returnedAt: rec.paidAt || rec.createdAt,
+        items: rec.orderDetailsList || [],
+        refundAmount: rec.amount,
+        gstRefundAmount: rec.amount - (rec.amount / 1.18),
+        gstRate: rec.gstRate || 18,
+        notes: rec.note || "Return transaction receipt"
+      };
+      
+      if (Array.isArray(rec.orderDetailsList) && rec.orderDetailsList.length > 0) {
+        let totalBase = 0;
+        let totalGst = 0;
+        rec.orderDetailsList.forEach(it => {
+          const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
+          const taxInfo = getProductTaxInfo(prod || it);
+          const gstRate = it.gstRate != null ? Number(it.gstRate) : taxInfo.gstRate;
+          const lineQty = Number(it.quantity || 0);
+          const lineUnitPrice = Number(it.unitPrice || 0) || (rec.amount / (rec.orderDetailsList.length || 1));
+          const lineTotal = lineQty * lineUnitPrice;
+          const lineBase = lineTotal / (1 + gstRate / 100);
+          totalBase += lineBase;
+          totalGst += (lineTotal - lineBase);
+        });
+        returnDetails.refundAmount = Number(totalBase.toFixed(2));
+        returnDetails.gstRefundAmount = Number(totalGst.toFixed(2));
+      }
+      
+      generateReturnReceiptPDF(selectedOrder, returnDetails, mode);
+    } else {
+      if (typeof downloadReceiptPDF === "function") {
+        downloadReceiptPDF(rec, mode);
+      } else {
+        toast.error("Receipt PDF download helper not found.");
+      }
+    }
+  };
+
+  const handleShareWhatsAppForReceipt = (rec) => {
+    const isRefund = rec.paymentMode === "refund";
+    const text = isRefund 
+      ? `*Nirmalyam Krafts - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
+      : `*Nirmalyam Krafts - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
+    const targetPhone = rec.phone || selectedOrder?.phone || "";
+    const url = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  useEffect(() => {
+    fetchEligibleOrders();
+  }, []);
+
+  const fetchEligibleOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const resp = await axiosInstance.get("/orders?limit=100");
+      if (resp.data.success) {
+        const filtered = (resp.data.data.orders || resp.data.data || []).filter(
+          o => o.orderStatus === "Completed" || o.orderStatus === "Delivered" || o.orderStatus === "Returned"
+        );
+        setCompletedOrders(filtered);
+      }
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      toast.error("Failed to load completed/delivered orders.");
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedOrderId) {
+      setSelectedOrder(null);
+      setReceipts([]);
+      return;
+    }
+    const orderObj = completedOrders.find(o => o.id === selectedOrderId || o._id === selectedOrderId);
+    setSelectedOrder(orderObj);
+    fetchOrderReceipts(selectedOrderId);
+    
+    // Initialize item selection / quantities
+    if (orderObj) {
+      const lines = orderObj.orderDetailsList?.length > 0 
+        ? orderObj.orderDetailsList 
+        : [orderObj.orderDetails].filter(Boolean);
+        
+      // Aggregate already returned quantities from order.returns array
+      const returnedQtyMap = {};
+      if (Array.isArray(orderObj.returns)) {
+        orderObj.returns.forEach(ret => {
+          if (Array.isArray(ret.items)) {
+            ret.items.forEach(it => {
+              const pIdStr = String(it.productId?._id || it.productId || "").trim();
+              returnedQtyMap[pIdStr] = (returnedQtyMap[pIdStr] || 0) + Number(it.quantity || 0);
+            });
+          }
+        });
+      }
+
+      const selMap = {};
+      const qtyMap = {};
+      lines.forEach(line => {
+        const pId = String(line.productId?._id || line.productId || "").trim();
+        const maxQty = Number(line.quantity || 0);
+        const alreadyReturned = Number(returnedQtyMap[pId] || 0);
+        const remainingQty = Math.max(0, maxQty - alreadyReturned);
+
+        qtyMap[pId] = remainingQty;
+        selMap[pId] = remainingQty > 0;
+      });
+      setSelectedItems(selMap);
+      setReturnQuantities(qtyMap);
+    }
+  }, [selectedOrderId, completedOrders]);
+
+  const fetchOrderReceipts = async (ordId) => {
+    try {
+      const resp = await axiosInstance.get("/receipts");
+      if (resp.data.success) {
+        const filtered = (resp.data.data.receipts || resp.data.data || []).filter(
+          r => r.orderId === ordId || r.orderId?._id === ordId
+        );
+        setReceipts(filtered);
+      }
+    } catch (err) {
+      console.error("Error fetching receipts:", err);
+    }
+  };
+
+  const getOrderLines = () => {
+    if (!selectedOrder) return [];
+    return selectedOrder.orderDetailsList?.length > 0 
+      ? selectedOrder.orderDetailsList 
+      : [selectedOrder.orderDetails].filter(Boolean);
+  };
+
+  const getRemainingQty = (line) => {
+    if (!selectedOrder || !line) return 0;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const maxQty = Number(line.quantity || 0);
+    
+    let alreadyReturned = 0;
+    if (Array.isArray(selectedOrder.returns)) {
+      selectedOrder.returns.forEach(ret => {
+        if (Array.isArray(ret.items)) {
+          ret.items.forEach(it => {
+            const pIdStr = String(it.productId?._id || it.productId || "").trim();
+            if (pIdStr === pId) {
+              alreadyReturned += Number(it.quantity || 0);
+            }
+          });
+        }
+      });
+    }
+    return Math.max(0, maxQty - alreadyReturned);
+  };
+
+  // Compute exact per-line GST-inclusive allocations using the GST-rate linear system.
+  // For 2 unique GST-rate groups: solves exactly using:
+  //   S1 + S2 = subtotal  AND  S1*(1+r1) + S2*(1+r2) = totalPaid
+  // Within each group, selling-price weighting distributes the group subtotal.
+  const getLineAllocations = (lines) => {
+    if (!selectedOrder || !lines?.length) return {};
+    const orderSubtotal = Number(selectedOrder.subtotalAmount || 0);
+    const totalPaid = Number(selectedOrder.totalPaidAmount || selectedOrder.totalInvoiceAmount || selectedOrder.totalAmount || 0);
+
+    // Enrich each line with gstRate and selling-price weight
+    const enriched = lines.map(line => {
+      const pId = String(line.productId?._id || line.productId || "").trim();
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+      const taxInfo = getProductTaxInfo(prod || line);
+      const gstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
+      // Prefer selling price over cost/base price for weighting
+      const sellPrice = Number(
+        prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice ||
+        prod?.basePrice || line.unitPrice || line.sellingPrice || 0
+      ) || 1;
+      const weight = Number(line.quantity || 0) * sellPrice;
+      return { pId, gstRate, weight, quantity: Number(line.quantity || 0) };
+    });
+
+    // Group by GST rate
+    const groups = {};
+    enriched.forEach(d => {
+      if (!groups[d.gstRate]) groups[d.gstRate] = { totalWeight: 0, members: [] };
+      groups[d.gstRate].totalWeight += d.weight;
+      groups[d.gstRate].members.push(d);
+    });
+    const rates = Object.keys(groups).map(Number);
+
+    // Solve for per-group subtotals
+    let groupSubtotals = {};
+    if (rates.length === 1) {
+      groupSubtotals[rates[0]] = orderSubtotal;
+    } else if (rates.length === 2) {
+      // Exact solution: S1*(1+r1/100) + S2*(1+r2/100) = totalPaid, S1+S2 = orderSubtotal
+      const [r1, r2] = rates;
+      const denom = (r1 - r2) / 100;
+      if (Math.abs(denom) < 1e-9) {
+        groupSubtotals[r1] = orderSubtotal; groupSubtotals[r2] = 0;
+      } else {
+        const S1 = (totalPaid - orderSubtotal * (1 + r2 / 100)) / denom;
+        const S2 = orderSubtotal - S1;
+        groupSubtotals[r1] = Math.max(0, S1);
+        groupSubtotals[r2] = Math.max(0, S2);
+      }
+    } else {
+      // 3+ groups: use selling-price weighted share of subtotal per group
+      const totalW = enriched.reduce((s, d) => s + d.weight, 0) || 1;
+      rates.forEach(r => {
+        groupSubtotals[r] = orderSubtotal * (groups[r].totalWeight / totalW);
+      });
+    }
+
+    // Allocate each line's subtotal within its group
+    const result = {};
+    enriched.forEach(d => {
+      const grp = groups[d.gstRate];
+      const groupSubtotal = groupSubtotals[d.gstRate] || 0;
+      const withinFrac = grp.totalWeight > 0 ? (d.weight / grp.totalWeight) : (1 / grp.members.length);
+      const lineSubtotal = groupSubtotal * withinFrac;
+      const lineGstIncl = lineSubtotal * (1 + d.gstRate / 100);
+      const unitPaidPrice = d.quantity > 0 ? (lineGstIncl / d.quantity) : 0;
+      result[d.pId] = { subtotal: lineSubtotal, gstIncl: lineGstIncl, unitPaidPrice, gstRate: d.gstRate };
+    });
+    return result;
+  };
+
+  // Proportional base price calculator — works from exact GST-rate-based line allocations
+  const calculateSuggestedProportionalRefund = () => {
+    if (!selectedOrder) return 0;
+    const lines = getOrderLines();
+    const allocs = getLineAllocations(lines);
+    let total = 0;
+    lines.forEach(line => {
+      const pId = String(line.productId?._id || line.productId || "").trim();
+      if (returnType === "complete" || selectedItems[pId]) {
+        const retQty = returnType === "complete" ? getRemainingQty(line) : Number(returnQuantities[pId] || 0);
+        if (retQty <= 0) return;
+        const alloc = allocs[pId];
+        total += retQty * (alloc?.unitPaidPrice || 0);
+      }
+    });
+    return Number(total.toFixed(2));
+  };
+
+  const getRefundSubtotal = () => {
+    if (refundType === "full") return calculateSuggestedProportionalRefund();
+    return Number(customRefundAmount || 0);
+  };
+
+  // GST is EXTRACTED from within the GST-inclusive refund (not added on top)
+  const getRefundGstAmount = () => {
+    if (!selectedOrder) return 0;
+    const lines = getOrderLines();
+    const allocs = getLineAllocations(lines);
+
+    if (gstType === "complete") {
+      let totalGst = 0;
+      lines.forEach(line => {
+        const pId = String(line.productId?._id || line.productId || "").trim();
+        if (returnType === "complete" || selectedItems[pId]) {
+          const retQty = returnType === "complete" ? getRemainingQty(line) : Number(returnQuantities[pId] || 0);
+          if (retQty <= 0) return;
+          const alloc = allocs[pId];
+          if (!alloc) return;
+          const lineGrossRefund = retQty * alloc.unitPaidPrice;
+          // Extract GST portion from within the GST-inclusive total
+          const gstPortion = lineGrossRefund * (alloc.gstRate / (100 + alloc.gstRate));
+          totalGst += gstPortion;
+        }
+      });
+      return Number(totalGst.toFixed(2));
+    }
+
+    // Custom GST: extract from the entered amount
+    const subtotal = getRefundSubtotal();
+    const rate = Number(customGstRate || 0);
+    return Number((subtotal * (rate / (100 + rate))).toFixed(2));
+  };
+
+  const getRefundGstBreakdown = () => {
+    if (!selectedOrder) return {};
+    const lines = getOrderLines();
+    const allocs = getLineAllocations(lines);
+    const breakdown = {};
+
+    lines.forEach(line => {
+      const pId = String(line.productId?._id || line.productId || "").trim();
+      if (returnType === "complete" || selectedItems[pId]) {
+        const retQty = returnType === "complete" ? getRemainingQty(line) : Number(returnQuantities[pId] || 0);
+        if (retQty <= 0) return;
+        const alloc = allocs[pId];
+        if (!alloc) return;
+        const lineGrossRefund = retQty * alloc.unitPaidPrice;
+        const gstPortion = lineGrossRefund * (alloc.gstRate / (100 + alloc.gstRate));
+
+        const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+        const taxInfo = getProductTaxInfo(prod || line);
+        const lineHsn = line.hsnCode || taxInfo.hsnCode || "—";
+        const key = `${lineHsn}_${alloc.gstRate}`;
+        if (!breakdown[key]) breakdown[key] = { hsnCode: lineHsn, gstRate: alloc.gstRate, gstAmount: 0 };
+        breakdown[key].gstAmount += gstPortion;
+      }
+    });
+
+    Object.values(breakdown).forEach(b => { b.gstAmount = Number(b.gstAmount.toFixed(2)); });
+    return breakdown;
+  };
+
+  const handleCheckboxChange = (pId) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [pId]: !prev[pId]
+    }));
+  };
+
+  const handleQuantityChange = (pId, val, max) => {
+    const num = Math.min(max, Math.max(1, Number(val || 0)));
+    setReturnQuantities(prev => ({
+      ...prev,
+      [pId]: num
+    }));
+  };
+
+  const handleSubmitReturn = async (e) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    
+    setSubmitting(true);
+    const loadingToast = toast.loading("Processing return...");
+    try {
+      // Aggregate already returned quantities from order.returns array
+      const returnedQtyMap = {};
+      if (Array.isArray(selectedOrder.returns)) {
+        selectedOrder.returns.forEach(ret => {
+          if (Array.isArray(ret.items)) {
+            ret.items.forEach(it => {
+              const pIdStr = String(it.productId?._id || it.productId || "").trim();
+              returnedQtyMap[pIdStr] = (returnedQtyMap[pIdStr] || 0) + Number(it.quantity || 0);
+            });
+          }
+        });
+      }
+
+      const lines = getOrderLines();
+      const returnItems = [];
+      lines.forEach(line => {
+        const pId = String(line.productId?._id || line.productId || "").trim();
+        const maxQty = Number(line.quantity || 0);
+        const alreadyReturned = Number(returnedQtyMap[pId] || 0);
+        const remainingQty = Math.max(0, maxQty - alreadyReturned);
+
+        if (returnType === "complete" || selectedItems[pId]) {
+          const qtyToReturn = returnType === "complete" ? remainingQty : Number(returnQuantities[pId] || 0);
+          if (qtyToReturn > 0) {
+            const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+            returnItems.push({
+              productId: pId,
+              productName: pObj?.name || selectedOrder.productCategory || "Product",
+              quantity: qtyToReturn,
+              unit: line.unit || "pcs",
+              dimensions: line.dimensions,
+              color: line.color,
+              bagSize: line.bagSize,
+              gsm: line.gsm,
+            });
+          }
+        }
+      });
+
+      if (returnItems.length === 0) {
+        toast.error("Please select at least one item to return.", { id: loadingToast });
+        setSubmitting(false);
+        return;
+      }
+
+      const totalWithGst = getRefundSubtotal();     // GST-inclusive total (e.g. ₹108.02)
+      const gstRefundAmount = getRefundGstAmount();  // GST extracted from within (e.g. ₹13.90)
+      const refundAmount = Number((totalWithGst - gstRefundAmount).toFixed(2)); // pre-tax base (e.g. ₹94.12)
+      const gstRate = gstType === "complete" ? (selectedOrder.taxRate || 18) : Number(customGstRate || 0);
+
+      const payload = {
+        items: returnItems,
+        refundAmount,
+        gstRefundAmount,
+        gstRate,
+        notes,
+        returnType,
+      };
+
+      const resp = await axiosInstance.post(`/orders/${selectedOrder._id || selectedOrder.id}/returns`, payload);
+      if (resp.data.success) {
+        toast.success("Return processed and stock updated! 🎉", { id: loadingToast });
+        
+        const returnNumber = `RET-${selectedOrder.reference || selectedOrder._id.toString().slice(-6).toUpperCase()}-${(selectedOrder.returns?.length || 0) + 1}`;
+        const returnDetails = {
+          returnNumber,
+          returnedAt: new Date(),
+          items: returnItems,
+          refundAmount,
+          gstRefundAmount,
+          gstRate,
+          notes,
+          customerName: selectedOrder.customerName,
+          businessName: selectedOrder.businessName || "",
+          phone: selectedOrder.phone,
+        };
+
+        setSuccessDetails(returnDetails);
+
+        // Refetch queries
+        refetchStats();
+      } else {
+        toast.error(resp.data.message || "Failed to initiate return.", { id: loadingToast });
+      }
+    } catch (err) {
+      console.error("Error submitting return:", err);
+      toast.error(err?.response?.data?.message || "Failed to initiate return.", { id: loadingToast });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    if (!successDetails) return;
+    const message = `
+*Nirmalyam Krafts - Return Receipt*
+
+*Return Ref:* ${successDetails.returnNumber}
+*Date:* ${new Date(successDetails.returnedAt).toLocaleDateString("en-IN")}
+*Customer:* ${successDetails.customerName}
+*Refund Amount:* ₹${successDetails.refundAmount.toLocaleString()}
+*GST Refund Amount:* ₹${successDetails.gstRefundAmount.toLocaleString()}
+*Total Refunded:* ₹${(successDetails.refundAmount + successDetails.gstRefundAmount).toLocaleString()}
+*Items:* ${successDetails.items.map(it => `${it.productName} (x${it.quantity})`).join(", ")}
+*Notes:* ${successDetails.notes || "No notes"}
+    `.trim();
+    const cleanPhone = String(successDetails.phone || "").replace(/\D/g, "");
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Return Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-2.5 rounded-xl border border-gray-250 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <RotateCcw className="w-6 h-6 text-red-600" />
+              Initiate Order Return
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">Filter, review, select, and process returns back to stock</p>
+          </div>
+        </div>
+        
+        {/* Order Selector */}
+        {!successDetails && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <span className="text-sm font-semibold text-gray-600">Select Eligible Order:</span>
+            {loadingOrders ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                <span>Loading completed orders...</span>
+              </div>
+            ) : (
+              <select
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-red-500 outline-none min-w-[240px] shadow-sm font-medium"
+              >
+                <option value="">-- Choose Order --</option>
+                {completedOrders.map((o) => {
+                  const hasReturns = o.orderStatus === "Returned" || (o.returns && o.returns.length > 0);
+                  return (
+                    <option key={o._id || o.id} value={o._id || o.id} disabled={o.orderStatus === "Returned"}>
+                      {o.customerName} ({o.businessName || "No business"}) - #{String(o._id || o.id).slice(-6).toUpperCase()}{hasReturns ? " (Already Returned)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </div>
+        )}
+      </div>
+
+      {successDetails ? (
+        <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-emerald-150 p-8 shadow-lg text-center space-y-6">
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <div className="rounded-full bg-emerald-50 p-4 border border-emerald-200 text-emerald-600 animate-bounce">
+              <ShieldCheck className="w-12 h-12" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Return Successfully Initiated!</h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              Stock levels have been re-assigned to inventory and transaction records have been updated in the financial ledger.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-left space-y-4 max-w-lg mx-auto text-sm">
+            <div className="flex justify-between border-b border-gray-200 pb-2">
+              <span className="font-semibold text-gray-500">Return Reference:</span>
+              <span className="font-bold text-gray-800">{successDetails.returnNumber}</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-200 pb-2">
+              <span className="font-semibold text-gray-500">Refunded To:</span>
+              <span className="font-bold text-gray-800">{successDetails.customerName}</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-200 pb-2">
+              <span className="font-semibold text-gray-500">Base Refund:</span>
+              <span className="font-semibold text-gray-850">₹{successDetails.refundAmount.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-200 pb-2">
+              <span className="font-semibold text-gray-500">GST Refund:</span>
+              <span className="font-semibold text-gray-850">₹{successDetails.gstRefundAmount.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between font-bold text-gray-900 text-base pt-1">
+              <span>Total Refunded:</span>
+              <span className="text-red-600">₹{(successDetails.refundAmount + successDetails.gstRefundAmount).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
+            <Button
+              onClick={() => generateReturnReceiptPDF(selectedOrder, successDetails, "download")}
+              className="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PDF</span>
+            </Button>
+            <Button
+              onClick={() => generateReturnReceiptPDF(selectedOrder, successDetails, "view")}
+              className="py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              <span>View PDF</span>
+            </Button>
+            <Button
+              onClick={handleShareWhatsApp}
+              className="py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 sm:col-span-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Share Receipt via WhatsApp</span>
+            </Button>
+          </div>
+
+          <div className="pt-4 border-t border-gray-100 max-w-md mx-auto">
+            <button
+              onClick={() => {
+                setSuccessDetails(null);
+                setSelectedOrderId("");
+                onBack();
+              }}
+              className="text-sm font-bold text-gray-500 hover:text-gray-700 underline"
+            >
+              Done & Return to Dashboard
+            </button>
+          </div>
+        </div>
+      ) : selectedOrder ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Order, Quotes, & Receipts snapshot */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Customer Details */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide border-b border-gray-100 pb-2">
+                👤 Customer Details
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400">Name</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">{selectedOrder.customerName}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400">Business</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">{selectedOrder.businessName || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400">Phone</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">{selectedOrder.phone}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400">Email</p>
+                  <p className="font-semibold text-gray-800 mt-0.5 break-all">{selectedOrder.email || "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quotation snapshot */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide border-b border-gray-100 pb-2">
+                📄 Quotation Summary
+              </h3>
+              {selectedOrder.quotation?.quotationNumber ? (
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">Quote No</span>
+                    <span className="font-bold text-gray-800">{selectedOrder.quotation.quotationNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">Status</span>
+                    <span className="rounded-full bg-green-50 border border-green-200 px-2.5 py-0.5 text-xs font-bold text-green-700 uppercase">
+                      {selectedOrder.quotation.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-100 pt-2">
+                    <span className="text-gray-500 font-medium">Subtotal</span>
+                    <span className="font-semibold text-gray-800">₹{(selectedOrder.quotation.subtotalAmount || selectedOrder.subtotalAmount || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">GST Rate</span>
+                    <span className="font-semibold text-gray-850">{selectedOrder.quotation.taxRate || selectedOrder.taxRate || 0}%</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-gray-900">
+                    <span>Total Quoted</span>
+                    <span>₹{(selectedOrder.quotation.totalQuoted || selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No official quotation found for this order.</p>
+              )}
+            </div>
+
+            {/* Receipts Snapshot */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide border-b border-gray-100 pb-2">
+                💳 Receipts & Payments
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500 font-medium font-semibold">Total Paid Amount</span>
+                  <span className="font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl">
+                    ₹{(selectedOrder.paidAmount || selectedOrder.confirmedPayment?.paidAmount || 0).toLocaleString()}
+                  </span>
+                </div>
+
+                {receipts.length > 0 ? (
+                  <div className="space-y-3 pt-2 border-t border-gray-100">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Detailed Receipts</p>
+                    {receipts.map((rec) => {
+                      const displayDate = new Date(rec.paidAt || rec.createdAt || Date.now());
+                      const isRefund = rec.paymentMode === "refund";
+                      return (
+                        <div key={rec._id || rec.id} className="text-xs bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-gray-800">{rec.receiptNumber}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">
+                                {isNaN(displayDate.getTime()) ? "Date N/A" : displayDate.toLocaleDateString("en-IN")}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`font-bold ${isRefund ? "text-red-600" : "text-emerald-600"}`}>
+                                {isRefund ? "-" : ""}₹{(rec.amount || 0).toLocaleString()}
+                              </p>
+                              <p className={`text-[9px] uppercase tracking-widest font-extrabold mt-0.5 px-1.5 py-0.5 rounded-md inline-block ${
+                                isRefund 
+                                  ? "bg-red-50 text-red-700 border border-red-200" 
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-250"
+                              }`}>
+                                {rec.paymentMode}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-1.5 pt-1.5 border-t border-gray-150">
+                            <button
+                              type="button"
+                              onClick={() => handleReceiptAction(rec, "view")}
+                              className="flex-1 py-1 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition text-[10px] font-bold text-gray-650 flex items-center justify-center gap-1"
+                              title="View PDF Receipt"
+                            >
+                              <Eye className="w-3 h-3 text-blue-600" />
+                              <span>View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReceiptAction(rec, "download")}
+                              className="flex-1 py-1 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition text-[10px] font-bold text-gray-650 flex items-center justify-center gap-1"
+                              title="Download PDF"
+                            >
+                              <Download className="w-3 h-3 text-emerald-600" />
+                              <span>Download</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShareWhatsAppForReceipt(rec)}
+                              className="flex-1 py-1 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition text-[10px] font-bold text-gray-650 flex items-center justify-center gap-1"
+                              title="Share via WhatsApp"
+                            >
+                              <MessageCircle className="w-3 h-3 text-green-600" />
+                              <span>Share</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic pt-2">No receipt logs parsed in system database.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Middle Column: Products & specifications */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                  📦 Product Specifications
+                </h3>
+                {returnType === "partial" && (
+                  <span className="text-xs text-red-600 font-bold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                    Select items to return
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {getOrderLines().map((line, index) => {
+                  const pId = String(line.productId?._id || line.productId || "").trim();
+                  const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+                  const productName = pObj?.name || selectedOrder.productCategory || "Product";
+                  const maxQty = line.quantity || 1;
+                  
+                  // Compute already returned qty for this line item
+                  const returnedQtyMap = {};
+                  if (Array.isArray(selectedOrder.returns)) {
+                    selectedOrder.returns.forEach(ret => {
+                      if (Array.isArray(ret.items)) {
+                        ret.items.forEach(it => {
+                          const pIdStr = String(it.productId?._id || it.productId || "").trim();
+                          returnedQtyMap[pIdStr] = (returnedQtyMap[pIdStr] || 0) + Number(it.quantity || 0);
+                        });
+                      }
+                    });
+                  }
+                  const alreadyReturned = Number(returnedQtyMap[pId] || 0);
+                  const remainingQty = Math.max(0, maxQty - alreadyReturned);
+                  const isChecked = selectedItems[pId] || false;
+
+                  return (
+                    <div key={index} className={`p-4 rounded-xl border transition-all ${isChecked ? "border-red-200 bg-red-50/10" : "border-gray-200 bg-white"}`}>
+                      <div className="flex items-start gap-3">
+                        {returnType === "partial" && (
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={remainingQty <= 0}
+                            onChange={() => handleCheckboxChange(pId)}
+                            className="mt-1 h-4.5 w-4.5 rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:opacity-40"
+                          />
+                        )}
+                        <div className="flex-1 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <span className="font-bold text-gray-800 text-sm">{productName}</span>
+                            <div className="text-right">
+                              <span className="text-xs font-semibold text-gray-500 block">Qty Ordered: {line.quantity} {line.unit || "pcs"}</span>
+                              {alreadyReturned > 0 && (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                                  Already Returned: {alreadyReturned} {line.unit || "pcs"}
+                                </span>
+                              )}
+                              {remainingQty === 0 && (
+                                <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded mt-0.5 inline-block ml-1">
+                                  Fully Returned
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-150">
+                            <div>
+                              <span className="font-semibold text-gray-400">Size:</span> {line.bagSize || "—"}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-400">Color:</span> {line.color || "—"}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-400">GSM:</span> {line.gsm || "—"}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-400">Print:</span> {line.customPrinting ? "Yes" : "No"}
+                            </div>
+                            {line.dimensions && (
+                              <div className="col-span-2">
+                                <span className="font-semibold text-gray-400">Dimensions:</span>{" "}
+                                {line.dimensions.length || 0} ×{" "}
+                                {line.dimensions.width || 0} ×{" "}
+                                {line.dimensions.height || 0}{" "}
+                                {line.dimensions.dimensionsUnit || line.dimensions.unit || "inch"}
+                              </div>
+                            )}
+                          </div>
+
+                          {returnType === "partial" && isChecked && remainingQty > 0 && (
+                            <div className="flex items-center gap-2 pt-2">
+                              <span className="text-xs font-bold text-red-700">Qty to Return:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={remainingQty}
+                                value={returnQuantities[pId] || ""}
+                                onChange={(e) => handleQuantityChange(pId, e.target.value, remainingQty)}
+                                className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-800 focus:border-red-500 outline-none font-bold"
+                              />
+                              <span className="text-[10px] font-semibold text-gray-500">(Max: {remainingQty} {line.unit || "pcs"})</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Refund amount, GST selectors, & submit return */}
+          <div className="lg:col-span-1 space-y-6">
+            <form onSubmit={handleSubmitReturn} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-5">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide border-b border-gray-100 pb-2 flex items-center gap-1.5">
+                ⚙️ Return Settings
+              </h3>
+
+              {/* Return Type Segmented Controls */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Return Type:</span>
+                <div className="grid grid-cols-2 gap-2 bg-gray-55 p-1 rounded-xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setReturnType("complete")}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all ${returnType === "complete" ? "bg-red-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    Complete Return
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReturnType("partial")}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all ${returnType === "partial" ? "bg-red-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    Partial Return
+                  </button>
+                </div>
+              </div>
+
+              {/* Refund Type */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Base Refund Amount:</span>
+                <div className="grid grid-cols-2 gap-2 bg-gray-55 p-1 rounded-xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setRefundType("full")}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all ${refundType === "full" ? "bg-slate-800 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    Suggest Base (₹{calculateSuggestedProportionalRefund().toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRefundType("partial")}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all ${refundType === "partial" ? "bg-slate-800 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    Custom Refund
+                  </button>
+                </div>
+
+                {refundType === "partial" && (
+                  <div className="pt-2">
+                    <input
+                      type="number"
+                      placeholder="Enter base refund amount"
+                      required
+                      min={0}
+                      value={customRefundAmount}
+                      onChange={(e) => setCustomRefundAmount(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm text-gray-800 focus:border-red-500 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* GST Type */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">GST Refund Option:</span>
+                <div className="grid grid-cols-2 gap-2 bg-gray-55 p-1 rounded-xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setGstType("complete")}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all ${gstType === "complete" ? "bg-slate-800 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    Proportional GST (₹{getRefundGstAmount().toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGstType("custom")}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all ${gstType === "custom" ? "bg-slate-800 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    Custom GST Rate
+                  </button>
+                </div>
+
+                {gstType === "custom" && (
+                  <div className="pt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="GST Rate % (e.g. 18)"
+                      required
+                      min={0}
+                      max={100}
+                      value={customGstRate}
+                      onChange={(e) => setCustomGstRate(e.target.value)}
+                      className="flex-1 rounded-xl border border-gray-300 px-3.5 py-2 text-sm text-gray-800 focus:border-red-500 outline-none"
+                    />
+                    <span className="text-xs font-bold text-gray-500">% = ₹{getRefundGstAmount().toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Refund Summary Calculation */}
+              <div className="bg-red-50/30 border border-red-150 p-4 rounded-xl space-y-2 text-sm">
+                <p className="text-xs font-bold text-red-800 uppercase tracking-wider">Estimated Refund Total</p>
+
+                {/* Base (pre-tax) */}
+                <div className="flex justify-between text-gray-600 mt-1">
+                  <span>Base Refund (excl. GST):</span>
+                  <span className="font-semibold">₹{(getRefundSubtotal() - getRefundGstAmount()).toFixed(2)}</span>
+                </div>
+
+                {/* GST Breakdown */}
+                {gstType === "complete" ? (
+                  <>
+                    <div className="flex justify-between text-gray-500 text-[11px] font-bold uppercase tracking-wider mt-1 border-t border-dashed border-red-100 pt-1">
+                      <span>GST Refund Breakdown:</span>
+                    </div>
+                    {Object.values(getRefundGstBreakdown()).map((b, i) => (
+                      <div key={i} className="flex justify-between text-gray-600 pl-2 text-xs">
+                        <span>HSN {b.hsnCode} ({b.gstRate}%):</span>
+                        <span className="font-medium">₹{b.gstAmount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-gray-700 font-semibold border-t border-dashed border-red-100 pt-1">
+                      <span>Total GST Refund:</span>
+                      <span>₹{getRefundGstAmount().toLocaleString()}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-gray-600">
+                    <span>GST Refund ({customGstRate}%):</span>
+                    <span className="font-semibold">₹{getRefundGstAmount().toLocaleString()}</span>
+                  </div>
+                )}
+
+                {/* Total */}
+                <div className="flex justify-between border-t-2 border-red-300 pt-2 mt-1 text-gray-900 font-bold text-base">
+                  <span>Total Refund (incl. GST):</span>
+                  <span className="text-red-700">₹{getRefundSubtotal().toLocaleString()}</span>
+                </div>
+
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Reason for Return / Remarks:</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="e.g. Printing mistake, incorrect dimensions delivered"
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-800 focus:border-red-500 outline-none min-h-[80px]"
+                />
+              </div>
+
+              {/* Submit CTA */}
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 group transition-all"
+              >
+                {submitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <RotateCcw className="w-5 h-5 group-hover:rotate-[-45deg] transition-transform" />
+                    <span>Process Return & Download Receipt</span>
+                  </>
+                )}
+              </Button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-200 py-16 text-center shadow-sm">
+          <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
+            <RotateCcw className="w-16 h-16 text-gray-300 mb-4 animate-pulse" />
+            <p className="text-lg font-bold text-gray-800">Select an Order to Return</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Only Completed or Delivered orders are eligible for refund/returns. Select an order from the selector at the top-right to start.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

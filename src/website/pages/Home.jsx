@@ -618,8 +618,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════════════ PAGE POPUP ══════════════════ */}
-      <PagePopup pageType="home" />
+
 
       {/* ══════════════════ CATEGORIES ══════════════════ */}
       <section

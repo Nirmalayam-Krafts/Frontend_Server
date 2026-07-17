@@ -31,8 +31,11 @@ import {
   FileBox,
   Activity,
   RotateCcw,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { exportToExcel } from "../../utils";
 import toast from "react-hot-toast";
 import { useAuthContext } from "../../../context/Adminauth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +47,48 @@ import {
 import { useGetAllProducts } from "../../../../hook/Product";
 
 // --- Types ---
+
+const parseHistoryNote = (note: string) => {
+  if (!note) return null;
+
+  // Pattern A: "Used for manual stock addition (Add Stock) of 1 bags of KraftRoll"
+  const patternA = /Used\s*for\s*manual\s*stock\s*addition\s*\(Add\s*Stock\)\s*of\s*([0-9.]+)\s*(\w+)\s*of\s*(.*?)$/i;
+
+  // Pattern B: general deduction pattern
+  const patternB = /Deducted\s*([0-9.]+)\s*(\w+)\s*for\s*(.*?)$/i;
+
+  let match = note.match(patternA);
+  if (match) {
+    const rawUnit = match[2];
+    const productName = match[3];
+    const unit = productName.toLowerCase().includes("roll") && rawUnit === "bags" ? "kg" : rawUnit;
+
+    return {
+      type: "PRODUCTION",
+      quantity: match[1],
+      unit,
+      productName,
+      description: `Stock deducted to manufacture ${match[1]} ${unit} of the product ${productName}.`
+    };
+  }
+
+  match = note.match(patternB);
+  if (match) {
+    const rawUnit = match[2];
+    const productName = match[3];
+    const unit = productName.toLowerCase().includes("roll") && rawUnit === "bags" ? "kg" : rawUnit;
+
+    return {
+      type: "PRODUCTION_GENERIC",
+      quantity: match[1],
+      unit,
+      productName,
+      description: `Consumed ${match[1]} ${unit} for product ${productName}.`
+    };
+  }
+
+  return null;
+};
 
 interface IStockHistory {
   action: "ADD" | "REMOVE" | "SET" | "PRODUCTION_CREATE" | "RESERVE" | "COMMIT";
@@ -303,6 +348,9 @@ const RawMaterial = () => {
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedItem, setSelectedItem] = useState<IRawMaterial | null>(null);
+  const [activeLogMaterial, setActiveLogMaterial] = useState<IRawMaterial | null>(null);
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
 
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedStockItem, setSelectedStockItem] = useState<IRawMaterial | null>(null);
@@ -322,6 +370,19 @@ const RawMaterial = () => {
   const { data: rawMaterials = [], isLoading } = useGetAllRawMaterials({ search, showDeleted });
   const { data: lowStockAlerts = [] } = useGetLowStockRawMaterials();
   const { data: products = [] } = useGetAllProducts();
+
+  useEffect(() => {
+    if (!activeLogMaterial && rawMaterials.length > 0) {
+      setActiveLogMaterial(rawMaterials[0]);
+    } else if (activeLogMaterial && rawMaterials.length > 0) {
+      const current = rawMaterials.find(
+        (r: IRawMaterial) => String(r._id || r.id) === String(activeLogMaterial._id || activeLogMaterial.id)
+      );
+      if (current) {
+        setActiveLogMaterial(current);
+      }
+    }
+  }, [rawMaterials, activeLogMaterial]);
 
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
@@ -849,6 +910,56 @@ const RawMaterial = () => {
     }
   };
 
+  const handleExportRawMaterials = (format: "csv" | "excel") => {
+    if (!filteredItems.length) {
+      toast.error("No raw materials available to export");
+      return;
+    }
+
+    const headers = [
+      "Material Name",
+      "Material Code",
+      "Type",
+      "Unit",
+      "Available For Sale",
+      "Reserved Stock",
+      "Available Stock (Total)",
+      "Reorder Point",
+      "Unit Price (₹)",
+      "Total Value (₹)",
+    ];
+
+    const rows = filteredItems.map((item) => [
+      item.name || "",
+      item.code || "",
+      item.type || "",
+      item.unit || "",
+      item.availableForSale || 0,
+      item.reservedStock || 0,
+      item.availableStock || 0,
+      item.reorderPoint || 0,
+      item.unitPrice || 0,
+      (Number(item.availableStock || 0) * Number(item.unitPrice || 0)),
+    ]);
+
+    if (format === "csv") {
+      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "raw_materials.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("CSV exported successfully");
+    } else {
+      exportToExcel(headers, rows, "raw_materials");
+      toast.success("Excel exported successfully");
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -913,7 +1024,7 @@ const RawMaterial = () => {
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
                           {label}
                         </p>
-                        <p className="mt-2 text-2xl font-bold text-white">{value}</p>
+                        <p className="mt-2 text-base sm:text-lg lg:text-xl font-bold text-white whitespace-nowrap">{value}</p>
                       </div>
                       <div className="rounded-2xl bg-white/12 p-3 text-white shadow-inner shadow-white/10">
                         <Icon className="h-5 w-5" />
@@ -957,17 +1068,8 @@ const RawMaterial = () => {
 
                   <button
                     type="button"
-                    onClick={() => setShowProductionModal(true)}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-emerald-950/35 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-950/50 hover:shadow-lg"
-                  >
-                    <Factory size={18} />
-                    <span>Create Production Stock</span>
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={openCreateModal}
-                    className="sm:col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-bold text-emerald-950 shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-xl"
                   >
                     <Plus size={18} />
                     <span>Create Raw Material</span>
@@ -980,7 +1082,7 @@ const RawMaterial = () => {
                       <ArrowUpRight className="h-3.5 w-3.5" />
                       Available to Use
                     </div>
-                    <p className="mt-2 text-2xl font-bold text-white">
+                    <p className="mt-2 text-base sm:text-lg lg:text-xl font-bold text-white whitespace-nowrap">
                       {availableToUseUnits.toLocaleString()}
                     </p>
                     <p className="mt-1 text-xs text-emerald-50/75">
@@ -993,7 +1095,7 @@ const RawMaterial = () => {
                       <Layers3 className="h-3.5 w-3.5" />
                       Manufacturing Hold
                     </div>
-                    <p className="mt-2 text-2xl font-bold text-white">
+                    <p className="mt-2 text-base sm:text-lg lg:text-xl font-bold text-white whitespace-nowrap">
                       {manufacturingHoldUnits.toLocaleString()}
                     </p>
                     <p className="mt-1 text-xs text-emerald-50/75">
@@ -1015,13 +1117,13 @@ const RawMaterial = () => {
             <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" />
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                     Total Materials
                   </p>
-                  <p className="mt-3 text-3xl font-bold text-gray-900">{totalMaterials}</p>
+                  <p className="mt-3 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">{totalMaterials}</p>
                 </div>
-                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600 flex-shrink-0">
                   <Boxes className="h-5 w-5" />
                 </div>
               </div>
@@ -1035,13 +1137,13 @@ const RawMaterial = () => {
             <div className="h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500" />
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                     Active Materials
                   </p>
-                  <p className="mt-3 text-3xl font-bold text-gray-900">{activeMaterials}</p>
+                  <p className="mt-3 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">{activeMaterials}</p>
                 </div>
-                <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+                <div className="rounded-2xl bg-blue-50 p-3 text-blue-600 flex-shrink-0">
                   <Package className="h-5 w-5" />
                 </div>
               </div>
@@ -1064,26 +1166,26 @@ const RawMaterial = () => {
             <div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                     Total Stock Units
                   </p>
-                  <p className="mt-3 text-3xl font-bold text-gray-900">
+                  <p className="mt-3 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
                     {Number(totalStockUnits).toLocaleString()}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-violet-50 p-3 text-violet-600">
+                <div className="rounded-2xl bg-violet-50 p-3 text-violet-600 flex-shrink-0">
                   <Layers3 className="h-5 w-5" />
                 </div>
               </div>
-              <div className="mt-4 space-y-2 text-xs text-gray-600">
-                <div className="flex items-center justify-between rounded-2xl bg-violet-50/70 px-3 py-2">
+              <div className="mt-4 space-y-2 text-[11px] sm:text-xs text-gray-600">
+                <div className="flex flex-wrap items-center justify-between gap-1 rounded-2xl bg-violet-50/70 px-3 py-2">
                   <span className="font-medium text-gray-500">Manufacturing hold</span>
                   <span className="font-semibold text-gray-900">
                     {manufacturingHoldUnits.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center justify-between rounded-2xl bg-emerald-50/70 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-1 rounded-2xl bg-emerald-50/70 px-3 py-2">
                   <span className="font-medium text-gray-500">Available to use</span>
                   <span className="font-semibold text-gray-900">
                     {availableToUseUnits.toLocaleString()}
@@ -1097,13 +1199,13 @@ const RawMaterial = () => {
             <div className="h-1.5 bg-gradient-to-r from-red-500 to-orange-400" />
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500">
                     Low Stock Alerts
                   </p>
-                  <p className="mt-3 text-3xl font-bold text-red-600">{lowStockCount}</p>
+                  <p className="mt-3 text-lg sm:text-xl lg:text-2xl font-bold text-red-600 whitespace-nowrap">{lowStockCount}</p>
                 </div>
-                <div className="rounded-2xl bg-white p-3 text-red-600 shadow-sm">
+                <div className="rounded-2xl bg-white p-3 text-red-600 shadow-sm flex-shrink-0">
                   <AlertTriangle className="h-5 w-5" />
                 </div>
               </div>
@@ -1115,15 +1217,15 @@ const RawMaterial = () => {
             <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-lime-400" />
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                     Total Raw Material Value
                   </p>
-                  <p className="mt-3 text-3xl font-bold text-gray-900">
+                  <p className="mt-3 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
                     {formattedRawMaterialValue}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600 flex-shrink-0">
                   <Calculator className="h-5 w-5" />
                 </div>
               </div>
@@ -1137,13 +1239,13 @@ const RawMaterial = () => {
             <div className="h-1.5 bg-gradient-to-r from-amber-400 to-orange-400" />
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                     Bag Types / Products
                   </p>
-                  <p className="mt-3 text-3xl font-bold text-gray-900">{differentBagTypes}</p>
+                  <p className="mt-3 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">{differentBagTypes}</p>
                 </div>
-                <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
+                <div className="rounded-2xl bg-amber-50 p-3 text-amber-600 flex-shrink-0">
                   <ShoppingBag className="h-5 w-5" />
                 </div>
               </div>
@@ -1263,6 +1365,24 @@ const RawMaterial = () => {
                   Showing {filteredItems.length} raw materials
                 </p>
               </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  icon={Download}
+                  onClick={() => handleExportRawMaterials("csv")}
+                  className="rounded-xl flex items-center gap-1.5"
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={FileSpreadsheet}
+                  onClick={() => handleExportRawMaterials("excel")}
+                  className="rounded-xl flex items-center gap-1.5"
+                >
+                  Export Excel
+                </Button>
+              </div>
             </div>
 
             {isLoading ? (
@@ -1311,10 +1431,17 @@ const RawMaterial = () => {
                         ? Math.min((item.availableStock / item.reorderPoint) * 100, 100) 
                         : 100;
 
+                      const isActiveRow = activeLogMaterial && (activeLogMaterial._id === item._id || activeLogMaterial.id === item.id);
+
                       return (
                         <tr
                           key={item._id || item.id}
-                          className="bg-white hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-transparent transition-all duration-200 group"
+                          onClick={() => setActiveLogMaterial(item)}
+                          className={`transition-all duration-200 group cursor-pointer ${
+                            isActiveRow 
+                              ? "bg-emerald-50/40 hover:bg-emerald-50/60" 
+                              : "bg-white hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-transparent"
+                          }`}
                         >
                           {/* Material Details */}
                           <td className="px-6 py-4">
@@ -1515,6 +1642,168 @@ const RawMaterial = () => {
               </div>
             )}
           </Card>
+
+          {activeLogMaterial && (
+            <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm">
+              <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-lg mb-6">
+                <h3 className="text-lg font-bold">Activity Logs & Modification History — {activeLogMaterial.name}</h3>
+                <p className="mt-1 text-xs text-slate-300 opacity-90">
+                  Showing stock transactions, manual adjustments, supplier addition logs, and manufacturing usage history for Raw Material {activeLogMaterial.name} ({activeLogMaterial.code})
+                </p>
+              </div>
+
+              {/* Date Filters */}
+              <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-gray-200 p-3 rounded-2xl mb-6 text-sm">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Logs by Date:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">From</span>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    max={logEndDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logEndDate && val > logEndDate) {
+                        toast.error("'From' date cannot be after 'To' date");
+                        return;
+                      }
+                      setLogStartDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">To</span>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    min={logStartDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logStartDate && val < logStartDate) {
+                        toast.error("'To' date cannot be before 'From' date");
+                        return;
+                      }
+                      setLogEndDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                {(logStartDate || logEndDate) && (
+                  <button
+                    onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold ml-auto"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {(() => {
+                  const getLocalDateString = (dateVal: any) => {
+                    if (!dateVal) return "";
+                    const d = new Date(dateVal);
+                    if (isNaN(d.getTime())) return "";
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                  };
+
+                  const rawHistory = activeLogMaterial.stockHistory || [];
+                  let sortedHistory = [...rawHistory].reverse();
+                  if (logStartDate) {
+                    sortedHistory = sortedHistory.filter(l => l.date && getLocalDateString(l.date) >= logStartDate);
+                  }
+                  if (logEndDate) {
+                    sortedHistory = sortedHistory.filter(l => l.date && getLocalDateString(l.date) <= logEndDate);
+                  }
+
+                  const formatDate = (dateString: any) => {
+                    if (!dateString) return "N/A";
+                    return new Date(dateString).toLocaleDateString("en-IN", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                  };
+
+                  return sortedHistory.map((log: any, index: number) => {
+                    const parsed = parseHistoryNote(log.note || "");
+                    const isDeducted = log.action === "deducted" || log.action === "REMOVE";
+                    const isAdded = log.action === "added" || log.action === "created" || log.action === "ADD";
+
+                    return (
+                      <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                                isDeducted 
+                                  ? "bg-red-50 border-red-150 text-red-700" 
+                                  : isAdded 
+                                    ? "bg-emerald-50 border-emerald-150 text-emerald-700"
+                                    : "bg-blue-50 border-blue-150 text-blue-700"
+                              }`}>
+                                {isDeducted ? "❌" : isAdded ? "➕" : "📝"} {log.action}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Stock level change:</span>{" "}
+                              {log.previousStock} {activeLogMaterial.unit} → <strong className="font-bold text-gray-900">{log.newStock} {activeLogMaterial.unit}</strong>
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Transferred Quantity:</span>{" "}
+                              <span className={`font-bold ${isDeducted ? "text-red-600" : "text-emerald-600"}`}>
+                                {isDeducted ? "-" : "+"}{log.quantity} {activeLogMaterial.unit}
+                              </span>
+                            </p>
+                            {log.note && (
+                              <p className="mt-1.5 text-sm text-gray-600 bg-gray-50 border border-gray-150 rounded px-3 py-2 italic font-semibold text-gray-700">
+                                <span className="font-bold text-gray-900 not-italic block mb-0.5 text-xs">Note/Details:</span>
+                                {log.note}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="text-xs text-gray-500 font-semibold">
+                              {formatDate(log.at || log.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {parsed && (
+                          <div className="bg-emerald-50/20 border border-emerald-100/60 rounded-xl p-3.5 mt-2">
+                            <p className="text-[10px] font-bold text-emerald-750 uppercase tracking-wider mb-2">Manufacturing Link Details:</p>
+                            <div className="grid grid-cols-2 gap-3 text-xs leading-relaxed text-gray-850 font-medium">
+                              <div>
+                                <span className="text-[9px] text-gray-400 uppercase font-bold block">Target Manufactured Item</span>
+                                <strong className="text-gray-900 font-bold">{parsed.productName}</strong>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-gray-400 uppercase font-bold block">Units Produced</span>
+                                <strong className="text-gray-955 font-bold">{parsed.quantity} {parsed.unit}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+
+                {(!activeLogMaterial.stockHistory || activeLogMaterial.stockHistory.length === 0) && (
+                  <div className="rounded-xl border border-dashed border-gray-250 p-6 text-center text-sm font-semibold text-gray-500 bg-gray-50">
+                    No stock actions recorded for this raw material item yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <Modal
@@ -2101,126 +2390,158 @@ const RawMaterial = () => {
           size="lg"
         >
           {selectedStockItem && (
-            <div className="space-y-6">
-              <div className="overflow-hidden rounded-[28px] border border-emerald-100 bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-700 text-white shadow-lg">
-                <div className="grid gap-5 p-5 md:grid-cols-[1.35fr_1fr] md:p-6">
+            <div className="space-y-4 font-sans text-gray-900">
+              
+              {/* Sleek Professional Banner */}
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-50">
-                      <CirclePlus className="h-3.5 w-3.5" />
-                      Stock Update
-                    </div>
-                    <h3 className="mt-4 text-2xl font-bold">{selectedStockItem.name}</h3>
-                    <p className="mt-2 text-sm leading-6 text-emerald-50/85">
-                      Add fresh stock for this raw material and review the new balance before
-                      saving the update.
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-250 px-2 py-0.5 rounded">
+                      Stock Increment
+                    </span>
+                    <h3 className="mt-1.5 text-lg font-bold text-gray-900">{selectedStockItem.name}</h3>
+                    <p className="text-xs text-gray-550 mt-0.5">
+                      Review stock increments, unit rates, and final projected valuations below.
                     </p>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">
-                    <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
-                        Current Stock
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-white">
-                        {Number(selectedStockItem.availableStock || 0).toLocaleString()} {selectedStockItem.unit}
-                      </p>
+                  <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center text-center">
+                    <div className="bg-white border border-gray-200 rounded px-2.5 py-1 text-xs">
+                      <span className="text-[8px] text-gray-400 uppercase tracking-wider block">Current</span>
+                      <span className="font-bold text-gray-800">{Number(selectedStockItem.availableStock || 0).toLocaleString()} {selectedStockItem.unit}</span>
                     </div>
-                    <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
-                        Material Code
-                      </p>
-                      <p className="mt-2 text-lg font-bold text-white">
-                        {selectedStockItem.code}
-                      </p>
+                    <div className="bg-white border border-gray-200 rounded px-2.5 py-1 text-xs">
+                      <span className="text-[8px] text-gray-400 uppercase tracking-wider block">Code</span>
+                      <span className="font-bold text-gray-800">{selectedStockItem.code}</span>
                     </div>
-                    <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">
-                        Unit Price
-                      </p>
-                      <p className="mt-2 text-lg font-bold text-white">
-                        Rs. {Number(selectedStockItem.unitPrice || 0).toLocaleString("en-IN")} / {selectedStockItem.unit}
-                      </p>
+                    <div className="bg-white border border-gray-200 rounded px-2.5 py-1 text-xs">
+                      <span className="text-[8px] text-gray-400 uppercase tracking-wider block">Unit Price</span>
+                      <span className="font-bold text-gray-850">₹{Number(selectedStockItem.unitPrice || 0).toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
-                  <Input
-                    label="Add Stock Quantity"
-                    icon={Package}
-                    type="number"
-                    step="any"
-                    value={stockToAdd}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
-                    placeholder={`Enter quantity in ${selectedStockItem.unit}`}
-                  />
+              {/* Quantity, Rate and Note Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Input Fields block */}
+                <div className="space-y-3">
+                  <div className="flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                      Add Stock Quantity ({selectedStockItem.unit})
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={stockToAdd}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
+                        placeholder={`e.g., 50`}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-gray-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                      New Unit Price / Rate (₹)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={stockUnitPrice}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockUnitPrice(e.target.value)}
+                        placeholder={`Current: ₹${selectedStockItem.unitPrice}`}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-gray-900"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
-                  <Input
-                    label="New Unit Price / Rate (₹)"
-                    icon={Calculator}
-                    type="number"
-                    step="0.01"
-                    value={stockUnitPrice}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockUnitPrice(e.target.value)}
-                    placeholder={`Current: ₹${selectedStockItem.unitPrice}`}
-                  />
+
+                {/* Calculation Details & Cost Summary */}
+                <div className="flex flex-col justify-between border border-gray-200 rounded-md p-4 bg-gray-50/50">
+                  <div className="space-y-3 text-xs">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-200 pb-1">
+                      Valuation Summary
+                    </p>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Adding stock amount:</span>
+                      <span className="font-bold text-gray-800">
+                        {stockToAddValue.toLocaleString()} {selectedStockItem.unit}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Rate / Unit Price:</span>
+                      <span className="font-bold text-gray-800">
+                        ₹{currentUnitPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Total cost of added stock — emphasized */}
+                    <div className="flex justify-between border-t border-dashed border-gray-200 pt-2 font-bold text-sm">
+                      <span className="text-gray-700">Total Value added:</span>
+                      <span className="text-emerald-700 font-extrabold text-base">
+                        ₹{(stockToAddValue * currentUnitPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[9px] text-gray-450 italic mt-2">
+                    * Formula: Quantity × Rate
+                  </p>
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Note
+              {/* Note input */}
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Note / Comments
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={stockNote}
                   onChange={(e) => setStockNote(e.target.value)}
-                  placeholder="Stock received from supplier"
-                  className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  placeholder="e.g. Received new raw paper batch from supplier"
+                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900"
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
-                    Current Stock
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">
-                    {Number(selectedStockItem.availableStock || 0).toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">{selectedStockItem.unit}</p>
+              {/* Final Stock Level metrics bar */}
+              <div className="grid grid-cols-3 gap-3 text-center border-t border-gray-150 pt-4 text-xs font-semibold">
+                <div className="border border-gray-200 bg-gray-50 p-2.5 rounded-md">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">Current Stock</span>
+                  <span className="text-sm font-bold text-gray-700">
+                    {Number(selectedStockItem.availableStock || 0).toLocaleString()} {selectedStockItem.unit}
+                  </span>
                 </div>
-
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
-                    Adding Now
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">
-                    {stockToAddValue.toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">{selectedStockItem.unit}</p>
+                <div className="border border-blue-150 bg-blue-50 p-2.5 rounded-md">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 block mb-0.5">Adding Stock</span>
+                  <span className="text-sm font-bold text-blue-700">
+                    +{stockToAddValue.toLocaleString()} {selectedStockItem.unit}
+                  </span>
                 </div>
-
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                    New Stock Level
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-emerald-900">
-                    {projectedStockLevel.toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {selectedStockItem.unit} | Value Rs. {projectedStockValue.toLocaleString("en-IN")}
-                  </p>
+                <div className="border border-emerald-150 bg-emerald-55/10 p-2.5 rounded-md">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 block mb-0.5">Projected Total</span>
+                  <span className="text-sm font-bold text-emerald-700 block">
+                    {projectedStockLevel.toLocaleString()} {selectedStockItem.unit}
+                  </span>
+                  <span className="text-[9px] text-emerald-600 font-medium mt-0.5 block">
+                    Total Value: ₹{projectedStockValue.toLocaleString("en-IN")}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              {/* Actions Footer */}
+              <div className="flex justify-end gap-2 border-t border-gray-150 pt-3.5">
                 <Button
                   variant="secondary"
-                  className="rounded-xl"
+                  className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wider"
                   onClick={() => {
                     setShowStockModal(false);
                     setSelectedStockItem(null);
@@ -2232,7 +2553,10 @@ const RawMaterial = () => {
                   Cancel
                 </Button>
 
-                <Button className="rounded-xl bg-green-900" onClick={handleAddStock}>
+                <Button 
+                  className="rounded-md bg-emerald-600 hover:bg-emerald-750 text-white font-bold text-xs px-5 py-2 uppercase tracking-wider transition shadow-sm"
+                  onClick={handleAddStock}
+                >
                   Add Stock
                 </Button>
               </div>

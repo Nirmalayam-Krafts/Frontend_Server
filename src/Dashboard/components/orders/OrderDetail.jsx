@@ -22,6 +22,8 @@ import {
   Printer,
 } from "lucide-react";
 import { Badge } from "../ui";
+import { getProductTaxInfo } from "../../utils";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 const orderStatusConfig = {
   PENDING: { label: "Pending", icon: Clock, variant: "warning" },
@@ -69,12 +71,18 @@ function DetailBlock({ icon: Icon, label, value, tone = "text-gray-900" }) {
         <Icon className="h-3.5 w-3.5" />
         {label}
       </p>
-      <p className={`mt-1 text-sm font-semibold ${tone}`}>{value}</p>
+      <p className={`mt-1 text-sm font-semibold break-all ${tone}`}>{value}</p>
     </div>
   );
 }
 
-export default function OrderDetail({ order }) {
+export default function OrderDetail({ order, onEditDelivery }) {
+  const { data: productsData } = useGetAllProducts();
+  const productItems = React.useMemo(() => {
+    if (Array.isArray(productsData)) return productsData;
+    return [];
+  }, [productsData]);
+
   if (!order) return null;
 
   const orderStatus = orderStatusConfig[order.orderStatusKey] || orderStatusConfig.PENDING;
@@ -200,77 +208,216 @@ export default function OrderDetail({ order }) {
               <ShoppingBag className="h-5 w-5 text-emerald-600" />
               <h3 className="text-lg font-semibold text-gray-900">Product Details</h3>
             </div>
-            <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                Product
-              </p>
-              <p className="mt-1 text-lg font-bold text-emerald-900">{order.productCategory}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {!isRoll && (
-                <DetailBlock
-                  icon={ShoppingBag}
-                  label="Bag Size"
-                  value={order.orderDetails?.bagSize || "Not added"}
-                />
-              )}
-              {order.orderDetails?.gsm !== undefined && (
-                <DetailBlock
-                  icon={Package}
-                  label="GSM"
-                  value={order.orderDetails?.gsm || "Not added"}
-                />
-              )}
-               <DetailBlock
-                icon={Package}
-                label="Quantity"
-                value={
-                  order.orderDetails?.unit === "kg" && !isRoll
-                    ? `${order.orderDetails?.quantity || 0} kg (~${order.orderDetails?.convertedQuantity || 0} pcs)`
-                    : order.orderDetails?.unit === "m" && isRoll
-                    ? `${order.orderDetails?.quantity || 0} m (~${order.orderDetails?.convertedQuantity || 0} kg)`
-                    : `${order.orderDetails?.quantity || 0} ${order.orderDetails?.unit || (isRoll ? "kg" : "pcs")}`
-                }
-                tone="text-blue-700"
-              />
-              <DetailBlock icon={Ruler} label="Dimensions" value={dimensionLabel} />
-              {order.orderDetails?.bf !== undefined && order.orderDetails?.bf > 0 && (
-                <DetailBlock
-                  icon={ShieldCheck}
-                  label="Burst Factor (BF)"
-                  value={`${order.orderDetails.bf} BF`}
-                />
-              )}
-              <DetailBlock
-                icon={Printer}
-                label="Custom Printing"
-                value={order.orderDetails?.customPrinting ? "Yes, Required" : "No"}
-                tone={order.orderDetails?.customPrinting ? "text-emerald-700 font-bold" : "text-gray-500"}
-              />
-              {order.orderDetails?.brandingText && (
-                <DetailBlock
-                  icon={FileText}
-                  label="Branding Text"
-                  value={order.orderDetails.brandingText}
-                />
-              )}
-              {order.orderDetails?.logo && (
-                <DetailBlock
-                  icon={Printer}
-                  label="Branding Logo"
-                  value={
-                    <a
-                      href={order.orderDetails.logo.startsWith("http") ? order.orderDetails.logo : `${window.location.protocol}//${window.location.hostname}:3010${order.orderDetails.logo}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 hover:underline inline-flex items-center gap-1"
-                    >
-                      View Logo ↗
-                    </a>
-                  }
-                />
-              )}
-            </div>
+            {order.orderDetailsList && order.orderDetailsList.length > 1 ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    Consolidated Products
+                  </p>
+                  <p className="mt-1 text-base font-bold text-emerald-900">{order.productCategory}</p>
+                </div>
+                               <div className="grid grid-cols-1 gap-3.5">
+                  {order.orderDetailsList.map((item, idx) => {
+                    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+                    const pName = prod?.name || item.productName || item.productCategory || order.productCategory || "Product";
+                    const isItemRoll = pName.toLowerCase().includes("roll") || String(item.unit).toLowerCase() === "kg" || String(item.unit).toLowerCase() === "m";
+                    const itemDimensionLabel = isItemRoll
+                      ? `Width: ${Number(item.dimensions?.width || 0)} ${item.dimensions?.unit || "inch"}`
+                      : Number(item.dimensions?.length || 0) || Number(item.dimensions?.width || 0) || Number(item.dimensions?.height || 0)
+                        ? `${Number(item.dimensions?.length || 0)} × ${Number(item.dimensions?.width || 0)} × ${Number(item.dimensions?.height || 0)} ${item.dimensions?.unit || "inch"}`
+                        : "Not added";
+
+                    return (
+                      <div key={idx} className="rounded-xl border border-gray-200 bg-white p-4 space-y-2.5 shadow-sm">
+                        <div className="flex justify-between items-center border-b border-gray-150 pb-2">
+                          <p className="text-xs font-bold text-emerald-850">Item {idx + 1}: {pName}</p>
+                          <span className="rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase">
+                            {item.quantity} {item.unit || "pcs"}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-xs">
+                          {!isItemRoll && (
+                            <div className="flex justify-between py-1 border-b border-gray-100/50">
+                              <span className="text-gray-500 font-medium">Bag Size</span>
+                              <span className="font-semibold text-gray-900">{item.bagSize || "—"}</span>
+                            </div>
+                          )}
+                          {!isItemRoll && (
+                            <div className="flex justify-between py-1 border-b border-gray-100/50">
+                              <span className="text-gray-500 font-medium">Color</span>
+                              <span className="font-semibold text-gray-900">{item.color || "—"}</span>
+                            </div>
+                          )}
+                          {isItemRoll && (
+                            <>
+                              {Number(item.gsm) > 0 && (
+                                <div className="flex justify-between py-1 border-b border-gray-100/50">
+                                  <span className="text-gray-500 font-medium">GSM</span>
+                                  <span className="font-semibold text-gray-900">{item.gsm}</span>
+                                </div>
+                              )}
+                              {Number(item.bf) > 0 && (
+                                <div className="flex justify-between py-1 border-b border-gray-100/50">
+                                  <span className="text-gray-500 font-medium">BF</span>
+                                  <span className="font-semibold text-gray-900">{item.bf} BF</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          <div className="flex justify-between py-1 border-b border-gray-100/50">
+                            <span className="text-gray-500 font-medium">Dimensions</span>
+                            <span className="font-semibold text-gray-900">{itemDimensionLabel}</span>
+                          </div>
+                          <div className="flex justify-between py-1 last:border-b-0">
+                            <span className="text-gray-500 font-medium">Custom Printing</span>
+                            <span className={`font-semibold ${item.customPrinting ? "text-emerald-700 font-bold" : "text-gray-900"}`}>
+                              {item.customPrinting ? "Yes, Required" : "No"}
+                            </span>
+                          </div>
+                           {item.brandingText && (
+                            <div className="flex justify-between py-1 border-b border-gray-100/50">
+                              <span className="text-gray-500 font-medium">Branding Text</span>
+                              <span className="font-semibold text-gray-900">{item.brandingText}</span>
+                            </div>
+                          )}
+                          {item.logo && (
+                            <div className="flex justify-between py-1 border-b border-gray-100/50">
+                              <span className="text-gray-500 font-medium">Logo</span>
+                              <span>
+                                <a
+                                  href={item.logo.startsWith("http") ? item.logo : `${window.location.protocol}//${window.location.hostname}:3010${item.logo}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  View Logo ↗
+                                </a>
+                              </span>
+                            </div>
+                          )}
+                          {(() => {
+                            const taxInfo = getProductTaxInfo(item);
+                            return (
+                              <>
+                                <div className="flex justify-between py-1 border-b border-gray-100/50">
+                                  <span className="text-emerald-700 font-semibold">HSN Code</span>
+                                  <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{taxInfo.hsnCode}</span>
+                                </div>
+                                <div className="flex justify-between py-1 last:border-b-0">
+                                  <span className="text-emerald-700 font-semibold">GST Rate</span>
+                                  <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{taxInfo.gstRate}%</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <>
+                {(() => {
+                  const singleItem = order.orderDetails || {};
+                  const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(singleItem?.productId || "").trim());
+                  const pName = prod?.name || singleItem?.productName || order.productCategory || "Product";
+                  return (
+                    <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        Product
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-emerald-900">{pName}</p>
+                    </div>
+                  );
+                })()}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {!isRoll && (
+                    <DetailBlock
+                      icon={ShoppingBag}
+                      label="Bag Size"
+                      value={order.orderDetails?.bagSize || "Not added"}
+                    />
+                  )}
+                  {order.orderDetails?.gsm !== undefined && (
+                    <DetailBlock
+                      icon={Package}
+                      label="GSM"
+                      value={order.orderDetails?.gsm || "Not added"}
+                    />
+                  )}
+                  <DetailBlock
+                    icon={Package}
+                    label="Quantity"
+                    value={
+                      order.orderDetails?.unit === "kg" && !isRoll
+                        ? `${order.orderDetails?.quantity || 0} kg (~${order.orderDetails?.convertedQuantity || 0} pcs)`
+                        : order.orderDetails?.unit === "m" && isRoll
+                        ? `${order.orderDetails?.quantity || 0} m (~${order.orderDetails?.convertedQuantity || 0} kg)`
+                        : `${order.orderDetails?.quantity || 0} ${order.orderDetails?.unit || (isRoll ? "kg" : "pcs")}`
+                    }
+                    tone="text-blue-700"
+                  />
+                  <DetailBlock icon={Ruler} label="Dimensions" value={dimensionLabel} />
+                  {order.orderDetails?.bf !== undefined && order.orderDetails?.bf > 0 && (
+                    <DetailBlock
+                      icon={ShieldCheck}
+                      label="Burst Factor (BF)"
+                      value={`${order.orderDetails.bf} BF`}
+                    />
+                  )}
+                  <DetailBlock
+                    icon={Printer}
+                    label="Custom Printing"
+                    value={order.orderDetails?.customPrinting ? "Yes, Required" : "No"}
+                    tone={order.orderDetails?.customPrinting ? "text-emerald-700 font-bold" : "text-gray-500"}
+                  />
+                  {order.orderDetails?.brandingText && (
+                    <DetailBlock
+                      icon={FileText}
+                      label="Branding Text"
+                      value={order.orderDetails.brandingText}
+                    />
+                  )}
+                  {order.orderDetails?.logo && (
+                    <DetailBlock
+                      icon={Printer}
+                      label="Branding Logo"
+                      value={
+                        <a
+                          href={order.orderDetails.logo.startsWith("http") ? order.orderDetails.logo : `${window.location.protocol}//${window.location.hostname}:3010${order.orderDetails.logo}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                        >
+                          View Logo ↗
+                        </a>
+                      }
+                    />
+                  )}
+                  {(() => {
+                    const taxInfo = getProductTaxInfo(order.orderDetails || order);
+                    return (
+                      <>
+                        <DetailBlock
+                          icon={Tag}
+                          label="HSN Code"
+                          value={<span className="font-mono font-bold text-emerald-800">{taxInfo.hsnCode}</span>}
+                          tone="text-emerald-700 font-semibold"
+                        />
+                        <DetailBlock
+                          icon={Tag}
+                          label="GST Rate"
+                          value={<span className="font-bold text-emerald-800">{taxInfo.gstRate}%</span>}
+                          tone="text-emerald-700 font-semibold"
+                        />
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
           </div>
 
           {order.quotation && ((order.quotation.status && order.quotation.status !== "none") || order.quotation.quotationNumber) && (
@@ -329,9 +476,23 @@ export default function OrderDetail({ order }) {
           )}
 
           <div className={infoCardClass}>
-            <div className="mb-4 flex items-center gap-2">
-              <Truck className="h-5 w-5 text-violet-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Delivery Details</h3>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Truck className="h-5 w-5 text-violet-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Delivery Details</h3>
+                {(!order.delivery?.deliveryAddress || order.delivery.deliveryAddress === "Not added") && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                    ⚠️ Missing Address
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onEditDelivery && onEditDelivery(order)}
+                className="text-xs font-bold text-violet-750 hover:text-violet-950 transition hover:underline cursor-pointer"
+              >
+                {(!order.delivery?.deliveryAddress || order.delivery.deliveryAddress === "Not added") ? "Add Address" : "Edit Address"}
+              </button>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <DetailBlock
@@ -375,24 +536,24 @@ export default function OrderDetail({ order }) {
               <h3 className="text-lg font-semibold text-gray-900">Payment Overview</h3>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-2 sm:p-3">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-emerald-700">
                   Total
                 </p>
-                <p className="mt-1 text-2xl font-bold text-emerald-900">
+                <p className="mt-1 text-xs sm:text-base lg:text-lg font-bold text-emerald-900 whitespace-nowrap truncate">
                   {formatCurrency(totalAmount)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Paid</p>
-                <p className="mt-1 text-2xl font-bold text-blue-900">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-2 sm:p-3">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-blue-700">Paid</p>
+                <p className="mt-1 text-xs sm:text-base lg:text-lg font-bold text-blue-900 whitespace-nowrap truncate">
                   {formatCurrency(paidAmount)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Due</p>
-                <p className="mt-1 text-2xl font-bold text-amber-900">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-2 sm:p-3">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-amber-700">Due</p>
+                <p className="mt-1 text-xs sm:text-base lg:text-lg font-bold text-amber-900 whitespace-nowrap truncate">
                   {formatCurrency(pendingAmount)}
                 </p>
               </div>

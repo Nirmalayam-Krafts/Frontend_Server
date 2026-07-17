@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Modal } from "../../components/ui";
 import InventoryDetail from "../../components/inventory/InventoryDetail";
@@ -23,25 +24,60 @@ import {
   FileBox,
   ShoppingBag,
   RotateCcw,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { exportToExcel } from "../../utils";
 import toast from "react-hot-toast";
 import { useAuthContext } from "../../../context/Adminauth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetInventory, useGetLowStockAlerts } from "../../../../hook/inventory";
+import { useGetAllProducts } from "../../../../hook/Product";
+
+// Helper: compute ideal selling price from a product's pricing config
+const computeIdealSell = (prod) => {
+  if (!prod || !prod.estimationConfig) return null;
+  const ec = prod.estimationConfig;
+  const base = Number(prod.basePrice || 0);
+  const labor = Number(ec.laborCostPerBag || 0);
+  const overhead = Number(ec.overheadCostPerBag || 0);
+  const printing = Number(ec.printingCostPerBag || 0);
+  const margin = Number(ec.marginPercent || 10);
+  const totalCost = base + labor + overhead + printing;
+  return parseFloat((totalCost * (1 + margin / 100)).toFixed(2));
+};
 
 const Inventory = () => {
+  const navigate = useNavigate();
   const audioRef = useRef(null);
   const [hasPlayedAlert, setHasPlayedAlert] = useState(false);
+  const [stockShortage, setStockShortage] = useState(null);
   const addItem = useInventoryStore((state) => state.addItem);
   const updateItem = useInventoryStore((state) => state.updateItem);
   const deleteItem = useInventoryStore((state) => state.deleteItem);
 
   const [showDeleted, setShowDeleted] = useState(false);
+  const [activeLogInventory, setActiveLogInventory] = useState(null);
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
 
   const { data: items = [], isLoading } = useGetInventory({ showDeleted });
   const { data: lowStockAlerts = [] } = useGetLowStockAlerts();
+  const { data: products = [] } = useGetAllProducts();
   console.log(items)
+
+  const currentActiveInventory = useMemo(() => {
+    if (!activeLogInventory) return null;
+    return items.find(i => String(i._id || i.id) === String(activeLogInventory._id || activeLogInventory.id)) || activeLogInventory;
+  }, [items, activeLogInventory]);
+
+  useEffect(() => {
+    if (!activeLogInventory && items.length > 0) {
+      setActiveLogInventory(items[0]);
+    }
+  }, [items, activeLogInventory]);
+
   const queryClient = useQueryClient();
   const { axiosInstance, notificationOn, setNotificationOn } = useAuthContext();
 
@@ -57,6 +93,79 @@ const Inventory = () => {
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  const renderMaterialShortagePanel = () => {
+    if (!stockShortage) return null;
+    return (
+      <div className="flex flex-col justify-between h-full text-slate-800 font-sans select-none">
+        <div className="space-y-4">
+          {/* Alert Icon & Heading */}
+          <div className="flex items-center gap-2 text-rose-600 border-b border-gray-200 pb-2.5">
+            <span className="text-xl">🚨</span>
+            <h3 className="font-extrabold text-sm uppercase tracking-wider text-rose-600">
+              Material Shortage
+            </h3>
+          </div>
+
+          {/* Explanation card */}
+          <div className="space-y-3.5 text-xs">
+            <p className="text-slate-600 leading-relaxed font-semibold">
+              The operation failed because there is not enough stock of the required raw material:
+            </p>
+
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5 space-y-2.5 shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold block">Raw Material</span>
+                <span className="font-extrabold text-sm text-gray-900">{stockShortage.materialName}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-2.5">
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold block">Required</span>
+                  <span className="font-extrabold text-rose-600">{stockShortage.required}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold block">Available</span>
+                  <span className="font-extrabold text-slate-700">{stockShortage.available}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-2.5 grid grid-cols-2 gap-3 text-[10px] font-semibold text-gray-500">
+                <div>
+                  <span>On Hand:</span>
+                  <span className="font-bold text-gray-700 ml-1">{stockShortage.onHand}</span>
+                </div>
+                <div>
+                  <span>Reserved:</span>
+                  <span className="font-bold text-gray-700 ml-1">{stockShortage.reserved}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-amber-800 bg-amber-50/70 border border-amber-200/50 rounded-lg p-3 font-semibold leading-relaxed shadow-sm">
+              💡 Please increase the stock level of <strong>{stockShortage.materialName}</strong> or release reserved orders to clear this block.
+            </div>
+          </div>
+        </div>
+
+        {/* Redirect Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setShowModal(false);
+            setShowStockModal(false);
+            setEditingItem(null);
+            setSelectedStockItem(null);
+            setStockShortage(null);
+            navigate("/rawmaterial");
+          }}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs py-3 rounded uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/10"
+        >
+          📦 Go to Stock Page (Raw Materials)
+        </button>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (lowStockAlerts.length > 0) {
@@ -109,22 +218,51 @@ const Inventory = () => {
         queryKey: ["getLowStockAlertsData"],
       });
 
-      if (item) addItem(item);
     } catch (error) {
+      const errMsg = error?.response?.data?.message || error?.message || "";
+      if (errMsg.includes("Insufficient stock")) {
+        const match = errMsg.match(/Insufficient stock for (.*?)\. Required (.*?), effectively available (.*?) \(on hand (.*?), reserved (.*?)\)/);
+        if (match) {
+          setStockShortage({
+            materialName: match[1],
+            required: match[2],
+            available: match[3],
+            onHand: match[4],
+            reserved: match[5],
+            rawMessage: errMsg
+          });
+        } else {
+          setStockShortage({
+            materialName: "Required Material",
+            required: "Required qty",
+            available: "0",
+            onHand: "0",
+            reserved: "0",
+            rawMessage: errMsg
+          });
+        }
+      }
       toast.error(
-        error?.response?.data?.message || "Failed to create item",
+        errMsg || "Failed to create item",
         { id: loadingToast }
       );
     }
   };
 
   const handleUpdateItem = async (data) => {
+    const reason = window.prompt("Enter reason/note for updating this inventory item:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Reason is required to update stock");
+      return;
+    }
+
     const loadingToast = toast.loading("Updating item...");
 
     try {
       const response = await axiosInstance.patch(
         `/inventory/${editingItem.id || editingItem._id}/update`,
-        data
+        { ...data, reason }
       );
 
       const updatedItem = response?.data?.data;
@@ -150,20 +288,50 @@ const Inventory = () => {
         }
       }
     } catch (error) {
+      const errMsg = error?.response?.data?.message || error?.message || "";
+      if (errMsg.includes("Insufficient stock")) {
+        const match = errMsg.match(/Insufficient stock for (.*?)\. Required (.*?), effectively available (.*?) \(on hand (.*?), reserved (.*?)\)/);
+        if (match) {
+          setStockShortage({
+            materialName: match[1],
+            required: match[2],
+            available: match[3],
+            onHand: match[4],
+            reserved: match[5],
+            rawMessage: errMsg
+          });
+        } else {
+          setStockShortage({
+            materialName: "Required Material",
+            required: "Required qty",
+            available: "0",
+            onHand: "0",
+            reserved: "0",
+            rawMessage: errMsg
+          });
+        }
+      }
       toast.error(
-        error?.response?.data?.message || "Failed to update item",
+        errMsg || "Failed to update item",
         { id: loadingToast }
       );
     }
   };
 
   const handleDeleteItem = async (id) => {
+    const reason = window.prompt("Enter reason/note for deleting this stock item:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Reason is required to delete stock");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this stock item?")) return;
     if (!window.confirm("Are you absolutely sure? This will remove it from the active stock view.")) return;
     const loadingToast = toast.loading("Deleting item...");
 
     try {
-      await axiosInstance.delete(`/inventory/${id}/delete`);
+      await axiosInstance.delete(`/inventory/${id}/delete`, { params: { reason } });
 
       toast.success("Item deleted successfully", {
         id: loadingToast,
@@ -191,12 +359,19 @@ const Inventory = () => {
   };
 
   const handleRecoverItem = async (id) => {
+    const reason = window.prompt("Enter reason/note for recovering this stock item:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Reason is required to recover stock");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to recover this stock item?")) return;
     if (!window.confirm("Are you absolutely sure you want to restore it back to active stock?")) return;
     const loadingToast = toast.loading("Restoring stock item...");
 
     try {
-      await axiosInstance.patch(`/inventory/${id}/recover`);
+      await axiosInstance.patch(`/inventory/${id}/recover`, { reason });
 
       toast.success("Stock item restored successfully 🎉", {
         id: loadingToast,
@@ -232,12 +407,19 @@ const Inventory = () => {
       return;
     }
 
+    const note = window.prompt("Enter note/reason for adding stock:", "Manual stock addition");
+    if (note === null) return;
+    if (!note.trim()) {
+      toast.error("Note/reason is required");
+      return;
+    }
+
     const loadingToast = toast.loading("Adding stock...");
 
     try {
       const response = await axiosInstance.patch(
         `/inventory/${selectedStockItem.id || selectedStockItem._id}/add-stock`,
-        { quantity: qty }
+        { quantity: qty, note }
       );
 
       const updatedItem = response?.data?.data;
@@ -268,8 +450,31 @@ const Inventory = () => {
         }
       }
     } catch (error) {
+      const errMsg = error?.response?.data?.message || error?.message || "";
+      if (errMsg.includes("Insufficient stock")) {
+        const match = errMsg.match(/Insufficient stock for (.*?)\. Required (.*?), effectively available (.*?) \(on hand (.*?), reserved (.*?)\)/);
+        if (match) {
+          setStockShortage({
+            materialName: match[1],
+            required: match[2],
+            available: match[3],
+            onHand: match[4],
+            reserved: match[5],
+            rawMessage: errMsg
+          });
+        } else {
+          setStockShortage({
+            materialName: "Required Material",
+            required: "Required qty",
+            available: "0",
+            onHand: "0",
+            reserved: "0",
+            rawMessage: errMsg
+          });
+        }
+      }
       toast.error(
-        error?.response?.data?.message || "Failed to add stock",
+        errMsg || "Failed to add stock",
         { id: loadingToast }
       );
     }
@@ -365,6 +570,101 @@ const Inventory = () => {
       setHasPlayedAlert(false);
     }
   }, [lowStockAlerts, hasPlayedAlert, notificationOn]);
+
+  const handleRestoreState = async (inventoryId, snapshotId, reason) => {
+    const loadingToast = toast.loading("Restoring inventory specifications...");
+    try {
+      await axiosInstance.patch(`/inventory/${inventoryId}/restore`, { snapshotId, reason });
+      toast.success("Inventory state restored successfully ✓", { id: loadingToast });
+      queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to restore inventory state", { id: loadingToast });
+    }
+  };
+
+  const getInventorySnapshotDiff = (snapshot, nextSnapshot, currentItem) => {
+    const diffs = [];
+    const target = nextSnapshot ? nextSnapshot.specs : currentItem;
+    if (!target || !snapshot || !snapshot.specs) return diffs;
+
+    const currentSpecs = snapshot.specs;
+
+    const compareFields = [
+      { key: "stockLevel", label: "Stock Level" },
+      { key: "reorderPt", label: "Reorder Point" },
+      { key: "basePrice", label: "Base Price" },
+      { key: "unitPrice", label: "Unit Price" },
+      { key: "sellingPricePerUnit", label: "Selling Price" },
+      { key: "productionCostPerUnit", label: "Production Cost" },
+      { key: "totalStockValue", label: "Total Value" },
+      { key: "isActive", label: "Active Status" },
+      { key: "isDeleted", label: "Soft Delete" },
+      { key: "customPrinting", label: "Custom Printing" },
+      { key: "reservedQuantity", label: "Reserved Qty" },
+    ];
+
+    compareFields.forEach(({ key, label }) => {
+      const oldVal = currentSpecs[key];
+      const newVal = target[key];
+      if (oldVal !== newVal && oldVal !== undefined && newVal !== undefined) {
+        diffs.push(`${label}: "${oldVal ?? "—"}" ➔ "${newVal ?? "—"}"`);
+      }
+    });
+
+    return diffs;
+  };
+
+  const handleExportStock = (format) => {
+    if (!filteredItems.length) {
+      toast.error("No stock available to export");
+      return;
+    }
+
+    const headers = [
+      "Product Name",
+      "SKU",
+      "Category",
+      "Available For Sale",
+      "Reserved Quantity",
+      "Stock Level (Total)",
+      "Reorder Point",
+      "Unit Price (₹)",
+      "Selling Price (₹)",
+      "Total Value (₹)",
+    ];
+
+    const rows = filteredItems.map((item) => [
+      item.productName || "",
+      item.sku || "",
+      item.categoryLabel || item.category || "",
+      item.availableForSale || 0,
+      item.reservedQuantity || 0,
+      item.stockLevel || 0,
+      item.reorderPt || 0,
+      item.unitPrice || 0,
+      item.sellingPricePerUnit || 0,
+      item.totalStockValue || 0,
+    ]);
+
+    if (format === "csv") {
+      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "stock.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("CSV exported successfully");
+    } else {
+      exportToExcel(headers, rows, "stock");
+      toast.success("Excel exported successfully");
+    }
+  };
+
   return (
     <Layout>
       <audio ref={audioRef} preload="auto">
@@ -777,6 +1077,24 @@ const Inventory = () => {
                   Showing {filteredItems.length} inventory items
                 </p>
               </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  icon={Download}
+                  onClick={() => handleExportStock("csv")}
+                  className="rounded-xl flex items-center gap-1.5"
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={FileSpreadsheet}
+                  onClick={() => handleExportStock("excel")}
+                  className="rounded-xl flex items-center gap-1.5"
+                >
+                  Export Excel
+                </Button>
+              </div>
             </div>
 
             {isLoading ? (
@@ -831,10 +1149,17 @@ const Inventory = () => {
                       const unitPrice = Number(item.unitPrice || 0);
                       const sellingPrice = Number(item.sellingPricePerUnit || 0);
 
+                      const isSelected = currentActiveInventory && String(currentActiveInventory._id || currentActiveInventory.id) === String(item._id || item.id);
+
                       return (
                         <tr
                           key={item.id || item._id}
-                          className="bg-white hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-transparent transition-all duration-200 group"
+                          className={`transition-all duration-200 group cursor-pointer ${
+                            isSelected 
+                              ? "bg-gradient-to-r from-emerald-50 via-emerald-50/20 to-transparent border-l-4 border-emerald-500 shadow-sm" 
+                              : "bg-white hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-transparent"
+                          }`}
+                          onClick={() => setActiveLogInventory(item)}
                         >
                           {/* Product Details */}
                           <td className="px-6 py-4">
@@ -954,6 +1279,12 @@ const Inventory = () => {
                                           </span>
                                         </div>
                                       )}
+                                      {item.bf && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-gray-500">BF:</span>
+                                          <span className="font-medium text-gray-900">{item.bf}</span>
+                                        </div>
+                                      )}
                                     </>
                                   );
                                 }
@@ -990,30 +1321,67 @@ const Inventory = () => {
 
                           {/* Pricing & Value */}
                           <td className="px-6 py-4">
-                            <div className="space-y-2">
-                              <div className="text-xs">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-gray-500">Cost:</span>
-                                  <span className="font-semibold text-gray-900">
-                                    ₹{unitPrice.toFixed(2)}
-                                  </span>
-                                </div>
-                                {sellingPrice > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">Sell:</span>
-                                    <span className="font-semibold text-emerald-600">
-                                      ₹{sellingPrice.toFixed(2)}
-                                    </span>
+                            {(() => {
+                              // Find linked product & compute ideal price
+                              const linkedProd = item.productId
+                                ? products.find(p => String(p._id || p.id) === String(item.productId))
+                                : null;
+                              const idealSell = computeIdealSell(linkedProd);
+                              const storedSell = Number(item.sellingPricePerUnit || 0);
+                              const hasMismatch = idealSell !== null && Math.abs(storedSell - idealSell) > 1;
+
+                              return (
+                                <div className="space-y-2">
+                                  <div className="text-xs">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-gray-500">Cost:</span>
+                                      <span className="font-semibold text-gray-900">
+                                        ₹{unitPrice.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    {storedSell > 0 && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-gray-500">Sell:</span>
+                                        <span className="font-semibold text-emerald-600">
+                                          ₹{storedSell.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {/* Ideal price from product formula */}
+                                    {idealSell !== null && (
+                                      <div className="flex items-center justify-between mt-0.5">
+                                        <span className="text-indigo-500 text-[10px] font-medium">Ideal:</span>
+                                        <span className="font-bold text-indigo-600 text-[10px]">
+                                          ₹{idealSell.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-2 border border-emerald-100">
-                                <p className="text-[10px] text-emerald-600 font-medium">Stock Value</p>
-                                <p className="text-base font-bold text-emerald-700">
-                                  ₹{totalValue.toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
+
+                                  {/* Price mismatch warning */}
+                                  {hasMismatch && (
+                                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                                      <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                                      <span className="text-[9px] font-bold text-amber-700">
+                                        Price mismatch! Stored ₹{storedSell.toFixed(0)} vs Ideal ₹{idealSell.toFixed(0)}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-2 border border-emerald-100">
+                                    <p className="text-[10px] text-emerald-600 font-medium">Stock Value</p>
+                                    <p className="text-base font-bold text-emerald-700">
+                                      ₹{totalValue.toLocaleString()}
+                                    </p>
+                                    {idealSell !== null && storedSell > 0 && (
+                                      <p className="text-[9px] text-indigo-500 font-medium mt-0.5">
+                                        At ideal: ₹{(Number(item.stockLevel || 0) * idealSell).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Status */}
@@ -1125,6 +1493,212 @@ const Inventory = () => {
               </div>
             )}
           </Card>
+
+          {currentActiveInventory && (
+            <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm">
+              <div className="rounded-3xl border border-indigo-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-lg mb-6">
+                <h3 className="text-lg font-bold">Activity Logs & Modification History — {currentActiveInventory.productName}</h3>
+                <p className="mt-1 text-xs text-slate-300 opacity-90">
+                  Showing stock adjustments, specifications modifications, delete actions, and recovery snapshots for Inventory item {currentActiveInventory.productName} ({currentActiveInventory.sku})
+                </p>
+              </div>
+
+              {/* Date Filters */}
+              <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-gray-200 p-3 rounded-2xl mb-6 text-sm">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Logs by Date:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">From</span>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    max={logEndDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logEndDate && val > logEndDate) {
+                        toast.error("'From' date cannot be after 'To' date");
+                        return;
+                      }
+                      setLogStartDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">To</span>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    min={logStartDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (logStartDate && val < logStartDate) {
+                        toast.error("'To' date cannot be before 'From' date");
+                        return;
+                      }
+                      setLogEndDate(val);
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  />
+                </div>
+                {(logStartDate || logEndDate) && (
+                  <button
+                    onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold ml-auto"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {(() => {
+                  const getLocalDateString = (dateVal) => {
+                    if (!dateVal) return "";
+                    const d = new Date(dateVal);
+                    if (isNaN(d.getTime())) return "";
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                  };
+
+                  const rawHistory = currentActiveInventory.editHistory || [];
+                  let sortedHistory = [...rawHistory].reverse();
+                  if (logStartDate) {
+                    sortedHistory = sortedHistory.filter(l => l.at && getLocalDateString(l.at) >= logStartDate);
+                  }
+                  if (logEndDate) {
+                    sortedHistory = sortedHistory.filter(l => l.at && getLocalDateString(l.at) <= logEndDate);
+                  }
+                  
+                  return sortedHistory.map((log, index) => {
+                    const nextLog = index > 0 ? sortedHistory[index - 1] : null;
+                    const changes = getInventorySnapshotDiff(log, nextLog, currentActiveInventory);
+                    const canRestore = !currentActiveInventory.isDeleted && 
+                      !log.reason.toLowerCase().includes("deleted") && 
+                      !log.reason.toLowerCase().includes("recovered") &&
+                      !log.reason.toLowerCase().includes("reserved") &&
+                      !log.reason.toLowerCase().includes("released") &&
+                      !log.reason.toLowerCase().includes("deducted");
+
+                     let title = "Stock Specifications Updated";
+                     const reasonLower = log.reason.toLowerCase();
+                     if (reasonLower.includes("deleted")) {
+                       title = "Stock Item Soft-Deleted";
+                     } else if (reasonLower.includes("recovered")) {
+                       title = "Stock Item Recovered";
+                     } else if (reasonLower.includes("reserved")) {
+                       title = "Stock Reserved (On Hold)";
+                     } else if (reasonLower.includes("released")) {
+                       title = "Stock Released (Reverted)";
+                     } else if (reasonLower.includes("deducted")) {
+                       title = "Stock Deducted (Order Completed)";
+                     }
+
+                    return (
+                      <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                                title.includes("Deleted") || title.includes("Released")
+                                  ? "bg-red-50 border-red-150 text-red-700" 
+                                  : title.includes("Recovered") || title.includes("Deducted")
+                                    ? "bg-green-50 border-green-150 text-green-700"
+                                    : title.includes("Reserved")
+                                      ? "bg-blue-50 border-blue-150 text-blue-700"
+                                      : "bg-indigo-50 border-indigo-150 text-indigo-700"
+                              }`}>
+                                {title.includes("Deleted") ? "❌" : title.includes("Recovered") ? "🔄" : title.includes("Reserved") ? "🔒" : title.includes("Released") ? "🔓" : title.includes("Deducted") ? "📦" : "📝"} {title}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Updated by:</span> {log.by}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600 font-medium">
+                              <span className="font-semibold text-gray-800">Reason/Note:</span> {log.reason}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="text-xs text-gray-500 font-semibold">
+                              {new Date(log.at).toLocaleString()}
+                            </span>
+                            {canRestore && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const reason = window.prompt("Enter reason/note for restoring this snapshot:");
+                                  if (reason === null) return;
+                                  if (!reason.trim()) {
+                                    toast.error("Reason is required to revert state");
+                                    return;
+                                  }
+                                  handleRestoreState(currentActiveInventory._id || currentActiveInventory.id, log._id, reason);
+                                }}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 transition shadow-sm border border-teal-200"
+                              >
+                                Restore State
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {changes && changes.length > 0 ? (
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Changed fields:</p>
+                            <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700 font-semibold">
+                              {changes.map((changeStr, cIdx) => (
+                                <li key={cIdx}>{changeStr}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (title.includes("Reserved") || title.includes("Released") || title.includes("Deducted")) ? (
+                          (() => {
+                            let qtyChange = "";
+                            const match = log.reason.match(/(?:Reserved|Released|Deducted \(Order Completed\)|Released):\s*([\d\.]+)\s*(\w+)/i);
+                            if (match) {
+                              qtyChange = `${match[1]} ${match[2]}`;
+                            }
+                            const isDeductionOrRelease = title.includes("Released") || title.includes("Deducted");
+                            return (
+                              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Transaction Details:</p>
+                                <ul className="list-disc pl-4 space-y-1.5 text-xs text-slate-700 font-semibold">
+                                  {qtyChange && (
+                                    <li className={isDeductionOrRelease ? "text-red-700 font-bold" : "text-blue-700 font-bold"}>
+                                      Action Quantity: {isDeductionOrRelease ? "− " : "+ "}{qtyChange}
+                                    </li>
+                                  )}
+                                  {log.specs?.stockLevel !== undefined && (
+                                    <li>Current Stock Level: {log.specs.stockLevel}</li>
+                                  )}
+                                  {log.specs?.reservedQuantity !== undefined && (
+                                    <li>Current Reserved Quantity: {log.specs.reservedQuantity}</li>
+                                  )}
+                                </ul>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          !title.includes("Deleted") && !title.includes("Recovered") && (
+                            <div className="bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 text-xs font-semibold text-slate-500">
+                              No specification details changed (metadata or note edit).
+                            </div>
+                          )
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+
+                {(!currentActiveInventory.editHistory || currentActiveInventory.editHistory.length === 0) && (
+                  <div className="rounded-xl border border-dashed border-gray-250 p-6 text-center text-sm font-semibold text-gray-500 bg-gray-50">
+                    No modifications or delete actions recorded for this inventory item yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <Modal
@@ -1133,8 +1707,11 @@ const Inventory = () => {
           onClose={() => {
             setShowModal(false);
             setEditingItem(null);
+            setStockShortage(null);
           }}
-          size="xl"
+          variant="drawer"
+          size="md"
+          sidePanel={renderMaterialShortagePanel()}
         >
           <InventoryForm
             initialData={editingItem}
@@ -1150,7 +1727,11 @@ const Inventory = () => {
             setShowStockModal(false);
             setSelectedStockItem(null);
             setStockToAdd("");
+            setStockShortage(null);
           }}
+          variant="drawer"
+          size="md"
+          sidePanel={renderMaterialShortagePanel()}
         >
           {selectedStockItem && (
             <div className="space-y-5">

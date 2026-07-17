@@ -19,8 +19,13 @@ import {
   ShoppingBag,
   Wallet,
   Edit,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
 } from "lucide-react";
 import { Badge } from "../ui";
+import { getProductTaxInfo } from "../../utils";
+import { useGetAllProducts } from "../../../../hook/Product";
 
 const defaultOrderState = { label: "Pending", icon: Clock3, tone: "text-amber-700" };
 const defaultPaymentState = {
@@ -46,8 +51,27 @@ export default function OrderListSection({
   onOpenBill,
   onMoveToProcessing,
   onCompleteOrder,
+  onMarkAsDelivered,
   onEditOrder,
+  onEditDelivery,
 }) {
+  const { data: productsData } = useGetAllProducts();
+  const productItems = React.useMemo(() => {
+    if (Array.isArray(productsData)) return productsData;
+    if (Array.isArray(productsData?.items)) return productsData.items;
+    if (Array.isArray(productsData?.products)) return productsData.products;
+    if (Array.isArray(productsData?.data)) return productsData.data;
+    return [];
+  }, [productsData]);
+
+  const [expandedOrders, setExpandedOrders] = React.useState({});
+  const toggleExpand = (orderId) => {
+    setExpandedOrders(prev => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -79,10 +103,124 @@ export default function OrderListSection({
         const OrderStatusIcon = orderState.icon;
         const PaymentStatusIcon = paymentState.icon;
 
+        const isExpanded = !!expandedOrders[order.id];
+
+        if (!isExpanded) {
+          return (
+            <article
+              key={order.id}
+              className="group rounded-[28px] border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:shadow-lg animate-fadeIn"
+            >
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                {/* Customer Avatar & Basic details */}
+                <div className="flex items-center gap-3.5 min-w-[220px]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-sm font-bold text-emerald-700 shadow-sm">
+                    {order.avatar}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">{order.reference}</span>
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-700">
+                        {order.source}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-extrabold text-gray-900 truncate mt-0.5">{order.customerName}</h4>
+                    {(!order.delivery?.deliveryAddress || order.delivery.deliveryAddress === "Not added") && (
+                      <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                        ⚠️ Address Missing
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Product and specifications summary */}
+                <div className="flex items-center gap-3 min-w-[220px]">
+                  <div className="rounded-xl bg-gray-50 border border-gray-150 p-2 text-emerald-700 shadow-sm shrink-0">
+                    <ShoppingBag className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Product</p>
+                    {order.orderDetailsList && order.orderDetailsList.length > 1 ? (
+                      <div className="space-y-0.5 mt-0.5">
+                        {order.orderDetailsList.slice(0, 2).map((det, idx) => (
+                          <h4 key={idx} className="text-xs font-extrabold text-gray-800 truncate leading-tight">
+                            • {det.quantity} {det.unit || "pcs"}{det.bagSize ? ` (${det.bagSize})` : ""}
+                          </h4>
+                        ))}
+                        {order.orderDetailsList.length > 2 && (
+                          <p className="text-[9px] font-bold text-emerald-700">+{order.orderDetailsList.length - 2} more products</p>
+                        )}
+                      </div>
+                    ) : (
+                      <h4 className="text-xs font-bold text-gray-800 truncate mt-0.5">
+                        {order.productCategory} ({order.orderDetails?.quantity} {order.orderDetails?.unit || (order.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs")})
+                      </h4>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment Snapshot */}
+                <div className="flex items-center gap-3 min-w-[140px]">
+                  <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700 shadow-sm shrink-0">
+                    <Wallet className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Total Value</p>
+                    <p className="text-xs font-extrabold text-gray-900 mt-0.5">{formatCurrency(order.totalAmount)}</p>
+                  </div>
+                </div>
+
+                {/* Status Badges */}
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {order.orderStatus === "Completed" ? (
+                    <Badge
+                      variant="success"
+                      className="gap-1 bg-emerald-50 text-emerald-850 shadow-sm border border-emerald-300 py-0.5 px-2 text-xs font-bold cursor-pointer hover:bg-emerald-100 transition animate-pulse"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkAsDelivered && onMarkAsDelivered(order);
+                      }}
+                      title="Click to mark as Delivered"
+                    >
+                      <OrderStatusIcon className="h-3 w-3 text-emerald-700" />
+                      <span>{orderState.label} (Deliver)</span>
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant={orderStatusColors[order.orderStatusKey] || "primary"}
+                      className="gap-1 bg-white text-gray-850 shadow-sm border border-gray-150 py-0.5 px-2 text-xs font-semibold"
+                    >
+                      <OrderStatusIcon className={`h-3 w-3 ${orderState.tone}`} />
+                      {orderState.label}
+                    </Badge>
+                  )}
+                  <Badge
+                    variant={paymentColors[order.paymentStatusKey] || "primary"}
+                    className="gap-1 bg-white text-gray-850 shadow-sm border border-gray-150 py-0.5 px-2 text-xs font-semibold"
+                  >
+                    <PaymentStatusIcon className={`h-3 w-3 ${paymentState.tone}`} />
+                    {paymentState.label}
+                  </Badge>
+                </div>
+
+                {/* Toggle expand chevron down arrow */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(order.id)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 hover:border-emerald-300 transition-colors shadow-sm self-end md:self-center"
+                  title="Expand Details"
+                >
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+              </div>
+            </article>
+          );
+        }
+
         return (
           <article
             key={order.id}
-            className="group rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:shadow-lg"
+            className="group rounded-[28px] border border-emerald-300 bg-white p-5 shadow-md transition-all duration-200 hover:shadow-lg animate-fadeIn"
           >
             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div className="grid flex-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1.05fr)_minmax(0,0.95fr)]">
@@ -103,9 +241,19 @@ export default function OrderListSection({
                       </div>
                     </div>
 
-                    <Badge variant="secondary" className="shrink-0 bg-white text-gray-700 shadow-sm">
-                      {order.source}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="shrink-0 bg-white text-gray-700 shadow-sm">
+                        {order.source}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(order.id)}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 hover:border-emerald-300 transition-colors shadow-sm"
+                        title="Collapse Details"
+                      >
+                        <ChevronUp className="h-4 w-4 text-gray-500" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -135,54 +283,164 @@ export default function OrderListSection({
                       </div>
                     </div>
                   </div>
+
+                  {(!order.delivery?.deliveryAddress || order.delivery.deliveryAddress === "Not added") ? (
+                    <div className="mt-3 rounded-2xl bg-amber-50 p-2.5 border border-amber-250 flex items-center justify-between gap-2 shadow-3xs">
+                      <div className="flex items-center gap-2 text-amber-800 text-xs font-bold">
+                        <AlertTriangle className="h-4.5 w-4.5 text-amber-600 shrink-0" />
+                        <span>Delivery Address Missing</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditDelivery && onEditDelivery(order);
+                        }}
+                        className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.2 rounded-lg transition shadow-2xs shrink-0 cursor-pointer"
+                      >
+                        Add Address
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-2xl bg-slate-50 p-2.5 border border-slate-200 flex items-center justify-between gap-2 shadow-3xs">
+                      <div className="flex items-center gap-2 text-gray-700 text-xs font-medium min-w-0">
+                        <MapPin className="h-4 w-4 text-slate-500 shrink-0" />
+                        <span className="truncate text-gray-600 font-semibold" title={order.delivery.deliveryAddress}>
+                          Address: {order.delivery.deliveryAddress}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditDelivery && onEditDelivery(order);
+                        }}
+                        className="text-[10px] font-extrabold uppercase tracking-wider text-violet-700 hover:text-violet-950 shrink-0 hover:underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-3xl border border-gray-200 bg-gray-50/80 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="rounded-2xl bg-white p-2 text-emerald-700 shadow-sm">
+                    <div className="rounded-2xl bg-white p-2 text-emerald-700 shadow-sm shrink-0">
                       <ShoppingBag className="h-5 w-5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500">
                         Product Summary
                       </p>
-                      <h3 className="mt-1 text-lg font-bold text-gray-900">
-                        {order.productCategory}
-                      </h3>
-                      <p className="mt-2 text-sm text-gray-500">
-                        {order.productCategory?.toLowerCase().includes("roll")
-                          ? "Clear roll specs for quick sales and production review."
-                          : "Clear bag specs for quick sales and production review."}
-                      </p>
+                      {order.orderDetailsList && order.orderDetailsList.length > 1 ? (
+                        <div className="mt-3 space-y-3">
+                          {order.orderDetailsList.map((item, idx) => {
+                            const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+                            const taxInfo = getProductTaxInfo(prod || item);
+                            const pName = prod?.name || item.productCategory || order.productCategory || "Product";
+                            const isItemRoll = pName.toLowerCase().includes("roll") || String(item.unit).toLowerCase() === "kg" || String(item.unit).toLowerCase() === "m";
+
+                            return (
+                              <div key={idx} className="rounded-2xl bg-white p-3 border border-gray-200/80 shadow-2xs">
+                                <h4 className="text-xs font-extrabold text-emerald-950 leading-tight mb-2">Item {idx + 1}: {pName}</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50/50 px-2.5 py-1 text-[10px] font-bold text-blue-700">
+                                    <Package className="h-3 w-3" />
+                                    Qty {item.quantity || 0} {item.unit || "pcs"}
+                                  </span>
+                                  {!isItemRoll ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-700">
+                                      <ShoppingBag className="h-3 w-3" />
+                                      Size {item.bagSize || "—"}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-700">
+                                      <Package className="h-3 w-3" />
+                                      GSM {item.gsm || "—"}
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">
+                                    <Ruler className="h-3 w-3" />
+                                    {isItemRoll
+                                      ? `${item.dimensions?.width || 0} ${item.dimensions?.unit || "inch"}`
+                                      : `${item.dimensions?.length || 0}×${item.dimensions?.width || 0}×${item.dimensions?.height || 0} ${item.dimensions?.unit || "inch"}`}
+                                  </span>
+                                  {taxInfo.hsnCode && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 border border-emerald-100">
+                                      HSN {taxInfo.hsnCode}
+                                    </span>
+                                  )}
+                                  {taxInfo.gstRate != null && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 border border-emerald-100">
+                                      GST {taxInfo.gstRate}%
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <>
+                          {(() => {
+                            const singleItem = order.orderDetails;
+                            const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(singleItem?.productId || "").trim());
+                            const taxInfo = getProductTaxInfo(prod || singleItem || order);
+                            const pName = prod?.name || order.productCategory || "Product";
+                            const isRoll = pName.toLowerCase().includes("roll") || order.productCategory?.toLowerCase().includes("roll");
+                            return (
+                              <>
+                                <h3 className="mt-1 text-lg font-bold text-gray-900">
+                                  {pName}
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                  {isRoll
+                                    ? "Clear roll specs for quick sales and production review."
+                                    : "Clear bag specs for quick sales and production review."}
+                                </p>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+                                    <Package className="h-3.5 w-3.5" />
+                                    Qty {singleItem?.quantity || 0} {singleItem?.unit || "pcs"}
+                                  </span>
+                                  {!isRoll ? (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                                      <ShoppingBag className="h-3.5 w-3.5" />
+                                      Size {singleItem?.bagSize || "—"}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                                      <Package className="h-3.5 w-3.5" />
+                                      GSM {singleItem?.gsm || "—"}
+                                    </span>
+                                  )}
+                                  {taxInfo.hsnCode && (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200/80">
+                                      HSN {taxInfo.hsnCode}
+                                    </span>
+                                  )}
+                                  {taxInfo.gstRate != null && (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200/80">
+                                      GST {taxInfo.gstRate}%
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-white p-3">
+                                  <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                    <Ruler className="h-3.5 w-3.5" />
+                                    Dimensions
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                                    {order.dimensionSummary}
+                                  </p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
-                      <Package className="h-3.5 w-3.5" />
-                      Qty {order.orderDetails?.quantity || 0} {order.orderDetails?.unit || "pcs"}
-                    </span>
-                    {!order.productCategory?.toLowerCase().includes("roll") ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
-                        <ShoppingBag className="h-3.5 w-3.5" />
-                        Size {order.orderDetails?.bagSize || "—"}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
-                        <Package className="h-3.5 w-3.5" />
-                        GSM {order.orderDetails?.gsm || "—"}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-white p-3">
-                    <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                      <Ruler className="h-3.5 w-3.5" />
-                      Dimensions
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900">
-                      {order.dimensionSummary}
-                    </p>
                   </div>
                 </div>
 
@@ -236,13 +494,28 @@ export default function OrderListSection({
                 <div className="rounded-3xl border border-gray-200 bg-slate-50 p-4">
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
-                      <Badge
-                        variant={orderStatusColors[order.orderStatusKey] || "primary"}
-                        className="gap-2 bg-white text-gray-800 shadow-sm"
-                      >
-                        <OrderStatusIcon className={`h-3.5 w-3.5 ${orderState.tone}`} />
-                        {orderState.label}
-                      </Badge>
+                      {order.orderStatus === "Completed" ? (
+                        <Badge
+                          variant="success"
+                          className="gap-2 bg-emerald-50 text-emerald-850 shadow-sm border border-emerald-300 py-1 px-2.5 font-bold cursor-pointer hover:bg-emerald-100 transition animate-pulse"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkAsDelivered && onMarkAsDelivered(order);
+                          }}
+                          title="Click to mark as Delivered"
+                        >
+                          <OrderStatusIcon className="h-3.5 w-3.5 text-emerald-700" />
+                          <span>{orderState.label} (Click to Deliver)</span>
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant={orderStatusColors[order.orderStatusKey] || "primary"}
+                          className="gap-2 bg-white text-gray-800 shadow-sm"
+                        >
+                          <OrderStatusIcon className={`h-3.5 w-3.5 ${orderState.tone}`} />
+                          {orderState.label}
+                        </Badge>
+                      )}
                       <Badge
                         variant={paymentColors[order.paymentStatusKey] || "primary"}
                         className="gap-2 bg-white text-gray-800 shadow-sm"
@@ -278,15 +551,17 @@ export default function OrderListSection({
                         <span>View details</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onEditOrder(order)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                        title="Edit Order Details"
-                      >
-                        <Edit className="h-4 w-4 text-gray-500" />
-                        <span>Edit order</span>
-                      </button>
+                      {order.orderStatusKey !== "COMPLETED" && order.orderStatusKey !== "DELIVERED" && order.orderStatusKey !== "CANCELLED" && (
+                        <button
+                          type="button"
+                          onClick={() => onEditOrder(order)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                          title="Edit Order Details"
+                        >
+                          <Edit className="h-4 w-4 text-gray-500" />
+                          <span>Edit order</span>
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -353,6 +628,18 @@ export default function OrderListSection({
                             <CheckCircle2 className="h-4 w-4" />
                           )}
                           <span>Complete order</span>
+                        </button>
+                      )}
+
+                      {order.orderStatusKey === "COMPLETED" && (
+                        <button
+                          type="button"
+                          onClick={() => onMarkAsDelivered && onMarkAsDelivered(order)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                          title="Mark as Delivered"
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                          <span>Mark Delivered</span>
                         </button>
                       )}
                     </div>

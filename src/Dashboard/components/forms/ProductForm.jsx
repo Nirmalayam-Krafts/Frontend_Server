@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui";
 import { useGetAllRawMaterials } from "../../../../hook/RawMaterial";
+import toast from "react-hot-toast";
 
 const PRODUCT_CATEGORY_OPTIONS = [
   "Ecocraft bags",
@@ -44,6 +45,7 @@ const getInitialState = (initialData = null) => {
       sku: "",
       description: "",
       bagType: "custom",
+      bagSize: "",
       dimensions: {
         length: "",
         width: "",
@@ -65,6 +67,8 @@ const getInitialState = (initialData = null) => {
       gsm: "",
       weight: "",
       lengthInMeters: "",
+      hsnCode: "",
+      gstRate: 18,
     };
   }
 
@@ -74,6 +78,7 @@ const getInitialState = (initialData = null) => {
     sku: initialData?.sku || "",
     description: initialData?.description || "",
     bagType: initialData?.bagType || "custom",
+    bagSize: initialData?.bagSize || "",
     dimensions: {
       length: initialData?.dimensions?.length ?? "",
       width: initialData?.dimensions?.width ?? "",
@@ -108,6 +113,8 @@ const getInitialState = (initialData = null) => {
     weight: initialData?.weight || "",
     lengthInMeters: initialData?.lengthInMeters || "",
     bf: initialData?.bf || "",
+    hsnCode: initialData?.hsnCode || "",
+    gstRate: initialData?.gstRate ?? 18,
   };
 };
 
@@ -115,6 +122,55 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(getInitialState(initialData));
   const [sizePreset, setSizePreset] = useState("custom");
+
+  const getWidthInCm = (width, unit) => {
+    const w = Number(width) || 0;
+    if (unit === "cm") return w;
+    if (unit === "inch") return w * 2.54;
+    if (unit === "mm") return w / 10;
+    if (unit === "ft") return w * 30.48;
+    return w;
+  };
+
+  React.useEffect(() => {
+    const category = String(formData.category || "").toLowerCase();
+    const isKraftRoll = category.includes("roll");
+    
+    let hsn = "";
+    let gst = 18;
+    
+    if (isKraftRoll) {
+      gst = 12;
+      const gsmVal = Number(formData.gsm) || 0;
+      if (gsmVal <= 0) {
+        hsn = "4804 39 00";
+      } else if (gsmVal <= 150) {
+        hsn = "4804 39 00";
+      } else if (gsmVal < 225) {
+        hsn = "4804 49 00";
+      } else {
+        hsn = "4804 59 00";
+      }
+    } else {
+      gst = 18;
+      const widthVal = Number(formData.dimensions?.width) || 0;
+      const unit = formData.dimensions?.unit || "inch";
+      const widthCm = getWidthInCm(widthVal, unit);
+      if (widthCm >= 40) {
+        hsn = "4819 30 00";
+      } else {
+        hsn = "4819 40 00";
+      }
+    }
+    
+    if (formData.hsnCode !== hsn || formData.gstRate !== gst) {
+      setFormData(prev => ({
+        ...prev,
+        hsnCode: hsn,
+        gstRate: gst
+      }));
+    }
+  }, [formData.category, formData.dimensions?.width, formData.dimensions?.unit, formData.gsm, formData.hsnCode, formData.gstRate]);
 
   const isRoll = useMemo(() => {
     return String(formData.category || "").toLowerCase().includes("roll");
@@ -147,16 +203,19 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
     if (preset === "small") {
       setFormData(prev => ({
         ...prev,
+        bagSize: "Small",
         dimensions: { length: 8, width: 10, height: 4, unit: "inch" }
       }));
     } else if (preset === "medium") {
       setFormData(prev => ({
         ...prev,
+        bagSize: "Medium",
         dimensions: { length: 10, width: 12, height: 5, unit: "inch" }
       }));
     } else if (preset === "large") {
       setFormData(prev => ({
         ...prev,
+        bagSize: "Large",
         dimensions: { length: 12, width: 16, height: 6, unit: "inch" }
       }));
     }
@@ -171,6 +230,12 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
   const isEmptyRawMaterial = !isLoading && rawMaterialOptions.length === 0;
 
   const updateField = (field, value) => {
+    const numericFields = ["basePrice", "gsm", "weight", "lengthInMeters", "bf"];
+    if (numericFields.includes(field)) {
+      if (value !== "" && Number(value) < 0) {
+        value = "0";
+      }
+    }
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -178,6 +243,12 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
   };
 
   const updateDimension = (field, value) => {
+    const numericFields = ["length", "width", "height"];
+    if (numericFields.includes(field)) {
+      if (value !== "" && Number(value) < 0) {
+        value = "0";
+      }
+    }
     setFormData((prev) => ({
       ...prev,
       dimensions: {
@@ -188,6 +259,12 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
   };
 
   const updateEstimationField = (field, value) => {
+    const numericFields = ["basePrice", "laborCostPerBag", "overheadCostPerBag", "printingCostPerBag", "marginPercent"];
+    if (numericFields.includes(field)) {
+      if (value !== "" && Number(value) < 0) {
+        value = "0";
+      }
+    }
     setFormData((prev) => ({
       ...prev,
       estimationConfig: {
@@ -198,6 +275,12 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
   };
 
   const updateMaterial = (index, field, value) => {
+    const numericFields = ["requiredQuantityPerBag", "wastagePercent"];
+    if (numericFields.includes(field)) {
+      if (value !== "" && Number(value) < 0) {
+        value = "0";
+      }
+    }
     setFormData((prev) => {
       const updated = [...prev.rawMaterials];
       updated[index] = {
@@ -264,8 +347,71 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
     [formData.rawMaterials.length]
   );
 
+  // Live Selling Price Breakdown
+  const sellingPriceBreakdown = useMemo(() => {
+    const basePrice = Number(formData.basePrice || 0);
+    const estBasePrice = Number(formData.estimationConfig.basePrice || 0);
+    const labor = Number(formData.estimationConfig.laborCostPerBag || 0);
+    const overhead = Number(formData.estimationConfig.overheadCostPerBag || 0);
+    const printing = Number(formData.estimationConfig.printingCostPerBag || 0);
+    const margin = Number(formData.estimationConfig.marginPercent || 10);
+
+    // Scenario A: Based on Base Price
+    const totalCostA = basePrice + labor + overhead + printing;
+    const sellingMarkupA = totalCostA * (1 + margin / 100);
+    const sellingMarginA = totalCostA / (1 - margin / 100);
+
+    // Scenario B: Based on Estimation Base Price
+    const totalCostB = estBasePrice + labor + overhead + printing;
+    const sellingMarkupB = totalCostB * (1 + margin / 100);
+    const sellingMarginB = totalCostB / (1 - margin / 100);
+
+    const hasData = basePrice > 0 || estBasePrice > 0 || labor > 0 || overhead > 0 || printing > 0;
+
+    return {
+      hasData,
+      basePrice, estBasePrice, labor, overhead, printing, margin,
+      totalCostA, sellingMarkupA, sellingMarginA,
+      totalCostB, sellingMarkupB, sellingMarginB,
+    };
+  }, [
+    formData.basePrice,
+    formData.estimationConfig.basePrice,
+    formData.estimationConfig.laborCostPerBag,
+    formData.estimationConfig.overheadCostPerBag,
+    formData.estimationConfig.printingCostPerBag,
+    formData.estimationConfig.marginPercent,
+  ]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (
+      Number(formData.basePrice) < 0 ||
+      Number(formData.dimensions.length) < 0 ||
+      Number(formData.dimensions.width) < 0 ||
+      Number(formData.dimensions.height) < 0 ||
+      Number(formData.estimationConfig.basePrice) < 0 ||
+      Number(formData.estimationConfig.laborCostPerBag) < 0 ||
+      Number(formData.estimationConfig.overheadCostPerBag) < 0 ||
+      Number(formData.estimationConfig.printingCostPerBag) < 0 ||
+      Number(formData.estimationConfig.marginPercent) < 0 ||
+      (formData.gsm !== undefined && Number(formData.gsm) < 0) ||
+      (formData.weight !== undefined && Number(formData.weight) < 0) ||
+      (formData.lengthInMeters !== undefined && Number(formData.lengthInMeters) < 0) ||
+      (formData.bf !== undefined && Number(formData.bf) < 0)
+    ) {
+      toast.error("Negative values are not allowed in product specifications or estimation costs");
+      return;
+    }
+
+    const hasNegativeMaterial = formData.rawMaterials.some(
+      (item) => Number(item.requiredQuantityPerBag) < 0 || Number(item.wastagePercent) < 0
+    );
+    if (hasNegativeMaterial) {
+      toast.error("Negative values are not allowed in raw material details");
+      return;
+    }
 
     const payload = {
       name: formData.name.trim(),
@@ -301,38 +447,40 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
           notes: item.notes?.trim() || "",
         })),
       isActive: formData.isActive,
-      customPrinting: formData.customPrinting || false,
+      customPrinting: isRoll ? false : (formData.customPrinting || false),
       gsm: isRoll ? Number(formData.gsm) : undefined,
       weight: formData.weight ? Number(formData.weight) : undefined,
       lengthInMeters: isRoll && formData.lengthInMeters ? Number(formData.lengthInMeters) : undefined,
       bf: isRoll && formData.bf ? Number(formData.bf) : undefined,
       unit: isRoll ? "kg" : undefined,
+      hsnCode: formData.hsnCode,
+      gstRate: formData.gstRate ? Number(formData.gstRate) : undefined,
     };
 
     onSubmit(payload);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-2xl border border-gray-100 p-4">
-        <h3 className="mb-4 text-sm font-bold text-gray-900">Basic Product Details</h3>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="rounded-2xl border border-gray-100 p-3.5 bg-white shadow-sm">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-800">Basic Product Details</h3>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Product Name
             </label>
             <input
               value={formData.name}
               onChange={(e) => updateField("name", e.target.value)}
               placeholder="Medium Kraft Shopping Bag"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Category
             </label>
             <select
@@ -345,7 +493,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                   bagType: val.toLowerCase().includes("roll") ? "none" : (prev.bagType === "none" ? "custom" : prev.bagType),
                 }));
               }}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-medium"
               required
             >
               {PRODUCT_CATEGORY_OPTIONS.map((option) => (
@@ -357,26 +505,26 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               SKU
             </label>
             <input
               value={formData.sku}
               onChange={(e) => updateField("sku", e.target.value)}
               placeholder="KRAFT-MED-001"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Bag Type
             </label>
             <select
               value={formData.bagType}
               onChange={(e) => updateField("bagType", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-medium"
               disabled={isRoll}
             >
               {BAG_TYPE_OPTIONS.map((option) => (
@@ -387,53 +535,74 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             </select>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Custom Printing
-            </label>
-            <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 w-full bg-white cursor-pointer h-[48px]">
-              <input
-                type="checkbox"
-                checked={formData.customPrinting || false}
-                onChange={(e) => updateField("customPrinting", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              Enable Custom Printing
-            </label>
-          </div>
+          {!isRoll && (
+            <div>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                Custom Printing
+              </label>
+              <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 w-full bg-white cursor-pointer h-[42px] transition hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={formData.customPrinting || false}
+                  onChange={(e) => updateField("customPrinting", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Enable Custom Printing
+              </label>
+            </div>
+          )}
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Description
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={formData.description}
               onChange={(e) => updateField("description", e.target.value)}
               placeholder={isRoll ? "High quality kraft roll for wrapping and packaging" : "Strong kraft bag with custom handle and premium finish"}
-              className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900"
             />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
+              HSN Code (Auto-Calculated)
+            </label>
+            <div className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-gray-50 text-gray-700 font-bold select-all flex items-center h-[42px]">
+              {formData.hsnCode || "Pending Attributes..."}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
+              GST Rate (Auto-Calculated)
+            </label>
+            <div className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-gray-50 text-gray-700 font-bold select-none flex items-center h-[42px]">
+              {formData.gstRate ? `${formData.gstRate}%` : "18%"}
+            </div>
           </div>
 
           {isRoll ? (
             <>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <label className="mb-1.5 block text-sm font-bold text-gray-800">
                   GSM <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={formData.gsm}
                   onChange={(e) => updateField("gsm", e.target.value)}
                   placeholder="120"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                   required
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <label className="mb-1.5 block text-sm font-bold text-gray-800">
                   Weight (kg)
                 </label>
                 <input
@@ -443,41 +612,43 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                   value={formData.weight}
                   onChange={(e) => updateField("weight", e.target.value)}
                   placeholder="50"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <label className="mb-1.5 block text-sm font-bold text-gray-800">
                   Length in Meters
                 </label>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={formData.lengthInMeters}
                   onChange={(e) => updateField("lengthInMeters", e.target.value)}
                   placeholder="1000"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <label className="mb-1.5 block text-sm font-bold text-gray-800">
                   BF (Burst Factor)
                 </label>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={formData.bf}
                   onChange={(e) => updateField("bf", e.target.value)}
                   placeholder="20"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                 />
               </div>
             </>
           ) : (
             <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">
                 Weight per Bag (kg)
               </label>
               <input
@@ -487,42 +658,58 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                 value={formData.weight}
                 onChange={(e) => updateField("weight", e.target.value)}
                 placeholder="e.g. 0.02"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
               />
             </div>
           )}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 p-4">
-        <h3 className="mb-4 text-sm font-bold text-gray-900">{isRoll ? "Roll Dimensions" : "Bag Dimensions"}</h3>
+      <div className="rounded-2xl border border-gray-100 p-3.5 bg-white shadow-sm">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-800">{isRoll ? "Roll Dimensions" : "Bag Dimensions"}</h3>
 
         {!isRoll && (
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-semibold text-gray-700">Size Configuration</label>
-            <select
-              value={sizePreset}
-              onChange={(e) => handlePresetChange(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 font-medium"
-            >
-              <option value="small">Small (8 × 10 × 4 inch)</option>
-              <option value="medium">Medium (10 × 12 × 5 inch)</option>
-              <option value="large">Large (12 × 16 × 6 inch)</option>
-              <option value="custom">Custom (Manual Entry)</option>
-            </select>
+          <div className="mb-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">Size Configuration</label>
+              <select
+                value={sizePreset}
+                onChange={(e) => handlePresetChange(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-medium"
+              >
+                <option value="small">Small (8 × 10 × 4 inch)</option>
+                <option value="medium">Medium (10 × 12 × 5 inch)</option>
+                <option value="large">Large (12 × 16 × 6 inch)</option>
+                <option value="custom">Custom (Manual Entry)</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">Bag Size Label (Matches Order/Inventory)</label>
+              <select
+                value={formData.bagSize || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, bagSize: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-medium"
+              >
+                <option value="">None (—)</option>
+                <option value="Small">Small</option>
+                <option value="Medium">Medium</option>
+                <option value="Large">Large</option>
+              </select>
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           {!isRoll && (
             <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">Length</label>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">Length</label>
               <input
                 type="number"
                 min="0"
+                step="any"
                 value={formData.dimensions.length}
                 onChange={(e) => updateDimension("length", e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 font-medium"
                 required={!isRoll}
                 disabled={sizePreset !== "custom"}
               />
@@ -530,13 +717,14 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
           )}
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">Width</label>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">Width</label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.dimensions.width}
               onChange={(e) => updateDimension("width", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 font-medium"
               required
               disabled={!isRoll && sizePreset !== "custom"}
             />
@@ -544,13 +732,14 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
 
           {!isRoll && (
             <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">Height</label>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">Height</label>
               <input
                 type="number"
                 min="0"
+                step="any"
                 value={formData.dimensions.height}
                 onChange={(e) => updateDimension("height", e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 font-medium"
                 required={!isRoll}
                 disabled={sizePreset !== "custom"}
               />
@@ -558,11 +747,11 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
           )}
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">Unit</label>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">Unit</label>
             <select
               value={formData.dimensions.unit}
               onChange={(e) => updateDimension("unit", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 bg-white text-gray-900 font-medium"
               disabled={!isRoll && sizePreset !== "custom"}
             >
               {DIMENSION_UNIT_OPTIONS.map((option) => (
@@ -575,30 +764,31 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 p-4">
-        <h3 className="mb-4 text-sm font-bold text-gray-900">Pricing & Estimation</h3>
+      <div className="rounded-2xl border border-gray-100 p-3.5 bg-white shadow-sm">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-800">Pricing & Estimation</h3>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">Base Price</label>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">Base Price</label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.basePrice}
               onChange={(e) => updateField("basePrice", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Pricing Mode
             </label>
             <select
               value={formData.estimationConfig.pricingMode}
               onChange={(e) => updateEstimationField("pricingMode", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-medium"
             >
               {PRICING_MODE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -609,80 +799,86 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Estimation Base Price
             </label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.estimationConfig.basePrice}
               onChange={(e) => updateEstimationField("basePrice", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Labor Cost / Bag
             </label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.estimationConfig.laborCostPerBag}
               onChange={(e) => updateEstimationField("laborCostPerBag", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Overhead Cost / Bag
             </label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.estimationConfig.overheadCostPerBag}
               onChange={(e) =>
                 updateEstimationField("overheadCostPerBag", e.target.value)
               }
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Printing Cost / Bag
             </label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.estimationConfig.printingCostPerBag}
               onChange={(e) =>
                 updateEstimationField("printingCostPerBag", e.target.value)
               }
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               Margin %
             </label>
             <input
               type="number"
               min="0"
+              step="any"
               value={formData.estimationConfig.marginPercent}
               onChange={(e) => updateEstimationField("marginPercent", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
             />
           </div>
 
-          <div className="flex items-end">
-            <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700">
+          <div className="flex items-end h-[42px]">
+            <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 w-full transition">
               <input
                 type="checkbox"
                 checked={formData.isActive}
                 onChange={(e) => updateField("isActive", e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
               />
               Active Product
             </label>
@@ -690,186 +886,295 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-gray-900">
+      {/* ── Selling Price Breakdown Preview ── */}
+      {sellingPriceBreakdown.hasData && (
+        <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 shadow-sm">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+            <span>💰</span> Live Selling Price Preview
+          </h3>
+          <div className={`grid gap-3 ${isRoll ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
+            {/* Scenario A — Base Price */}
+            {sellingPriceBreakdown.basePrice > 0 && (
+              <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-2">
+                  {isRoll ? "Based on Base Price (per roll/kg)" : "Based on Base Price (per bag)"}
+                </p>
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Base Price</span>
+                    <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.basePrice.toLocaleString()}</span>
+                  </div>
+                  {sellingPriceBreakdown.labor > 0 && (
+                    <div className="flex justify-between">
+                      <span>+ Labor</span>
+                      <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.labor}</span>
+                    </div>
+                  )}
+                  {sellingPriceBreakdown.overhead > 0 && (
+                    <div className="flex justify-between">
+                      <span>+ Overhead</span>
+                      <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.overhead}</span>
+                    </div>
+                  )}
+                  {sellingPriceBreakdown.printing > 0 && (
+                    <div className="flex justify-between">
+                      <span>+ Printing</span>
+                      <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.printing}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-1 mt-1">
+                    <span className="font-bold text-gray-700">Total Cost</span>
+                    <span className="font-bold text-gray-800">₹{sellingPriceBreakdown.totalCostA.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between mt-1.5 pt-1.5 border-t border-emerald-100">
+                    <span className="text-emerald-700 font-bold">Selling ({sellingPriceBreakdown.margin}% markup)</span>
+                    <span className="font-extrabold text-emerald-700">₹{sellingPriceBreakdown.sellingMarkupA.toFixed(0)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Scenario B — Estimation Base Price */}
+            {sellingPriceBreakdown.estBasePrice > 0 && (
+              <div className="rounded-xl border border-teal-200 bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700 mb-2">
+                  {isRoll ? "Based on Estimation Price (per roll/kg)" : "Based on Estimation Price (per bag)"}
+                </p>
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Est. Base Price</span>
+                    <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.estBasePrice.toLocaleString()}</span>
+                  </div>
+                  {sellingPriceBreakdown.labor > 0 && (
+                    <div className="flex justify-between">
+                      <span>+ Labor</span>
+                      <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.labor}</span>
+                    </div>
+                  )}
+                  {sellingPriceBreakdown.overhead > 0 && (
+                    <div className="flex justify-between">
+                      <span>+ Overhead</span>
+                      <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.overhead}</span>
+                    </div>
+                  )}
+                  {sellingPriceBreakdown.printing > 0 && (
+                    <div className="flex justify-between">
+                      <span>+ Printing</span>
+                      <span className="font-semibold text-gray-800">₹{sellingPriceBreakdown.printing}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-1 mt-1">
+                    <span className="font-bold text-gray-700">Total Cost</span>
+                    <span className="font-bold text-gray-800">₹{sellingPriceBreakdown.totalCostB.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between mt-1.5 pt-1.5 border-t border-teal-100">
+                    <span className="text-teal-700 font-bold">Selling ({sellingPriceBreakdown.margin}% markup)</span>
+                    <span className="font-extrabold text-teal-700">₹{sellingPriceBreakdown.sellingMarkupB.toFixed(0)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-[10px] text-gray-500 font-medium">
+            {isRoll ? "Prices shown per roll/kg unit. Markup = Total Cost × (1 + Margin%)" : "Single bag selling price. Markup = Total Cost × (1 + Margin%)"}
+          </p>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-gray-100 p-3.5 bg-white shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800">
             Raw Material Requirements ({materialCount})
           </h3>
 
-          <Button type="button" className="bg-green-900" onClick={addMaterial}>
+          <Button type="button" className="bg-emerald-700 hover:bg-emerald-850 px-3 py-1.5 text-xs font-bold text-white rounded-xl shadow-sm" onClick={addMaterial}>
             Add Raw Material
           </Button>
         </div>
 
-        <div className="space-y-4">
-          {formData.rawMaterials.map((item, index) => (
-            <div
-              key={index}
-              className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-800">
-                  Raw Material #{index + 1}
-                </p>
+        <div className="space-y-3">
+          {formData.rawMaterials.map((item, index) => {
+            const selectedRaw = rawMaterialOptions.find(
+              (raw) => String(raw._id || raw.id) === String(item.rawMaterialId)
+            );
 
-                <button
-                  type="button"
-                  onClick={() => removeMaterial(index)}
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                >
-                  Remove
-                </button>
-              </div>
+            return (
+              <div
+                key={index}
+                className="rounded-2xl border border-gray-200 bg-gray-50/50 p-3"
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-700">
+                    Raw Material #{index + 1}
+                  </p>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Raw Material Name
-                  </label>
-
-                  {isEmptyRawMaterial ? (
-                    <div className="flex flex-col gap-2">
-                      <p className="text-sm font-medium text-red-500">
-                        No raw material available
-                      </p>
-                      <Button
-                        type="button"
-                        className="w-fit bg-green-900"
-                        onClick={() => navigate("/rawmaterial")}
-                      >
-                        Create Raw Material
-                      </Button>
-                    </div>
-                  ) : (
-                    <select
-                      value={item.rawMaterialId || ""}
-                      onChange={(e) => handleRawMaterialSelect(index, e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                      required
-                    >
-                      <option value="">
-                        {isLoading ? "Loading..." : "Select raw material"}
-                      </option>
-                      {rawMaterialOptions.map((raw) => {
-                        const optionValue = raw._id || raw.id;
-                        const optionLabel =
-                          raw.name ||
-                          raw.rawMaterialName ||
-                          raw.productName ||
-                          "Raw Material";
-
-                        return (
-                          <option key={optionValue} value={optionValue}>
-                            {optionLabel}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Raw Material Type
-                  </label>
-                  <input
-                    type="text"
-                    value={item.rawMaterialType || ""}
-                    readOnly
-                    className="w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm outline-none"
-                    placeholder="Auto filled from selected raw material"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Usage Type
-                  </label>
-                  <select
-                    value={item.usageType}
-                    onChange={(e) => updateMaterial(index, "usageType", e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                  <button
+                    type="button"
+                    onClick={() => removeMaterial(index)}
+                    className="rounded-lg px-2.5 py-1 text-xs font-bold text-red-650 hover:bg-red-50 transition"
                   >
-                    {USAGE_TYPE_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option === "dimension_based" ? "Dimension Based" : "Fixed"}
-                      </option>
-                    ))}
-                  </select>
+                    Remove
+                  </button>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    {isRoll ? "Required Quantity / kg" : "Required Quantity / Bag"}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={item.requiredQuantityPerBag}
-                    onChange={(e) =>
-                      updateMaterial(index, "requiredQuantityPerBag", e.target.value)
-                    }
-                    placeholder={isRoll ? "1.0" : "2.4"}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-sm font-bold text-gray-800">
+                        Raw Material Name
+                      </label>
+                      {selectedRaw && (
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
+                          Stock: {selectedRaw.availableStock || 0} {selectedRaw.unit || "pcs"} (Net: {(selectedRaw.availableStock || 0) - (selectedRaw.reservedStock || 0)})
+                        </span>
+                      )}
+                    </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Unit
-                  </label>
-                  <input
-                    type="text"
-                    value={item.unit || ""}
-                    readOnly
-                    className="w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm outline-none"
-                    placeholder="Auto filled from selected raw material"
-                  />
-                </div>
+                    {isEmptyRawMaterial ? (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium text-red-500">
+                          No raw material available
+                        </p>
+                        <Button
+                          type="button"
+                          className="w-fit bg-emerald-700 text-xs py-1.5"
+                          onClick={() => navigate("/rawmaterial")}
+                        >
+                          Create Raw Material
+                        </Button>
+                      </div>
+                    ) : (
+                      <select
+                        value={item.rawMaterialId || ""}
+                        onChange={(e) => handleRawMaterialSelect(index, e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                        required
+                      >
+                        <option value="">
+                          {isLoading ? "Loading..." : "Select raw material"}
+                        </option>
+                        {rawMaterialOptions.map((raw) => {
+                          const optionValue = raw._id || raw.id;
+                          const optionLabel =
+                            raw.name ||
+                            raw.rawMaterialName ||
+                            raw.productName ||
+                            "Raw Material";
+                          const stockText = `Stock: ${raw.availableStock || 0} ${raw.unit || "pcs"}`;
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Wastage %
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={item.wastagePercent}
-                    onChange={(e) =>
-                      updateMaterial(index, "wastagePercent", e.target.value)
-                    }
-                    placeholder="5"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                  />
-                </div>
+                          return (
+                            <option key={optionValue} value={optionValue}>
+                              {optionLabel} ({stockText})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Notes
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={item.notes}
-                    onChange={(e) => updateMaterial(index, "notes", e.target.value)}
-                    placeholder="Main paper for outside surface"
-                    className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                  />
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                      Raw Material Type
+                    </label>
+                    <input
+                      type="text"
+                      value={item.rawMaterialType || ""}
+                      readOnly
+                      className="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm outline-none text-gray-600 font-medium"
+                      placeholder="Auto filled from selected raw material"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                      Usage Type
+                    </label>
+                    <select
+                      value={item.usageType}
+                      onChange={(e) => updateMaterial(index, "usageType", e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                    >
+                      {USAGE_TYPE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option === "dimension_based" ? "Dimension Based" : "Fixed"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                      {isRoll ? "Required Quantity / kg" : "Required Quantity / Bag"}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.requiredQuantityPerBag}
+                      onChange={(e) =>
+                        updateMaterial(index, "requiredQuantityPerBag", e.target.value)
+                      }
+                      placeholder={isRoll ? "1.0" : "2.4"}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                      Unit
+                    </label>
+                    <input
+                      type="text"
+                      value={item.unit || ""}
+                      readOnly
+                      className="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm outline-none text-gray-600 font-medium"
+                      placeholder="Auto filled from selected raw material"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                      Wastage %
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.wastagePercent}
+                      onChange={(e) =>
+                        updateMaterial(index, "wastagePercent", e.target.value)
+                      }
+                      placeholder="5"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                      Notes
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={item.notes}
+                      onChange={(e) => updateMaterial(index, "notes", e.target.value)}
+                      placeholder="Main paper for outside surface"
+                      className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      <div className="flex justify-end gap-3">
-        <Button type="submit" className="bg-green-900">
+      <div className="flex justify-end gap-3 pt-2">
+        <Button type="submit" className="px-6 py-2.5 bg-emerald-700 text-white text-sm rounded-xl font-bold shadow hover:bg-emerald-800 transition">
           {initialData ? "Update and Add to Stock" : "Create and Add to Stock"}
         </Button>
       </div>
     </form>
   );
 };
-
 export default ProductForm;

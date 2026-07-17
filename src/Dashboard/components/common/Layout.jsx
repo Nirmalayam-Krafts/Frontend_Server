@@ -18,20 +18,56 @@ import {
   Leaf,
    Package,
   Boxes,
-  PanelLeftClose,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  Package2,
+  Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
-import { useGetNotifications } from "../../../../hook/notifications";
-import { useQueryClient } from "@tanstack/react-query"
+import { useGetNotifications, useMarkAllNotificationsRead, useMarkNotificationRead } from "../../../../hook/notifications";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuthContext } from "../../../context/Adminauth";
+import toast from "react-hot-toast";
 
 export const Sidebar = () => {
   const location = useLocation();
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
+  const { axiosInstance } = useAuthContext();
+
+  const handleResetDatabase = async () => {
+    const doubleConfirm = window.confirm(
+      "⚠️ WARNING: This will permanently delete all orders, products, inventory, raw materials, leads, quotations, notifications, and ledger entries of this Nirmalyam portal.\n\nOnly admin username and password credentials will be retained.\n\nAre you absolutely sure you want to proceed with this reset?"
+    );
+    if (!doubleConfirm) return;
+
+    const typedConfirm = window.prompt(
+      'Type "RESET" in all capital letters to confirm database reset:'
+    );
+    if (typedConfirm !== "RESET") {
+      toast.error('Reset aborted. You must type "RESET" to confirm.');
+      return;
+    }
+
+    const loadingToast = toast.loading("Resetting Nirmalyam database...");
+    try {
+      await axiosInstance.delete("/reset-database");
+      toast.success("Database resetted successfully 🎉", { id: loadingToast });
+      window.location.href = "/dashboard";
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to reset database", { id: loadingToast });
+    }
+  };
 
   const [inventoryOpen, setInventoryOpen] = useState(
-    location.pathname === "/inventory" || location.pathname === "/rawmaterial"
+    location.pathname === "/inventory" || location.pathname === "/rawmaterial" || location.pathname === "/Product"
+  );
+  const [ordersOpen, setOrdersOpen] = useState(
+    location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts"
   );
 
   const menuItems = [
@@ -42,13 +78,21 @@ export const Sidebar = () => {
       label: "Inventory",
       path: "/inventory",
       children: [
-         
         { icon: Package, label: "Stock", path: "/inventory" },
         { icon: Box, label: "Raw Materials", path: "/rawmaterial" },
         { icon: Box, label: "Products", path: "/Product" },
       ],
     },
-    { icon: ShoppingCart, label: "Orders", path: "/orders" },
+    {
+      icon: ShoppingCart,
+      label: "Orders",
+      path: "/orders",
+      children: [
+        { icon: ShoppingCart, label: "All Orders", path: "/orders" },
+        { icon: FileText, label: "Quotations", path: "/quotations" },
+        { icon: FileText, label: "Receipts", path: "/receipts" },
+      ],
+    },
     { icon: FileText, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Settings, label: "Settings", path: "/settings" },
@@ -57,7 +101,11 @@ export const Sidebar = () => {
   const isActive = (path) => location.pathname === path;
 
   const isInventoryActive =
-    location.pathname === "/inventory" || location.pathname === "/rawmaterial";
+    location.pathname === "/inventory" || location.pathname === "/rawmaterial" || location.pathname === "/Product";
+
+  const isOrdersActive =
+    location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts";
+
 
   return (
     <AnimatePresence>
@@ -92,13 +140,6 @@ export const Sidebar = () => {
                     </p>
                   </div>
                 </div>
-
-                <button
-                  onClick={toggleSidebar}
-                  className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                >
-                  <PanelLeftClose className="h-5 w-5" />
-                </button>
               </div>
 
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4">
@@ -124,13 +165,18 @@ export const Sidebar = () => {
                   const Icon = item.icon;
 
                   if (item.children) {
+                    const isInv = item.label === "Inventory";
+                    const isOpen = isInv ? inventoryOpen : ordersOpen;
+                    const setOpen = isInv ? setInventoryOpen : setOrdersOpen;
+                    const isActiveState = isInv ? isInventoryActive : isOrdersActive;
+
                     return (
                       <div key={item.label} className="space-y-2">
                         <button
                           type="button"
-                          onClick={() => setInventoryOpen(!inventoryOpen)}
+                          onClick={() => setOpen(!isOpen)}
                           className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
-                            isInventoryActive
+                            isActiveState
                               ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-200"
                               : "text-gray-700 hover:bg-white hover:shadow-sm"
                           }`}
@@ -138,7 +184,7 @@ export const Sidebar = () => {
                           <div className="flex items-center gap-3">
                             <div
                               className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${
-                                isInventoryActive
+                                isActiveState
                                   ? "bg-white/15 text-white"
                                   : "bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100"
                               }`}
@@ -153,13 +199,13 @@ export const Sidebar = () => {
 
                           <ChevronRight
                             className={`h-4 w-4 transition ${
-                              inventoryOpen ? "rotate-90" : ""
-                            } ${isInventoryActive ? "text-white" : "text-gray-400"}`}
+                              isOpen ? "rotate-90" : ""
+                            } ${isActiveState ? "text-white" : "text-gray-400"}`}
                           />
                         </button>
 
                         <AnimatePresence>
-                          {inventoryOpen && (
+                          {isOpen && (
                             <motion.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
@@ -246,7 +292,7 @@ export const Sidebar = () => {
               </nav>
             </div>
 
-            <div className="border-t border-emerald-100 bg-white/80 px-5 py-5">
+            <div className="border-t border-emerald-100 bg-white/80 px-5 py-5 space-y-3">
               <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -266,6 +312,15 @@ export const Sidebar = () => {
                   </button>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={handleResetDatabase}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-2.5 text-center text-xs font-bold text-red-650 hover:bg-red-100 hover:text-red-750 transition-colors shadow-sm"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Reset Database</span>
+              </button>
             </div>
           </motion.aside>
         </>
@@ -286,30 +341,69 @@ export const Navbar = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef(null);
   const { data: notifData } = useGetNotifications();
+  const { mutate: markAllRead } = useMarkAllNotificationsRead();
+  const { mutate: markOneRead } = useMarkNotificationRead();
+
   const allNotifications = notifData?.notifications || [];
+  const unreadCount = allNotifications.filter((n) => n.unread).length;
 
-  const [dismissedIds, setDismissedIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem("dismissedNotifications");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch {
-      return new Set();
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case "order":    return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+      case "inventory": return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+      case "lead":    return <Users className="h-4 w-4 text-blue-500" />;
+      default:        return <Info className="h-4 w-4 text-gray-400" />;
     }
-  });
+  };
 
-  const visibleNotifications = allNotifications.filter(
-    (n) => !dismissedIds.has(n.id)
-  );
-  const visibleUnreadCount = visibleNotifications.filter((n) => n.unread).length;
+  const getTypeBadge = (type) => {
+    switch (type) {
+      case "order":     return { label: "Order",     bg: "bg-emerald-100", text: "text-emerald-700" };
+      case "inventory": return { label: "Inventory",  bg: "bg-amber-100",  text: "text-amber-700" };
+      case "lead":      return { label: "Lead",      bg: "bg-blue-100",   text: "text-blue-700" };
+      default:          return { label: "System",    bg: "bg-gray-100",   text: "text-gray-600" };
+    }
+  };
 
-  const handleMarkAllAsRead = () => {
-    const allIds = allNotifications.map((n) => n.id);
-    const newDismissed = new Set([...dismissedIds, ...allIds]);
-    setDismissedIds(newDismissed);
-    localStorage.setItem(
-      "dismissedNotifications",
-      JSON.stringify([...newDismissed])
-    );
+  const getNavPath = (n) => {
+    switch (n.type) {
+      case "order":     return "/orders";
+      case "inventory": return n.description?.toLowerCase().includes("raw material") ? "/rawmaterial" : "/inventory";
+      case "lead":      return "/leads";
+      default:          return null;
+    }
+  };
+
+  const getActionLabel = (n) => {
+    switch (n.type) {
+      case "order":     return "View Order";
+      case "inventory": return "View Inventory";
+      case "lead":      return "View Lead";
+      default:          return "View";
+    }
+  };
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60)   return "Just now";
+    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const handleMarkAllAsRead = () => markAllRead();
+
+  const handleClickNotification = (n) => {
+    if (n.unread) markOneRead(n._id);
+    const path = getNavPath(n);
+    if (path) {
+      setNotificationsOpen(false);
+      navigate(path);
+    }
   };
 
   useEffect(() => {
@@ -338,7 +432,14 @@ export const Navbar = () => {
       .toUpperCase();
   }, [profile?.name]);
 
-  const handleLogout = () => {
+  const { axiosInstance } = useAuthContext();
+
+  const handleLogout = async () => {
+    try {
+      await axiosInstance.post("/admin/logout");
+    } catch (err) {
+      console.error("Failed to call logout endpoint", err);
+    }
     localStorage.removeItem("adminToken");
     queryClient.clear();
     navigate("/dashboard/login", { replace: true });
@@ -374,7 +475,7 @@ export const Navbar = () => {
               className="relative rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50"
             >
               <Bell className="h-5 w-5" />
-              {visibleUnreadCount > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
@@ -382,40 +483,124 @@ export const Navbar = () => {
             <AnimatePresence>
               {notificationsOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+                  initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 z-50 mt-3 w-96 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
                 >
-                  <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 flex justify-between items-center">
-                    <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
-                    {visibleNotifications.length > 0 && (
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-emerald-600" />
+                      <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
                       <button
                         onClick={handleMarkAllAsRead}
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 transition-colors"
                       >
                         Mark all as read
                       </button>
                     )}
                   </div>
-                  <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                    {visibleNotifications.length > 0 ? (
-                      visibleNotifications.map((n) => (
-                        <div key={n.id} className={`p-4 hover:bg-gray-50 transition-colors ${n.unread ? "bg-emerald-50/30" : ""}`}>
-                          <div className="flex justify-between items-start gap-2">
-                            <h4 className="font-semibold text-xs text-gray-900">{n.title}</h4>
-                            <span className="text-[10px] text-gray-400 whitespace-nowrap">{n.time}</span>
+
+                  {/* List */}
+                  <div className="max-h-[420px] overflow-y-auto divide-y divide-gray-100">
+                    {allNotifications.length > 0 ? (
+                      allNotifications.map((n) => {
+                        const badge = getTypeBadge(n.type);
+                        const path = getNavPath(n);
+                        return (
+                          <div
+                            key={n._id}
+                            onClick={() => handleClickNotification(n)}
+                            className={`flex gap-3 px-4 py-3.5 cursor-pointer transition-all hover:bg-gray-50 ${
+                              n.unread
+                                ? "bg-emerald-50/50 border-l-[3px] border-emerald-400"
+                                : "bg-white border-l-[3px] border-transparent"
+                            }`}
+                          >
+                            {/* Icon */}
+                            <div className="mt-0.5 flex-shrink-0">
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                                n.type === "order" ? "bg-emerald-100" :
+                                n.type === "inventory" ? "bg-amber-100" :
+                                n.type === "lead" ? "bg-blue-100" : "bg-gray-100"
+                              }`}>
+                                {getTypeIcon(n.type)}
+                              </div>
+                            </div>
+
+                            {/* Body */}
+                            <div className="flex-1 min-w-0">
+                              {/* Title row */}
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${badge.bg} ${badge.text}`}>
+                                    {badge.label}
+                                  </span>
+                                  <p className={`text-xs font-semibold truncate ${
+                                    n.unread ? "text-gray-900" : "text-gray-500"
+                                  }`}>
+                                    {n.title}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {n.unread && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                                  <span className="text-[10px] text-gray-400">{formatTime(n.createdAt)}</span>
+                                </div>
+                              </div>
+
+                              {/* Description */}
+                              <p className={`text-xs leading-relaxed ${
+                                n.unread ? "text-gray-700" : "text-gray-400"
+                              }`}>
+                                {n.description}
+                              </p>
+
+                              {/* Action chip */}
+                              {path && (
+                                <div className="mt-1.5">
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${
+                                    n.type === "order" ? "text-emerald-600" :
+                                    n.type === "inventory" ? "text-amber-600" :
+                                    "text-blue-600"
+                                  }`}>
+                                    {getActionLabel(n)}
+                                    <ChevronRight className="h-3 w-3" />
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-xs text-gray-600 mt-1">{n.description}</p>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <div className="p-6 text-center">
-                        <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-xs text-gray-500">All caught up! No new notifications.</p>
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                          <Bell className="h-6 w-6 text-gray-300" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-500">All caught up!</p>
+                        <p className="text-xs text-gray-400">No notifications yet.</p>
                       </div>
                     )}
                   </div>
+
+                  {/* Footer */}
+                  {allNotifications.length > 0 && (
+                    <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-2 flex justify-between items-center">
+                      <p className="text-[10px] text-gray-400">
+                        {allNotifications.length} total · {unreadCount} unread
+                      </p>
+                      <p className="text-[10px] text-gray-400">Click to open</p>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

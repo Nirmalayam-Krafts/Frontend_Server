@@ -128,6 +128,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
             label="Available Stock"
             type="number"
             step="any"
+            min="0"
             placeholder="0"
             error={errors.availableStock?.message}
             {...register("availableStock")}
@@ -140,6 +141,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
               label="Weight per Roll (kg)"
               type="number"
               step="any"
+              min="0"
               placeholder="e.g., 25"
               error={errors.kgPerRoll?.message}
               {...register("kgPerRoll")}
@@ -155,6 +157,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
             label="Unit Price (₹)"
             type="number"
             step="0.01"
+            min="0"
             placeholder="0.00"
             error={errors.unitPrice?.message}
             {...register("unitPrice")}
@@ -179,6 +182,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
             label="Reorder Point"
             type="number"
             step="any"
+            min="0"
             placeholder="0"
             error={errors.reorderPoint?.message}
             {...register("reorderPoint")}
@@ -187,6 +191,7 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
             label="Minimum Stock (Optional)"
             type="number"
             step="any"
+            min="0"
             placeholder="0"
             error={errors.minStock?.message}
             {...register("minStock")}
