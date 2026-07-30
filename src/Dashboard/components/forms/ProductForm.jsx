@@ -386,30 +386,25 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (
-      Number(formData.basePrice) < 0 ||
-      Number(formData.dimensions.length) < 0 ||
-      Number(formData.dimensions.width) < 0 ||
-      Number(formData.dimensions.height) < 0 ||
-      Number(formData.estimationConfig.basePrice) < 0 ||
-      Number(formData.estimationConfig.laborCostPerBag) < 0 ||
-      Number(formData.estimationConfig.overheadCostPerBag) < 0 ||
-      Number(formData.estimationConfig.printingCostPerBag) < 0 ||
-      Number(formData.estimationConfig.marginPercent) < 0 ||
-      (formData.gsm !== undefined && Number(formData.gsm) < 0) ||
-      (formData.weight !== undefined && Number(formData.weight) < 0) ||
-      (formData.lengthInMeters !== undefined && Number(formData.lengthInMeters) < 0) ||
-      (formData.bf !== undefined && Number(formData.bf) < 0)
-    ) {
-      toast.error("Negative values are not allowed in product specifications or estimation costs");
+    if (!formData.gsm || Number(formData.gsm) <= 0) {
+      toast.error("GSM is required and must be greater than 0");
       return;
     }
 
-    const hasNegativeMaterial = formData.rawMaterials.some(
-      (item) => Number(item.requiredQuantityPerBag) < 0 || Number(item.wastagePercent) < 0
-    );
-    if (hasNegativeMaterial) {
-      toast.error("Negative values are not allowed in raw material details");
+    const hasGsmMismatch = formData.rawMaterials.some((item) => {
+      const selectedRaw = rawMaterialOptions.find(
+        (raw) => String(raw._id || raw.id) === String(item.rawMaterialId)
+      );
+      if (selectedRaw && selectedRaw.type === "Paper") {
+        const productGsm = Number(formData.gsm || 0);
+        const rawGsm = Number(selectedRaw.gsm || 0);
+        return productGsm !== rawGsm;
+      }
+      return false;
+    });
+
+    if (hasGsmMismatch) {
+      toast.error("The GSM of the selected Paper raw material must match the Product's GSM.");
       return;
     }
 
@@ -448,7 +443,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
         })),
       isActive: formData.isActive,
       customPrinting: isRoll ? false : (formData.customPrinting || false),
-      gsm: isRoll ? Number(formData.gsm) : undefined,
+      gsm: formData.gsm ? Number(formData.gsm) : undefined,
       weight: formData.weight ? Number(formData.weight) : undefined,
       lengthInMeters: isRoll && formData.lengthInMeters ? Number(formData.lengthInMeters) : undefined,
       bf: isRoll && formData.bf ? Number(formData.bf) : undefined,
@@ -583,24 +578,24 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             </div>
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
+              GSM <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={formData.gsm}
+              onChange={(e) => updateField("gsm", e.target.value)}
+              placeholder="120"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+              required
+            />
+          </div>
+
           {isRoll ? (
             <>
-              <div>
-                <label className="mb-1.5 block text-sm font-bold text-gray-800">
-                  GSM <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={formData.gsm}
-                  onChange={(e) => updateField("gsm", e.target.value)}
-                  placeholder="120"
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                  required
-                />
-              </div>
-
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-gray-800">
                   Weight (kg)

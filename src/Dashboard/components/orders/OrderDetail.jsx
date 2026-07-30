@@ -20,6 +20,7 @@ import {
   Truck,
   User2,
   Printer,
+  Tag,
 } from "lucide-react";
 import { Badge } from "../ui";
 import { getProductTaxInfo } from "../../utils";
@@ -92,7 +93,20 @@ export default function OrderDetail({ order, onEditDelivery }) {
   const PaymentStatusIcon = paymentStatus.icon;
 
   const totalAmount = Number(order.amount || order.totalAmount || 0);
-  const paidAmount = Number(order.paidAmount || 0);
+
+  const confPaid = Number(order.confirmedPayment?.paidAmount || 0);
+  const partPaid = Number(order.payment?.partialPaidAmount || 0);
+  let rawPaid = Number(order.paidAmount || 0);
+
+  if (order.payment?.paymentType === "partial" && confPaid > 0) {
+    rawPaid = confPaid;
+  } else if (confPaid > 0 && (rawPaid === 0 || rawPaid > totalAmount)) {
+    rawPaid = confPaid;
+  } else if (partPaid > 0 && (rawPaid === 0 || rawPaid > totalAmount)) {
+    rawPaid = partPaid;
+  }
+
+  const paidAmount = totalAmount > 0 ? Math.min(rawPaid, totalAmount) : rawPaid;
   const pendingAmount = Math.max(0, totalAmount - paidAmount);
   const paymentProgress = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0;
 
@@ -588,12 +602,12 @@ export default function OrderDetail({ order, onEditDelivery }) {
               <DetailBlock
                 icon={CreditCard}
                 label="Partial Paid"
-                value={formatCurrency(order.payment?.partialPaidAmount)}
+                value={formatCurrency(order.payment?.partialPaidAmount || (order.payment?.paymentType === "partial" ? paidAmount : 0))}
               />
               <DetailBlock
                 icon={CreditCard}
                 label="Confirmed Paid"
-                value={formatCurrency(order.confirmedPayment?.paidAmount || order.paidAmount)}
+                value={formatCurrency(order.confirmedPayment?.paidAmount || paidAmount)}
               />
             </div>
           </div>

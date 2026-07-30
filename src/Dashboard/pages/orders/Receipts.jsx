@@ -32,9 +32,31 @@ const COMPANY_NAME = "Nirmalyam Krafts";
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   let totalSuggestedOfAll = 0;
   const lineSuggestedVals = lines.map(l => {
-    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
-    const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
-    const suggested = Number(l.quantity || 0) * price;
+    const pr = pricing?.perProductResults?.find(p => String(p.productId) === String(l.productId));
+    let suggested = 0;
+    if (pr) {
+      const itemStockQty = Number(pr.canFulfillFromStock || 0);
+      const itemRequiredProd = Number(pr.requiredFromProduction || 0);
+      const itemNormalizedQty = itemStockQty + itemRequiredProd;
+      const itemProdCost = itemNormalizedQty > 0
+        ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+        : 0;
+      const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
+      const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
+      suggested = (itemStockQty * itemStockUnitPrice) + itemProdCost;
+    } else {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
+      const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+      let lineQty = Number(l.quantity || 0);
+      if (!isRoll && l.unit === "kg") {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) {
+          lineQty = Math.ceil(lineQty / weight);
+        }
+      }
+      suggested = lineQty * price;
+    }
     totalSuggestedOfAll += suggested;
     return { lineId: l.productId || l._id, suggested };
   });
@@ -460,20 +482,27 @@ export const Receipts = () => {
     // Per-line GST breakdown accumulator by rate
     const gstByRate = {};
     const tableBody = lines.map((line, index) => {
-      const lineIsRoll = rc.productCategory?.toLowerCase().includes("roll");
-      const dimsLabel = lineIsRoll
-        ? `Width: ${line.dimensions?.width || 0} ${line.dimensions?.unit || "inch"}`
-        : `${line.dimensions?.length || 0} × ${line.dimensions?.width || 0} × ${line.dimensions?.height || 0} ${line.dimensions?.unit || "inch"}`;
-
       const lineQty = Number(line.quantity || 0);
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
+      const lineIsRoll = rc.productCategory?.toLowerCase().includes("roll");
+      const isRoll = prod?.category?.toLowerCase().includes("roll") || lineIsRoll;
+
+      let displayQty = `${lineQty} ${line.unit || "pcs"}`;
+      let calcQty = lineQty;
+
+      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
+        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
+        displayQty = `${pcsQty} pcs`;
+        calcQty = pcsQty;
+      }
+
       const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
       const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / (lines.length || 1));
-      const rate = lineQty > 0 ? (lineSubtotal / lineQty) : lineSubtotal;
+      const rate = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
 
       const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
 
       // Resolve HSN and GST: check line data first, then look up product catalogue
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || line);
       const lineHsn = line.hsnCode || taxInfo.hsnCode;
       const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
@@ -491,7 +520,7 @@ export const Receipts = () => {
         lineHsn,
         `${lineGstRate}%`,
         `Rs. ${lineTax.toFixed(2)}`,
-        `${line.quantity || 0} ${line.unit || "pcs"}`,
+        displayQty,
         `Rs. ${rate.toFixed(2)}`,
         `Rs. ${lineSubtotal.toFixed(2)}`
       ];
@@ -615,7 +644,8 @@ export const Receipts = () => {
 
     // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
     const approvedTotal = Number(rc.totalOrderAmount || 0);
-    const remainingToInvoiceVal = Math.max(0, approvedTotal - grandTotal);
+    const effectiveInvoiced = grandTotal + discountVal;
+    const remainingToInvoiceVal = Math.max(0, approvedTotal - effectiveInvoiced);
     if (remainingToInvoiceVal > 0.01) {
       currentY += 7;
       doc.setFont("helvetica", "normal");
@@ -749,100 +779,67 @@ export const Receipts = () => {
     doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
     doc.text(`Email: ${rc.email || "—"}`, 15, 73);
 
+    const rawType = String(rc.returnType || "").toLowerCase();
+    const returnTypeLabel = rawType === "complete" ? "Full Return" : (rawType === "partial" ? "Partial Return" : "Partial Return");
+
     doc.setFont("helvetica", "bold");
     doc.text("RETURN DETAILS:", 110, 52);
     doc.setFont("helvetica", "normal");
     doc.text(`Original Order Ref: ${rc.orderRef || "—"}`, 110, 58);
-    doc.text(`Return Type: ${rc.returnType || "STANDARD"}`, 110, 63);
+    doc.text(`Return Type: ${returnTypeLabel}`, 110, 63);
     doc.text(`Refund Mode: ${String(rc.paymentMode || "refund").toUpperCase()}`, 110, 68);
-    doc.text(`Refund Status: STOCK RESTORED & REFUNDED`, 110, 73);
+    doc.text(`Refund Status: Refund Processed & Stock Restored`, 110, 73);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // ── Exact per-line allocation using GST-rate linear system ──────────
+    // ── Exact per-line allocation matching summary totals ──────────
     const returnItems = rc.orderDetailsList || [];
-    // Use stored correct totals; fall back to rc.amount if not present
     const storedBase   = Number(rc.refundAmount    || 0);
     const storedGst    = Number(rc.gstRefundAmount || 0);
     const storedTotal  = storedBase > 0
       ? Number((storedBase + storedGst).toFixed(2))
       : Number(rc.amount || 0);
 
-    // Order-level amounts needed to solve the linear system
-    const orderSubtotal  = Number(rc.subtotalAmount || rc.totalOrderSubtotal || 0);
-    const orderTotalPaid = Number(rc.totalOrderAmount || rc.totalPaidAmount || 0);
+    const baseRefundDisplay = storedBase > 0 ? storedBase : Number((storedTotal / 1.18).toFixed(2));
+    const gstRefundDisplay  = storedGst  > 0 ? storedGst  : Number((storedTotal - baseRefundDisplay).toFixed(2));
+    const totalDisplay      = Number((baseRefundDisplay + gstRefundDisplay).toFixed(2));
 
     // Enrich each return item with GST rate & selling-price weight
     const enriched = returnItems.map(it => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || it);
-      const hsnCode    = it.hsnCode    || taxInfo.hsnCode;
+      const rawHsn     = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
+      const hsnCode    = String(rawHsn).replace(/\s+/g, " ").trim();
       const gstRateVal = it.gstRate != null ? Number(it.gstRate) : taxInfo.gstRate;
       const sellPrice  = Number(prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || it.unitPrice || 0) || 1;
       const weight     = Number(it.quantity || 0) * sellPrice;
-      const orderQty   = Number(it.orderQuantity || it.originalQuantity || it.quantity || 0); // original order qty
-      return { ...it, hsnCode, gstRateVal, weight, orderQty };
+      return { ...it, hsnCode, gstRateVal, weight };
     });
 
-    // Group by GST rate
-    const rateGroups = {};
-    enriched.forEach(d => {
-      if (!rateGroups[d.gstRateVal]) rateGroups[d.gstRateVal] = { totalWeight: 0, members: [] };
-      rateGroups[d.gstRateVal].totalWeight += d.weight;
-      rateGroups[d.gstRateVal].members.push(d);
-    });
-    const rates = Object.keys(rateGroups).map(Number);
-
-    // Solve per-group subtotals
-    let groupSubtotals = {};
-    if (orderSubtotal > 0 && orderTotalPaid > 0 && rates.length === 2) {
-      const [r1, r2] = rates;
-      const denom = (r1 - r2) / 100;
-      if (Math.abs(denom) > 1e-9) {
-        const S1 = (orderTotalPaid - orderSubtotal * (1 + r2 / 100)) / denom;
-        groupSubtotals[r1] = Math.max(0, S1);
-        groupSubtotals[r2] = Math.max(0, orderSubtotal - S1);
-      } else {
-        groupSubtotals[rates[0]] = orderSubtotal;
-      }
-    } else if (orderSubtotal > 0 && rates.length === 1) {
-      groupSubtotals[rates[0]] = orderSubtotal;
-    } else {
-      // Fallback: weight-proportional split of storedTotal
-      const totalW = enriched.reduce((s, d) => s + d.weight, 0) || 1;
-      rates.forEach(r => { groupSubtotals[r] = storedTotal * (rateGroups[r].totalWeight / totalW) / (1 + r / 100); });
-    }
-
-    // Per-item: compute GST-inclusive refund amount and GST portion
-    const itemCalc = {};
-    enriched.forEach(d => {
-      const grp = rateGroups[d.gstRateVal];
-      const groupSubtotal = groupSubtotals[d.gstRateVal] || 0;
-      const withinFrac = grp.totalWeight > 0 ? (d.weight / grp.totalWeight) : (1 / grp.members.length);
-      const lineSubtotal = groupSubtotal * withinFrac;             // pre-tax for this product's full order qty
-      const lineGstInclFull = lineSubtotal * (1 + d.gstRateVal / 100); // GST-incl for full order qty
-      const fullOrderQty = d.orderQty > 0 ? d.orderQty : Number(d.quantity || 1);
-      const unitPaidPrice = lineGstInclFull / fullOrderQty;        // per-unit GST-inclusive price
-      const retQty = Number(d.quantity || 0);
-      const lineRefundTotal = retQty * unitPaidPrice;              // GST-inclusive refund for returned qty
-      const lineGstPortion  = lineRefundTotal * (d.gstRateVal / (100 + d.gstRateVal));
-      const lineBasePortion = lineRefundTotal - lineGstPortion;
-      itemCalc[String(d.productId)] = { lineRefundTotal, lineGstPortion, lineBasePortion };
-    });
+    const totalWeight = enriched.reduce((s, d) => s + d.weight, 0) || 1;
 
     // Build table with 7 columns: product, HSN, GST%, refund base, GST refund, total, qty
     const tableBody = enriched.map((it, index) => {
-      const calc = itemCalc[String(it.productId)] || {};
+      const frac = totalWeight > 0 ? (it.weight / totalWeight) : (1 / enriched.length);
+      const lineGst = Number((frac * gstRefundDisplay).toFixed(2));
+      const lineTotal = Number((frac * totalDisplay).toFixed(2));
+      const lineBase = Number((lineTotal - lineGst).toFixed(2));
+
+      let qtyStr = `${it.quantity || 0} ${it.unit || "pcs"}`;
+      if (it.quantityInPcs && Number(it.quantityInPcs) > 1 && String(it.unit || "").toLowerCase() !== "pcs") {
+        qtyStr = `${it.quantity || 0} ${it.unit || "kg"} (${it.quantityInPcs} pcs)`;
+      }
+
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
-        it.hsnCode || "—",
+        it.hsnCode || "4819 40 00",
         `${it.gstRateVal}%`,
-        `Rs. ${(calc.lineBasePortion || 0).toFixed(2)}`,
-        `Rs. ${(calc.lineGstPortion  || 0).toFixed(2)}`,
-        `Rs. ${(calc.lineRefundTotal || 0).toFixed(2)}`,
-        `${it.quantity || 0} ${it.unit || "pcs"}`,
+        `₹${lineBase.toFixed(2)}`,
+        `₹${lineGst.toFixed(2)}`,
+        `₹${lineTotal.toFixed(2)}`,
+        qtyStr,
       ];
     });
 
@@ -855,12 +852,12 @@ export const Receipts = () => {
       headStyles: { fillColor: redTheme, fontStyle: "bold", fontSize: 7.5 },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 18 },
+        1: { halign: "center", cellWidth: 26 }, // HSN Code fits on one line
         2: { halign: "center", cellWidth: 12 },
         3: { halign: "right",  cellWidth: 22 },
         4: { halign: "right",  cellWidth: 22 },
         5: { halign: "right",  cellWidth: 22 },
-        6: { halign: "center", cellWidth: 22 },
+        6: { halign: "center", cellWidth: 26 },
       }
     });
 
@@ -874,24 +871,19 @@ export const Receipts = () => {
     const labelX = pageWidth - 90;
     let currentY = finalY;
 
-    // Use stored correct values
-    const baseRefundDisplay = storedBase > 0 ? storedBase : Number((storedTotal / (1 + (rates[0] || 18) / 100)).toFixed(2));
-    const gstRefundDisplay  = storedGst  > 0 ? storedGst  : Number((storedTotal - baseRefundDisplay).toFixed(2));
-    const totalDisplay      = Number((baseRefundDisplay + gstRefundDisplay).toFixed(2));
-
     doc.text("Base Refund Amount:", labelX, currentY);
-    doc.text(`Rs. ${baseRefundDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`₹${baseRefundDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 6;
     doc.text("GST Refund:", labelX, currentY);
-    doc.text(`Rs. ${gstRefundDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`₹${gstRefundDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 8;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setTextColor(redTheme[0], redTheme[1], redTheme[2]);
     doc.text("Total Amount Refunded:", labelX, currentY);
-    doc.text(`Rs. ${totalDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`₹${totalDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Note block
     const tcY = Math.max(currentY + 12, doc.lastAutoTable.finalY + 15);

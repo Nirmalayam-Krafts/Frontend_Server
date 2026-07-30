@@ -125,13 +125,25 @@ const Finance = () => {
   const [newExpense, setNewExpense] = useState({ category: "Electricity Bill", amount: "", note: "" });
   const [isRecording, setIsRecording] = useState(false);
 
-  // Fetch expenses list
+  // Fetch expenses list & compute clean non-automatic expense metrics
   const fetchExpensesList = async () => {
     setExpensesLoading(true);
     try {
-      const res = await axiosInstance.get(`/finance/transactions?excludeRevenue=true&page=${expensePage}&limit=10&from=${startDate}&to=${endDate}`);
-      setExpenses(res.data?.data || []);
-      setExpensesTotal(res.data?.total || 0);
+      // Fetch transactions excluding revenue
+      const res = await axiosInstance.get(`/finance/transactions?excludeRevenue=true&limit=100&from=${startDate}&to=${endDate}`);
+      const rawList = res.data?.data || [];
+      // Filter out automatic production cost entries (COGS / BOM consumption) so expenses ledger only shows cash procurement/manual spending
+      const filtered = rawList.filter(e => {
+        const note = String(e.note || "").toLowerCase();
+        return !note.includes("automatic material cost");
+      });
+      
+      // Paginate client-side if needed
+      const startIndex = (expensePage - 1) * 10;
+      const paginated = filtered.slice(startIndex, startIndex + 10);
+
+      setExpenses(paginated);
+      setExpensesTotal(filtered.length);
     } catch (err) {
       console.error("Failed to fetch expenses list", err);
     } finally {
@@ -139,12 +151,47 @@ const Finance = () => {
     }
   };
 
-  // Fetch expense report
+  // Fetch expense report and sanitize to exclude automatic production entries
   const fetchExpenseReport = async () => {
     setReportLoading(true);
     try {
-      const res = await axiosInstance.get(`/finance/expenses/report?range=${expenseRange}&from=${startDate}&to=${endDate}`);
-      setReportData(res.data?.data || null);
+      // Fetch all expense transactions for the range to compute accurate cash expenses
+      const res = await axiosInstance.get(`/finance/transactions?excludeRevenue=true&limit=1000&from=${startDate}&to=${endDate}`);
+      const rawList = res.data?.data || [];
+      const cashExpenses = rawList.filter(e => {
+        const note = String(e.note || "").toLowerCase();
+        return !note.includes("automatic material cost");
+      });
+
+      const totalCashExpenses = cashExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+      // Group by category
+      const categoryMap = {};
+      cashExpenses.forEach(e => {
+        const cat = e.category || (e.transactionType === "MATERIAL_COST" ? "Raw Materials" : e.transactionType || "General");
+        categoryMap[cat] = (categoryMap[cat] || 0) + Number(e.amount || 0);
+      });
+      const byCategory = Object.keys(categoryMap).map(cat => ({
+        category: cat,
+        total: categoryMap[cat],
+      })).sort((a, b) => b.total - a.total);
+
+      // Group by date for trend
+      const trendMap = {};
+      cashExpenses.forEach(e => {
+        const dateKey = new Date(e.createdAt || e.date).toISOString().split("T")[0];
+        trendMap[dateKey] = (trendMap[dateKey] || 0) + Number(e.amount || 0);
+      });
+      const trend = Object.keys(trendMap).map(d => ({
+        period: d,
+        total: trendMap[d],
+      })).sort((a, b) => a.period.localeCompare(b.period));
+
+      setReportData({
+        totalExpenses: totalCashExpenses,
+        byCategory,
+        trend,
+      });
     } catch (err) {
       console.error("Failed to fetch expense report", err);
     } finally {
@@ -291,20 +338,89 @@ const Finance = () => {
     });
   }, [data?.revenueTrend]);
 
-  // Recent orders for finance context
+  // Recent orders for finance context with capped & partial paidAmount
   const recentOrders = useMemo(() => {
     const orders = ordersData?.orders || [];
-    return orders.slice(0, 5).map((o) => ({
-      id: o._id,
-      reference: o.orderReference || `ORD-${String(o._id).slice(-6).toUpperCase()}`,
-      customer: o.customerName || o.leadSnapshot?.name || "—",
-      totalAmount: Number(o.totalAmount || 0),
-      paidAmount: Number(o.paidAmount || 0),
-      paymentStatus: o.paymentStatus || "Unpaid",
-      orderStatus: o.orderStatus || "Pending",
-      date: o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—",
-    }));
+    return orders.slice(0, 5).map((o) => {
+      const tot = Number(o.totalAmount || 0);
+      const confPaid = Number(o.confirmedPayment?.paidAmount || 0);
+      const partPaid = Number(o.payment?.partialPaidAmount || 0);
+      let rawPaid = Number(o.paidAmount || 0);
+
+      if (o.payment?.paymentType === "partial" && confPaid > 0) {
+        rawPaid = confPaid;
+      } else if (confPaid > 0 && (rawPaid === 0 || rawPaid > tot)) {
+        rawPaid = confPaid;
+      } else if (partPaid > 0 && (rawPaid === 0 || rawPaid > tot)) {
+        rawPaid = partPaid;
+      }
+
+      const cappedPaid = tot > 0 ? Math.min(rawPaid, tot) : rawPaid;
+
+      let pStatus = o.paymentStatus || "Unpaid";
+      if (cappedPaid > 0 && cappedPaid < tot) {
+        pStatus = "Partial Paid";
+      } else if (cappedPaid >= tot && tot > 0) {
+        pStatus = "Paid";
+      } else if (cappedPaid === 0) {
+        pStatus = "Unpaid";
+      }
+
+      return {
+        id: o._id,
+        reference: o.orderReference || `ORD-${String(o._id).slice(-6).toUpperCase()}`,
+        customer: o.customerName || o.leadSnapshot?.name || "—",
+        totalAmount: tot,
+        paidAmount: cappedPaid,
+        paymentStatus: pStatus,
+        orderStatus: o.orderStatus || "Pending",
+        date: o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+      };
+    });
   }, [ordersData]);
+
+  // Sanitized Finance Overview Data
+  const sanitizedFinanceData = useMemo(() => {
+    if (!data) return null;
+    const orders = ordersData?.orders || [];
+    let totalCappedPaid = 0;
+    let totalOrderAmount = 0;
+    orders.forEach(o => {
+      const tot = Number(o.totalAmount || 0);
+      const confPaid = Number(o.confirmedPayment?.paidAmount || 0);
+      const partPaid = Number(o.payment?.partialPaidAmount || 0);
+      let rawPaid = Number(o.paidAmount || 0);
+
+      if (o.payment?.paymentType === "partial" && confPaid > 0) {
+        rawPaid = confPaid;
+      } else if (confPaid > 0 && (rawPaid === 0 || rawPaid > tot)) {
+        rawPaid = confPaid;
+      } else if (partPaid > 0 && (rawPaid === 0 || rawPaid > tot)) {
+        rawPaid = partPaid;
+      }
+
+      const cappedPaid = tot > 0 ? Math.min(rawPaid, tot) : rawPaid;
+      totalCappedPaid += cappedPaid;
+      totalOrderAmount += tot;
+    });
+
+    const income = totalCappedPaid > 0 ? totalCappedPaid : Number(data.income || 0);
+    const pendingDues = Math.max(0, totalOrderAmount - totalCappedPaid);
+    const monthlyRev = Math.min(income, Number(data.monthlyRevenue || income));
+    const exp = reportData?.totalExpenses != null ? reportData.totalExpenses : Number(data.expense || 0);
+    const profit = income - exp;
+    const rate = totalOrderAmount > 0 ? Math.round((totalCappedPaid / totalOrderAmount) * 100) : (data.paymentRate || 100);
+
+    return {
+      ...data,
+      income,
+      pendingDues,
+      monthlyRevenue: monthlyRev,
+      expense: exp,
+      netProfit: profit,
+      paymentRate: Math.min(100, rate),
+    };
+  }, [data, ordersData, reportData?.totalExpenses]);
 
   const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
 
@@ -581,7 +697,7 @@ const Finance = () => {
             {activeTab === "overview" ? (
           <>
             {/* KPI Cards */}
-            {!isLoading && !isError && data && (
+            {!isLoading && !isError && (data || sanitizedFinanceData) && (
               <motion.div
                 className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4"
                 initial={{ opacity: 0 }}
@@ -596,7 +712,7 @@ const Finance = () => {
                           Monthly Revenue
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(data?.monthlyRevenue)}
+                          {formatCurrency(sanitizedFinanceData?.monthlyRevenue ?? data?.monthlyRevenue)}
                         </p>
                       </div>
                       <div className="bg-green-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
@@ -614,7 +730,7 @@ const Finance = () => {
                           Total Revenue
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(data?.income)}
+                          {formatCurrency(sanitizedFinanceData?.income ?? data?.income)}
                         </p>
                       </div>
                       <div className="bg-emerald-500 w-12 h-12 rounded-lg flex items-center justify-center text-white">
@@ -632,7 +748,7 @@ const Finance = () => {
                           Pending Dues
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(data?.pendingDues)}
+                          {formatCurrency(sanitizedFinanceData?.pendingDues ?? data?.pendingDues)}
                         </p>
                       </div>
                       <div className="bg-red-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
@@ -650,7 +766,7 @@ const Finance = () => {
                           Total Dispatched
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {data?.totalDispatched?.toLocaleString?.() ?? 0}
+                          {(sanitizedFinanceData?.totalDispatched ?? data?.totalDispatched)?.toLocaleString?.() ?? 0}
                         </p>
                       </div>
                       <div className="bg-blue-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
@@ -668,7 +784,7 @@ const Finance = () => {
                           Payment Rate
                         </p>
                         <p className="text-2xl font-bold text-primary-600">
-                          {data?.paymentRate ?? 0}%
+                          {sanitizedFinanceData?.paymentRate ?? data?.paymentRate ?? 0}%
                         </p>
                       </div>
                       <div className="bg-primary-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
@@ -686,7 +802,7 @@ const Finance = () => {
                           GST Collected
                         </p>
                         <p className="text-2xl font-bold text-amber-600">
-                          {formatCurrency(data?.totalGstCollected || 0)}
+                          {formatCurrency((sanitizedFinanceData?.totalGstCollected ?? data?.totalGstCollected) || 0)}
                         </p>
                       </div>
                       <div className="bg-amber-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
@@ -705,7 +821,7 @@ const Finance = () => {
             )}
 
             {/* Charts */}
-            {!isLoading && !isError && data && (
+            {!isLoading && !isError && (data || sanitizedFinanceData) && (
               <motion.div
                 className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 initial={{ opacity: 0 }}
@@ -721,25 +837,47 @@ const Finance = () => {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm text-gray-700">Income</span>
                         <span className="text-sm font-bold text-gray-900">
-                          {formatCurrency(data?.income)}
+                          {formatCurrency(sanitizedFinanceData?.income ?? data?.income)}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3">
                         <div
                           className="bg-green-500 h-3 rounded-full"
-                          style={{ width: `${data?.income && data?.expense ? Math.round((data.income / (data.income + data.expense)) * 100) : 0}%` }}
+                          style={{
+                            width: `${
+                              (sanitizedFinanceData?.income || 0) + (sanitizedFinanceData?.expense || 0) > 0
+                                ? Math.round(
+                                    ((sanitizedFinanceData?.income || 0) /
+                                      ((sanitizedFinanceData?.income || 0) + (sanitizedFinanceData?.expense || 0))) *
+                                      100
+                                  )
+                                : 0
+                            }%`,
+                          }}
                         />
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm text-gray-700">Expense</span>
-                        <span className="text-sm font-bold text-gray-900">{formatCurrency(data?.expense)}</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {formatCurrency(sanitizedFinanceData?.expense ?? data?.expense)}
+                        </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3">
                         <div
                           className="bg-red-500 h-3 rounded-full"
-                          style={{ width: `${data?.income && data?.expense ? Math.round((data.expense / (data.income + data.expense)) * 100) : 0}%` }}
+                          style={{
+                            width: `${
+                              (sanitizedFinanceData?.income || 0) + (sanitizedFinanceData?.expense || 0) > 0
+                                ? Math.round(
+                                    ((sanitizedFinanceData?.expense || 0) /
+                                      ((sanitizedFinanceData?.income || 0) + (sanitizedFinanceData?.expense || 0))) *
+                                      100
+                                  )
+                                : 0
+                            }%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -748,8 +886,12 @@ const Finance = () => {
                         <span className="text-sm font-medium text-gray-700">
                           Net Profit
                         </span>
-                        <span className={`text-2xl font-bold ${(data?.netProfit ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {formatCurrency(data?.netProfit)}
+                        <span
+                          className={`text-2xl font-bold ${
+                            (sanitizedFinanceData?.netProfit ?? 0) >= 0 ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {formatCurrency(sanitizedFinanceData?.netProfit)}
                         </span>
                       </div>
                     </div>

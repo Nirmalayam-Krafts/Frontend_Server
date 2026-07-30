@@ -117,6 +117,10 @@ interface IRawMaterial {
   stockHistory: IStockHistory[];
   status?: string;
   isActive?: boolean;
+  gsm?: number | string;
+  bf?: number | string;
+  rollWidth?: number | string;
+  rollWidthUnit?: string;
 }
 
 interface IBagProduct {
@@ -178,6 +182,10 @@ const initialForm: Omit<IRawMaterial, "stockHistory" | "availableForSale"> = {
   minStock: 0,
   description: "",
   isActive: true,
+  gsm: "",
+  bf: "",
+  rollWidth: "",
+  rollWidthUnit: "inch",
 };
 
 const initialProductionForm: IProductionForm = {
@@ -255,6 +263,10 @@ const getFormFromItem = (item: IRawMaterial): Omit<IRawMaterial, "stockHistory" 
   minStock: item?.minStock ?? 0,
   description: item?.description || "",
   isActive: item?.isActive ?? true,
+  gsm: item?.gsm ?? "",
+  bf: item?.bf ?? "",
+  rollWidth: item?.rollWidth ?? "",
+  rollWidthUnit: item?.rollWidthUnit || "inch",
 });
 
 const toNumber = (value: string | number) => {
@@ -667,6 +679,10 @@ const RawMaterial = () => {
       minStock: Number(values?.minStock || 0),
       description: String(values?.description || "").trim(),
       isActive: values?.isActive ?? true,
+      gsm: values?.gsm ? Number(values.gsm) : undefined,
+      bf: values?.bf ? Number(values.bf) : undefined,
+      rollWidth: values?.rollWidth ? Number(values.rollWidth) : undefined,
+      rollWidthUnit: values?.rollWidthUnit || undefined,
     };
 
     const loadingToast = toast.loading(

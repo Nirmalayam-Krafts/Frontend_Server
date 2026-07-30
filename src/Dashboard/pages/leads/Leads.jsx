@@ -286,9 +286,12 @@ const Leads = () => {
 
   const handleUpdateLead = async (formData) => {
     try {
-      // Backend LeadService typically expects updates via specific status endpoints or generic updates.
-      // Assuming a generic update endpoint exists or status update is sufficient.
-      const response = await axiosInstance.patch(`/leads/${editingLead.id}`, { payload: formData });
+      const leadId = editingLead?.id || editingLead?._id;
+      if (!leadId) {
+        showNotification("Error: Could not determine lead ID for update", "error");
+        return;
+      }
+      const response = await axiosInstance.patch(`/leads/${leadId}`, { payload: formData });
       if (response.data.success) {
         setShowModal(false);
         setEditingLead(null);
@@ -297,7 +300,7 @@ const Leads = () => {
       }
     } catch (error) {
       console.error("Update Lead Error:", error);
-      showNotification("Failed to update lead", "error");
+      showNotification(error?.response?.data?.message || "Failed to update lead", "error");
     }
   };
 
@@ -639,8 +642,8 @@ const Leads = () => {
         (p) => String(p?._id || p?.id || p?.productId || "").trim() === line.selectedProductId
       );
       const lineIsRoll = prod?.category?.toLowerCase().includes("roll");
-      if (!line.selectedProductId || !line.quantity || !line.width ||
-        (lineIsRoll ? !line.gsm : (!line.bagSize || !line.length || !line.height))) {
+      if (!line.selectedProductId || !line.quantity || !line.width || !line.gsm ||
+        (!lineIsRoll && (!line.bagSize || !line.length || !line.height))) {
         showNotification("Please fill all required fields for every product line", "error");
         return;
       }
@@ -1752,42 +1755,40 @@ const Leads = () => {
                             {/* Fields Grid — only shown after product selected */}
                             {line.selectedProductId && (
                               <div className="grid grid-cols-2 gap-3">
-                                {/* GSM + BF (roll) or Bag Size (bag) */}
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                    GSM <span className="text-red-500">*</span>
+                                  </label>
+                                  <div className="relative">
+                                    <Package className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                      type="number" min="0"
+                                      value={line.gsm}
+                                      onChange={(e) => handleLineChange(line.id, "gsm", e.target.value)}
+                                      placeholder="e.g. 120"
+                                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-500"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
                                 {lineRoll ? (
-                                  <>
-                                    <div>
-                                      <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                        GSM <span className="text-red-500">*</span>
-                                      </label>
-                                      <div className="relative">
-                                        <Package className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                          type="number" min="0"
-                                          value={line.gsm}
-                                          onChange={(e) => handleLineChange(line.id, "gsm", e.target.value)}
-                                          placeholder="e.g. 120"
-                                          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-500"
-                                          required
-                                        />
-                                      </div>
+                                  <div>
+                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                      Burst Factor (BF) <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                      <input
+                                        type="number" min="0" step="0.1"
+                                        value={line.bf}
+                                        onChange={(e) => handleLineChange(line.id, "bf", e.target.value)}
+                                        placeholder="e.g. 20"
+                                        className="w-full rounded-xl border border-amber-300 bg-amber-50/40 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-50"
+                                        required
+                                      />
                                     </div>
-                                    <div>
-                                      <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                        Burst Factor (BF) <span className="text-red-500">*</span>
-                                      </label>
-                                      <div className="relative">
-                                        <input
-                                          type="number" min="0" step="0.1"
-                                          value={line.bf}
-                                          onChange={(e) => handleLineChange(line.id, "bf", e.target.value)}
-                                          placeholder="e.g. 20"
-                                          className="w-full rounded-xl border border-amber-300 bg-amber-50/40 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-50"
-                                          required
-                                        />
-                                      </div>
-                                      <p className="mt-1 text-[10px] text-gray-400">Pre-filled from product</p>
-                                    </div>
-                                  </>
+                                    <p className="mt-1 text-[10px] text-gray-400">Pre-filled from product</p>
+                                  </div>
                                 ) : (
                                   <div>
                                     <label className="mb-1.5 block text-xs font-semibold text-gray-600">

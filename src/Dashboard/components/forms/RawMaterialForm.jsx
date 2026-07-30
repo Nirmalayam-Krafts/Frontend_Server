@@ -18,14 +18,41 @@ const rawMaterialSchema = z.object({
   color: z.string().optional(),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
-}).refine(data => {
+  gsm: z.coerce.number().min(0, "GSM cannot be negative").optional(),
+  bf: z.coerce.number().min(0, "BF cannot be negative").optional(),
+  rollWidth: z.coerce.number().min(0, "Roll Width cannot be negative").optional(),
+  rollWidthUnit: z.enum(["inch", "cm", "mm", "ft"]).default("inch"),
+}).superRefine((data, ctx) => {
   if (data.unit === "rolls" && (!data.kgPerRoll || data.kgPerRoll <= 0)) {
-    return false;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Weight per roll (kg) is required for rolls unit and must be greater than 0",
+      path: ["kgPerRoll"]
+    });
   }
-  return true;
-}, {
-  message: "Weight per roll (kg) is required for rolls unit and must be greater than 0",
-  path: ["kgPerRoll"]
+  if (data.type === "Paper") {
+    if (!data.gsm || data.gsm <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "GSM is required for Paper type and must be greater than 0",
+        path: ["gsm"]
+      });
+    }
+    if (!data.bf || data.bf <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "BF is required for Paper type and must be greater than 0",
+        path: ["bf"]
+      });
+    }
+    if (!data.rollWidth || data.rollWidth <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Roll Width is required for Paper type and must be greater than 0",
+        path: ["rollWidth"]
+      });
+    }
+  }
 });
 
 const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
@@ -36,20 +63,32 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
     watch,
   } = useForm({
     resolver: zodResolver(rawMaterialSchema),
-    defaultValues: initialData || {
-      name: "",
-      code: "",
-      type: "Other",
-      unit: "kg",
-      availableStock: 0,
-      unitPrice: 0,
-      reorderPoint: 0,
-      minStock: 0,
-      kgPerRoll: 0,
-      color: "",
-      description: "",
-      isActive: true,
-    },
+    defaultValues: initialData
+      ? {
+          ...initialData,
+          gsm: initialData.gsm ?? "",
+          bf: initialData.bf ?? "",
+          rollWidth: initialData.rollWidth ?? "",
+          rollWidthUnit: initialData.rollWidthUnit || "inch",
+        }
+      : {
+          name: "",
+          code: "",
+          type: "Other",
+          unit: "kg",
+          availableStock: 0,
+          unitPrice: 0,
+          reorderPoint: 0,
+          minStock: 0,
+          kgPerRoll: 0,
+          color: "",
+          description: "",
+          isActive: true,
+          gsm: "",
+          bf: "",
+          rollWidth: "",
+          rollWidthUnit: "inch",
+        },
   });
 
   const stockValue = (watch("availableStock") || 0) * (watch("unitPrice") || 0);
@@ -99,6 +138,51 @@ const RawMaterialForm = ({ initialData, onSubmit, loading }) => {
             {...register("color")}
           />
         </div>
+        {watch("type") === "Paper" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 bg-white p-4 rounded-lg border border-blue-200">
+            <Input
+              label="GSM *"
+              type="number"
+              placeholder="e.g., 120"
+              error={errors.gsm?.message}
+              {...register("gsm")}
+            />
+            <Input
+              label="BF (Burst Factor) *"
+              type="number"
+              placeholder="e.g., 20"
+              error={errors.bf?.message}
+              {...register("bf")}
+            />
+            <div className="flex flex-col">
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                Roll Width *
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="e.g., 30"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-white text-sm text-gray-900 font-medium ${
+                    errors.rollWidth ? "border-red-500" : "border-gray-300"
+                  }`}
+                  {...register("rollWidth")}
+                />
+                <select
+                  className="w-[100px] px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white text-sm text-gray-900 font-medium cursor-pointer"
+                  {...register("rollWidthUnit")}
+                >
+                  <option value="inch">inch</option>
+                  <option value="cm">cm</option>
+                  <option value="mm">mm</option>
+                  <option value="ft">ft</option>
+                </select>
+              </div>
+              {errors.rollWidth && (
+                <p className="text-xs text-red-650 mt-1">{errors.rollWidth.message}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stock & Pricing Section */}

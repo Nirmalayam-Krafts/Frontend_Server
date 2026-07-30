@@ -34,17 +34,27 @@ const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = nul
     const pr = pricing?.perProductResults?.find(p => String(p.productId) === String(l.productId));
     let suggested = 0;
     if (pr) {
-      const itemQty = Number(pr.quantity || 0);
       const itemStockQty = Number(pr.canFulfillFromStock || 0);
       const itemRequiredProd = Number(pr.requiredFromProduction || 0);
-      const itemProdCost = (Number(pr.totalOrderMaterialCost || 0) / (itemQty || 1)) * itemRequiredProd;
+      const itemNormalizedQty = itemStockQty + itemRequiredProd;
+      const itemProdCost = itemNormalizedQty > 0
+        ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+        : 0;
       const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
       const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
       suggested = (itemStockQty * itemStockUnitPrice) + itemProdCost;
     } else {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
       const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
-      suggested = Number(l.quantity || 0) * price;
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+      let lineQty = Number(l.quantity || 0);
+      if (!isRoll && l.unit === "kg") {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) {
+          lineQty = Math.ceil(lineQty / weight);
+        }
+      }
+      suggested = lineQty * price;
     }
     totalSuggestedOfAll += suggested;
     return { lineId: l.productId || l._id, suggested };
@@ -353,6 +363,20 @@ export const Quotations = () => {
     const shippingVal = Number(q.shippingCharges || 0);
     const otherVal = Number(q.otherCharges || 0);
 
+    // Load per-line unit prices from localStorage (backend may not persist this field)
+    const orderId = String(q.orderId || q.id || q._id || "");
+    let lineUnitPrices = {};
+    try {
+      const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderId}`);
+      if (stored) lineUnitPrices = JSON.parse(stored);
+    } catch (_) {}
+    // Fallback to backend field if localStorage is empty
+    if (Object.keys(lineUnitPrices).length === 0 && q.lineUnitPrices) {
+      lineUnitPrices = q.lineUnitPrices;
+    }
+    // Attach to q so it's accessible in the tableBody map
+    q = { ...q, quotation: { ...(q.quotation || {}), lineUnitPrices } };
+
     const validUntil = q.validUntil ? new Date(q.validUntil).toISOString().slice(0, 10) : "—";
     const brand = [10, 92, 67]; // Emerald Green
     const gold = [212, 175, 55]; // Gold accent
@@ -431,12 +455,31 @@ export const Quotations = () => {
 
     const tableBody = lines.map((line, index) => {
       const lineQty = Number(line?.quantity || 0);
-      const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
-      const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / lines.length);
-      const lineUnitPrice = lineQty > 0 ? (lineSubtotal / lineQty) : lineSubtotal;
-
-      // Resolve HSN and GST: check line data first, then look up product catalogue
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+
+      let displayQty = `${lineQty} ${line.unit || "pcs"}`;
+      let calcQty = lineQty;
+
+      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
+        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
+        displayQty = `${pcsQty} pcs`;
+        calcQty = pcsQty;
+      }
+
+      // Use saved per-line unit price if available, otherwise derive from subtotal share
+      const savedUnitPrice = q.quotation?.lineUnitPrices?.[line.productId];
+      let lineUnitPrice;
+      let lineSubtotal;
+      if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
+        lineUnitPrice = Number(savedUnitPrice);
+        lineSubtotal = lineUnitPrice * calcQty;
+      } else {
+        lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
+        lineUnitPrice = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
+      }
+
+      // Resolve HSN and GST
       const taxInfo = getProductTaxInfo(prod || line);
       const lineHsn = line.hsnCode || taxInfo.hsnCode;
       const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
@@ -450,20 +493,21 @@ export const Quotations = () => {
 
       const specDetails = getPDFSpecDetails(line, q.productCategory, productItems);
 
+      // Column order: Specs | HSN | Unit Rate | Quantity | GST % | GST Amt | Amount
       return [
         specDetails,
         lineHsn,
+        `Rs. ${lineUnitPrice.toFixed(2)}`,
+        displayQty,
         `${lineGstRate}%`,
         `Rs. ${lineTax.toFixed(2)}`,
-        `${lineQty} ${line.unit || "pcs"}`,
-        `Rs. ${lineUnitPrice.toFixed(2)}`,
         `Rs. ${lineSubtotal.toFixed(2)}`
       ];
     });
 
     autoTable(doc, {
       startY: 84,
-      head: [["Item Details & Specifications", "HSN Code", "GST %", "GST Amt", "Quantity", "Unit Rate", "Amount"]],
+      head: [["Item Details & Specifications", "HSN Code", "Unit Rate", "Quantity", "GST %", "GST Amt", "Amount"]],
       body: tableBody,
       theme: "striped",
       styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
@@ -471,10 +515,10 @@ export const Quotations = () => {
       columnStyles: {
         0: { cellWidth: "auto" },
         1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 14 },
-        3: { halign: "right", cellWidth: 20 },
-        4: { halign: "center", cellWidth: 18 },
-        5: { halign: "right", cellWidth: 22 },
+        2: { halign: "right", cellWidth: 22 },
+        3: { halign: "center", cellWidth: 18 },
+        4: { halign: "center", cellWidth: 14 },
+        5: { halign: "right", cellWidth: 20 },
         6: { halign: "right", cellWidth: 24 }
       }
     });

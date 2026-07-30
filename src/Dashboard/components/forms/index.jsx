@@ -5,33 +5,31 @@ import { z } from "zod";
 import { Button, Input, Select } from "../ui";
 
 // Validation Schemas
-const leadSchema = z
-  .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z
-      .string()
-      .optional()
-      .or(z.literal(""))
-      .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
-        message: "Invalid email address",
-      }),
-    phone: z
-      .string()
-      .min(1, "Phone number is required")
-      .refine((val) => /^[6-9][0-9]{9}$/.test(val), {
-        message: "Invalid 10-digit phone number (must start with 6-9)",
-      }),
-    business_name: z.string().optional().or(z.literal("")),
-    product_category: z
-      .enum(["Ecocraft Bags", "F&B Gourmet Bags", "Luxury Bags", "Kraft Paper Rolls", ""])
-      .optional()
-      .or(z.literal("")),
-    status: z.enum(["New", "Contacted", "Interested", "Converted", "Lost"]),
-    quantity: z.string().optional().or(z.literal("")),
-    quantity_unit: z.enum(["pcs", "kg", "pieces"]).optional().default("pcs"),
-    requirement: z.string().optional().or(z.literal("")),
-  })
-  .strict();
+const leadSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+      message: "Invalid email address",
+    }),
+  phone: z
+    .string()
+    .min(1, "Phone number is required")
+    .refine((val) => !val || /^\+?[\d\s\-()]{7,20}$/.test(val.trim()), {
+      message: "Invalid phone number",
+    }),
+  business_name: z.string().optional().or(z.literal("")),
+  product_category: z.string().optional().or(z.literal("")),
+  status: z
+    .enum(["New", "Contacted", "Interested", "Converted", "Completed", "Delivered", "Lost"])
+    .optional()
+    .default("New"),
+  quantity: z.string().optional().or(z.literal("")),
+  quantity_unit: z.enum(["pcs", "kg", "pieces"]).optional().default("pcs"),
+  requirement: z.string().optional().or(z.literal("")),
+});
 
 const inventorySchema = z
   .object({
@@ -67,19 +65,31 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
 
   const parsedQty = parseInitialQtyAndUnit(initialData?.quantity);
 
+  const defaultValues = React.useMemo(() => {
+    if (!initialData) return { quantity_unit: "pcs", status: "New" };
+    const rawPhone = initialData.phone || initialData.wa_phone || "";
+    const digitsOnly = String(rawPhone).replace(/\D/g, "");
+    const cleanPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+    return {
+      name: initialData.name || "",
+      email: initialData.email || "",
+      phone: cleanPhone || String(rawPhone),
+      business_name: initialData.business_name || initialData.companyName || "",
+      product_category: initialData.product_category || initialData.productInterest || "",
+      status: initialData.status || initialData.statusLabel || "New",
+      quantity: parsedQty.quantity || "",
+      quantity_unit: parsedQty.quantity_unit || "pcs",
+      requirement: initialData.requirement || "",
+    };
+  }, [initialData]);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(leadSchema),
-    defaultValues: initialData
-      ? {
-          ...initialData,
-          quantity: parsedQty.quantity,
-          quantity_unit: parsedQty.quantity_unit,
-        }
-      : { quantity_unit: "pcs" },
+    defaultValues,
   });
 
   const handleLocalSubmit = (data) => {

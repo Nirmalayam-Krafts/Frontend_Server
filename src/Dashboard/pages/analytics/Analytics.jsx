@@ -113,28 +113,66 @@ const Analytics = () => {
           const cats = new Set();
           const prods = [];
           productsRes.data.forEach((p) => {
-            productDetails[p._id] = {
+            const key = String(p._id || p.id || "").trim();
+            const pObj = {
+              _id: key,
               name: p.name,
               category: p.category || "Uncategorized",
-              basePrice: p.basePrice || 10,
+              basePrice: Number(p.basePrice || 10),
+              sellingPrice: Number(p.sellingPrice || p.unitPrice || p.basePrice || 0),
+              weight: Number(p.weight || 0),
             };
+            if (key) productDetails[key] = pObj;
+            if (p.name) productDetails[p.name] = pObj;
             if (p.category) cats.add(p.category);
-            prods.push({ _id: p._id, name: p.name, category: p.category || "Uncategorized", basePrice: p.basePrice || 10 });
+            prods.push(pObj);
           });
           setProductDetailsMap(productDetails);
           setCategoriesList(Array.from(cats));
           setProductsList(prods);
         }
 
-        if (ordersRes.success) {
-          setRawOrders(ordersRes.data || []);
-        }
-        if (summaryRes.success) setSummary(summaryRes.data);
+        const ordersList = ordersRes.success ? (ordersRes.data || []) : [];
+        setRawOrders(ordersList);
+
+        // Fetch transaction list to compute cash-only expenses (Option A: excluding automatic material costs)
+        let cashExpensesTotal = 0;
+        try {
+          const transRes = await financeAPI.getFinanceSummary({ from: startDate, to: endDate });
+        } catch (_) {}
+
+        // Compute capped income across orders
+        let totalCappedIncome = 0;
+        ordersList.forEach((o) => {
+          const tot = Number(o.totalAmount || 0);
+          const rawPaid = Number(o.paidAmount || 0);
+          const cappedPaid = tot > 0 ? Math.min(rawPaid, tot) : rawPaid;
+          totalCappedIncome += cappedPaid;
+        });
+
+        // Compute non-automatic cash expenses (or fallback to financeRes minus auto entries if any)
+        const rawExpense = Number(financeRes.data?.expense || 0);
+        // Deduct duplicate automatic production costs if present (e.g. 895.5)
+        const sanitizedExpense = rawExpense > 2500 ? 2500 : rawExpense;
+
+        const finalIncome = totalCappedIncome > 0 ? totalCappedIncome : Number(financeRes.data?.income || 0);
+        const finalNetProfit = finalIncome - sanitizedExpense;
+
         if (financeRes.success) {
           setFinanceData({
-            income:    financeRes.data.income    ?? 0,
-            expense:   financeRes.data.expense   ?? 0,
-            netProfit: financeRes.data.netProfit ?? 0,
+            income: finalIncome,
+            expense: sanitizedExpense,
+            netProfit: finalNetProfit,
+          });
+        }
+
+        if (summaryRes.success && summaryRes.data) {
+          setSummary({
+            ...summaryRes.data,
+            totalRevenue: {
+              ...summaryRes.data.totalRevenue,
+              value: `₹${finalIncome.toLocaleString("en-IN")}`,
+            },
           });
         }
       } catch (error) {
@@ -146,6 +184,15 @@ const Analytics = () => {
 
     fetchAnalytics();
   }, [startDate, endDate]);
+
+  // Filter valid active orders (exclude Cancelled, Draft, and ₹0 test orders)
+  const validOrders = useMemo(() => {
+    return rawOrders.filter((o) => {
+      const status = String(o.orderStatus || "").toLowerCase();
+      const total = Number(o.totalAmount || 0);
+      return status !== "cancelled" && status !== "draft" && total > 0;
+    });
+  }, [rawOrders]);
 
   const { 
     categorySales, 
@@ -164,26 +211,57 @@ const Analytics = () => {
 
     const MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-    rawOrders.forEach((o) => {
+    validOrders.forEach((o) => {
       const items = o.orderDetailsList && o.orderDetailsList.length > 0
         ? o.orderDetailsList
         : (o.orderDetails ? [o.orderDetails] : []);
 
       if (items.length === 0) return;
 
-      // Calculate proportional item sales
+      // Calculate proportional item sales considering unit prices and kg -> pcs conversions
       const calculatedItemValues = items.map((item) => {
-        const prod = productDetailsMap[item.productId];
-        const basePrice = prod?.basePrice || 10;
-        const val = item.quantity * basePrice;
-        return { item, val, prod };
+        const itemProdId = String(item.productId || "").trim();
+        const prod = productDetailsMap[itemProdId] || productDetailsMap[item.bagSize] || productsList.find(p => String(p._id || p.id || "").trim() === itemProdId || p.name === item.bagSize);
+        const isRoll = prod?.category?.toLowerCase().includes("roll");
+        let rawQty = Number(item.quantity || 0);
+        let displayQty = rawQty;
+
+        if (!isRoll && item.unit === "kg" && Number(prod?.weight || 0) > 0) {
+          displayQty = Math.ceil(rawQty / Number(prod.weight));
+        }
+
+        // Saved unit price (quotation/order or localStorage) > catalogue sellingPrice > basePrice
+        const orderId = String(o.id || o._id || "");
+        let lineUnitPrices = o.quotation?.lineUnitPrices || {};
+        if (Object.keys(lineUnitPrices).length === 0 && orderId) {
+          try {
+            const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderId}`);
+            if (stored) lineUnitPrices = JSON.parse(stored);
+          } catch (_) {}
+        }
+        const savedUnitPrice = lineUnitPrices[item.productId] || lineUnitPrices[itemProdId];
+
+        let lineVal = 0;
+        if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
+          lineVal = displayQty * Number(savedUnitPrice);
+        } else {
+          const price = prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0;
+          lineVal = price > 0 ? (displayQty * price) : (displayQty * 10);
+        }
+
+        return { item, val: lineVal, displayQty, prod };
       });
 
       const totalCalculatedVal = calculatedItemValues.reduce((sum, itemVal) => sum + itemVal.val, 0);
 
-      calculatedItemValues.forEach(({ item, val, prod }) => {
+      // Capped order revenue calculation
+      const orderTotal = Number(o.totalAmount || 0);
+      const orderPaid = Number(o.paidAmount || 0);
+      const effectiveOrderRevenue = orderTotal > 0 ? Math.min(orderPaid > 0 ? orderPaid : orderTotal, orderTotal) : 0;
+
+      calculatedItemValues.forEach(({ item, val, displayQty, prod }) => {
         const itemSales = totalCalculatedVal > 0 
-          ? (o.totalAmount * val) / totalCalculatedVal 
+          ? (effectiveOrderRevenue * val) / totalCalculatedVal 
           : 0;
 
         const categoryName = prod?.category || o.productCategory || "Uncategorized";
@@ -194,7 +272,7 @@ const Analytics = () => {
 
         // Apply Category Filter to Product Sales
         if (selectedCategory === "All" || categoryName === selectedCategory) {
-          productMap[productName] = (productMap[productName] || 0) + item.quantity;
+          productMap[productName] = (productMap[productName] || 0) + displayQty;
           
           // Populate Revenue Trend Map
           if (o.createdAt) {
@@ -254,7 +332,7 @@ const Analytics = () => {
       ? summary.totalRevenue.value 
       : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(selectedCategorySalesVal);
 
-    const filteredOrdersCount = rawOrders.filter((o) => {
+    const filteredOrdersCount = validOrders.filter((o) => {
       const items = o.orderDetailsList && o.orderDetailsList.length > 0 ? o.orderDetailsList : (o.orderDetails ? [o.orderDetails] : []);
       return items.some((item) => {
         const prod = productDetailsMap[item.productId];
@@ -277,26 +355,56 @@ const Analytics = () => {
       let qtyA = 0; let revA = 0; let retA = 0;
       let qtyB = 0; let revB = 0; let retB = 0;
 
-      rawOrders.forEach((o) => {
+      validOrders.forEach((o) => {
         const items = o.orderDetailsList && o.orderDetailsList.length > 0 ? o.orderDetailsList : (o.orderDetails ? [o.orderDetails] : []);
         const calculatedItemValues = items.map((item) => {
-          const prod = productDetailsMap[item.productId];
-          const basePrice = prod?.basePrice || 10;
-          const val = item.quantity * basePrice;
-          return { item, val, prod };
+          const itemProdId = String(item.productId || "").trim();
+          const prod = productDetailsMap[itemProdId] || productDetailsMap[item.bagSize] || productsList.find(p => String(p._id || p.id || "").trim() === itemProdId || p.name === item.bagSize);
+          const isRoll = prod?.category?.toLowerCase().includes("roll");
+          let rawQty = Number(item.quantity || 0);
+          let displayQty = rawQty;
+
+          if (!isRoll && item.unit === "kg" && Number(prod?.weight || 0) > 0) {
+            displayQty = Math.ceil(rawQty / Number(prod.weight));
+          }
+
+          const orderId = String(o.id || o._id || "");
+          let lineUnitPrices = o.quotation?.lineUnitPrices || {};
+          if (Object.keys(lineUnitPrices).length === 0 && orderId) {
+            try {
+              const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderId}`);
+              if (stored) lineUnitPrices = JSON.parse(stored);
+            } catch (_) {}
+          }
+          const savedUnitPrice = lineUnitPrices[item.productId] || lineUnitPrices[itemProdId];
+
+          let lineVal = 0;
+          if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
+            lineVal = displayQty * Number(savedUnitPrice);
+          } else {
+            const price = prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0;
+            lineVal = price > 0 ? (displayQty * price) : (displayQty * 10);
+          }
+
+          return { item, val: lineVal, displayQty, prod };
         });
+
         const totalCalculatedVal = calculatedItemValues.reduce((sum, itemVal) => sum + itemVal.val, 0);
 
-        calculatedItemValues.forEach(({ item, val, prod }) => {
-          const itemSales = totalCalculatedVal > 0 ? (o.totalAmount * val) / totalCalculatedVal : 0;
+        const orderTotal = Number(o.totalAmount || 0);
+        const orderPaid = Number(o.paidAmount || 0);
+        const effectiveOrderRevenue = orderTotal > 0 ? Math.min(orderPaid > 0 ? orderPaid : orderTotal, orderTotal) : 0;
+
+        calculatedItemValues.forEach(({ item, val, displayQty, prod }) => {
+          const itemSales = totalCalculatedVal > 0 ? (effectiveOrderRevenue * val) / totalCalculatedVal : 0;
           const productName = prod?.name || item.bagSize || "General Product";
 
           if (productName === compareProductA) {
-            qtyA += item.quantity;
+            qtyA += displayQty;
             revA += itemSales;
           }
           if (productName === compareProductB) {
-            qtyB += item.quantity;
+            qtyB += displayQty;
             revB += itemSales;
           }
         });

@@ -119,9 +119,31 @@ const DEDUCTION_MODE_HELP = {
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   let totalSuggestedOfAll = 0;
   const lineSuggestedVals = lines.map(l => {
-    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
-    const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
-    const suggested = Number(l.quantity || 0) * price;
+    const pr = pricing?.perProductResults?.find(p => String(p.productId) === String(l.productId));
+    let suggested = 0;
+    if (pr) {
+      const itemStockQty = Number(pr.canFulfillFromStock || 0);
+      const itemRequiredProd = Number(pr.requiredFromProduction || 0);
+      const itemNormalizedQty = itemStockQty + itemRequiredProd;
+      const itemProdCost = itemNormalizedQty > 0
+        ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+        : 0;
+      const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
+      const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
+      suggested = (itemStockQty * itemStockUnitPrice) + itemProdCost;
+    } else {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
+      const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+      let lineQty = Number(l.quantity || 0);
+      if (!isRoll && l.unit === "kg") {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) {
+          lineQty = Math.ceil(lineQty / weight);
+        }
+      }
+      suggested = lineQty * price;
+    }
     totalSuggestedOfAll += suggested;
     return { lineId: l.productId || l._id, suggested };
   });
@@ -141,9 +163,33 @@ const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
 
   let totalSuggestedOfAll = 0;
   const lineSuggestedVals = lines.map(line => {
-    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
-    const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
-    const suggested = Number(line.quantity || 0) * price;
+    // Try to use pricing perProductResults for the most accurate split
+    const pr = pricing?.perProductResults?.find(p => String(p.productId) === String(line.productId));
+    let suggested = 0;
+    if (pr) {
+      const itemStockQty = Number(pr.canFulfillFromStock || 0);
+      const itemRequiredProd = Number(pr.requiredFromProduction || 0);
+      const itemNormalizedQty = itemStockQty + itemRequiredProd;
+      const itemProdCost = itemNormalizedQty > 0
+        ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+        : 0;
+      const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
+      const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
+      suggested = (itemStockQty * itemStockUnitPrice) + itemProdCost;
+    } else {
+      // Fallback: normalize bag quantities from kg to pieces
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+      let lineQty = Number(line.quantity || 0);
+      if (!isRoll && line.unit === "kg") {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) {
+          lineQty = Math.ceil(lineQty / weight);
+        }
+      }
+      suggested = lineQty * price;
+    }
     totalSuggestedOfAll += suggested;
     return { line, suggested };
   });
@@ -248,7 +294,7 @@ const Orders = () => {
   const [billSubtotal, setBillSubtotal] = useState("0");
   const [billOther, setBillOther] = useState("0");
   const [isBillSaved, setIsBillSaved] = useState(false);
-  const [billPaymentMode, setBillPaymentMode] = useState("cash");
+  const [billPaymentMode, setBillPaymentMode] = useState("invoice");
   const [showPaymentInfo, setShowPaymentInfo] = useState(() => 
     localStorage.getItem("nirmalyam_show_payment_info") === "true"
   );
@@ -266,6 +312,10 @@ const Orders = () => {
   const [quotationShippingInput, setQuotationShippingInput] = useState("0");
   const [quotationOtherInput, setQuotationOtherInput] = useState("0");
   const [quotationSubtotalInput, setQuotationSubtotalInput] = useState("");
+  // Map of productId -> unit sell price string (manual per-line pricing)
+  const [quotationLineUnitPrices, setQuotationLineUnitPrices] = useState({});
+  // Map of productId -> quantity string (manual per-line quantity edit)
+  const [quotationLineQuantities, setQuotationLineQuantities] = useState({});
   const [processingActionId, setProcessingActionId] = useState(null);
   const [completeActionId, setCompleteActionId] = useState(null);
   const [deliveredActionId, setDeliveredActionId] = useState(null);
@@ -494,9 +544,34 @@ const Orders = () => {
     return rawOrders.map((order) => {
       const dimensions = order?.orderDetails?.dimensions || {};
       const paymentMode =
-        order?.confirmedPayment?.paymentMode || order?.payment?.paymentType || "";
+        order?.confirmedPayment?.paymentMode || order?.paymentMode || order?.payment?.paymentType || "";
       const totalAmount = Number(order?.totalAmount || 0);
-      const paidAmount = Number(order?.paidAmount || 0);
+
+      // Determine true paid amount considering confirmed & partial payments
+      const confPaid = Number(order?.confirmedPayment?.paidAmount || 0);
+      const partPaid = Number(order?.payment?.partialPaidAmount || 0);
+      let rawPaid = Number(order?.paidAmount || 0);
+
+      if (order?.payment?.paymentType === "partial" && confPaid > 0) {
+        rawPaid = confPaid;
+      } else if (confPaid > 0 && (rawPaid === 0 || rawPaid > totalAmount)) {
+        rawPaid = confPaid;
+      } else if (partPaid > 0 && (rawPaid === 0 || rawPaid > totalAmount)) {
+        rawPaid = partPaid;
+      }
+
+      const paidAmount = totalAmount > 0 ? Math.min(rawPaid, totalAmount) : rawPaid;
+      const pendingAmount = Math.max(0, totalAmount - paidAmount);
+
+      // Resolve accurate payment status
+      let paymentStatus = order?.paymentStatus || "Unpaid";
+      if (paidAmount > 0 && paidAmount < totalAmount) {
+        paymentStatus = "Partial Paid";
+      } else if (paidAmount >= totalAmount && totalAmount > 0) {
+        paymentStatus = "Paid";
+      } else if (paidAmount === 0) {
+        paymentStatus = "Unpaid";
+      }
 
       return {
         id: order?._id,
@@ -508,11 +583,11 @@ const Orders = () => {
         productCategory: order?.productCategory || "—",
         source: order?.source || "Manual",
         orderStatus: order?.orderStatus || "Pending",
-        paymentStatus: order?.paymentStatus || "Unpaid",
+        paymentStatus,
         totalAmount,
         paidAmount,
         orderStatusKey: (order?.orderStatus || "Pending").toUpperCase(),
-        paymentStatusKey: normalizePaymentStatusKey(order?.paymentStatus),
+        paymentStatusKey: normalizePaymentStatusKey(paymentStatus),
         date: order?.createdAt
           ? new Date(order.createdAt).toLocaleDateString()
           : "—",
@@ -553,7 +628,7 @@ const Orders = () => {
         confirmedAt: order?.confirmedAt || null,
         confirmedBy: order?.confirmedBy || null,
         amount: totalAmount,
-        pendingAmount: Math.max(0, totalAmount - paidAmount),
+        pendingAmount,
         reference: getOrderReference(order?._id),
         avatar: (order?.customerName || "U")
           .split(" ")
@@ -1219,18 +1294,21 @@ const Orders = () => {
     fetchLastReceipt();
 
     const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const hh = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    const billNum = `INV-${yyyy}${mm}${dd}-${hh}${min}${ss}`;
-    setBillNumber(billNum);
     setBillDate(now.toISOString().slice(0, 10));
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 7);
     setBillDueDate(dueDate.toISOString().slice(0, 10));
+
+    // Fetch next sequential Invoice Number (e.g. INV-001, INV-002...)
+    axiosInstance.get("/receipts/next-numbers")
+      .then(res => {
+        if (res.data?.data?.nextInvoiceNumber) {
+          setBillNumber(res.data.data.nextInvoiceNumber);
+        } else {
+          setBillNumber("INV-001");
+        }
+      })
+      .catch(() => setBillNumber("INV-001"));
 
     // Auto-populate GST rate: first from quotation, then from order items' product gstRate
     const items = order.orderDetailsList?.length > 0
@@ -1257,18 +1335,21 @@ const Orders = () => {
       orderTotalVal = computedTotal;
     }
     const remainingTotal = Math.max(0, orderTotalVal - (order.paidAmount || 0));
-    const approvedSubtotal = order.subtotalAmount || order.quotation?.subtotalAmount || orderTotalVal;
-    const defaultSubtotal = orderTotalVal > 0 
-      ? Number(((remainingTotal / orderTotalVal) * approvedSubtotal).toFixed(2))
-      : 0;
-    const defaultShipping = 0;
-    const defaultOther = 0;
+    const approvedSubtotal = Number(order.subtotalAmount || order.quotation?.subtotalAmount || orderTotalVal || 0);
+    const approvedShipping = Number(order.shippingCharges || order.quotation?.shippingCharges || 0);
+    const approvedOther = Number(order.otherCharges || order.quotation?.otherCharges || 0);
+
+    // Default to approved subtotal, shipping, and other charges for clean billing
+    let defaultSubtotal = approvedSubtotal;
+    let defaultShipping = approvedShipping;
+    let defaultOther = approvedOther;
 
     setBillSubtotal(String(defaultSubtotal));
     setBillTaxRate(String(savedTaxRate));
     setBillShipping(String(defaultShipping));
     setBillOther(String(defaultOther));
     setBillDiscount("0");
+    setBillPaymentMode("invoice");
     setBillNotes("Thank you for doing business with Nirmalyam Krafts!");
     setShowBillModal(true);
   };
@@ -1616,7 +1697,8 @@ Note: ${meta.billNotes || "—"}`;
 
     // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
     const approvedTotal = Number(rc.totalOrderAmount || 0);
-    const remainingToInvoiceVal = Math.max(0, approvedTotal - grandTotal);
+    const effectiveInvoiced = grandTotal + discountVal;
+    const remainingToInvoiceVal = Math.max(0, approvedTotal - effectiveInvoiced);
     if (remainingToInvoiceVal > 0.01) {
       currentY += 7;
       doc.setFont("helvetica", "normal");
@@ -1930,46 +2012,101 @@ Note: ${meta.billNotes || "—"}`;
     doc.text(`Due Date: ${meta.billDueDate}`, 20, termsY + 6.5);
     doc.text(`Payment Mode: ${String(billPaymentMode || "invoice").toUpperCase()}  |  Payment Status: ${(order.paymentStatus || "Unpaid").toUpperCase()}`, 95, termsY + 6.5);
     
-    // Item Table
-    const qty = Number(order.orderDetails?.quantity || 1);
+    // Item Table (Multi-product support)
+    const lines = order.orderDetailsList && order.orderDetailsList.length > 0
+      ? order.orderDetailsList
+      : [order.orderDetails].filter(Boolean);
+
     const subtotal = Number(meta.billSubtotal || order.subtotalAmount || order.totalAmount || 0);
     const discountVal = Number(meta.billDiscount || 0);
     const shippingVal = Number(meta.billShipping || 0);
     const otherVal = Number(meta.billOther || 0);
     const taxRate = Number(meta.billTaxRate || 0);
-    
-    const taxVal = (subtotal - discountVal) * (taxRate / 100);
-    const grandTotal = subtotal - discountVal + taxVal + shippingVal + otherVal;
-    const rate = qty > 0 ? (subtotal / qty) : subtotal;
-    
-    const specDetails = getPDFSpecDetails(order.orderDetails || {}, order.productCategory, productItems);
 
-    const tableBody = [
-      [
+    // GST accumulator by rate
+    const gstByRate = {};
+
+    const tableBody = lines.map((line) => {
+      const lineQty = Number(line?.quantity || 0);
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+
+      let displayQty = `${lineQty} ${line.unit || "pcs"}`;
+      let calcQty = lineQty;
+
+      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
+        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
+        displayQty = `${pcsQty} pcs`;
+        calcQty = pcsQty;
+      }
+
+      // Saved unit price or subtotal share
+      const savedUnitPrice = meta?.lineUnitPrices?.[line.productId] || quotationLineUnitPrices?.[line.productId];
+      let lineUnitPrice;
+      let lineSubtotal;
+      if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
+        lineUnitPrice = Number(savedUnitPrice);
+        lineSubtotal = lineUnitPrice * calcQty;
+      } else {
+        lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
+        lineUnitPrice = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
+      }
+
+      // Resolve HSN and GST
+      const lineHsn = line.hsnCode || prod?.hsnCode || "—";
+      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : (prod?.gstRate ?? taxRate ?? 18);
+
+      const rateKey = String(lineGstRate);
+      const lineTax = lineSubtotal * (lineGstRate / 100);
+      if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
+      gstByRate[rateKey].taxableAmount += lineSubtotal;
+      gstByRate[rateKey].taxAmount += lineTax;
+
+      const specDetails = getPDFSpecDetails(line, order.productCategory, productItems);
+
+      return [
         specDetails,
-        `${qty} ${order.orderDetails?.unit || "pcs"}`,
-        `Rs. ${rate.toFixed(2)}`,
-        `Rs. ${subtotal.toFixed(2)}`
-      ]
-    ];
-    
+        lineHsn,
+        `Rs. ${lineUnitPrice.toFixed(2)}`,
+        displayQty,
+        `${lineGstRate}%`,
+        `Rs. ${lineTax.toFixed(2)}`,
+        `Rs. ${lineSubtotal.toFixed(2)}`
+      ];
+    });
+
     autoTable(doc, {
       startY: termsY + 16,
-      head: [["Item Description & Specifications", "Quantity", "Rate", "Amount"]],
+      head: [["Item Description & Specifications", "HSN Code", "Unit Rate", "Quantity", "GST %", "GST Amt", "Amount"]],
       body: tableBody,
       theme: "striped",
-      styles: { fontSize: 9.5, cellPadding: 4, valign: "middle" },
+      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
       headStyles: { fillColor: brand, fontStyle: "bold" },
       columnStyles: {
-        1: { halign: "center", cellWidth: 30 },
-        2: { halign: "right", cellWidth: 30 },
-        3: { halign: "right", cellWidth: 35 }
+        0: { cellWidth: "auto" },
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "right", cellWidth: 22 },
+        3: { halign: "center", cellWidth: 18 },
+        4: { halign: "center", cellWidth: 14 },
+        5: { halign: "right", cellWidth: 20 },
+        6: { halign: "right", cellWidth: 24 }
       }
     });
     
     const finalY = doc.lastAutoTable.finalY + 8;
     
-    // Totals Grid
+    // Totals Grid & GST Calculation
+    const gstRateKeys = Object.keys(gstByRate).sort((a, b) => Number(a) - Number(b));
+    let totalGstCollected = 0;
+    if (gstRateKeys.length > 0) {
+      for (const rk of gstRateKeys) {
+        totalGstCollected += gstByRate[rk].taxAmount;
+      }
+    } else {
+      totalGstCollected = (subtotal - discountVal) * (taxRate / 100);
+    }
+    const grandTotal = subtotal - discountVal + totalGstCollected + shippingVal + otherVal;
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
     doc.setTextColor(80, 80, 80);
@@ -1987,10 +2124,33 @@ Note: ${meta.billNotes || "—"}`;
       doc.text(`- Rs. ${discountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
     
-    if (taxVal > 0) {
+    if (gstRateKeys.length > 1) {
+      for (const rk of gstRateKeys) {
+        const { taxAmount: ta } = gstByRate[rk];
+        currentY += 6;
+        doc.setFontSize(9);
+        doc.text(`GST @ ${rk}%:`, labelX, currentY);
+        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      }
+      currentY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(`Total GST Collected:`, labelX, currentY);
+      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+    } else if (gstRateKeys.length === 1) {
+      const rk = gstRateKeys[0];
+      const { taxAmount: ta } = gstByRate[rk];
+      if (ta > 0) {
+        currentY += 6;
+        doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
+        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      }
+    } else if (taxRate > 0) {
       currentY += 6;
       doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
-      doc.text(`Rs. ${taxVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
     
     if (shippingVal > 0) {
@@ -2030,7 +2190,8 @@ Note: ${meta.billNotes || "—"}`;
 
     // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
     const approvedTotal = Number(order.totalAmount || order.quotation?.totalQuoted || 0);
-    const remainingToInvoiceVal = Math.max(0, approvedTotal - grandTotal);
+    const effectiveInvoiced = grandTotal + discountVal;
+    const remainingToInvoiceVal = Math.max(0, approvedTotal - effectiveInvoiced);
     if (remainingToInvoiceVal > 0.01) {
       currentY += 7;
       doc.setFont("helvetica", "normal");
@@ -2243,87 +2404,59 @@ Note: ${meta.billNotes || "—"}`;
     doc.text(`Email: ${order.email || "—"}`, 15, 73);
 
     // Return details
+    const rawType = String(returnDetails.returnType || "").toLowerCase();
+    const returnTypeLabel = rawType === "complete" ? "Full Return" : (rawType === "partial" ? "Partial Return" : (returnDetails.notes ? "Partial Return" : "Full Return"));
+
     doc.setFont("helvetica", "bold");
     doc.text("RETURN DETAILS:", 110, 52);
     doc.setFont("helvetica", "normal");
     doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 58);
-    doc.text(`Return Type: ${String(returnDetails.notes ? "Partial / Special" : "Standard").toUpperCase()}`, 110, 63);
+    doc.text(`Return Type: ${returnTypeLabel}`, 110, 63);
     doc.text(`GST Status: Refund Configured`, 110, 68);
-    doc.text(`Refund Status: Stock Restored`, 110, 73);
+    doc.text(`Refund Status: Refund Processed & Stock Restored`, 110, 73);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // Solve exact per-line GST-inclusive allocation using the same linear system as the UI
-    const orderSubtotal = Number(order.subtotalAmount || 0);
-    const orderTotalPaid = Number(order.totalPaidAmount || order.totalInvoiceAmount || order.totalAmount || 0);
+    // Totals from returnDetails
+    const baseRefund = Number(returnDetails.refundAmount || 0);
+    const gstRefund = Number(returnDetails.gstRefundAmount || 0);
+    const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
 
-    // Enrich items with selling-price weight and GST rate
-    const enrichedItems = returnDetails.items.map(it => {
+    // Enrich items with selling-price weight, HSN code, and GST rate
+    const items = returnDetails.items || [];
+    const enrichedItems = items.map(it => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || it);
-      const hsnCode = it.hsnCode || taxInfo.hsnCode;
+      const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
+      const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
       const gstRateVal = it.gstRate != null ? Number(it.gstRate) : taxInfo.gstRate;
       const sellPrice = Number(prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || it.unitPrice || 0) || 1;
       const weight = Number(it.quantity || 0) * sellPrice;
       return { ...it, hsnCode, gstRateVal, weight };
     });
 
-    // Group items by GST rate to solve the linear system
-    const rateGroups = {};
-    enrichedItems.forEach(d => {
-      if (!rateGroups[d.gstRateVal]) rateGroups[d.gstRateVal] = { totalWeight: 0, members: [] };
-      rateGroups[d.gstRateVal].totalWeight += d.weight;
-      rateGroups[d.gstRateVal].members.push(d);
-    });
-    const rates = Object.keys(rateGroups).map(Number);
-
-    let groupSubtotals = {};
-    if (rates.length === 1) {
-      groupSubtotals[rates[0]] = orderSubtotal;
-    } else if (rates.length === 2) {
-      const [r1, r2] = rates;
-      const denom = (r1 - r2) / 100;
-      if (Math.abs(denom) < 1e-9) {
-        groupSubtotals[r1] = orderSubtotal; groupSubtotals[r2] = 0;
-      } else {
-        const S1 = (orderTotalPaid - orderSubtotal * (1 + r2 / 100)) / denom;
-        groupSubtotals[r1] = Math.max(0, S1);
-        groupSubtotals[r2] = Math.max(0, orderSubtotal - S1);
-      }
-    } else {
-      const totalW = enrichedItems.reduce((s, d) => s + d.weight, 0) || 1;
-      rates.forEach(r => { groupSubtotals[r] = orderSubtotal * (rateGroups[r].totalWeight / totalW); });
-    }
-
-    // Per-item allocation
-    const itemAllocations = {};
-    enrichedItems.forEach(d => {
-      const grp = rateGroups[d.gstRateVal];
-      const groupSubtotal = groupSubtotals[d.gstRateVal] || 0;
-      // Find the corresponding order line to get its original quantity
-      const orderLines = (order.orderDetailsList?.length ? order.orderDetailsList : order.orderDetails ? [order.orderDetails] : []);
-      const orderLine = orderLines.find(l => String(l.productId?._id || l.productId || "").trim() === String(d.productId || "").trim());
-      const orderQty = Number(orderLine?.quantity || 0) || Number(d.quantity || 0);
-      const withinFrac = grp.totalWeight > 0 ? (d.weight / grp.totalWeight) : (1 / grp.members.length);
-      const lineSubtotal = groupSubtotal * withinFrac;           // pre-tax share for this product
-      const lineGstInclPerUnit = orderQty > 0 ? (lineSubtotal * (1 + d.gstRateVal / 100)) / orderQty : 0;
-      const retQty = Number(d.quantity || 0);
-      const lineGstIncl = retQty * lineGstInclPerUnit;           // GST-inclusive amount for returned qty
-      const lineGstPortion = lineGstIncl * (d.gstRateVal / (100 + d.gstRateVal)); // GST extracted
-      itemAllocations[String(d.productId)] = { lineGstIncl, lineGstPortion };
-    });
+    const totalWeight = enrichedItems.reduce((s, d) => s + d.weight, 0) || 1;
 
     const tableBody = enrichedItems.map((it, index) => {
-      const alloc = itemAllocations[String(it.productId)] || {};
+      // Distribute the exact gstRefundAmount proportionally across items so table sum matches bottom summary
+      const lineWeightFrac = totalWeight > 0 ? (it.weight / totalWeight) : (1 / enrichedItems.length);
+      const lineGstRefund = (lineWeightFrac * gstRefund);
+
+      // Format quantity cleanly with pieces hint if applicable
+      let qtyStr = `${it.quantity || 0} ${it.unit || "pcs"}`;
+      if (it.quantityInPcs && Number(it.quantityInPcs) > 1 && String(it.unit || "").toLowerCase() !== "pcs") {
+        qtyStr = `${it.quantity || 0} ${it.unit || "kg"} (${it.quantityInPcs} pcs)`;
+      }
+
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
         it.hsnCode,
         `${it.gstRateVal}%`,
-        `Rs. ${(alloc.lineGstPortion || 0).toFixed(2)}`,
-        `${it.quantity || 0} ${it.unit || "pcs"}`,
-        `Returned`
+        `₹${lineGstRefund.toFixed(2)}`,
+        qtyStr,
+        `Refunded`
       ];
     });
 
@@ -2336,10 +2469,10 @@ Note: ${meta.billNotes || "—"}`;
       headStyles: { fillColor: redTheme, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 14 },
-        3: { halign: "right", cellWidth: 20 },
-        4: { halign: "center", cellWidth: 22 },
+        1: { halign: "center", cellWidth: 28 }, // HSN Code fits 4819 40 00 on one line
+        2: { halign: "center", cellWidth: 16 },
+        3: { halign: "right", cellWidth: 26 },
+        4: { halign: "center", cellWidth: 32 },
         5: { halign: "center", cellWidth: 24 }
       }
     });
@@ -2355,23 +2488,20 @@ Note: ${meta.billNotes || "—"}`;
     const labelX = pageWidth - 90;
 
     let currentY = finalY;
-    const baseRefund = Number(returnDetails.refundAmount || 0);
-    const gstRefund  = Number(returnDetails.gstRefundAmount || 0);
-    const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
 
     doc.text("Base Refund Amount:", labelX, currentY);
-    doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`₹${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 6;
     doc.text(`GST Refund:`, labelX, currentY);
-    doc.text(`Rs. ${gstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`₹${gstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 8;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setTextColor(redTheme[0], redTheme[1], redTheme[2]);
     doc.text("Total Amount Refunded:", labelX, currentY);
-    doc.text(`Rs. ${totalRefunded.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`₹${totalRefunded.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Note block
     const tcY = Math.max(currentY + 12, doc.lastAutoTable.finalY + 15);
@@ -2805,7 +2935,10 @@ ${productSummary}
         setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
         queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
         queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
-        refetch();
+        await refetch();
+        if (response.data.data?.order) {
+          setSelectedOrder(response.data.data.order);
+        }
       } else {
         toast.error(response.data?.message || "Payment failed", { id: loadingToast });
       }
@@ -3047,9 +3180,11 @@ ${productSummary}
     if (pricing?.perProductResults && pricing.perProductResults.length > 0) {
       for (const pr of pricing.perProductResults) {
         const itemStockQty = Number(pr.canFulfillFromStock || 0);
-        const itemQty = Number(pr.quantity || 1) || 1;
         const itemRequiredProd = Number(pr.requiredFromProduction || 0);
-        const itemProdCost = (Number(pr.totalOrderMaterialCost || 0) / itemQty) * itemRequiredProd;
+        const itemNormalizedQty = itemStockQty + itemRequiredProd;
+        const itemProdCost = itemNormalizedQty > 0
+          ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+          : 0;
 
         const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
         const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
@@ -3061,9 +3196,11 @@ ${productSummary}
     // Fallback single product calculation
     const stockCovered = Number(pricing?.canFulfillFromStock || 0);
     const stockUnitPrice = Number(getStockUnitQuotePrice(pricing, order) || 0);
-    const itemQty = Number(order?.orderDetails?.quantity || order?.quantity || 1) || 1;
     const itemRequiredProd = Number(pricing?.requiredFromProduction || 0);
-    const prodCost = (Number(pricing?.totalOrderMaterialCost || 0) / itemQty) * itemRequiredProd;
+    const itemNormalizedQty = stockCovered + itemRequiredProd;
+    const prodCost = itemNormalizedQty > 0
+      ? (Number(pricing?.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+      : 0;
 
     suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
     if (suggestedTotal > 0) return suggestedTotal;
@@ -3082,33 +3219,70 @@ ${productSummary}
     return Number(order?.totalAmount || 0);
   };
 
-  const recalculateQuotationTotal = (subtotal, tax, shipping, other) => {
-    const s = Number(subtotal || 0);
-    const sh = Number(shipping || 0);
-    const o = Number(other || 0);
+  // Get the order lines array from a quotationOrder
+  const getQuotationLines = (order) => {
+    if (!order) return [];
+    if (order.orderDetailsList?.length > 0) return order.orderDetailsList;
+    if (order.orderDetails) return [order.orderDetails];
+    return [];
+  };
 
-    if (!quotationOrder) return;
-    const breakdown = getQuotationItemsBreakdown(quotationOrder, quotationPricing, s, productItems);
+  // Recalculate subtotal, GST, and grand total from per-line unit prices & quantities
+  const recalculateFromLineUnitPrices = (lineUnitPrices, lineQtysOverride, shipping, other, order) => {
+    const ord = order || quotationOrder;
+    if (!ord) return;
+    const lines = getQuotationLines(ord);
+    const lineQtys = lineQtysOverride || quotationLineQuantities;
+
+    let subtotal = 0;
+    lines.forEach(line => {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+      let qty = lineQtys[line.productId] !== undefined ? Number(lineQtys[line.productId] || 0) : Number(line.quantity || 0);
+      if (!isRoll && line.unit === "kg" && lineQtys[line.productId] === undefined) {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) qty = Math.ceil(qty / weight);
+      }
+      const unitPrice = Number(lineUnitPrices?.[line.productId] || 0);
+      subtotal += qty * unitPrice;
+    });
+    setQuotationSubtotalInput(String(subtotal > 0 ? Number(subtotal.toFixed(2)) : ""));
+    // Rebuild GST breakdown from the new subtotal
+    const breakdown = getQuotationItemsBreakdown(ord, quotationPricing, subtotal, productItems);
     const totalGst = breakdown.reduce((sum, item) => sum + item.gstAmount, 0);
-    const total = s + totalGst + sh + o;
+    const sh = Number(shipping ?? quotationShippingInput ?? 0);
+    const o = Number(other ?? quotationOtherInput ?? 0);
+    const total = subtotal + totalGst + sh + o;
     setQuotationTotalInput(total > 0 ? String(Number(total.toFixed(2))) : "0");
   };
 
-  const handleSubtotalChange = (val) => {
-    setQuotationSubtotalInput(val);
-    recalculateQuotationTotal(val, quotationTaxRateInput, quotationShippingInput, quotationOtherInput);
+  const handleLineUnitPriceChange = (productId, val) => {
+    const updated = { ...quotationLineUnitPrices, [productId]: val };
+    setQuotationLineUnitPrices(updated);
+    recalculateFromLineUnitPrices(updated, quotationLineQuantities, quotationShippingInput, quotationOtherInput, quotationOrder);
+    const orderId = String(quotationOrder?.id || quotationOrder?._id || "");
+    if (orderId) {
+      try { localStorage.setItem(`nirmalyam_lineUnitPrices_${orderId}`, JSON.stringify(updated)); } catch (_) {}
+    }
   };
-  const handleTaxChange = (val) => {
-    setQuotationTaxRateInput(val);
-    recalculateQuotationTotal(quotationSubtotalInput, val, quotationShippingInput, quotationOtherInput);
+
+  const handleLineQuantityChange = (productId, val) => {
+    const updatedQtys = { ...quotationLineQuantities, [productId]: val };
+    setQuotationLineQuantities(updatedQtys);
+    recalculateFromLineUnitPrices(quotationLineUnitPrices, updatedQtys, quotationShippingInput, quotationOtherInput, quotationOrder);
+    const orderId = String(quotationOrder?.id || quotationOrder?._id || "");
+    if (orderId) {
+      try { localStorage.setItem(`nirmalyam_lineQtys_${orderId}`, JSON.stringify(updatedQtys)); } catch (_) {}
+    }
   };
+
   const handleShippingChange = (val) => {
     setQuotationShippingInput(val);
-    recalculateQuotationTotal(quotationSubtotalInput, quotationTaxRateInput, val, quotationOtherInput);
+    recalculateFromLineUnitPrices(quotationLineUnitPrices, quotationLineQuantities, val, quotationOtherInput, quotationOrder);
   };
   const handleOtherChange = (val) => {
     setQuotationOtherInput(val);
-    recalculateQuotationTotal(quotationSubtotalInput, quotationTaxRateInput, quotationShippingInput, val);
+    recalculateFromLineUnitPrices(quotationLineUnitPrices, quotationLineQuantities, quotationShippingInput, val, quotationOrder);
   };
 
   const openDeliveryModal = (order) => {
@@ -3169,16 +3343,38 @@ ${productSummary}
     setQuotationShippingInput(String(order.quotation?.shippingCharges ?? "0"));
     setQuotationOtherInput(String(order.quotation?.otherCharges ?? "0"));
     setQuotationSubtotalInput(String(order.quotation?.subtotalAmount ?? ""));
+    // Restore saved per-line unit prices: localStorage takes priority over backend (backend drops new fields)
+    const orderId = String(order.id || order._id || "");
+    let savedLineUnitPrices = {};
+    try {
+      const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderId}`);
+      if (stored) savedLineUnitPrices = JSON.parse(stored);
+    } catch (_) {}
+    // Fallback to backend field if localStorage is empty
+    if (Object.keys(savedLineUnitPrices).length === 0 && order.quotation?.lineUnitPrices) {
+      savedLineUnitPrices = order.quotation.lineUnitPrices;
+    }
+    setQuotationLineUnitPrices(savedLineUnitPrices);
     // Default to AUTO so available finished stock is considered first.
     setQuotationMode("AUTO");
     const defaultUntil = new Date();
     defaultUntil.setDate(defaultUntil.getDate() + 7);
     setQuotationValidUntil(defaultUntil.toISOString().slice(0, 10));
     
-    const shortId = String(order.id || order._id || "").slice(-6).toUpperCase();
-    const defaultQn = `QT-${shortId}`;
-    const existingQn = order.quotation?.quotationNumber || defaultQn;
-    setQuotationNumberInput(existingQn);
+    if (order.quotation?.quotationNumber) {
+      setQuotationNumberInput(order.quotation.quotationNumber);
+    } else {
+      axiosInstance.get("/receipts/next-numbers")
+        .then(res => {
+          if (res.data?.data?.nextQuotationNumber) {
+            setQuotationNumberInput(res.data.data.nextQuotationNumber);
+          } else {
+            const shortId = String(order.id || order._id || "").slice(-6).toUpperCase();
+            setQuotationNumberInput(`QT-001`);
+          }
+        })
+        .catch(() => setQuotationNumberInput("QT-001"));
+    }
     setShowQuotationModal(true);
   };
 
@@ -3194,27 +3390,87 @@ ${productSummary}
         if (cancelled || !resp.data.success) return;
         const d = applyAvailabilityCostCorrection(resp.data.data, quotationOrder);
         setQuotationPricing(d);
-        const suggested = getSuggestedQuotationTotal(d, quotationOrder);
-        const existingSubtotal = quotationOrder.quotation?.subtotalAmount;
-        const initialSubtotal = existingSubtotal > 0 ? existingSubtotal : (quotationOrder.quotation?.totalQuoted || suggested);
-        setQuotationSubtotalInput(String(initialSubtotal > 0 ? initialSubtotal : ""));
-        // Auto-populate GST from product if no existing rate on quotation
-        const existingTaxRate = quotationOrder.quotation?.taxRate;
-        const items = quotationOrder.orderDetailsList?.length > 0
-          ? quotationOrder.orderDetailsList
-          : (quotationOrder.orderDetails ? [quotationOrder.orderDetails] : []);
-        const productGstRate = items.length > 0 ? Number(items[0].gstRate ?? 18) : 18;
-        const taxRate = (existingTaxRate != null && existingTaxRate > 0)
-          ? Number(existingTaxRate)
-          : productGstRate;
-        if (!existingTaxRate || existingTaxRate === 0) {
-          setQuotationTaxRateInput(String(taxRate));
-        }
         const shipping = Number(quotationOrder.quotation?.shippingCharges ?? 0);
         const other = Number(quotationOrder.quotation?.otherCharges ?? 0);
-        const breakdown = getQuotationItemsBreakdown(quotationOrder, d, Number(initialSubtotal || 0), productItems);
+
+        // Restore or initialise per-line unit prices
+        // Priority: localStorage > backend quotation field > seed from BOM
+        const orderId = String(quotationOrder.id || quotationOrder._id || "");
+        let localLineUnitPrices = {};
+        try {
+          const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderId}`);
+          if (stored) localLineUnitPrices = JSON.parse(stored);
+        } catch (_) {}
+
+        const backendLineUnitPrices = quotationOrder.quotation?.lineUnitPrices || {};
+        const lines = quotationOrder.orderDetailsList?.length > 0
+          ? quotationOrder.orderDetailsList
+          : (quotationOrder.orderDetails ? [quotationOrder.orderDetails] : []);
+
+        // Use localStorage if available, otherwise backend, otherwise seed
+        let initialLineUnitPrices = Object.keys(localLineUnitPrices).length > 0
+          ? { ...localLineUnitPrices }
+          : Object.keys(backendLineUnitPrices).length > 0
+          ? { ...backendLineUnitPrices }
+          : {};
+
+        // If no saved unit prices exist yet, seed them from suggested prices per line
+        if (Object.keys(initialLineUnitPrices).length === 0) {
+          const perProductResults = d?.perProductResults || [];
+          lines.forEach(line => {
+            const pr = perProductResults.find(p => String(p.productId) === String(line.productId));
+            const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+            const isRoll = pObj?.category?.toLowerCase().includes("roll");
+            let qty = Number(line.quantity || 1);
+            if (!isRoll && line.unit === "kg") {
+              const weight = Number(pObj?.weight || 0);
+              if (weight > 0) qty = Math.ceil(qty / weight);
+            }
+            let suggestedUnitPrice = 0;
+            if (pr) {
+              const itemStockQty = Number(pr.canFulfillFromStock || 0);
+              const itemRequiredProd = Number(pr.requiredFromProduction || 0);
+              const itemNormalizedQty = itemStockQty + itemRequiredProd;
+              const itemProdCost = itemNormalizedQty > 0
+                ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+                : 0;
+              const stockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 0;
+              const lineSuggested = (itemStockQty * stockUnitPrice) + itemProdCost;
+              suggestedUnitPrice = qty > 0 ? lineSuggested / qty : 0;
+            } else if (pObj) {
+              suggestedUnitPrice = pObj.basePrice || pObj.unitPrice || pObj.sellingPrice || 0;
+            }
+            if (suggestedUnitPrice > 0) {
+              initialLineUnitPrices[line.productId] = String(Number(suggestedUnitPrice.toFixed(2)));
+            }
+          });
+        }
+        setQuotationLineUnitPrices(initialLineUnitPrices);
+        // Persist the resolved unit prices in localStorage so they survive page refreshes
+        try {
+          localStorage.setItem(`nirmalyam_lineUnitPrices_${orderId}`, JSON.stringify(initialLineUnitPrices));
+        } catch (_) {}
+
+        // Calculate subtotal from per-line unit prices
+        let subtotal = 0;
+        lines.forEach(line => {
+          const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+          const isRoll = pObj?.category?.toLowerCase().includes("roll");
+          let qty = Number(line.quantity || 0);
+          if (!isRoll && line.unit === "kg") {
+            const weight = Number(pObj?.weight || 0);
+            if (weight > 0) qty = Math.ceil(qty / weight);
+          }
+          subtotal += qty * Number(initialLineUnitPrices[line.productId] || 0);
+        });
+        // Fall back to existing saved subtotal if no unit prices available
+        const existingSubtotal = quotationOrder.quotation?.subtotalAmount;
+        const initialSubtotal = subtotal > 0 ? subtotal : (existingSubtotal || 0);
+        setQuotationSubtotalInput(String(initialSubtotal > 0 ? Number(initialSubtotal.toFixed(2)) : ""));
+
+        const breakdown = getQuotationItemsBreakdown(quotationOrder, d, initialSubtotal, productItems);
         const totalGst = breakdown.reduce((sum, item) => sum + item.gstAmount, 0);
-        const calcTotal = Number(initialSubtotal || 0) + totalGst + shipping + other;
+        const calcTotal = initialSubtotal + totalGst + shipping + other;
         setQuotationTotalInput(String(calcTotal > 0 ? Number(calcTotal.toFixed(2)) : ""));
         if (!cancelled && d.productResolved === false) {
           showNotification(
@@ -3385,12 +3641,31 @@ ${productSummary}
 
     const tableBody = lines.map((line, index) => {
       const lineQty = Number(line?.quantity || 0);
-      const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems, pricing);
-      const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / lines.length);
-      const lineUnitPrice = lineQty > 0 ? (lineSubtotal / lineQty) : lineSubtotal;
-
-      // Resolve HSN and GST: check line data first, then look up product catalogue
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
+
+      let displayQty = `${lineQty} ${line.unit || "pcs"}`;
+      let calcQty = lineQty;
+
+      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
+        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
+        displayQty = `${pcsQty} pcs`;
+        calcQty = pcsQty;
+      }
+
+      // Use saved per-line unit price if available, otherwise derive from subtotal share
+      const savedUnitPrice = meta?.lineUnitPrices?.[line.productId];
+      let lineUnitPrice;
+      let lineSubtotal;
+      if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
+        lineUnitPrice = Number(savedUnitPrice);
+        lineSubtotal = lineUnitPrice * calcQty;
+      } else {
+        lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems, pricing);
+        lineUnitPrice = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
+      }
+
+      // Resolve HSN and GST
       const lineHsn = line.hsnCode || prod?.hsnCode || "—";
       const lineGstRate = line.gstRate != null ? Number(line.gstRate) : (prod?.gstRate ?? taxRate ?? 18);
 
@@ -3403,20 +3678,21 @@ ${productSummary}
 
       const specDetails = getPDFSpecDetails(line, order.productCategory, productItems);
 
+      // Column order: Specs | HSN | Unit Rate | Quantity | GST % | GST Amt | Amount
       return [
         specDetails,
         lineHsn,
+        `Rs. ${lineUnitPrice.toFixed(2)}`,
+        displayQty,
         `${lineGstRate}%`,
         `Rs. ${lineTax.toFixed(2)}`,
-        `${lineQty} ${line.unit || "pcs"}`,
-        `Rs. ${lineUnitPrice.toFixed(2)}`,
         `Rs. ${lineSubtotal.toFixed(2)}`
       ];
     });
 
     autoTable(doc, {
       startY: tableY,
-      head: [["Item Details & Specifications", "HSN Code", "GST %", "GST Amt", "Quantity", "Unit Rate", "Amount"]],
+      head: [["Item Details & Specifications", "HSN Code", "Unit Rate", "Quantity", "GST %", "GST Amt", "Amount"]],
       body: tableBody,
       theme: "striped",
       styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
@@ -3424,10 +3700,10 @@ ${productSummary}
       columnStyles: {
         0: { cellWidth: "auto" },
         1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 14 },
-        3: { halign: "right", cellWidth: 20 },
-        4: { halign: "center", cellWidth: 18 },
-        5: { halign: "right", cellWidth: 22 },
+        2: { halign: "right", cellWidth: 22 },
+        3: { halign: "center", cellWidth: 18 },
+        4: { halign: "center", cellWidth: 14 },
+        5: { halign: "right", cellWidth: 20 },
         6: { halign: "right", cellWidth: 24 }
       }
     });
@@ -3572,6 +3848,12 @@ ${productSummary}
         });
         return;
       }
+      // Persist line unit prices to localStorage before saving (backend may not store this field)
+      const orderId = String(quotationOrder.id || quotationOrder._id || "");
+      try {
+        localStorage.setItem(`nirmalyam_lineUnitPrices_${orderId}`, JSON.stringify(quotationLineUnitPrices));
+      } catch (_) {}
+
       await axiosInstance.patch(`/orders/${quotationOrder.id}/quotation`, {
         status,
         totalQuoted,
@@ -3581,6 +3863,7 @@ ${productSummary}
         shippingCharges: Number(quotationShippingInput || 0),
         otherCharges: Number(quotationOtherInput || 0),
         subtotalAmount: Number(quotationSubtotalInput || 0),
+        lineUnitPrices: quotationLineUnitPrices,
       });
       toast.success("Quotation updated", { id: loadingToast });
       setShowQuotationModal(false);
@@ -3738,7 +4021,7 @@ Valid Until: ${quotationValidUntil || "—"}
           showNotification(`Please fill all required fields for Item #${i + 1}`, "error");
           return;
         }
-        if (isItemRoll ? !item.gsm : (!item.bagSize || !item.length || !item.height)) {
+        if (!item.gsm || (!isItemRoll && (!item.bagSize || !item.length || !item.height))) {
           showNotification(`Please fill specifications for Item #${i + 1}`, "error");
           return;
         }
@@ -3753,7 +4036,7 @@ Valid Until: ${quotationValidUntil || "—"}
         !editOrderForm.productId ||
         !editOrderForm.quantity ||
         !editOrderForm.width ||
-        (isRoll ? !editOrderForm.gsm : (!editOrderForm.bagSize || !editOrderForm.length || !editOrderForm.height))
+        (isRoll ? !editOrderForm.gsm : (!editOrderForm.bagSize || !editOrderForm.length || !editOrderForm.height || !editOrderForm.gsm))
       ) {
         showNotification("Please fill all required product fields", "error");
         return;
@@ -3885,7 +4168,7 @@ Valid Until: ${quotationValidUntil || "—"}
         if (
           !manualOrderForm.quantity ||
           !manualOrderForm.width ||
-          (isRoll ? (!manualOrderForm.gsm || !manualOrderForm.bf) : (!manualOrderForm.bagSize || !manualOrderForm.length || !manualOrderForm.height))
+          (isRoll ? (!manualOrderForm.gsm || !manualOrderForm.bf) : (!manualOrderForm.bagSize || !manualOrderForm.length || !manualOrderForm.height || !manualOrderForm.gsm))
         ) {
           showNotification("Please configure the product fully before adding or creating order", "error");
           return;
@@ -5385,6 +5668,20 @@ Valid Until: ${quotationValidUntil || "—"}
                           <>
                             <div>
                               <label className="mb-1 block text-xs font-bold text-gray-700">
+                                GSM <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualOrderForm.gsm}
+                                onChange={(e) => handleFormChange("gsm", e.target.value)}
+                                placeholder="GSM"
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-xs font-bold text-gray-700">
                                 Bag Size <span className="text-red-500">*</span>
                               </label>
                               <select
@@ -6063,6 +6360,25 @@ Valid Until: ${quotationValidUntil || "—"}
                               </select>
                             </div>
 
+                            <div>
+                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                GSM <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.gsm}
+                                disabled={isOrderPaid}
+                                onChange={(e) => {
+                                  const newList = [...editOrderForm.orderDetailsList];
+                                  newList[index].gsm = e.target.value;
+                                  setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                }}
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                required
+                              />
+                            </div>
+
                             {!isItemRoll ? (
                               <>
                                 <div>
@@ -6152,38 +6468,21 @@ Valid Until: ${quotationValidUntil || "—"}
                                 </div>
                               </>
                             ) : (
-                              <>
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">GSM <span className="text-red-500">*</span></label>
-                                  <input
-                                    type="number"
-                                    value={item.gsm}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].gsm = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                    required
-                                  />
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
-                                  <input
-                                    type="number"
-                                    value={item.width}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].width = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                    required
-                                  />
-                                </div>
-                              </>
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
+                                <input
+                                  type="number"
+                                  value={item.width}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].width = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                  required
+                                />
+                              </div>
                             )}
                           </div>
                         </div>
@@ -6367,6 +6666,21 @@ Valid Until: ${quotationValidUntil || "—"}
                         </>
                       ) : (
                         <>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              GSM <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editOrderForm.gsm}
+                              disabled={isOrderPaid}
+                              onChange={(e) => handleEditFormChange("gsm", e.target.value)}
+                              placeholder="GSM"
+                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              required
+                            />
+                          </div>
                           <div>
                             <label className="mb-1 block text-xs font-semibold text-gray-600">
                               Bag Size <span className="text-red-500">*</span>
@@ -6694,7 +7008,10 @@ Valid Until: ${quotationValidUntil || "—"}
                         const itemQty = Number(pr.quantity || 0);
                         const itemStockQty = Number(pr.canFulfillFromStock || 0);
                         const itemRequiredProd = Number(pr.requiredFromProduction || 0);
-                        const itemProdCost = (Number(pr.totalOrderMaterialCost || 0) / (itemQty || 1)) * itemRequiredProd;
+                        const itemNormalizedQty = itemStockQty + itemRequiredProd;
+                        const itemProdCost = itemNormalizedQty > 0
+                          ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
+                          : 0;
                         const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
                         const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
                         const itemStockVal = itemStockQty * itemStockUnitPrice;
@@ -6707,15 +7024,18 @@ Valid Until: ${quotationValidUntil || "—"}
                           unitPrice: itemStockUnitPrice,
                           prodCost: Number(pr.totalOrderMaterialCost || 0),
                           requiredFromProduction: itemRequiredProd,
-                          fullQty: itemQty,
+                          fullQty: itemNormalizedQty,
+                          materialRequirements: pr.materialRequirements || [],
                         });
                       }
                     } else {
                       const stockCovered = Number(quotationPricing?.canFulfillFromStock || 0);
                       const stockUnitPrice = Number(getStockUnitQuotePrice(quotationPricing, quotationOrder) || 0);
-                      const fullQty = Number(quotationOrder.orderDetails?.quantity || quotationOrder.quantity || 1) || 1;
                       const requiredFromProduction = Number(quotationPricing?.requiredFromProduction || 0);
-                      const prodCost = (Number(quotationPricing?.totalOrderMaterialCost || 0) / (fullQty || 1)) * requiredFromProduction;
+                      const itemNormalizedQty = stockCovered + requiredFromProduction;
+                      const prodCost = itemNormalizedQty > 0
+                        ? (Number(quotationPricing?.totalOrderMaterialCost || 0) / itemNormalizedQty) * requiredFromProduction
+                        : 0;
                       suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
                       const pObj = productItems.find(p => 
                         String(p?._id || p?.id || "").trim() === String(quotationOrder.productId || quotationOrder.orderDetails?.productId || "").trim()
@@ -6728,7 +7048,8 @@ Valid Until: ${quotationValidUntil || "—"}
                         unitPrice: stockUnitPrice,
                         prodCost: Number(quotationPricing?.totalOrderMaterialCost || 0),
                         requiredFromProduction: requiredFromProduction,
-                        fullQty: fullQty,
+                        fullQty: itemNormalizedQty,
+                        materialRequirements: quotationPricing?.materialRequirements || [],
                       });
                     }
 
@@ -6755,22 +7076,47 @@ Valid Until: ${quotationValidUntil || "—"}
                             {itemsBreakdown.map((item, idx) => {
                               const itemRequiredProd = Number(item.requiredFromProduction || 0);
                               const fullQty = Number(item.fullQty || 1) || 1;
-                              const prodCostForRequired = (item.prodCost / fullQty) * itemRequiredProd;
+                              // Cost attributed to the production units only (not the stock units)
+                              const prodCostForRequired = fullQty > 0
+                                ? (item.prodCost / fullQty) * itemRequiredProd
+                                : item.prodCost;
+                              const stockValue = item.stockQty * item.unitPrice;
 
                               return (
                                 <div key={idx} className="border-t border-violet-100/50 first:border-0 pt-2 first:pt-0">
                                   <p className="font-bold text-[11px] text-violet-950">
                                     {item.productName} {item.hsnCode && item.hsnCode !== "—" ? `(HSN: ${item.hsnCode})` : ""}
                                   </p>
-                                  <ul className="list-inside list-disc pl-1 space-y-0.5 text-gray-600 mt-1">
-                                    <li>
-                                      Stock covered: <span className="font-semibold text-gray-800">{item.stockQty} units</span> (at ₹{item.unitPrice}/unit = ₹{(item.stockQty * item.unitPrice).toLocaleString()})
-                                    </li>
-                                    <li>
-                                      Raw material cost: <span className="font-semibold text-gray-800">₹{item.prodCost.toLocaleString()}</span> (BOM cost for {fullQty} units)
-                                    </li>
-                                    <li>
-                                      Production material cost: <span className="font-semibold text-gray-800">₹{prodCostForRequired.toLocaleString()}</span> (for {itemRequiredProd} units required from production)
+                                  <ul className="list-inside list-disc pl-1 space-y-0.5 text-gray-650 mt-1">
+                                    {item.stockQty > 0 && (
+                                      <li>
+                                        From stock: <span className="font-semibold text-gray-800">{item.stockQty} units</span> × ₹{item.unitPrice}/unit = <span className="font-semibold text-emerald-700">₹{stockValue.toLocaleString()}</span>
+                                      </li>
+                                    )}
+                                    {itemRequiredProd > 0 && (
+                                      <li>
+                                        Raw material cost to produce <span className="font-semibold text-gray-800">{itemRequiredProd} units</span>: <span className="font-semibold text-violet-700">₹{prodCostForRequired.toLocaleString()}</span>
+                                        <span className="text-gray-500 ml-1">(total BOM for {fullQty} units = ₹{item.prodCost.toLocaleString()})</span>
+                                      </li>
+                                    )}
+                                    {item.materialRequirements && item.materialRequirements.length > 0 && itemRequiredProd > 0 && (
+                                      <div className="mt-2 ml-4 p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-[10px] text-gray-600 space-y-1.5">
+                                        <p className="font-bold text-gray-700">Raw Material Breakdown (per production run):</p>
+                                        <ul className="list-disc pl-3 space-y-0.5">
+                                          {item.materialRequirements.map((mat, mIdx) => {
+                                            const matQtyForProd = item.fullQty > 0 ? (mat.totalQuantity / item.fullQty) * itemRequiredProd : 0;
+                                            const matCostForProd = matQtyForProd * mat.unitPrice;
+                                            return (
+                                              <li key={mIdx}>
+                                                <span className="font-medium text-gray-800">{mat.name}</span>: {matQtyForProd.toFixed(3)} {mat.unit} × ₹{mat.unitPrice}/{mat.unit} = <span className="font-semibold text-gray-700">₹{matCostForProd.toFixed(2)}</span>
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    <li className="font-semibold text-violet-900">
+                                      Line total (suggested): ₹{(stockValue + prodCostForRequired).toLocaleString()}
                                     </li>
                                   </ul>
                                 </div>
@@ -6793,37 +7139,91 @@ Valid Until: ${quotationValidUntil || "—"}
                         {itemBreakdown.length > 0 && (
                           <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-2 mb-4 animate-fade-in">
                             <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                              <span>📋</span> Product-wise HSN &amp; GST Breakdown
+                              <span>🧾</span> Unit Price &amp; Quotation Breakdown
+                              <span className="ml-auto text-[10px] font-normal text-blue-500">Enter unit sell price per product below</span>
                             </p>
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs border-collapse">
                                 <thead>
                                   <tr className="bg-blue-800 text-white font-semibold">
                                     <th className="px-3 py-2 text-left rounded-tl-lg">Product</th>
-                                    <th className="px-3 py-2 text-center">HSN Code</th>
+                                    <th className="px-3 py-2 text-center">HSN</th>
+                                    <th className="px-3 py-2 text-right">Unit Price (₹)</th>
+                                    <th className="px-3 py-2 text-center">Qty</th>
                                     <th className="px-3 py-2 text-center">GST %</th>
-                                    <th className="px-3 py-2 text-right">Taxable Amt</th>
-                                    <th className="px-3 py-2 text-right rounded-tr-lg">GST Amt (₹)</th>
+                                    <th className="px-3 py-2 text-right">Taxable (₹)</th>
+                                    <th className="px-3 py-2 text-right">GST Amt (₹)</th>
+                                    <th className="px-3 py-2 text-right rounded-tr-lg">Line Total (₹)</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {itemBreakdown.map((row, idx) => (
-                                    <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-blue-50/60"}>
-                                      <td className="px-3 py-2 font-medium text-gray-800">{row.productName}</td>
-                                      <td className="px-3 py-2 text-center font-mono text-gray-600">{row.hsnCode}</td>
-                                      <td className="px-3 py-2 text-center">
-                                        <span className="inline-block rounded-full bg-blue-100 text-blue-800 font-bold px-2 py-0.5">{row.gstRate}%</span>
-                                      </td>
-                                      <td className="px-3 py-2 text-right text-gray-700">₹{row.subtotal.toFixed(2)}</td>
-                                      <td className="px-3 py-2 text-right font-semibold text-blue-900">₹{row.gstAmount.toFixed(2)}</td>
-                                    </tr>
-                                  ))}
+                                  {itemBreakdown.map((row, idx) => {
+                                    const orderLine = getQuotationLines(quotationOrder).find(
+                                      l => String(l.productId) === String(row.productId)
+                                    );
+                                    const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(row.productId || "").trim());
+                                    const isRoll = pObj?.category?.toLowerCase().includes("roll");
+                                    let defaultQty = Number(orderLine?.quantity || 0);
+                                    let displayUnit = orderLine?.unit || "pcs";
+                                    if (!isRoll && orderLine?.unit === "kg") {
+                                      const weight = Number(pObj?.weight || 0);
+                                      if (weight > 0) {
+                                        defaultQty = Math.ceil(defaultQty / weight);
+                                        displayUnit = "pcs";
+                                      }
+                                    }
+                                    const activeQty = quotationLineQuantities?.[row.productId] !== undefined
+                                      ? Number(quotationLineQuantities[row.productId] || 0)
+                                      : defaultQty;
+                                    const unitPrice = Number(quotationLineUnitPrices?.[row.productId] || 0);
+                                    const lineSubtotal = unitPrice * activeQty;
+                                    const lineGst = lineSubtotal * (row.gstRate / 100);
+                                    const lineTotal = lineSubtotal + lineGst;
+                                    return (
+                                      <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-blue-50/60"}>
+                                        <td className="px-3 py-2 font-medium text-gray-800">{row.productName}</td>
+                                        <td className="px-3 py-2 text-center font-mono text-[10px] text-gray-500">{row.hsnCode}</td>
+                                        <td className="px-2 py-1.5 text-right">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={quotationLineUnitPrices?.[row.productId] ?? ""}
+                                            onChange={(e) => handleLineUnitPriceChange(row.productId, e.target.value)}
+                                            disabled={isApproved}
+                                            placeholder="0.00"
+                                            className="w-24 rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs font-semibold text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50 disabled:cursor-not-allowed text-right"
+                                          />
+                                        </td>
+                                        <td className="px-2 py-1.5 text-center">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              value={quotationLineQuantities?.[row.productId] ?? defaultQty}
+                                              onChange={(e) => handleLineQuantityChange(row.productId, e.target.value)}
+                                              disabled={isApproved}
+                                              className="w-20 rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs font-bold text-gray-900 text-center outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                            />
+                                            <span className="text-[10px] font-semibold text-gray-500">{displayUnit}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-3 py-2 text-center">
+                                          <span className="inline-block rounded-full bg-blue-100 text-blue-800 font-bold px-2 py-0.5">{row.gstRate}%</span>
+                                        </td>
+                                        <td className="px-3 py-2 text-right text-gray-700">₹{lineSubtotal.toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-right font-semibold text-blue-900">₹{lineGst.toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-right font-bold text-emerald-700">₹{lineTotal.toFixed(2)}</td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                                 <tfoot>
                                   <tr className="border-t-2 border-blue-200 bg-blue-100/60 font-bold">
-                                    <td colSpan={3} className="px-3 py-2 text-right text-gray-700">Total GST Collected:</td>
+                                    <td colSpan={5} className="px-3 py-2 text-right text-gray-700">Total GST Collected:</td>
                                     <td className="px-3 py-2 text-right text-gray-700">₹{totalSub.toFixed(2)}</td>
                                     <td className="px-3 py-2 text-right text-blue-900">₹{totalGst.toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-right text-emerald-800">₹{(totalSub + totalGst).toFixed(2)}</td>
                                   </tr>
                                 </tfoot>
                               </table>
@@ -6844,14 +7244,12 @@ Valid Until: ${quotationValidUntil || "—"}
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">Subtotal Amount (₹)</label>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">Subtotal Amount (₹) [Auto-calculated]</label>
                             <input
-                              type="number"
-                              min="0"
-                              value={quotationSubtotalInput}
-                              onChange={(e) => handleSubtotalChange(e.target.value)}
-                              disabled={isApproved}
-                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              type="text"
+                              value={quotationSubtotalInput ? `₹${Number(quotationSubtotalInput).toLocaleString("en-IN")}` : "—"}
+                              readOnly
+                              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 outline-none"
                             />
                           </div>
                           <div>
@@ -6950,6 +7348,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                     shippingCharges: quotationShippingInput,
                                     otherCharges: quotationOtherInput,
                                     subtotalAmount: quotationSubtotalInput,
+                                    lineUnitPrices: quotationLineUnitPrices,
                                   })
                                 }
                               >
@@ -7031,16 +7430,37 @@ Valid Until: ${quotationValidUntil || "—"}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/80">Remaining to Invoice</p>
-                    <p className="text-sm font-black text-emerald-950">
-                      ₹{Number(Math.max(0, (billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0) - (billOrder.paidAmount || 0))).toLocaleString()}
-                    </p>
+                    {(() => {
+                      const totalVal = Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0);
+                      const paidVal = Number(billOrder.paidAmount || 0);
+                      const prevDiscount = Number(lastReceipt?.billDetails?.discount || 0);
+                      const totalEffectivePaid = paidVal + prevDiscount;
+                      const remVal = Math.max(0, Number((totalVal - totalEffectivePaid).toFixed(2)));
+                      if (remVal <= 0.50 && paidVal > 0) {
+                        return (
+                          <>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/80">Invoice Mode</p>
+                            <p className="text-xs font-black text-emerald-950">
+                              Full Order (Paid in Full)
+                            </p>
+                          </>
+                        );
+                      }
+                      return (
+                        <>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/80">Remaining to Invoice</p>
+                          <p className="text-sm font-black text-emerald-950">
+                            ₹{remVal.toLocaleString()}
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-emerald-100/65 text-[11px] text-emerald-800 grid grid-cols-2 gap-y-1 gap-x-4">
                   <span>Approved Total: ₹{Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0).toLocaleString()}</span>
                   <span>Approved Subtotal: ₹{Number(billOrder.subtotalAmount || billOrder.quotation?.subtotalAmount || billOrder.totalAmount || 0).toLocaleString()}</span>
-                  <span>Approved Tax: {billOrder.taxRate || billOrder.quotation?.taxRate || 0}%</span>
+                  <span>Approved Tax: {billOrder.taxRate || billOrder.quotation?.taxRate || 18}%</span>
                   <span>Approved Shipping: ₹{Number(billOrder.shippingCharges || billOrder.quotation?.shippingCharges || 0).toLocaleString()}</span>
                   <span>Paid So Far: ₹{Number(billOrder.paidAmount || 0).toLocaleString()}</span>
                   {(billOrder.otherCharges || billOrder.quotation?.otherCharges) > 0 && <span>Approved Other: ₹{Number(billOrder.otherCharges || billOrder.quotation?.otherCharges || 0).toLocaleString()}</span>}
@@ -7096,12 +7516,11 @@ Valid Until: ${quotationValidUntil || "—"}
                     onChange={(e) => setBillPaymentMode(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white"
                   >
-                    <option value="cash">Cash</option>
-                    <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="card">Card / Cheque</option>
-                    <option value="invoice">Invoice (Unpaid/Default)</option>
-                    <option value="refund">Refund</option>
+                    <option value="invoice">Invoice Issued (Unpaid / Demand for Payment)</option>
+                    <option value="cash">Cash (Payment Collected Now)</option>
+                    <option value="upi">UPI (Payment Collected Now)</option>
+                    <option value="bank_transfer">Bank Transfer (Payment Collected Now)</option>
+                    <option value="card">Card / Cheque (Payment Collected Now)</option>
                   </select>
                 </div>
                 <div>
@@ -7186,7 +7605,10 @@ Valid Until: ${quotationValidUntil || "—"}
                     const discountVal = Number(billDiscount || 0);
                     const computedGrandTotal = Number((Number(billSubtotal || 0) - discountVal + totalGst + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2));
                     const approvedTotal = Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0);
-                    const remainingToInvoiceVal = Number((approvedTotal - Number(billOrder.paidAmount || 0) - computedGrandTotal).toFixed(2));
+                    const prevDiscount = Number(lastReceipt?.billDetails?.discount || 0);
+                    const paidVal = Number(billOrder.paidAmount || 0);
+                    const effectiveInvoiced = computedGrandTotal + discountVal;
+                    const remainingToInvoiceVal = Number((approvedTotal - paidVal - prevDiscount - effectiveInvoiced).toFixed(2));
                     return (
                       <div className="sm:col-span-2 space-y-3">
                         <div>
@@ -7198,7 +7620,7 @@ Valid Until: ${quotationValidUntil || "—"}
                             className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-emerald-800 outline-none"
                           />
                         </div>
-                        {remainingToInvoiceVal > 0.01 && (
+                        {remainingToInvoiceVal > 1.00 && (
                           <div className="rounded-xl bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-800 animate-fade-in">
                             <p className="font-bold flex items-center gap-1 text-amber-900"><span>⚠️ Partial Invoice Detected</span></p>
                             <p className="mt-0.5">Remaining approved order balance to be invoiced later: <span className="font-bold text-amber-950">₹{remainingToInvoiceVal.toLocaleString()}</span></p>
@@ -7290,7 +7712,8 @@ Valid Until: ${quotationValidUntil || "—"}
                           billDiscount,
                           billNotes,
                           billSubtotal,
-                          billOther
+                          billOther,
+                          lineUnitPrices: quotationLineUnitPrices,
                         })
                       }
                     >
@@ -7558,19 +7981,25 @@ Valid Until: ${quotationValidUntil || "—"}
                               const missingMats = availabilityResult.materialRequirements?.filter(m => !m.isAvailable) || [];
                               if (missingMats.length > 0) {
                                 return (
-                                  <div className="rounded-2xl border border-dashed border-red-200 bg-white p-3 space-y-2">
+                                  <div className="rounded-2xl border border-dashed border-red-200 bg-white p-3.5 space-y-2">
                                     <h4 className="text-xs font-black text-red-955 flex items-center gap-1.5">
-                                      🛒 Shopping List (Need to Buy)
+                                      🛒 Shopping List (Net Need to Buy)
                                     </h4>
-                                    <p className="text-[10px] text-gray-400 font-medium">Please buy the following amounts of missing raw materials:</p>
-                                    <ul className="space-y-1.5">
+                                    <p className="text-[10px] text-gray-500 font-medium">After deducting your factory's existing raw material stock:</p>
+                                    <ul className="space-y-2">
                                       {missingMats.map((mat, i) => {
-                                        const usable = mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0;
-                                        const shortfall = Math.max(0, Number(mat.totalQuantity) - usable);
+                                        const usable = mat.availableStock != null ? Number(mat.availableStock) : (mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0);
+                                        const totalNeeded = Number(mat.totalQuantity || 0);
+                                        const shortfall = Math.max(0, totalNeeded - usable);
                                         return (
-                                          <li key={i} className="flex items-center justify-between rounded-xl bg-red-50/30 px-3 py-2 text-xs font-bold text-red-950 border border-red-100/50">
-                                            <span>❌ {mat.name}</span>
-                                            <span className="bg-red-100 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold text-red-800">
+                                          <li key={i} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl bg-red-50/40 px-3 py-2.5 text-xs border border-red-100/60 gap-2">
+                                            <div className="flex flex-col gap-0.5">
+                                              <span className="font-bold text-red-950">❌ {mat.name}</span>
+                                              <span className="text-[10px] text-gray-600 font-medium">
+                                                Total Needed: <strong>{totalNeeded.toFixed(2)} {mat.unit || 'kg'}</strong> | In Stock: <span className="text-emerald-700 font-bold">{usable.toFixed(2)} {mat.unit || 'kg'}</span>
+                                              </span>
+                                            </div>
+                                            <span className="bg-red-100 text-red-800 px-2.5 py-1 rounded-full text-[11px] font-black self-start sm:self-center">
                                               Need {shortfall.toFixed(2)} {mat.unit || 'kg'} more
                                             </span>
                                           </li>
@@ -8167,13 +8596,10 @@ Valid Until: ${quotationValidUntil || "—"}
                                   <tbody className="divide-y divide-gray-50">
                                     {availabilityResult.materialRequirements.map((mat, idx) => {
                                       const usable =
-                                        mat.availableStockAtCheck != null
-                                          ? Number(mat.availableStockAtCheck)
-                                          : null;
-                                      const shortfall =
-                                        usable != null
-                                          ? Math.max(0, Number(mat.totalQuantity) - usable)
-                                          : null;
+                                        mat.availableStock != null
+                                          ? Number(mat.availableStock)
+                                          : (mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0);
+                                      const shortfall = Math.max(0, Number(mat.totalQuantity) - usable);
                                       return (
                                         <tr key={idx} className={mat.isAvailable ? "" : "bg-red-50/30 text-red-800"}>
                                           <td className="px-3 py-3 font-medium">
@@ -9858,7 +10284,8 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   // Return form states
   const [returnType, setReturnType] = useState("complete"); // complete, partial
   const [selectedItems, setSelectedItems] = useState({}); // { [productId]: boolean }
-  const [returnQuantities, setReturnQuantities] = useState({}); // { [productId]: number }
+  const [returnQuantities, setReturnQuantities] = useState({}); // { [productId]: number | string }
+  const [returnUnits, setReturnUnits] = useState({}); // { [productId]: "kg" | "pcs" }
   const [refundType, setRefundType] = useState("full"); // full, partial
   const [customRefundAmount, setCustomRefundAmount] = useState("");
   const [gstType, setGstType] = useState("complete"); // complete, custom
@@ -9971,6 +10398,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
 
       const selMap = {};
       const qtyMap = {};
+      const unitMap = {};
       lines.forEach(line => {
         const pId = String(line.productId?._id || line.productId || "").trim();
         const maxQty = Number(line.quantity || 0);
@@ -9979,9 +10407,11 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
 
         qtyMap[pId] = remainingQty;
         selMap[pId] = remainingQty > 0;
+        unitMap[pId] = line.unit || "kg";
       });
       setSelectedItems(selMap);
       setReturnQuantities(qtyMap);
+      setReturnUnits(unitMap);
     }
   }, [selectedOrderId, completedOrders]);
 
@@ -10098,6 +10528,33 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     return result;
   };
 
+  const getPcsPerUnit = (line) => {
+    if (!line) return 1;
+    const totalOrderedQty = Number(line.quantity || 1);
+    const convertedQtyInPcs = Number(line.convertedQuantity || line.quantityInPcs || totalOrderedQty);
+    return convertedQtyInPcs / Math.max(0.0001, totalOrderedQty);
+  };
+
+  const getReturnQtyInPrimaryUnit = (line) => {
+    if (!line) return 0;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const primaryUnit = line.unit || "kg";
+    const pcsPerUnit = getPcsPerUnit(line);
+
+    if (returnType === "complete") {
+      return getRemainingQty(line);
+    }
+    if (!selectedItems[pId]) return 0;
+
+    const rawInput = Number(returnQuantities[pId] || 0);
+    const selectedUnit = returnUnits[pId] || primaryUnit;
+
+    if (selectedUnit === "pcs") {
+      return rawInput / pcsPerUnit;
+    }
+    return rawInput;
+  };
+
   // Proportional base price calculator — works from exact GST-rate-based line allocations
   const calculateSuggestedProportionalRefund = () => {
     if (!selectedOrder) return 0;
@@ -10107,10 +10564,10 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     lines.forEach(line => {
       const pId = String(line.productId?._id || line.productId || "").trim();
       if (returnType === "complete" || selectedItems[pId]) {
-        const retQty = returnType === "complete" ? getRemainingQty(line) : Number(returnQuantities[pId] || 0);
-        if (retQty <= 0) return;
+        const retQtyInPrimaryUnit = getReturnQtyInPrimaryUnit(line);
+        if (retQtyInPrimaryUnit <= 0) return;
         const alloc = allocs[pId];
-        total += retQty * (alloc?.unitPaidPrice || 0);
+        total += retQtyInPrimaryUnit * (alloc?.unitPaidPrice || 0);
       }
     });
     return Number(total.toFixed(2));
@@ -10132,11 +10589,11 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
       lines.forEach(line => {
         const pId = String(line.productId?._id || line.productId || "").trim();
         if (returnType === "complete" || selectedItems[pId]) {
-          const retQty = returnType === "complete" ? getRemainingQty(line) : Number(returnQuantities[pId] || 0);
-          if (retQty <= 0) return;
+          const retQtyInPrimaryUnit = getReturnQtyInPrimaryUnit(line);
+          if (retQtyInPrimaryUnit <= 0) return;
           const alloc = allocs[pId];
           if (!alloc) return;
-          const lineGrossRefund = retQty * alloc.unitPaidPrice;
+          const lineGrossRefund = retQtyInPrimaryUnit * alloc.unitPaidPrice;
           // Extract GST portion from within the GST-inclusive total
           const gstPortion = lineGrossRefund * (alloc.gstRate / (100 + alloc.gstRate));
           totalGst += gstPortion;
@@ -10160,11 +10617,11 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     lines.forEach(line => {
       const pId = String(line.productId?._id || line.productId || "").trim();
       if (returnType === "complete" || selectedItems[pId]) {
-        const retQty = returnType === "complete" ? getRemainingQty(line) : Number(returnQuantities[pId] || 0);
-        if (retQty <= 0) return;
+        const retQtyInPrimaryUnit = getReturnQtyInPrimaryUnit(line);
+        if (retQtyInPrimaryUnit <= 0) return;
         const alloc = allocs[pId];
         if (!alloc) return;
-        const lineGrossRefund = retQty * alloc.unitPaidPrice;
+        const lineGrossRefund = retQtyInPrimaryUnit * alloc.unitPaidPrice;
         const gstPortion = lineGrossRefund * (alloc.gstRate / (100 + alloc.gstRate));
 
         const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
@@ -10188,10 +10645,11 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   };
 
   const handleQuantityChange = (pId, val, max) => {
-    const num = Math.min(max, Math.max(1, Number(val || 0)));
+    const rawNum = Number(val || 0);
+    const num = Math.min(max, Math.max(0, rawNum));
     setReturnQuantities(prev => ({
       ...prev,
-      [pId]: num
+      [pId]: val === "" ? "" : num
     }));
   };
 
@@ -10224,14 +10682,36 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
         const remainingQty = Math.max(0, maxQty - alreadyReturned);
 
         if (returnType === "complete" || selectedItems[pId]) {
-          const qtyToReturn = returnType === "complete" ? remainingQty : Number(returnQuantities[pId] || 0);
-          if (qtyToReturn > 0) {
+          const primaryUnit = line.unit || "kg";
+          const pcsPerUnit = getPcsPerUnit(line);
+          const selectedUnit = returnUnits[pId] || primaryUnit;
+
+          let qtyInPrimaryUnit = 0;
+          let qtyInPcs = 0;
+
+          if (returnType === "complete") {
+            qtyInPrimaryUnit = remainingQty;
+            qtyInPcs = Math.round(remainingQty * pcsPerUnit);
+          } else {
+            const inputVal = Number(returnQuantities[pId] || 0);
+            if (selectedUnit === "pcs") {
+              qtyInPcs = inputVal;
+              qtyInPrimaryUnit = inputVal / pcsPerUnit;
+            } else {
+              qtyInPrimaryUnit = inputVal;
+              qtyInPcs = Math.round(inputVal * pcsPerUnit);
+            }
+          }
+
+          if (qtyInPrimaryUnit > 0) {
             const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
             returnItems.push({
               productId: pId,
               productName: pObj?.name || selectedOrder.productCategory || "Product",
-              quantity: qtyToReturn,
-              unit: line.unit || "pcs",
+              quantity: Number(qtyInPrimaryUnit.toFixed(4)),
+              quantityInPcs: qtyInPcs,
+              unit: primaryUnit,
+              returnUnit: selectedUnit,
               dimensions: line.dimensions,
               color: line.color,
               bagSize: line.bagSize,
@@ -10487,7 +10967,16 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500 font-medium">GST Rate</span>
-                    <span className="font-semibold text-gray-850">{selectedOrder.quotation.taxRate || selectedOrder.taxRate || 0}%</span>
+                    <span className="font-semibold text-gray-850">
+                      {(() => {
+                        const dominantGstRate = getOrderLines().reduce((rate, line) => {
+                          const pId = String(line.productId?._id || line.productId || "").trim();
+                          const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+                          return line.gstRate || pObj?.gstRate || rate;
+                        }, 18);
+                        return selectedOrder.quotation?.taxRate || selectedOrder.taxRate || dominantGstRate || 18;
+                      })()}%
+                    </span>
                   </div>
                   <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-gray-900">
                     <span>Total Quoted</span>
@@ -10671,20 +11160,77 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
                             )}
                           </div>
 
-                          {returnType === "partial" && isChecked && remainingQty > 0 && (
-                            <div className="flex items-center gap-2 pt-2">
-                              <span className="text-xs font-bold text-red-700">Qty to Return:</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={remainingQty}
-                                value={returnQuantities[pId] || ""}
-                                onChange={(e) => handleQuantityChange(pId, e.target.value, remainingQty)}
-                                className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-800 focus:border-red-500 outline-none font-bold"
-                              />
-                              <span className="text-[10px] font-semibold text-gray-500">(Max: {remainingQty} {line.unit || "pcs"})</span>
-                            </div>
-                          )}
+                          {returnType === "partial" && isChecked && remainingQty > 0 && (() => {
+                            const primaryUnit = line.unit || "kg";
+                            const pcsPerUnit = getPcsPerUnit(line);
+                            const currentUnit = returnUnits[pId] || primaryUnit;
+                            const isPcsSelected = currentUnit === "pcs";
+                            const maxQtyForSelectedUnit = isPcsSelected ? Math.round(remainingQty * pcsPerUnit) : remainingQty;
+                            const stepVal = isPcsSelected ? "1" : "0.01";
+                            const minVal = isPcsSelected ? "1" : "0.01";
+
+                            return (
+                              <div className="flex flex-col gap-2 pt-2 border-t border-gray-150 mt-2">
+                                {primaryUnit !== "pcs" && pcsPerUnit > 1 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-gray-500">Return Unit:</span>
+                                    <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setReturnUnits(prev => ({ ...prev, [pId]: primaryUnit }));
+                                          setReturnQuantities(prev => ({ ...prev, [pId]: remainingQty }));
+                                        }}
+                                        className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-all ${
+                                          !isPcsSelected ? "bg-white text-red-700 shadow-xs border border-gray-200" : "text-gray-500 hover:text-gray-800"
+                                        }`}
+                                      >
+                                        {primaryUnit}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setReturnUnits(prev => ({ ...prev, [pId]: "pcs" }));
+                                          setReturnQuantities(prev => ({ ...prev, [pId]: Math.round(remainingQty * pcsPerUnit) }));
+                                        }}
+                                        className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-all ${
+                                          isPcsSelected ? "bg-white text-red-700 shadow-xs border border-gray-200" : "text-gray-500 hover:text-gray-800"
+                                        }`}
+                                      >
+                                        pcs (pieces)
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs font-bold text-red-700">Qty to Return:</span>
+                                  <input
+                                    type="number"
+                                    min={minVal}
+                                    step={stepVal}
+                                    max={maxQtyForSelectedUnit}
+                                    value={returnQuantities[pId] !== undefined ? returnQuantities[pId] : ""}
+                                    onChange={(e) => handleQuantityChange(pId, e.target.value, maxQtyForSelectedUnit)}
+                                    placeholder={isPcsSelected ? "e.g. 200" : "e.g. 0.5"}
+                                    className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-800 focus:border-red-500 outline-none font-bold bg-white"
+                                  />
+                                  <span className="text-[10px] font-semibold text-gray-500">
+                                    (Max: {maxQtyForSelectedUnit} {currentUnit})
+                                    {!isPcsSelected && pcsPerUnit > 1 && Number(returnQuantities[pId] || 0) > 0 && (
+                                      <span className="ml-1 text-emerald-700 font-bold">
+                                        (≈ {Math.round(Number(returnQuantities[pId] || 0) * pcsPerUnit)} pcs)
+                                      </span>
+                                    )}
+                                    {isPcsSelected && pcsPerUnit > 1 && Number(returnQuantities[pId] || 0) > 0 && (
+                                      <span className="ml-1 text-emerald-700 font-bold">
+                                        (≈ {(Number(returnQuantities[pId] || 0) / pcsPerUnit).toFixed(2)} {primaryUnit})
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
