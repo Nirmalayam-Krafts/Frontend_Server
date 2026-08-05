@@ -217,11 +217,14 @@ export const throttle = (func, limit) => {
   };
 };
 
+import { getSystemGstConfigFromStorage } from "../../utils/gstConfig.js";
+
 /**
  * Dynamic Tax and HSN Calculator / Fallback
  */
 export const getProductTaxInfo = (product) => {
-  if (!product) return { hsnCode: "—", gstRate: 18 };
+  const sysConfig = getSystemGstConfigFromStorage();
+  if (!product) return { hsnCode: sysConfig.defaultHsnCode || "4819 40 00", gstRate: sysConfig.gstEnabled ? sysConfig.defaultGstRate : 0 };
   
   const category = String(product.category || product.productCategory || "").toLowerCase();
   const isKraftRoll = category.includes("roll");
@@ -254,10 +257,11 @@ export const getProductTaxInfo = (product) => {
   }
   
   if (gst == null || gst === "—" || String(gst).trim() === "") {
-    gst = isKraftRoll ? 12 : 18;
+    gst = sysConfig.defaultGstRate ?? 5;
   }
   
-  return { hsnCode: hsn, gstRate: Number(gst) };
+  const finalGstRate = sysConfig.gstEnabled ? Number(gst) : 0;
+  return { hsnCode: hsn, gstRate: finalGstRate };
 };
 
 export const exportToExcel = (headers, rows, filename = "export") => {

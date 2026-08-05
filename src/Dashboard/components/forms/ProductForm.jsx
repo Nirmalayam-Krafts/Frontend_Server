@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui";
 import { useGetAllRawMaterials } from "../../../../hook/RawMaterial";
+import { useAuthContext } from "../../../context/Adminauth";
 import toast from "react-hot-toast";
 
 const PRODUCT_CATEGORY_OPTIONS = [
@@ -68,7 +69,11 @@ const getInitialState = (initialData = null) => {
       weight: "",
       lengthInMeters: "",
       hsnCode: "",
-      gstRate: 18,
+      gstRate: 5,
+      hsn_source: "master",
+      hsn_master_id: "",
+      custom_hsn_code: "",
+      custom_gst_rate: "",
     };
   }
 
@@ -114,14 +119,51 @@ const getInitialState = (initialData = null) => {
     lengthInMeters: initialData?.lengthInMeters || "",
     bf: initialData?.bf || "",
     hsnCode: initialData?.hsnCode || "",
-    gstRate: initialData?.gstRate ?? 18,
+    gstRate: initialData?.gstRate ?? 5,
+    hsn_source: initialData?.hsn_source || "master",
+    hsn_master_id: initialData?.hsn_master_id?._id || initialData?.hsn_master_id || "",
+    custom_hsn_code: initialData?.custom_hsn_code || "",
+    custom_gst_rate: initialData?.custom_gst_rate ?? "",
   };
 };
 
 const ProductForm = ({ initialData = null, onSubmit }) => {
   const navigate = useNavigate();
+  const { axiosInstance } = useAuthContext();
   const [formData, setFormData] = useState(getInitialState(initialData));
   const [sizePreset, setSizePreset] = useState("custom");
+  const [hsnMasterList, setHsnMasterList] = useState([]);
+  const [hsnSearchTerm, setHsnSearchTerm] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    axiosInstance.get("/hsn-master")
+      .then((res) => {
+        if (isMounted && res.data?.data && Array.isArray(res.data.data)) {
+          setHsnMasterList(res.data.data);
+        }
+      })
+      .catch((err) => console.error("Failed to load HSN Master options:", err));
+    return () => { isMounted = false; };
+  }, [axiosInstance]);
+
+  // Auto-assign default HSN Master selection for new product or if unassigned
+  useEffect(() => {
+    if (!initialData && hsnMasterList.length > 0 && formData.hsn_source !== "custom" && !formData.hsn_master_id) {
+      const isRoll = String(formData.category || "").toLowerCase().includes("roll");
+      const defaultCode = isRoll ? "4804" : "4819";
+      const match = hsnMasterList.find(h => String(h.hsn_code) === defaultCode) || hsnMasterList[0];
+      if (match) {
+        setFormData(prev => ({
+          ...prev,
+          hsn_source: "master",
+          hsn_master_id: match._id || match.id,
+          hsnCode: match.hsn_code,
+          gstRate: match.gst_rate,
+        }));
+      }
+    }
+  }, [initialData, hsnMasterList, formData.category, formData.hsn_source, formData.hsn_master_id]);
 
   const getWidthInCm = (width, unit) => {
     const w = Number(width) || 0;
@@ -132,45 +174,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
     return w;
   };
 
-  React.useEffect(() => {
-    const category = String(formData.category || "").toLowerCase();
-    const isKraftRoll = category.includes("roll");
-    
-    let hsn = "";
-    let gst = 18;
-    
-    if (isKraftRoll) {
-      gst = 12;
-      const gsmVal = Number(formData.gsm) || 0;
-      if (gsmVal <= 0) {
-        hsn = "4804 39 00";
-      } else if (gsmVal <= 150) {
-        hsn = "4804 39 00";
-      } else if (gsmVal < 225) {
-        hsn = "4804 49 00";
-      } else {
-        hsn = "4804 59 00";
-      }
-    } else {
-      gst = 18;
-      const widthVal = Number(formData.dimensions?.width) || 0;
-      const unit = formData.dimensions?.unit || "inch";
-      const widthCm = getWidthInCm(widthVal, unit);
-      if (widthCm >= 40) {
-        hsn = "4819 30 00";
-      } else {
-        hsn = "4819 40 00";
-      }
-    }
-    
-    if (formData.hsnCode !== hsn || formData.gstRate !== gst) {
-      setFormData(prev => ({
-        ...prev,
-        hsnCode: hsn,
-        gstRate: gst
-      }));
-    }
-  }, [formData.category, formData.dimensions?.width, formData.dimensions?.unit, formData.gsm, formData.hsnCode, formData.gstRate]);
+
 
   const isRoll = useMemo(() => {
     return String(formData.category || "").toLowerCase().includes("roll");
@@ -391,21 +395,57 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       return;
     }
 
-    const hasGsmMismatch = formData.rawMaterials.some((item) => {
+    // Validate specification alignment between Product specs and selected BOM Raw Materials
+    for (const item of formData.rawMaterials) {
+      if (!item.rawMaterialId) continue;
       const selectedRaw = rawMaterialOptions.find(
         (raw) => String(raw._id || raw.id) === String(item.rawMaterialId)
       );
-      if (selectedRaw && selectedRaw.type === "Paper") {
+
+      const isPaperType = selectedRaw && (
+        selectedRaw.type === "Paper" ||
+        String(selectedRaw.type || "").toLowerCase().includes("paper") ||
+        String(selectedRaw.category || "").toLowerCase().includes("paper") ||
+        String(selectedRaw.category || "").toLowerCase().includes("roll")
+      );
+
+      if (isPaperType) {
+        const rawName = selectedRaw.name || selectedRaw.rawMaterialName || "selected raw material";
         const productGsm = Number(formData.gsm || 0);
         const rawGsm = Number(selectedRaw.gsm || 0);
-        return productGsm !== rawGsm;
-      }
-      return false;
-    });
 
-    if (hasGsmMismatch) {
-      toast.error("The GSM of the selected Paper raw material must match the Product's GSM.");
-      return;
+        // 1. GSM Validation
+        if (rawGsm > 0 && productGsm > 0 && productGsm !== rawGsm) {
+          toast.error(`GSM Mismatch: Product GSM is ${productGsm} GSM, but raw material "${rawName}" is ${rawGsm} GSM.`);
+          return;
+        }
+
+        // 2. BF (Burst Factor) Validation
+        const productBf = Number(formData.bf || 0);
+        const rawBf = Number(selectedRaw.bf || 0);
+        if (rawBf > 0 && productBf > 0 && productBf !== rawBf) {
+          toast.error(`BF Mismatch: Product BF is ${productBf} BF, but raw material "${rawName}" is ${rawBf} BF.`);
+          return;
+        }
+
+        // 3. Roll Width Validation for Kraft Rolls
+        if (isRoll) {
+          const productWidth = Number(formData.dimensions?.width || 0);
+          const productUnit = formData.dimensions?.unit || "inch";
+          const rawWidth = Number(selectedRaw.rollWidth || selectedRaw.width || selectedRaw.dimensions?.width || 0);
+          const rawUnit = selectedRaw.rollWidthUnit || selectedRaw.dimensions?.unit || "inch";
+
+          if (rawWidth > 0 && productWidth > 0) {
+            const prodWidthCm = getWidthInCm(productWidth, productUnit);
+            const rawWidthCm = getWidthInCm(rawWidth, rawUnit);
+
+            if (Math.abs(prodWidthCm - rawWidthCm) > 0.1) {
+              toast.error(`Width Mismatch: Product Width is ${productWidth} ${productUnit}, but raw material "${rawName}" is ${rawWidth} ${rawUnit}.`);
+              return;
+            }
+          }
+        }
+      }
     }
 
     const payload = {
@@ -448,9 +488,26 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       lengthInMeters: isRoll && formData.lengthInMeters ? Number(formData.lengthInMeters) : undefined,
       bf: isRoll && formData.bf ? Number(formData.bf) : undefined,
       unit: isRoll ? "kg" : undefined,
-      hsnCode: formData.hsnCode,
-      gstRate: formData.gstRate ? Number(formData.gstRate) : undefined,
+      hsn_source: formData.hsn_source || "master",
+      hsn_master_id: formData.hsn_source === "master" ? (formData.hsn_master_id || null) : null,
+      custom_hsn_code: formData.hsn_source === "custom" ? String(formData.custom_hsn_code).trim() : null,
+      custom_gst_rate: formData.hsn_source === "custom" ? Number(formData.custom_gst_rate) : null,
+      hsnCode: formData.hsn_source === "custom" ? String(formData.custom_hsn_code).trim() : formData.hsnCode,
+      gstRate: formData.hsn_source === "custom" ? Number(formData.custom_gst_rate) : Number(formData.gstRate || 5),
     };
+
+    if (formData.hsn_source === "custom") {
+      const code = String(formData.custom_hsn_code || "").trim();
+      const rate = Number(formData.custom_gst_rate);
+      if (!code || !/^\d{4,8}$/.test(code)) {
+        toast.error("Custom HSN Code must be numeric and between 4 to 8 digits");
+        return;
+      }
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        toast.error("Custom GST Rate must be between 0% and 100%");
+        return;
+      }
+    }
 
     onSubmit(payload);
   };
@@ -560,22 +617,94 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-bold text-gray-800">
-              HSN Code (Auto-Calculated)
-            </label>
-            <div className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-gray-50 text-gray-700 font-bold select-all flex items-center h-[42px]">
-              {formData.hsnCode || "Pending Attributes..."}
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4 border border-slate-200">
+            <div>
+              <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                HSN Code Selection <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.hsn_source === "custom" ? "custom" : (formData.hsn_master_id || "")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "custom") {
+                    setFormData((prev) => ({
+                      ...prev,
+                      hsn_source: "custom",
+                      hsn_master_id: "",
+                      custom_hsn_code: prev.custom_hsn_code || prev.hsnCode || "",
+                      custom_gst_rate: prev.custom_gst_rate ?? prev.gstRate ?? 5,
+                    }));
+                  } else {
+                    const selected = hsnMasterList.find((h) => String(h._id || h.id) === String(val));
+                    setFormData((prev) => ({
+                      ...prev,
+                      hsn_source: "master",
+                      hsn_master_id: val,
+                      hsnCode: selected ? selected.hsn_code : prev.hsnCode,
+                      gstRate: selected ? selected.gst_rate : prev.gstRate,
+                    }));
+                  }
+                }}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-bold shadow-2xs"
+              >
+                <option value="" disabled>Select HSN Code...</option>
+                {hsnMasterList.map((opt) => (
+                  <option key={opt._id || opt.id} value={opt._id || opt.id}>
+                    HSN {opt.hsn_code} — {opt.description} ({opt.gst_rate}%)
+                  </option>
+                ))}
+                <option value="custom">⚙️ Custom / Other (Manual Code & Rate)</option>
+              </select>
             </div>
-          </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-bold text-gray-800">
-              GST Rate (Auto-Calculated)
-            </label>
-            <div className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-gray-50 text-gray-700 font-bold select-none flex items-center h-[42px]">
-              {formData.gstRate ? `${formData.gstRate}%` : "18%"}
-            </div>
+            {formData.hsn_source === "custom" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-gray-800">
+                    Custom HSN Code (4–8 Digits) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.custom_hsn_code}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 8);
+                      setFormData((prev) => ({ ...prev, custom_hsn_code: val, hsnCode: val }));
+                    }}
+                    placeholder="e.g. 4819"
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-gray-800">
+                    Custom GST Rate (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={formData.custom_gst_rate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData((prev) => ({ ...prev, custom_gst_rate: val, gstRate: Number(val) }));
+                    }}
+                    placeholder="5"
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-bold"
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                  Applicable GST Rate (Auto-Filled)
+                </label>
+                <div className="w-full rounded-xl border border-emerald-300 px-3 py-2.5 text-sm bg-emerald-100/80 text-emerald-950 font-black flex items-center h-[42px] shadow-2xs">
+                  {formData.gstRate != null ? `${formData.gstRate}% GST` : "Select HSN..."}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

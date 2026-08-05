@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Pagination } from "../../components/ui";
 import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { getEffectiveTaxRate, getSystemGstConfigFromStorage } from "../../../utils/gstConfig.js";
 import {
   FileText,
   Search,
@@ -30,6 +31,34 @@ import autoTable from "jspdf-autotable";
 const COMPANY_NAME = "Nirmalyam Krafts";
 
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
+  if (!lines || lines.length === 0) return 0;
+
+  // 1. If line items have explicit unitPrice / sellingPrice / lineTotal / amount, use exact values!
+  const getExplicitPrice = (l) => Number(l.unitPrice || l.sellingPrice || l.price || l.lineUnitPrice || 0);
+  const getExplicitTotal = (l) => {
+    const up = getExplicitPrice(l);
+    if (up > 0) return (Number(l.quantity || 0) * up);
+    if (l.lineTotal != null && Number(l.lineTotal) > 0) return Number(l.lineTotal);
+    if (l.amount != null && Number(l.amount) > 0) return Number(l.amount);
+    if (l.totalPrice != null && Number(l.totalPrice) > 0) return Number(l.totalPrice);
+    if (l.subtotal != null && Number(l.subtotal) > 0) return Number(l.subtotal);
+    return 0;
+  };
+
+  const hasExplicitTotals = lines.some(l => getExplicitTotal(l) > 0);
+  if (hasExplicitTotals) {
+    const rawLineVal = getExplicitTotal(line);
+    const totalExplicitAll = lines.reduce((sum, l) => sum + getExplicitTotal(l), 0);
+
+    if (totalExplicitAll > 0 && (subtotal <= 0 || Math.abs(totalExplicitAll - subtotal) < 1)) {
+      return rawLineVal; // EXACT MATCH to quotation line total!
+    }
+    if (totalExplicitAll > 0) {
+      return subtotal * (rawLineVal / totalExplicitAll);
+    }
+  }
+
+  // 2. Fallback: Proportional share calculation
   let totalSuggestedOfAll = 0;
   const lineSuggestedVals = lines.map(l => {
     const pr = pricing?.perProductResults?.find(p => String(p.productId) === String(l.productId));
@@ -64,7 +93,7 @@ const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = nul
   const match = lineSuggestedVals.find(v => String(v.lineId) === String(line.productId || line._id));
   const lineSuggested = match ? match.suggested : 0;
   const lineShareFraction = totalSuggestedOfAll > 0 ? (lineSuggested / totalSuggestedOfAll) : (1 / lines.length);
-  return subtotal * lineShareFraction;
+  return subtotal > 0 ? (subtotal * lineShareFraction) : lineSuggested;
 };
 
 export const Receipts = () => {
@@ -287,53 +316,74 @@ export const Receipts = () => {
     }, 0);
   }, [filteredReceipts]);
 
+  const getReceiptGstPortion = (rc, ordersList, receiptsList) => {
+    const ord = (ordersList || []).find((o) => String(o._id || o.id || "").trim() === String(rc.orderId || "").trim());
+
+    let taxAmount = 0;
+    let totalOrderAmount = 0;
+
+    if (ord) {
+      totalOrderAmount = Number(ord.totalAmount || 0);
+      const subtotal = Number(ord.subtotalAmount || 0);
+      const taxRate = Number(ord.taxRate || ord.quotation?.taxRate || 0);
+
+      let rawTax = Number(ord.taxAmount || ord.quotation?.taxAmount || 0);
+      if (rawTax > 0) {
+        taxAmount = rawTax;
+      } else if (subtotal > 0 && taxRate > 0) {
+        taxAmount = subtotal * (taxRate / 100);
+      } else if (totalOrderAmount > 0 && taxRate > 0) {
+        taxAmount = totalOrderAmount - (totalOrderAmount / (1 + taxRate / 100));
+      } else {
+        const lines = ord.orderDetailsList && ord.orderDetailsList.length > 0
+          ? ord.orderDetailsList
+          : [ord.orderDetails].filter(Boolean);
+        taxAmount = lines.reduce((acc, line) => {
+          if (!line) return acc;
+          const lSub = Number(line.subtotal || ((line.quantity || 0) * (line.unitPrice || 0)) || 0);
+          const lRate = Number(line.gstRate || taxRate || 0);
+          return acc + (lSub * (lRate / 100));
+        }, 0);
+      }
+    } else {
+      const siblingBill = (receiptsList || []).find(
+        (r) => String(r.orderId || "").trim() === String(rc.orderId || "").trim() && r.billDetails && r.billDetails.taxRate != null
+      );
+      if (siblingBill) {
+        const taxRate = Number(siblingBill.billDetails.taxRate || 0);
+        const subtotal = Number(siblingBill.billDetails.subtotal || 0);
+        taxAmount = subtotal * (taxRate / 100);
+        totalOrderAmount = Number(siblingBill.totalOrderAmount || siblingBill.totalAmount || 0);
+      } else if (rc.billDetails && rc.billDetails.taxRate != null) {
+        const taxRate = Number(rc.billDetails.taxRate || 0);
+        const subtotal = Number(rc.billDetails.subtotal || 0);
+        taxAmount = subtotal * (taxRate / 100);
+        totalOrderAmount = Number(rc.totalOrderAmount || rc.totalAmount || 0);
+      }
+    }
+
+    const isRefund = rc.paymentMode === "refund" || rc.type === "refund";
+    if (isRefund) {
+      if (ord) {
+        const returnItem = ord.returns?.find((r) => r.returnNumber === rc.receiptNumber);
+        if (returnItem && returnItem.gstRefundAmount != null) {
+          return -Number(returnItem.gstRefundAmount || 0);
+        }
+      }
+      const refundAmt = Number(rc.amount || 0);
+      return totalOrderAmount > 0 ? -(taxAmount * (refundAmt / totalOrderAmount)) : 0;
+    }
+
+    const paidAmount = Number(rc.amount || 0);
+    if (totalOrderAmount > 0) {
+      return taxAmount * (paidAmount / totalOrderAmount);
+    }
+    return 0;
+  };
+
   const totalGstCollected = useMemo(() => {
     return filteredReceipts.reduce((sum, rc) => {
-      const ord = allOrdersList.find((o) => o._id === rc.orderId);
-      
-      let taxRate = 0;
-      let taxAmount = 0;
-      let totalOrderAmount = 0;
-
-      if (ord) {
-        taxRate = Number(ord.quotation?.taxRate || ord.taxRate || 0);
-        taxAmount = Number(ord.quotation?.taxAmount || ord.taxAmount || 0);
-        totalOrderAmount = Number(ord.totalAmount || 0);
-      } else {
-        const siblingBill = receipts.find(
-          (r) => r.orderId === rc.orderId && r.billDetails && r.billDetails.taxRate != null
-        );
-        if (siblingBill) {
-          taxRate = Number(siblingBill.billDetails.taxRate || 0);
-          const subtotal = Number(siblingBill.billDetails.subtotal || 0);
-          taxAmount = subtotal * (taxRate / 100);
-          totalOrderAmount = Number(siblingBill.totalOrderAmount || siblingBill.totalAmount || 0);
-        } else if (rc.billDetails && rc.billDetails.taxRate != null) {
-          taxRate = Number(rc.billDetails.taxRate || 0);
-          const subtotal = Number(rc.billDetails.subtotal || 0);
-          taxAmount = subtotal * (taxRate / 100);
-          totalOrderAmount = Number(rc.totalOrderAmount || rc.totalAmount || 0);
-        }
-      }
-
-      const isRefund = rc.paymentMode === "refund" || rc.type === "refund";
-      if (isRefund) {
-        if (ord) {
-          const returnItem = ord.returns?.find((r) => r.returnNumber === rc.receiptNumber);
-          if (returnItem && returnItem.gstRefundAmount != null) {
-            return sum - Number(returnItem.gstRefundAmount || 0);
-          }
-        }
-        const refundAmt = Number(rc.amount || 0);
-        const estimatedRefundGst = totalOrderAmount > 0 ? (taxAmount * (refundAmt / totalOrderAmount)) : 0;
-        return sum - estimatedRefundGst;
-      }
-
-      const paidAmount = Number(rc.amount || 0);
-      if (totalOrderAmount > 0) {
-        return sum + (taxAmount * (paidAmount / totalOrderAmount));
-      }
-      return sum;
+      return sum + getReceiptGstPortion(rc, allOrdersList, receipts);
     }, 0);
   }, [filteredReceipts, allOrdersList, receipts]);
 
@@ -459,6 +509,30 @@ export const Receipts = () => {
     const addressLines = doc.splitTextToSize(rc.deliveryAddress || "Pickup / Standard Delivery", 85);
     doc.text(addressLines, 110, 58);
     
+    // Lookup target order from allOrdersList if rc is a receipt/bill record
+    const targetOrderId = String(rc.orderId?._id || rc.orderId || rc.order || "").trim();
+    const matchingOrder = (allOrdersList || []).find(o =>
+      String(o._id || o.id || "").trim() === targetOrderId ||
+      String(o.orderId || "").trim() === String(rc.orderId || "").trim() ||
+      String(o.reference || "").toLowerCase().trim() === String(rc.orderRef || "").toLowerCase().trim()
+    ) || rc;
+
+    // Item Table
+    const billDetails = rc.billDetails || matchingOrder?.billDetails || {};
+    const subtotal = Number(
+      billDetails.subtotal ||
+      matchingOrder?.subtotalAmount ||
+      matchingOrder?.quotation?.subtotalAmount ||
+      rc.subtotalAmount ||
+      rc.totalOrderAmount ||
+      rc.amount || 0
+    );
+    const preTaxDiscountVal = Number(billDetails.preTaxDiscount ?? (billDetails.postTaxDiscount == null ? (billDetails.discount || rc.discountAmount || 0) : 0));
+    const postTaxDiscountVal = Number(billDetails.postTaxDiscount ?? 0);
+    const shippingVal = Number(billDetails.shipping || rc.shippingCharges || 0);
+    const otherVal = Number(billDetails.other || rc.otherCharges || 0);
+    const taxRate = Number(billDetails.taxRate || 0);
+
     // Invoice Meta Table or Section
     const termsY = 85;
     doc.setFillColor(245, 247, 246);
@@ -466,18 +540,35 @@ export const Receipts = () => {
     doc.setTextColor(40, 40, 40);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
+    const pdfPaidSoFar = Number(rc.paidSoFar || matchingOrder?.paidSoFar || 0);
+    const pdfPaymentStatusText = pdfPaidSoFar <= 0
+      ? "UNPAID"
+      : (rc.isPaidInFull || pdfPaidSoFar >= ((subtotal - preTaxDiscountVal + shippingVal + otherVal) - postTaxDiscountVal) - 0.01 ? "PAID IN FULL" : "PARTIAL PAID");
+
     doc.text(`Due Date: ${rc.billDetails?.dueDate ? new Date(rc.billDetails.dueDate).toLocaleDateString() : "—"}`, 20, termsY + 6.5);
-    doc.text(`Payment Mode: ${String(rc.paymentMode || "invoice").toUpperCase()}  |  Payment Status: ${rc.isPaidInFull ? "PAID IN FULL" : "PARTIAL PAID"}`, 95, termsY + 6.5);
-    
-    // Item Table
-    const billDetails = rc.billDetails || {};
-    const subtotal = Number(billDetails.subtotal || rc.amount || 0);
-    const discountVal = Number(billDetails.discount || 0);
-    const shippingVal = Number(billDetails.shipping || 0);
-    const otherVal = Number(billDetails.other || 0);
-    const taxRate = Number(billDetails.taxRate || 0);
-    
-    const lines = rc.orderDetailsList || [];
+    doc.text(`Payment Mode: ${String(rc.paymentMode || "invoice").toUpperCase()}  |  Payment Status: ${pdfPaymentStatusText}`, 95, termsY + 6.5);
+
+    const baseQuotationItems = matchingOrder?.quotation?.items?.length > 0
+      ? matchingOrder.quotation.items
+      : (matchingOrder?.orderDetailsList?.length > 0 ? matchingOrder.orderDetailsList : (rc.quotation?.items || rc.orderDetailsList || []));
+
+    const rawLines = (rc.billDetails?.items && rc.billDetails.items.length > 0)
+      ? rc.billDetails.items
+      : (matchingOrder?.billDetails?.items?.length > 0 ? matchingOrder.billDetails.items : baseQuotationItems);
+
+    const lines = rawLines.map(line => {
+      const qMatch = baseQuotationItems.find(q =>
+        (q.productId && line.productId && String(q.productId).trim() === String(line.productId).trim()) ||
+        (q.productName && line.productName && q.productName.toLowerCase().trim() === line.productName.toLowerCase().trim())
+      );
+
+      const explicitUnitPrice = Number(line.unitPrice || line.sellingPrice || line.price || line.lineUnitPrice || qMatch?.unitPrice || qMatch?.sellingPrice || qMatch?.price || qMatch?.lineUnitPrice || 0);
+
+      return {
+        ...line,
+        unitPrice: explicitUnitPrice > 0 ? explicitUnitPrice : line.unitPrice,
+      };
+    });
     const totalQty = lines.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     // Per-line GST breakdown accumulator by rate
     const gstByRate = {};
@@ -502,14 +593,24 @@ export const Receipts = () => {
 
       const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
 
-      // Resolve HSN and GST: check line data first, then look up product catalogue
       const taxInfo = getProductTaxInfo(prod || line);
-      const lineHsn = line.hsnCode || taxInfo.hsnCode;
-      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
+      const lineHsn = line.hsnCode || prod?.hsnCode || taxInfo.hsnCode;
+      const sysConfig = getSystemGstConfigFromStorage();
+      const productGst = prod ? (prod.custom_gst_rate ?? prod.gstRate) : null;
+      let lineGstRate = 0;
+      if (sysConfig.gstEnabled) {
+        if (productGst != null) {
+          lineGstRate = Number(productGst);
+        } else if (line.gstRate != null && Number(line.gstRate) > 0 && Number(line.gstRate) !== 18) {
+          lineGstRate = Number(line.gstRate);
+        } else {
+          lineGstRate = Number(taxInfo.gstRate || 5);
+        }
+      }
 
       // Accumulate GST by rate
       const rateKey = String(lineGstRate);
-      const taxableBase = lineSubtotal - (discountVal * lineFraction);
+      const taxableBase = Math.max(0, lineSubtotal - (preTaxDiscountVal * lineFraction));
       const lineTax = taxableBase * (lineGstRate / 100);
       if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
       gstByRate[rateKey].taxableAmount += taxableBase;
@@ -558,10 +659,15 @@ export const Receipts = () => {
     doc.text("Subtotal:", labelX, currentY);
     doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     
-    if (discountVal > 0) {
+    if (preTaxDiscountVal > 0) {
       currentY += 6;
-      doc.text("Discount:", labelX, currentY);
-      doc.text(`- Rs. ${discountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.text("Pre-Tax Discount:", labelX, currentY);
+      doc.text(`- Rs. ${preTaxDiscountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.text("Taxable Value:", labelX, currentY);
+      doc.text(`Rs. ${(subtotal - preTaxDiscountVal).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.setFont("helvetica", "normal");
     }
 
     // GST Breakdown by rate
@@ -573,8 +679,6 @@ export const Receipts = () => {
          totalGstCollected += gstByRate[rk].taxAmount;
        }
     }
-    
-    const grandTotal = subtotal - discountVal + totalGstCollected + shippingVal + otherVal;
 
     if (gstRateKeys.length > 1) {
       for (const rk of gstRateKeys) {
@@ -601,7 +705,7 @@ export const Receipts = () => {
       }
     } else if (taxRate > 0) {
       // Fallback
-      const fallbackTax = (subtotal - discountVal) * (taxRate / 100);
+      const fallbackTax = (subtotal - preTaxDiscountVal) * (taxRate / 100);
       currentY += 6;
       doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
       doc.text(`Rs. ${fallbackTax.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
@@ -618,6 +722,19 @@ export const Receipts = () => {
       doc.text("Other Charges:", labelX, currentY);
       doc.text(`Rs. ${otherVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
+
+    if (postTaxDiscountVal > 0) {
+      currentY += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 80, 0);
+      doc.text("Post-Tax Disc. (Commercial):", labelX, currentY);
+      doc.text(`- Rs. ${postTaxDiscountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80, 80, 80);
+    }
+    
+    const grossVal = (subtotal - preTaxDiscountVal) + totalGstCollected + shippingVal + otherVal;
+    const grandTotal = Math.max(0, grossVal - postTaxDiscountVal);
     
     currentY += 8;
     doc.setFont("helvetica", "bold");
@@ -643,6 +760,7 @@ export const Receipts = () => {
     doc.text(`Rs. ${balanceDue.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
+    const discountVal = preTaxDiscountVal + postTaxDiscountVal;
     const approvedTotal = Number(rc.totalOrderAmount || 0);
     const effectiveInvoiced = grandTotal + discountVal;
     const remainingToInvoiceVal = Math.max(0, approvedTotal - effectiveInvoiced);
@@ -723,22 +841,21 @@ export const Receipts = () => {
     }
   };
 
-
-
-  const generateReturnReceiptPDF = (rc, mode = "download") => {
+  const generateReturnReceiptPDF = (order, returnDetails, mode = "download") => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    const redTheme = [185, 28, 28];
-    const gold = [212, 175, 55];
+    const redTheme = [185, 28, 28]; // Rose red
+    const gold = [212, 175, 55]; // Gold accent
 
-    // Header band
+    // Draw header band
     doc.setFillColor(redTheme[0], redTheme[1], redTheme[2]);
     doc.rect(0, 0, pageWidth, 40, "F");
     doc.setFillColor(gold[0], gold[1], gold[2]);
     doc.rect(0, 40, pageWidth, 2, "F");
 
+    // Logo
     try {
       if (logoBase64) {
         doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
@@ -753,20 +870,23 @@ export const Receipts = () => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.text(COMPANY_NAME, 46, 18);
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(250, 230, 230);
     doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
 
+    // Title on right side
     doc.setFont("helvetica", "bold");
     doc.setFontSize(24);
     doc.setTextColor(255, 255, 255);
     doc.text("RETURN RECEIPT", pageWidth - 15, 20, { align: "right" });
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(250, 230, 230);
-    doc.text(`Return Ref: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
-    doc.text(`Date & Time: ${new Date(rc.paidAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 15, 33, { align: "right" });
+    doc.text(`Return Ref: ${returnDetails.returnNumber}`, pageWidth - 15, 28, { align: "right" });
+    doc.text(`Date & Time: ${new Date(returnDetails.returnedAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 15, 33, { align: "right" });
 
     // Client details
     doc.setTextColor(60, 60, 60);
@@ -774,59 +894,53 @@ export const Receipts = () => {
     doc.setFont("helvetica", "bold");
     doc.text("RETURNED BY:", 15, 52);
     doc.setFont("helvetica", "normal");
-    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 58);
-    doc.text(`Business: ${rc.businessName || "—"}`, 15, 63);
-    doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
-    doc.text(`Email: ${rc.email || "—"}`, 15, 73);
+    doc.text(`Customer: ${order.customerName || "—"}`, 15, 58);
+    doc.text(`Business: ${order.businessName || "—"}`, 15, 63);
+    doc.text(`Phone: ${order.phone || "—"}`, 15, 68);
+    doc.text(`Email: ${order.email || "—"}`, 15, 73);
 
-    const rawType = String(rc.returnType || "").toLowerCase();
-    const returnTypeLabel = rawType === "complete" ? "Full Return" : (rawType === "partial" ? "Partial Return" : "Partial Return");
+    // Return details
+    const rawType = String(returnDetails.returnType || "").toLowerCase();
+    const returnTypeLabel = rawType === "complete" ? "Full Return" : (rawType === "partial" ? "Partial Return" : (returnDetails.notes ? "Partial Return" : "Full Return"));
 
     doc.setFont("helvetica", "bold");
     doc.text("RETURN DETAILS:", 110, 52);
     doc.setFont("helvetica", "normal");
-    doc.text(`Original Order Ref: ${rc.orderRef || "—"}`, 110, 58);
+    doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 58);
     doc.text(`Return Type: ${returnTypeLabel}`, 110, 63);
-    doc.text(`Refund Mode: ${String(rc.paymentMode || "refund").toUpperCase()}`, 110, 68);
+    doc.text(`GST Status: Refund Configured`, 110, 68);
     doc.text(`Refund Status: Refund Processed & Stock Restored`, 110, 73);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // ── Exact per-line allocation matching summary totals ──────────
-    const returnItems = rc.orderDetailsList || [];
-    const storedBase   = Number(rc.refundAmount    || 0);
-    const storedGst    = Number(rc.gstRefundAmount || 0);
-    const storedTotal  = storedBase > 0
-      ? Number((storedBase + storedGst).toFixed(2))
-      : Number(rc.amount || 0);
+    // Totals from returnDetails
+    const baseRefund = Number(returnDetails.refundAmount || 0);
+    const gstRefund = Number(returnDetails.gstRefundAmount || 0);
+    const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
 
-    const baseRefundDisplay = storedBase > 0 ? storedBase : Number((storedTotal / 1.18).toFixed(2));
-    const gstRefundDisplay  = storedGst  > 0 ? storedGst  : Number((storedTotal - baseRefundDisplay).toFixed(2));
-    const totalDisplay      = Number((baseRefundDisplay + gstRefundDisplay).toFixed(2));
-
-    // Enrich each return item with GST rate & selling-price weight
-    const enriched = returnItems.map(it => {
+    // Enrich items with selling-price weight, HSN code, and GST rate
+    const items = returnDetails.items || [];
+    const enrichedItems = items.map(it => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || it);
-      const rawHsn     = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
-      const hsnCode    = String(rawHsn).replace(/\s+/g, " ").trim();
+      const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
+      const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
       const gstRateVal = it.gstRate != null ? Number(it.gstRate) : taxInfo.gstRate;
-      const sellPrice  = Number(prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || it.unitPrice || 0) || 1;
-      const weight     = Number(it.quantity || 0) * sellPrice;
+      const sellPrice = Number(prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || it.unitPrice || 0) || 1;
+      const weight = Number(it.quantity || 0) * sellPrice;
       return { ...it, hsnCode, gstRateVal, weight };
     });
 
-    const totalWeight = enriched.reduce((s, d) => s + d.weight, 0) || 1;
+    const totalWeight = enrichedItems.reduce((s, d) => s + d.weight, 0) || 1;
 
-    // Build table with 7 columns: product, HSN, GST%, refund base, GST refund, total, qty
-    const tableBody = enriched.map((it, index) => {
-      const frac = totalWeight > 0 ? (it.weight / totalWeight) : (1 / enriched.length);
-      const lineGst = Number((frac * gstRefundDisplay).toFixed(2));
-      const lineTotal = Number((frac * totalDisplay).toFixed(2));
-      const lineBase = Number((lineTotal - lineGst).toFixed(2));
+    const tableBody = enrichedItems.map((it, index) => {
+      // Distribute the exact gstRefundAmount proportionally across items so table sum matches bottom summary
+      const lineWeightFrac = totalWeight > 0 ? (it.weight / totalWeight) : (1 / enrichedItems.length);
+      const lineGstRefund = (lineWeightFrac * gstRefund);
 
+      // Format quantity cleanly with pieces hint if applicable
       let qtyStr = `${it.quantity || 0} ${it.unit || "pcs"}`;
       if (it.quantityInPcs && Number(it.quantityInPcs) > 1 && String(it.unit || "").toLowerCase() !== "pcs") {
         qtyStr = `${it.quantity || 0} ${it.unit || "kg"} (${it.quantityInPcs} pcs)`;
@@ -834,77 +948,67 @@ export const Receipts = () => {
 
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
-        it.hsnCode || "4819 40 00",
+        it.hsnCode,
         `${it.gstRateVal}%`,
-        `₹${lineBase.toFixed(2)}`,
-        `₹${lineGst.toFixed(2)}`,
-        `₹${lineTotal.toFixed(2)}`,
+        `Rs. ${lineGstRefund.toFixed(2)}`,
         qtyStr,
+        `Refunded`
       ];
     });
 
     autoTable(doc, {
       startY: 84,
-      head: [["Returned Item Details", "HSN Code", "GST %", "Base Refund", "GST Refund", "Item Total", "Qty Returned"]],
-      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "—", "—", "—", "—", "0"]],
+      head: [["Returned Item Details", "HSN Code", "GST %", "GST Refund", "Qty Returned", "Status"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "—", "—", "0", "—"]],
       theme: "striped",
-      styles: { fontSize: 8, cellPadding: 3, valign: "middle" },
-      headStyles: { fillColor: redTheme, fontStyle: "bold", fontSize: 7.5 },
+      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
+      headStyles: { fillColor: redTheme, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 26 }, // HSN Code fits on one line
-        2: { halign: "center", cellWidth: 12 },
-        3: { halign: "right",  cellWidth: 22 },
-        4: { halign: "right",  cellWidth: 22 },
-        5: { halign: "right",  cellWidth: 22 },
-        6: { halign: "center", cellWidth: 26 },
+        1: { halign: "center", cellWidth: 28 }, // HSN Code fits 4819 40 00 on one line
+        2: { halign: "center", cellWidth: 16 },
+        3: { halign: "right", cellWidth: 26 },
+        4: { halign: "center", cellWidth: 32 },
+        5: { halign: "center", cellWidth: 24 }
       }
     });
 
-    // ── Totals block ─────────────────────────────────────────────────────
     const finalY = doc.lastAutoTable.finalY + 8;
+
+    // Totals Grid
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
 
     const rightAlignX = pageWidth - 15;
     const labelX = pageWidth - 90;
+
     let currentY = finalY;
 
     doc.text("Base Refund Amount:", labelX, currentY);
-    doc.text(`₹${baseRefundDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 6;
-    doc.text("GST Refund:", labelX, currentY);
-    doc.text(`₹${gstRefundDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`GST Refund:`, labelX, currentY);
+    doc.text(`Rs. ${gstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 8;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setTextColor(redTheme[0], redTheme[1], redTheme[2]);
     doc.text("Total Amount Refunded:", labelX, currentY);
-    doc.text(`₹${totalDisplay.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    doc.text(`Rs. ${totalRefunded.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Note block
     const tcY = Math.max(currentY + 12, doc.lastAutoTable.finalY + 15);
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.text("Return Notes / Remarks:", 15, tcY);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(rc.note || "No custom return remarks added.", 15, tcY + 5);
 
-    // Return T&C
-    const tcString = localStorage.getItem("nirmalyam_refund_terms") || 
-      "1. Refund processed to source account.\n2. Restocking fee may apply.\n3. Goods must be in original condition.";
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Return Terms & Conditions:", 15, tcY + 18);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    const tcLines = doc.splitTextToSize(tcString, 180);
-    doc.text(tcLines, 15, tcY + 23);
+    doc.setFontSize(9);
+    doc.text(returnDetails.notes || "No custom return remarks added.", 15, tcY + 6);
 
     // Footer
     const footY = pageHeight - 12;
@@ -916,22 +1020,11 @@ export const Receipts = () => {
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
     } else {
-      doc.save(`Return_Receipt_${rc.receiptNumber}.pdf`);
+      doc.save(`Return_Receipt_${returnDetails.returnNumber}.pdf`);
     }
   };
 
-
-  const downloadReceiptPDF = (rc, mode = "download") => {
-    if (rc.paymentMode === "refund" || rc.paymentMode === "Refund" || rc.type === "refund") {
-      generateReturnReceiptPDF(rc, mode);
-      return;
-    }
-
-    if (rc.type === "bill") {
-      generateInvoicePDF(rc, mode);
-      return;
-    }
-
+  const generatePaymentReceiptPDF = (rc, mode = "download") => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -976,7 +1069,7 @@ export const Receipts = () => {
     doc.setFontSize(9);
     doc.setTextColor(230, 245, 238);
     doc.text(`Receipt No: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
-    doc.text(`Date & Time: ${new Date(rc.paidAt).toLocaleString()}`, pageWidth - 15, 33, { align: "right" });
+    doc.text(`Date & Time: ${new Date(rc.paidAt || Date.now()).toLocaleString()}`, pageWidth - 15, 33, { align: "right" });
 
     // Client details
     doc.setTextColor(60, 60, 60);
@@ -1002,46 +1095,45 @@ export const Receipts = () => {
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // Build Table Body (multi-product compatible)
+    // Build Table Body (multi-product compatible with proportional payment distribution & HSN Code)
     const lines = rc.orderDetailsList || [];
-    const totalQty = lines.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 1;
-    const tableBody = lines.map((line, index) => {
-      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
+    const totalOrderVal = Number(rc.totalOrderAmount || 0);
+    const totalSellingValue = lines.reduce((sum, line) => {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
+      const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 1;
+      return sum + (Number(line.quantity || 0) * price);
+    }, 0) || 1;
+
+    const tableBody = lines.map((line) => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || line);
-      const lineHsn = line.hsnCode || taxInfo.hsnCode;
-      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
+      const lineHsn = line.hsnCode || taxInfo.hsnCode || "—";
+      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
 
-      const lineQty = Number(line.quantity || 0);
-      const subtotalBase = rc.billDetails?.subtotal || rc.subtotalAmount || (rc.totalOrderAmount || rc.amount || 0);
-      const lineSubtotal = getLineSubtotalShare(line, subtotalBase, lines, productItems);
-      const lineFraction = subtotalBase > 0 ? (lineSubtotal / subtotalBase) : (1 / (lines.length || 1));
-      const lineTax = lineSubtotal * (lineGstRate / 100);
+      const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 1;
+      const lineVal = Number(line.quantity || 0) * price;
+      const allocatedAmount = (lineVal / totalSellingValue) * Number(rc.amount || 0);
 
       return [
         specDetails,
         lineHsn,
-        `${lineGstRate}%`,
-        `Rs. ${lineTax.toFixed(2)}`,
         `${line.quantity || 0} ${line.unit || "pcs"}`,
-        `Rs. ${lineSubtotal.toFixed(2)}`
+        `Rs. ${allocatedAmount.toFixed(2)}`
       ];
     });
 
     autoTable(doc, {
       startY: 84,
-      head: [["Order Item Details & Specifications", "HSN Code", "GST %", "GST Amt", "Qty Ordered", "Amount"]],
+      head: [["Order Item Details & Specifications", "HSN Code", "Quantity Ordered", "Allocated Payment"]],
       body: tableBody,
       theme: "striped",
-      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
+      styles: { fontSize: 9.5, cellPadding: 5, valign: "middle" },
       headStyles: { fillColor: brand, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 14 },
-        3: { halign: "right", cellWidth: 20 },
-        4: { halign: "center", cellWidth: 22 },
-        5: { halign: "right", cellWidth: 24 }
+        1: { halign: "center", cellWidth: 32 },
+        2: { halign: "center", cellWidth: 35 },
+        3: { halign: "right", cellWidth: 42 }
       }
     });
 
@@ -1053,7 +1145,7 @@ export const Receipts = () => {
     doc.setTextColor(80, 80, 80);
 
     const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 70;
+    const labelX = pageWidth - 95;
 
     let currentY = finalY;
     doc.text("Total Order Value:", labelX, currentY);
@@ -1071,20 +1163,20 @@ export const Receipts = () => {
     doc.text("Cumulative Paid So Far:", labelX, currentY);
     doc.text(`Rs. ${Number(rc.paidSoFar || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 8;
+    currentY += 7;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     if (rc.isPaidInFull) {
       doc.setTextColor(brand[0], brand[1], brand[2]);
       doc.text("Balance Remaining:", labelX, currentY);
       doc.text("Rs. 0.00 (Fully Paid)", rightAlignX, currentY, { align: "right" });
     } else {
-      doc.setTextColor(190, 30, 30); // Red
+      doc.setTextColor(190, 30, 30);
       doc.text("Balance Remaining:", labelX, currentY);
       doc.text(`Rs. ${Number(rc.remainingAmount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
 
-    // Receipt note block on bottom left (below totals to prevent collision)
+    // Receipt note block on bottom left
     const tcY = currentY + 12;
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
@@ -1113,6 +1205,54 @@ export const Receipts = () => {
       window.open(blobUrl, "_blank");
     } else {
       doc.save(`Nirmalyam_Receipt_${rc.receiptNumber}.pdf`);
+    }
+  };
+
+  const downloadReceiptPDF = (rc, mode = "download") => {
+    // 1. Lookup parent order from allOrdersList
+    const targetOrderId = String(rc.orderId?._id || rc.orderId || rc.order || "").trim();
+    const matchingOrder = (allOrdersList || []).find(o =>
+      String(o._id || o.id || "").trim() === targetOrderId ||
+      String(o.orderId || "").trim() === String(rc.orderId || "").trim() ||
+      String(o.reference || "").toLowerCase().trim() === String(rc.orderRef || "").toLowerCase().trim()
+    ) || rc;
+
+    const isRefund = rc.paymentMode === "refund" || rc.paymentMode === "Refund" || rc.type === "refund";
+    const isBill = rc.type === "bill" || rc.paymentMode === "invoice" || String(rc.receiptNumber || "").startsWith("INV");
+
+    if (isRefund) {
+      // Find matching stored return transaction from matchingOrder.returns
+      const matchingReturn = (matchingOrder?.returns || []).find(r =>
+        String(r.returnNumber || "").trim() === String(rc.receiptNumber || rc.returnNumber || "").trim()
+      );
+
+      const returnDetails = matchingReturn || {
+        returnNumber: rc.receiptNumber || "RET-001",
+        returnedAt: rc.paidAt || rc.createdAt,
+        returnType: rc.returnType || "partial",
+        refundAmount: Number(rc.refundAmount != null ? rc.refundAmount : (rc.amount || 0)),
+        gstRefundAmount: Number(rc.gstRefundAmount || 0),
+        items: rc.orderDetailsList || matchingOrder?.orderDetailsList || [],
+        notes: rc.note || "Return transaction receipt"
+      };
+
+      generateReturnReceiptPDF(matchingOrder, returnDetails, mode);
+      return;
+    }
+
+    const mergedRc = {
+      ...matchingOrder,
+      ...rc,
+      receiptNumber: rc.receiptNumber || matchingOrder?.receiptNumber,
+      billDetails: rc.billDetails || matchingOrder?.billDetails || {},
+      orderDetailsList: matchingOrder?.orderDetailsList || rc.orderDetailsList || [],
+      quotation: matchingOrder?.quotation || rc.quotation || {},
+    };
+
+    if (isBill) {
+      generateInvoicePDF(mergedRc, mode);
+    } else {
+      generatePaymentReceiptPDF(mergedRc, mode);
     }
   };
 
@@ -1400,51 +1540,7 @@ export const Receipts = () => {
                 <tbody className="divide-y divide-gray-100 text-sm text-gray-600">
                   {paginatedReceipts.map((rc) => {
                     const isSelected = selectedReceipt && selectedReceipt._id === rc._id;
-                    const ord = allOrdersList.find((o) => o._id === rc.orderId);
-                    const gstPortion = (() => {
-                      let taxRate = 0;
-                      let taxAmount = 0;
-                      let totalOrderAmount = 0;
-
-                      if (ord) {
-                        taxRate = Number(ord.quotation?.taxRate || ord.taxRate || 0);
-                        taxAmount = Number(ord.quotation?.taxAmount || ord.taxAmount || 0);
-                        totalOrderAmount = Number(ord.totalAmount || 0);
-                      } else {
-                        const siblingBill = receipts.find(
-                          (r) => r.orderId === rc.orderId && r.billDetails && r.billDetails.taxRate != null
-                        );
-                        if (siblingBill) {
-                          taxRate = Number(siblingBill.billDetails.taxRate || 0);
-                          const subtotal = Number(siblingBill.billDetails.subtotal || 0);
-                          taxAmount = subtotal * (taxRate / 100);
-                          totalOrderAmount = Number(siblingBill.totalOrderAmount || siblingBill.totalAmount || 0);
-                        } else if (rc.billDetails && rc.billDetails.taxRate != null) {
-                          taxRate = Number(rc.billDetails.taxRate || 0);
-                          const subtotal = Number(rc.billDetails.subtotal || 0);
-                          taxAmount = subtotal * (taxRate / 100);
-                          totalOrderAmount = Number(rc.totalOrderAmount || rc.totalAmount || 0);
-                        }
-                      }
-
-                      const isRefund = rc.paymentMode === "refund" || rc.type === "refund";
-                      if (isRefund) {
-                        if (ord) {
-                          const returnItem = ord.returns?.find((r) => r.returnNumber === rc.receiptNumber);
-                          if (returnItem && returnItem.gstRefundAmount != null) {
-                            return -Number(returnItem.gstRefundAmount || 0);
-                          }
-                        }
-                        const refundAmt = Number(rc.amount || 0);
-                        return totalOrderAmount > 0 ? -(taxAmount * (refundAmt / totalOrderAmount)) : 0;
-                      }
-
-                      const paidAmount = Number(rc.amount || 0);
-                      if (totalOrderAmount > 0) {
-                        return (taxAmount * (paidAmount / totalOrderAmount));
-                      }
-                      return 0;
-                    })();
+                    const gstPortion = getReceiptGstPortion(rc, allOrdersList, receipts);
 
                     return (
                       <tr 

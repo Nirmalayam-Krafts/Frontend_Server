@@ -703,8 +703,9 @@ const Product = () => {
                   return sortedHistory.map((log, index) => {
                     const nextLog = index > 0 ? sortedHistory[index - 1] : null;
                     const changes = getProductSnapshotDiff(log, nextLog, currentActiveProduct);
-                    const canRestore = !currentActiveProduct.isDeleted && !log.reason.toLowerCase().includes("deleted") && !log.reason.toLowerCase().includes("recovered");
-                    const title = log.reason.toLowerCase().includes("deleted") ? "Product Soft-Deleted" : log.reason.toLowerCase().includes("recovered") ? "Product Recovered" : "Product Specifications Updated";
+                    const logReason = String(log?.reason || log?.note || "").toLowerCase();
+                    const canRestore = !currentActiveProduct.isDeleted && !logReason.includes("deleted") && !logReason.includes("recovered");
+                    const title = logReason.includes("deleted") ? "Product Soft-Deleted" : logReason.includes("recovered") ? "Product Recovered" : "Product Specifications Updated";
 
                     return (
                       <div key={index} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
@@ -722,15 +723,15 @@ const Product = () => {
                               </span>
                             </div>
                             <p className="mt-2 text-sm text-gray-600 font-medium">
-                              <span className="font-semibold text-gray-800">Updated by:</span> {log.by}
+                              <span className="font-semibold text-gray-800">Updated by:</span> {log?.by || "Admin"}
                             </p>
                             <p className="mt-1 text-sm text-gray-600 font-medium">
-                              <span className="font-semibold text-gray-800">Reason/Note:</span> {log.reason}
+                              <span className="font-semibold text-gray-800">Reason/Note:</span> {log?.reason || log?.note || "No reason specified"}
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <span className="text-xs text-gray-500 font-semibold">
-                              {new Date(log.at).toLocaleString()}
+                              {log?.at ? new Date(log.at).toLocaleString() : "—"}
                             </span>
                             {canRestore && (
                               <button

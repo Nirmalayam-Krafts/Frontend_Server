@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Pagination } from "../../components/ui";
 import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { getEffectiveTaxRate, getSystemGstConfigFromStorage } from "../../../utils/gstConfig.js";
 import {
   FileText,
   Search,
@@ -354,6 +355,7 @@ export const Quotations = () => {
   };
 
   const downloadQuotationPDF = (q, mode = "download") => {
+    const sysConfig = getSystemGstConfigFromStorage();
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -481,8 +483,12 @@ export const Quotations = () => {
 
       // Resolve HSN and GST
       const taxInfo = getProductTaxInfo(prod || line);
-      const lineHsn = line.hsnCode || taxInfo.hsnCode;
-      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate;
+      const lineHsn = line.hsnCode || prod?.hsnCode || taxInfo.hsnCode;
+      const productGst = prod ? (prod.custom_gst_rate ?? prod.gstRate) : null;
+      const rawGst = (line.gstRate != null && line.gstRate > 0 && line.gstRate !== 18)
+        ? Number(line.gstRate)
+        : (productGst ?? taxInfo.gstRate ?? 5);
+      const lineGstRate = sysConfig.gstEnabled ? Number(rawGst) : 0;
 
       // Accumulate GST by rate
       const rateKey = String(lineGstRate);

@@ -90,6 +90,122 @@ const Settings = () => {
   });
   const [creatingStaff, setCreatingStaff] = useState(false);
 
+  // GST & Tax System Config State
+  const [gstConfig, setGstConfig] = useState({
+    gstEnabled: true,
+    defaultGstRate: 18,
+    defaultHsnCode: "4819 40 00",
+  });
+  const [savingGstConfig, setSavingGstConfig] = useState(false);
+
+  // HSN Master States
+  const [showAddHsnModal, setShowAddHsnModal] = useState(false);
+  const [showEditHsnModal, setShowEditHsnModal] = useState(false);
+  const [hsnForm, setHsnForm] = useState({ hsn_code: "", description: "", gst_rate: 5 });
+  const [editHsnForm, setEditHsnForm] = useState({ id: "", hsn_code: "", description: "", gst_rate: 5 });
+  const [savingHsn, setSavingHsn] = useState(false);
+
+  const { data: hsnMasterList, refetch: refetchHsnMaster } = useQuery({
+    queryKey: ["getAllHsnMaster"],
+    queryFn: async () => {
+      try {
+        const res = await axiosInstance.get("/hsn-master?all=true");
+        return res.data?.data || [];
+      } catch (err) {
+        return [];
+      }
+    },
+  });
+
+  const handleAddHsnEntry = async (e) => {
+    e.preventDefault();
+    if (!hsnForm.hsn_code || !hsnForm.description) {
+      showNotification("Please fill HSN code and description", "error");
+      return;
+    }
+    try {
+      setSavingHsn(true);
+      const res = await axiosInstance.post("/hsn-master", hsnForm);
+      if (res.data?.success) {
+        showNotification("HSN Master entry created successfully", "success");
+        setShowAddHsnModal(false);
+        setHsnForm({ hsn_code: "", description: "", gst_rate: 5 });
+        refetchHsnMaster();
+      } else {
+        showNotification(res.data?.message || "Failed to add HSN entry", "error");
+      }
+    } catch (err) {
+      showNotification(err?.response?.data?.message || "Failed to create HSN entry", "error");
+    } finally {
+      setSavingHsn(false);
+    }
+  };
+
+  const handleUpdateHsnRate = async (e) => {
+    e.preventDefault();
+    if (!editHsnForm.id) return;
+    try {
+      setSavingHsn(true);
+      const res = await axiosInstance.put(`/hsn-master/${editHsnForm.id}`, {
+        gst_rate: Number(editHsnForm.gst_rate),
+        description: editHsnForm.description,
+      });
+      if (res.data?.success) {
+        showNotification("HSN Rate updated with version history! Old rate preserved for past invoices.", "success");
+        setShowEditHsnModal(false);
+        refetchHsnMaster();
+      } else {
+        showNotification(res.data?.message || "Failed to update HSN rate", "error");
+      }
+    } catch (err) {
+      showNotification(err?.response?.data?.message || "Failed to update HSN rate", "error");
+    } finally {
+      setSavingHsn(false);
+    }
+  };
+
+  const { data: serverGstConfig, refetch: refetchGstConfig } = useQuery({
+    queryKey: ["getGstConfig"],
+    queryFn: async () => {
+      try {
+        const res = await axiosInstance.get("/admin/settings/gst");
+        return res.data?.data || { gstEnabled: true, defaultGstRate: 18, defaultHsnCode: "4819 40 00" };
+      } catch (err) {
+        return { gstEnabled: true, defaultGstRate: 18, defaultHsnCode: "4819 40 00" };
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (serverGstConfig) {
+      setGstConfig(serverGstConfig);
+      try {
+        localStorage.setItem("nirmalyam_gstConfig", JSON.stringify(serverGstConfig));
+      } catch (_) {}
+    }
+  }, [serverGstConfig]);
+
+  const handleSaveGstConfig = async () => {
+    try {
+      setSavingGstConfig(true);
+      const res = await axiosInstance.patch("/admin/settings/gst", gstConfig);
+      if (res.data?.success) {
+        showNotification(res.data.message || "GST configuration updated successfully", "success");
+        try {
+          localStorage.setItem("nirmalyam_gstConfig", JSON.stringify(res.data.data));
+        } catch (_) {}
+        queryClient.invalidateQueries({ queryKey: ["getGstConfig"] });
+        refetchGstConfig();
+      } else {
+        showNotification(res.data?.message || "Failed to update GST config", "error");
+      }
+    } catch (err) {
+      showNotification(err?.response?.data?.message || "Failed to update GST config", "error");
+    } finally {
+      setSavingGstConfig(false);
+    }
+  };
+
   useEffect(() => {
     if (!profile) return;
 
@@ -565,6 +681,208 @@ const Settings = () => {
                 </div>
               </Card>
             </Motion.div>
+
+            <Motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.10 }}
+            >
+              <Card className="rounded-3xl border border-gray-200 shadow-sm p-6 space-y-5">
+                <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                      <Sparkles className="h-5 w-5 text-emerald-600" />
+                      GST & Tax Configuration
+                    </h2>
+                    <p className="mt-1 text-xs text-gray-500 font-medium">
+                      Enable or disable GST tax calculations system-wide and configure your default tax rate and HSN code.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-150">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-bold text-gray-900">Enable GST / Tax System</p>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {gstConfig.gstEnabled
+                          ? "GST is ACTIVE. Taxes will be calculated across Quotations, Orders, Invoices & Receipts."
+                          : "GST is DISABLED. System will default all tax calculations to 0%."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGstConfig(prev => ({ ...prev, gstEnabled: !prev.gstEnabled }))}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        gstConfig.gstEnabled ? "bg-emerald-600" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          gstConfig.gstEnabled ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {gstConfig.gstEnabled && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div className="rounded-2xl border border-gray-200 p-3 bg-white">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                          Default System GST Rate (%)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={gstConfig.defaultGstRate}
+                            onChange={(e) => setGstConfig(prev => ({ ...prev, defaultGstRate: Number(e.target.value || 0) }))}
+                            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                            placeholder="18"
+                          />
+                          <div className="flex gap-1">
+                            {[18, 12, 5, 0].map(r => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => setGstConfig(prev => ({ ...prev, defaultGstRate: r }))}
+                                className={`px-2 py-1 text-xs font-bold rounded-lg border ${
+                                  gstConfig.defaultGstRate === r ? "bg-emerald-700 text-white border-emerald-700" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                                }`}
+                              >
+                                {r}%
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 p-3 bg-white">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                          Default HSN Code
+                        </label>
+                        <input
+                          type="text"
+                          value={gstConfig.defaultHsnCode}
+                          onChange={(e) => setGstConfig(prev => ({ ...prev, defaultHsnCode: e.target.value }))}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                          placeholder="4819 40 00"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={handleSaveGstConfig}
+                      loading={savingGstConfig}
+                      disabled={savingGstConfig}
+                      className="rounded-xl px-6 bg-emerald-700 hover:bg-emerald-800"
+                    >
+                      Save GST Settings
+                    </Button>
+                  </div>
+
+                  {/* HSN MASTER CODES & GST RATES SECTION */}
+                  <div className="mt-8 border-t border-gray-200 pt-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-emerald-600" />
+                          HSN Master Table & Rate Management
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          View and manage HSN codes and GST rates. Editing a rate closes the active version and inserts a new row to preserve past invoice history.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => setShowAddHsnModal(true)}
+                        className="rounded-xl px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add HSN Entry
+                      </Button>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-gray-200 text-gray-600 font-bold uppercase tracking-wider">
+                            <th className="px-4 py-2.5">HSN Code</th>
+                            <th className="px-4 py-2.5">Description</th>
+                            <th className="px-4 py-2.5 text-center">GST Rate (%)</th>
+                            <th className="px-4 py-2.5 text-center">Effective From</th>
+                            <th className="px-4 py-2.5 text-center">Effective To</th>
+                            <th className="px-4 py-2.5 text-center">Status</th>
+                            <th className="px-4 py-2.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 font-medium">
+                          {hsnMasterList && hsnMasterList.length > 0 ? (
+                            hsnMasterList.map((entry) => {
+                              const isActive = !entry.effective_to || new Date(entry.effective_to) > new Date();
+                              return (
+                                <tr key={entry._id || entry.id} className={isActive ? "bg-white hover:bg-emerald-50/30" : "bg-gray-50/60 opacity-60"}>
+                                  <td className="px-4 py-3 font-mono font-bold text-gray-900">{entry.hsn_code}</td>
+                                  <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{entry.description}</td>
+                                  <td className="px-4 py-3 text-center font-black text-emerald-700">{entry.gst_rate}%</td>
+                                  <td className="px-4 py-3 text-center font-mono text-[11px] text-gray-500">
+                                    {entry.effective_from ? new Date(entry.effective_from).toLocaleDateString() : "Today"}
+                                  </td>
+                                  <td className="px-4 py-3 text-center font-mono text-[11px] text-gray-500">
+                                    {entry.effective_to ? new Date(entry.effective_to).toLocaleDateString() : "— (Current)"}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {isActive ? (
+                                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                        🟢 Active
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-gray-600">
+                                        📜 Closed
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {isActive && (
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        className="py-1 px-2.5 text-[11px] font-bold text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                        onClick={() => {
+                                          setEditHsnForm({
+                                            id: entry._id || entry.id,
+                                            hsn_code: entry.hsn_code,
+                                            description: entry.description,
+                                            gst_rate: entry.gst_rate,
+                                          });
+                                          setShowEditHsnModal(true);
+                                        }}
+                                      >
+                                        Edit Rate
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                                No HSN Master entries found.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </Motion.div>
           </div>
 
           <div className="space-y-8">
@@ -992,6 +1310,138 @@ const Settings = () => {
                 disabled={creatingStaff}
               >
                 Create Profile
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* ADD HSN MASTER MODAL */}
+        <Modal
+          isOpen={showAddHsnModal}
+          title="Add New HSN Code Entry"
+          onClose={() => {
+            setShowAddHsnModal(false);
+            setHsnForm({ hsn_code: "", description: "", gst_rate: 5 });
+          }}
+        >
+          <form onSubmit={handleAddHsnEntry} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-gray-700">HSN Code (4 to 8 Digits)</label>
+              <input
+                type="text"
+                required
+                value={hsnForm.hsn_code}
+                onChange={(e) => setHsnForm(prev => ({ ...prev, hsn_code: e.target.value.replace(/\D/g, "").slice(0, 8) }))}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                placeholder="e.g. 4804"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-gray-700">Description</label>
+              <input
+                type="text"
+                required
+                value={hsnForm.description}
+                onChange={(e) => setHsnForm(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-900 focus:border-emerald-600 outline-none"
+                placeholder="Uncoated kraft paper & paperboard, rolls/sheets"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-gray-700">GST Rate (%)</label>
+              <input
+                type="number"
+                required
+                min={0}
+                max={100}
+                step="any"
+                value={hsnForm.gst_rate}
+                onChange={(e) => setHsnForm(prev => ({ ...prev, gst_rate: Number(e.target.value) }))}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                placeholder="5"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-xl px-5"
+                onClick={() => setShowAddHsnModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl px-5 bg-emerald-600 hover:bg-emerald-700 font-bold"
+                loading={savingHsn}
+                disabled={savingHsn}
+              >
+                Save HSN Code
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* EDIT HSN RATE (VERSIONED) MODAL */}
+        <Modal
+          isOpen={showEditHsnModal}
+          title={`Update GST Rate — HSN ${editHsnForm.hsn_code}`}
+          onClose={() => setShowEditHsnModal(false)}
+        >
+          <form onSubmit={handleUpdateHsnRate} className="space-y-4">
+            <div className="rounded-xl bg-amber-50 p-3 border border-amber-200 text-xs text-amber-900 font-medium">
+              💡 <strong>Versioned Rate Update</strong>: Changing this rate will set <code className="font-bold">effective_to = Today</code> on the current entry and insert a new entry with the updated rate starting today. All historical invoices will preserve their original rate!
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-gray-700">HSN Code</label>
+              <input
+                type="text"
+                disabled
+                value={editHsnForm.hsn_code}
+                className="w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-sm font-bold text-gray-700 cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-gray-700">Description</label>
+              <input
+                type="text"
+                required
+                value={editHsnForm.description}
+                onChange={(e) => setEditHsnForm(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-900 focus:border-emerald-600 outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-gray-700">New GST Rate (%)</label>
+              <input
+                type="number"
+                required
+                min={0}
+                max={100}
+                step="any"
+                value={editHsnForm.gst_rate}
+                onChange={(e) => setEditHsnForm(prev => ({ ...prev, gst_rate: Number(e.target.value) }))}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-xl px-5"
+                onClick={() => setShowEditHsnModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl px-5 bg-emerald-700 hover:bg-emerald-800 font-bold"
+                loading={savingHsn}
+                disabled={savingHsn}
+              >
+                Save Versioned Rate
               </Button>
             </div>
           </form>
