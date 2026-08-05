@@ -385,8 +385,11 @@ const Finance = () => {
     const orders = ordersData?.orders || [];
     let totalCappedPaid = 0;
     let totalOrderAmount = 0;
+    let fallbackGstCollected = 0;
+
     orders.forEach(o => {
       const tot = Number(o.totalAmount || 0);
+      const sub = Number(o.subtotalAmount || 0);
       const confPaid = Number(o.confirmedPayment?.paidAmount || 0);
       const partPaid = Number(o.payment?.partialPaidAmount || 0);
       let rawPaid = Number(o.paidAmount || 0);
@@ -402,6 +405,41 @@ const Finance = () => {
       const cappedPaid = tot > 0 ? Math.min(rawPaid, tot) : rawPaid;
       totalCappedPaid += cappedPaid;
       totalOrderAmount += tot;
+
+      // Compute fallback GST for this order
+      const tRate = Number(o.taxRate || o.quotation?.taxRate || 0);
+      let tAmt = Number(o.taxAmount || o.quotation?.taxAmount || 0);
+      if (tAmt <= 0 && sub > 0 && tRate > 0) {
+        tAmt = sub * (tRate / 100);
+      } else if (tAmt <= 0 && tot > 0 && tRate > 0) {
+        tAmt = tot - (tot / (1 + tRate / 100));
+      } else if (tAmt <= 0) {
+        const detailsList = (
+          o.orderDetailsList && o.orderDetailsList.length > 0
+            ? o.orderDetailsList
+            : o.orderDetails
+            ? [o.orderDetails]
+            : []
+        );
+        tAmt = detailsList.reduce((acc, line) => {
+          if (!line) return acc;
+          const lSub = Number(line.subtotal || ((line.quantity || 0) * (line.unitPrice || 0)) || 0);
+          const lRate = Number(line.gstRate || tRate || 0);
+          return acc + (lSub * (lRate / 100));
+        }, 0);
+      }
+
+      if (tot > 0 && tAmt > 0) {
+        let orderGst = tAmt * (cappedPaid / tot);
+        if (o.returns && o.returns.length > 0) {
+          for (const ret of o.returns) {
+            if (ret.gstRefundAmount != null && Number(ret.gstRefundAmount) > 0) {
+              orderGst -= Number(ret.gstRefundAmount);
+            }
+          }
+        }
+        fallbackGstCollected += Math.max(0, orderGst);
+      }
     });
 
     const income = totalCappedPaid > 0 ? totalCappedPaid : Number(data.income || 0);
@@ -411,6 +449,9 @@ const Finance = () => {
     const profit = income - exp;
     const rate = totalOrderAmount > 0 ? Math.round((totalCappedPaid / totalOrderAmount) * 100) : (data.paymentRate || 100);
 
+    const rawBackendGst = Number(data.totalGstCollected || 0);
+    const finalGstCollected = rawBackendGst > 0 ? rawBackendGst : fallbackGstCollected;
+
     return {
       ...data,
       income,
@@ -419,6 +460,7 @@ const Finance = () => {
       expense: exp,
       netProfit: profit,
       paymentRate: Math.min(100, rate),
+      totalGstCollected: finalGstCollected,
     };
   }, [data, ordersData, reportData?.totalExpenses]);
 
