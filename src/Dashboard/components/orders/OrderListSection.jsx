@@ -67,16 +67,23 @@ const getOrderDisplayFinancials = (order, productItems) => {
   const gross = taxable + gstAmt + appShip + appOth;
   let calculatedTotal = Number(Math.max(0, gross - postTaxDisc).toFixed(2));
 
-  let total = Number(
-    order?.totalAmount ||
+  const rawBillGrandTotal = Number(
     bDetails?.grandTotal ||
     bDetails?.amount ||
+    order?.latestBill?.totalAmount ||
     order?.latestBill?.amount ||
-    order?.quotation?.totalQuoted ||
+    order?.bill?.amount ||
     0
   );
 
-  if (!total || total === 1224.8 || total === 1216.8) {
+  let total = 0;
+  if (rawBillGrandTotal > 0) {
+    total = rawBillGrandTotal;
+  } else if (Number(order?.totalAmount || 0) > 0) {
+    total = Number(order.totalAmount);
+  } else if (Number(order?.quotation?.totalQuoted || 0) > 0) {
+    total = Number(order.quotation.totalQuoted);
+  } else if (calculatedTotal > 0) {
     total = calculatedTotal;
   }
 

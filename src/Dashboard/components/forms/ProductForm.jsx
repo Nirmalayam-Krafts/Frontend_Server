@@ -118,12 +118,12 @@ const getInitialState = (initialData = null) => {
     weight: initialData?.weight || "",
     lengthInMeters: initialData?.lengthInMeters || "",
     bf: initialData?.bf || "",
-    hsnCode: initialData?.hsnCode || "",
-    gstRate: initialData?.gstRate ?? 5,
-    hsn_source: initialData?.hsn_source || "master",
+    hsnCode: initialData?.hsnCode || initialData?.custom_hsn_code || "",
+    gstRate: initialData?.gstRate ?? initialData?.custom_gst_rate ?? 18,
+    hsn_source: initialData?.hsn_source || (initialData?.custom_hsn_code ? "custom" : "master"),
     hsn_master_id: initialData?.hsn_master_id?._id || initialData?.hsn_master_id || "",
-    custom_hsn_code: initialData?.custom_hsn_code || "",
-    custom_gst_rate: initialData?.custom_gst_rate ?? "",
+    custom_hsn_code: initialData?.custom_hsn_code || initialData?.hsnCode || "",
+    custom_gst_rate: initialData?.custom_gst_rate ?? initialData?.gstRate ?? 18,
   };
 };
 
@@ -490,16 +490,17 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       unit: isRoll ? "kg" : undefined,
       hsn_source: formData.hsn_source || "master",
       hsn_master_id: formData.hsn_source === "master" ? (formData.hsn_master_id || null) : null,
-      custom_hsn_code: formData.hsn_source === "custom" ? String(formData.custom_hsn_code).trim() : null,
-      custom_gst_rate: formData.hsn_source === "custom" ? Number(formData.custom_gst_rate) : null,
-      hsnCode: formData.hsn_source === "custom" ? String(formData.custom_hsn_code).trim() : formData.hsnCode,
-      gstRate: formData.hsn_source === "custom" ? Number(formData.custom_gst_rate) : Number(formData.gstRate || 5),
+      custom_hsn_code: formData.hsn_source === "custom" ? String(formData.custom_hsn_code || formData.hsnCode || "").trim() : null,
+      custom_gst_rate: formData.hsn_source === "custom" ? Number(formData.custom_gst_rate ?? formData.gstRate ?? 18) : null,
+      hsnCode: String(formData.custom_hsn_code || formData.hsnCode || "").trim(),
+      gstRate: Number(formData.custom_gst_rate ?? formData.gstRate ?? 18),
     };
 
     if (formData.hsn_source === "custom") {
       const code = String(formData.custom_hsn_code || "").trim();
+      const digits = code.replace(/\s+/g, "");
       const rate = Number(formData.custom_gst_rate);
-      if (!code || !/^\d{4,8}$/.test(code)) {
+      if (!digits || !/^\d{4,8}$/.test(digits)) {
         toast.error("Custom HSN Code must be numeric and between 4 to 8 digits");
         return;
       }

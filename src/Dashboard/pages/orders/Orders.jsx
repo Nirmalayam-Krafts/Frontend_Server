@@ -183,6 +183,21 @@ const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = nul
   return subtotal > 0 ? (subtotal * lineShareFraction) : lineSuggested;
 };
 
+const getProductBaseSellingPrice = (prod) => {
+  if (!prod) return 0;
+  const bPrice = Number(prod.basePrice || prod.estimationConfig?.basePrice || 0);
+  const labor = Number(prod.estimationConfig?.laborCostPerBag || 0);
+  const overhead = Number(prod.estimationConfig?.overheadCostPerBag || 0);
+  const printing = Number(prod.estimationConfig?.printingCostPerBag || 0);
+  const margin = Number(prod.estimationConfig?.marginPercent || 0);
+
+  const totalCost = bPrice + labor + overhead + printing;
+  if (totalCost > 0) {
+    return Number((totalCost * (1 + margin / 100)).toFixed(2));
+  }
+  return bPrice > 0 ? bPrice : Number(prod.unitPrice || prod.sellingPrice || 0);
+};
+
 const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
   const lines = order?.orderDetailsList?.length > 0
     ? order.orderDetailsList
@@ -193,7 +208,8 @@ const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
   let totalSuggestedOfAll = 0;
   const lineSuggestedVals = lines.map(line => {
     const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
-    const catalogPrice = Number(line?.unitPrice || line?.sellingPrice || prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 0);
+    const calcPrice = getProductBaseSellingPrice(prod);
+    const catalogPrice = Number(line?.unitPrice || line?.sellingPrice || (calcPrice > 0 ? calcPrice : 0) || prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 0);
     
     let lineQty = Number(line.quantity || 0);
     const isRoll = prod?.category?.toLowerCase().includes("roll");
@@ -688,11 +704,11 @@ const Orders = () => {
         ? ((order?.taxRate && Number(order.taxRate) !== 18) ? Number(order.taxRate) : (order?.quotation?.taxRate && Number(order.quotation.taxRate) !== 18 ? Number(order.quotation.taxRate) : dominantGstRate))
         : 0;
 
-      const bDetails = order?.billDetails || order?.latestBill?.billDetails || order?.bill?.billDetails || {};
+      const bDetails = order?.billDetails || order?.latestBill?.billDetails || order?.bill?.billDetails || order?.bill || {};
       const appSub = Number(bDetails.subtotal || order?.subtotalAmount || order?.quotation?.subtotalAmount || 0);
-      const appShip = Number(bDetails.shipping || order?.shippingCharges || order?.quotation?.shippingCharges || 0);
-      const appOth = Number(bDetails.other || order?.otherCharges || order?.quotation?.otherCharges || 0);
-      const appPreDisc = Number(bDetails.preTaxDiscount || order?.discountAmount || order?.quotation?.discountAmount || 0);
+      const appShip = Number(bDetails.shipping || bDetails.shippingCharges || order?.shippingCharges || order?.quotation?.shippingCharges || 0);
+      const appOth = Number(bDetails.other || bDetails.otherCharges || order?.otherCharges || order?.quotation?.otherCharges || 0);
+      const appPreDisc = Number(bDetails.preTaxDiscount ?? order?.discountAmount ?? order?.quotation?.discountAmount ?? 0);
       const postTaxDisc = Number(bDetails.postTaxDiscount ?? bDetails.discount ?? 0);
 
       const taxable = Math.max(0, appSub - appPreDisc);
@@ -700,7 +716,7 @@ const Orders = () => {
       const gross = taxable + gstAmt + appShip + appOth;
       const calculatedTotal = Number(Math.max(0, gross - postTaxDisc).toFixed(2));
 
-      let billTotal = Number(
+      const rawBillGrandTotal = Number(
         bDetails?.grandTotal ||
         bDetails?.amount ||
         order?.bill?.amount ||
@@ -708,45 +724,15 @@ const Orders = () => {
         0
       );
 
-      if (billTotal === 1224.8 || billTotal === 1216.8 || billTotal === 1108 || order?.taxRate === 18) {
-        billTotal = calculatedTotal;
-      }
-
-      let totalAmount = Number(
-        order?.totalAmount ||
-        bDetails?.grandTotal ||
-        bDetails?.amount ||
-        billTotal ||
-        quotationNetTotal ||
-        0
-      );
-
-      if (!totalAmount || totalAmount === 1224.8 || totalAmount === 1216.8) {
+      let totalAmount = 0;
+      if (rawBillGrandTotal > 0) {
+        totalAmount = rawBillGrandTotal;
+      } else if (Number(order?.totalAmount || 0) > 0) {
+        totalAmount = Number(order.totalAmount);
+      } else if (quotationNetTotal > 0) {
+        totalAmount = quotationNetTotal;
+      } else if (calculatedTotal > 0) {
         totalAmount = calculatedTotal;
-      }
-      if (!sysConfig.gstEnabled && billTotal <= 0) {
-        const lines = order?.orderDetailsList?.length > 0
-          ? order.orderDetailsList
-          : [order?.orderDetails].filter(Boolean);
-
-        let sub = Number(order?.subtotalAmount || order?.quotation?.subtotalAmount || 0);
-        if (!sub && lines.length > 0) {
-          sub = lines.reduce((s, l) => s + (Number(l.quantity || 0) * Number(l.pricePerUnit || l.unitPrice || 0)), 0);
-        }
-        const ship = Number(order?.shippingCharges || order?.quotation?.shippingCharges || 0);
-        const oth = Number(order?.otherCharges || order?.quotation?.otherCharges || 0);
-        const disc = Number(order?.discountAmount || order?.quotation?.discountAmount || 0);
-        const grossBase = sub + ship + oth;
-
-        if (totalAmount > 0 && grossBase > 0 && totalAmount <= grossBase + 0.01) {
-          // totalAmount is already a tax-free agreed invoice amount (e.g. 15,000)! Keep it!
-        } else if (sub > 0) {
-          totalAmount = Number((sub + ship + oth - disc).toFixed(2));
-        } else if (quotationNetTotal > 0) {
-          totalAmount = quotationNetTotal;
-        } else {
-          totalAmount = Number(order?.totalAmount || 0);
-        }
       }
 
       // Determine true paid amount considering confirmed & partial payments
@@ -1248,15 +1234,29 @@ const Orders = () => {
           } catch (_) {}
         }
 
+        const orderSavedTotal = Number(order.totalAmount || 0);
+        const orderSavedSubtotal = Number(order.subtotalAmount || 0);
+
         const billSub = Number(foundBill?.billDetails?.subtotal || foundBill?.subtotal || order.billDetails?.subtotal || 0);
-        const rawOrderSub = Number(order.subtotalAmount || existingQuotation.subtotalAmount || 0);
+        const rawOrderSub = orderSavedSubtotal > 0 ? orderSavedSubtotal : Number(existingQuotation.subtotalAmount || 0);
         const lineItemsSub = (order.orderDetailsList?.length > 0 ? order.orderDetailsList : [order.orderDetails].filter(Boolean)).reduce((sum, l) => {
           const qty = Number(l?.quantity || 0);
-          const price = Number(l?.pricePerUnit || l?.unitPrice || l?.rate || l?.sellingPrice || 65);
+          const pObj = productItems?.find(p => String(p._id || p.id) === String(l?.productId));
+          const cPrice = getProductBaseSellingPrice(pObj);
+          const price = Number(l?.pricePerUnit || l?.unitPrice || l?.rate || l?.sellingPrice || (cPrice > 0 ? cPrice : 0));
           return sum + (qty * price);
         }, 0);
 
-        const qSubtotal = billSub > 0 ? billSub : (rawOrderSub > 0 ? rawOrderSub : (lineItemsSub > 0 ? lineItemsSub : Number(resData.totalOrderMaterialCost || 0)));
+        const qSubtotal = orderSavedSubtotal > 0
+          ? orderSavedSubtotal
+          : (billSub > 0
+            ? billSub
+            : (rawOrderSub > 0
+              ? rawOrderSub
+              : (lineItemsSub > 0
+                ? lineItemsSub
+                : Number(resData.totalOrderMaterialCost || 0))));
+
         const resolvedProduct = (productItems && Array.isArray(productItems) ? productItems.find(p => String(p._id || p.id) === String(order.productId || order.orderDetails?.productId)) : null) || resData.productResolved;
         const prodTaxRate = resolvedProduct ? (resolvedProduct.custom_gst_rate ?? resolvedProduct.gstRate ?? 5) : 5;
         const rawTaxRate = (foundBill?.billDetails?.taxRate != null && Number(foundBill.billDetails.taxRate) > 0)
@@ -1287,11 +1287,13 @@ const Orders = () => {
           0
         );
 
-        let qTotal = activeBillAmount > 0
-          ? activeBillAmount
-          : (computedInvoiceTotal > 0
-            ? computedInvoiceTotal
-            : Number(order.totalAmount || 0));
+        let qTotal = orderSavedTotal > 0
+          ? orderSavedTotal
+          : (activeBillAmount > 0
+            ? activeBillAmount
+            : (computedInvoiceTotal > 0
+              ? computedInvoiceTotal
+              : 0));
 
         const remainingToPay = Math.max(0, qTotal - Number(order.paidAmount || 0));
 
@@ -7626,27 +7628,27 @@ Valid Until: ${quotationValidUntil || "—"}
                       const productGstRates = lines.map(l => getLineProductGstRate(l, productItems));
                       const dominantGstRate = productGstRates.length > 0 ? productGstRates[0] : 5;
                       const sysConfig = getSystemGstConfigFromStorage();
-                      const effectiveTaxRate = sysConfig.gstEnabled
-                        ? ((billOrder.taxRate && billOrder.taxRate !== 18) ? billOrder.taxRate : (billOrder.quotation?.taxRate && billOrder.quotation.taxRate !== 18 ? billOrder.quotation.taxRate : dominantGstRate))
-                        : 0;
+                      const rawTax = Number(
+                        lastReceipt?.billDetails?.taxRate ||
+                        billOrder?.billDetails?.taxRate ||
+                        (billOrder?.taxRate && Number(billOrder.taxRate) > 0 ? Number(billOrder.taxRate) : 0) ||
+                        (billOrder?.quotation?.taxRate && Number(billOrder.quotation.taxRate) > 0 ? Number(billOrder.quotation.taxRate) : 0) ||
+                        dominantGstRate || 0
+                      );
+                      const effectiveTaxRate = sysConfig.gstEnabled ? rawTax : 0;
 
-                      const appSub = Number(billOrder.subtotalAmount || billOrder.quotation?.subtotalAmount || 0);
-                      const appShip = Number(billOrder.shippingCharges || billOrder.quotation?.shippingCharges || 0);
-                      const appOth = Number(billOrder.otherCharges || billOrder.quotation?.otherCharges || 0);
-                      const appDisc = Number(billOrder.discountAmount || billOrder.quotation?.discountAmount || 0);
-                      const postTaxDisc = Number(billOrder?.billDetails?.postTaxDiscount || billOrder?.billDetails?.discount || lastReceipt?.billDetails?.postTaxDiscount || lastReceipt?.billDetails?.discount || 0);
+                      const rawBillAmount = Number(lastReceipt?.totalOrderAmount || lastReceipt?.amount || billOrder?.billDetails?.grandTotal || billOrder?.billDetails?.amount || 0);
+                      const totalVal = rawBillAmount > 0 ? rawBillAmount : Number(billOrder?.totalAmount || billOrder?.quotation?.totalQuoted || 0);
 
-                      const computedApprovedTotal = Number(Math.max(0, (Math.max(0, appSub - appDisc) * (1 + effectiveTaxRate / 100) + appShip + appOth) - postTaxDisc).toFixed(2));
-                      const totalVal = computedApprovedTotal > 0 ? computedApprovedTotal : Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0);
+                      const isFullyInvoiced = rawBillAmount > 0 || (billOrder?.billDetails && Number(billOrder.billDetails.amount || 0) > 0);
+                      const remVal = isFullyInvoiced ? 0 : Math.max(0, Number((totalVal - Number(billOrder?.paidAmount || 0)).toFixed(2)));
 
-                      const paidVal = Number(billOrder.paidAmount || 0);
-                      const remVal = Math.max(0, Number((totalVal - paidVal).toFixed(2)));
-                      if (remVal <= 0.50 && paidVal > 0) {
+                      if (remVal <= 0) {
                         return (
                           <>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/80">Invoice Mode</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/80">Invoice Status</p>
                             <p className="text-xs font-black text-emerald-950">
-                              Full Order (Paid in Full)
+                              Full Order Invoiced
                             </p>
                           </>
                         );
@@ -7668,27 +7670,26 @@ Valid Until: ${quotationValidUntil || "—"}
                     const productGstRates = lines.map(l => getLineProductGstRate(l, productItems));
                     const dominantGstRate = productGstRates.length > 0 ? productGstRates[0] : 5;
                     const sysConfig = getSystemGstConfigFromStorage();
-                    const effectiveTaxRate = sysConfig.gstEnabled
-                      ? ((billOrder.taxRate && billOrder.taxRate !== 18) ? billOrder.taxRate : (billOrder.quotation?.taxRate && billOrder.quotation.taxRate !== 18 ? billOrder.quotation.taxRate : dominantGstRate))
-                      : 0;
+                    const rawTax = Number(
+                      lastReceipt?.billDetails?.taxRate ||
+                      billOrder?.billDetails?.taxRate ||
+                      (billOrder?.taxRate && Number(billOrder.taxRate) > 0 ? Number(billOrder.taxRate) : 0) ||
+                      (billOrder?.quotation?.taxRate && Number(billOrder.quotation.taxRate) > 0 ? Number(billOrder.quotation.taxRate) : 0) ||
+                      dominantGstRate || 0
+                    );
+                    const effectiveTaxRate = sysConfig.gstEnabled ? rawTax : 0;
 
-                    const appSub = Number(billOrder.subtotalAmount || billOrder.quotation?.subtotalAmount || 0);
-                    const appShip = Number(billOrder.shippingCharges || billOrder.quotation?.shippingCharges || 0);
-                    const appOth = Number(billOrder.otherCharges || billOrder.quotation?.otherCharges || 0);
-                    const appDisc = Number(billOrder.discountAmount || billOrder.quotation?.discountAmount || 0);
-                    const postTaxDisc = Number(billOrder?.billDetails?.postTaxDiscount || billOrder?.billDetails?.discount || lastReceipt?.billDetails?.postTaxDiscount || lastReceipt?.billDetails?.discount || 0);
-
-                    const computedApprovedTotal = Number(Math.max(0, (Math.max(0, appSub - appDisc) * (1 + effectiveTaxRate / 100) + appShip + appOth) - postTaxDisc).toFixed(2));
-                    const totalVal = computedApprovedTotal > 0 ? computedApprovedTotal : Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0);
+                    const rawBillAmount = Number(lastReceipt?.totalOrderAmount || lastReceipt?.amount || billOrder?.billDetails?.grandTotal || billOrder?.billDetails?.amount || 0);
+                    const totalVal = rawBillAmount > 0 ? rawBillAmount : Number(billOrder?.totalAmount || billOrder?.quotation?.totalQuoted || 0);
 
                     return (
                       <>
                         <span>Approved Total: ₹{totalVal.toLocaleString()}</span>
-                        <span>Approved Subtotal: ₹{Number(billOrder.subtotalAmount || billOrder.quotation?.subtotalAmount || totalVal || 0).toLocaleString()}</span>
+                        <span>Approved Subtotal: ₹{Number(billOrder?.subtotalAmount || billOrder?.quotation?.subtotalAmount || (totalVal > 0 ? totalVal / 1.05 : 0)).toLocaleString()}</span>
                         <span>Approved Tax: {effectiveTaxRate}%</span>
-                        <span>Approved Shipping: ₹{Number(billOrder.shippingCharges || billOrder.quotation?.shippingCharges || 0).toLocaleString()}</span>
-                        <span>Paid So Far: ₹{Number(billOrder.paidAmount || 0).toLocaleString()}</span>
-                        {(billOrder.otherCharges || billOrder.quotation?.otherCharges) > 0 && <span>Approved Other: ₹{Number(billOrder.otherCharges || billOrder.quotation?.otherCharges || 0).toLocaleString()}</span>}
+                        <span>Approved Shipping: ₹{Number(billOrder?.shippingCharges || billOrder?.quotation?.shippingCharges || 0).toLocaleString()}</span>
+                        <span>Paid So Far: ₹{Number(billOrder?.paidAmount || 0).toLocaleString()}</span>
+                        {(billOrder?.otherCharges || billOrder?.quotation?.otherCharges) > 0 && <span>Approved Other: ₹{Number(billOrder.otherCharges || billOrder.quotation?.otherCharges || 0).toLocaleString()}</span>}
                       </>
                     );
                   })()}
@@ -8358,14 +8359,16 @@ Valid Until: ${quotationValidUntil || "—"}
                                           }
 
                                           // Calculate order line selling rate and material cost
-                                          const lineSellingSubtotal = Number(item.subtotal || (Number(item.quantity || 0) * (Number(availabilityOrder?.pricePerKg || 65))));
-                                          const sellingRateUnit = Number(item.quantity || 0) > 0 ? (lineSellingSubtotal / Number(item.quantity || 1)) : 65;
+                                          const itemUnitPrice = Number(item.unitPrice || item.pricePerUnit || item.rate || item.sellingPrice || prod?.basePrice || prod?.sellingPrice || availabilityOrder?.pricePerKg || 65);
+                                          const lineSellingSubtotal = Number(item.subtotal || (Number(item.quantity || 0) * itemUnitPrice));
+                                          const sellingRateUnit = Number(item.quantity || 0) > 0 ? (lineSellingSubtotal / Number(item.quantity || 1)) : itemUnitPrice;
 
                                           const lineMatCost = prMatch && Number(prMatch.totalOrderMaterialCost || 0) > 0
                                             ? Number(prMatch.totalOrderMaterialCost)
                                             : (Number(item.quantity || 0) * 50);
 
-                                          const unitSuffix = isRoll ? "/kg" : "/pc";
+                                          const rawItemUnit = String(item.unit || prod?.unit || "").toLowerCase();
+                                          const unitSuffix = isRoll ? (rawItemUnit.includes("m") ? "/m" : "/kg") : (rawItemUnit.includes("bag") ? "/bag" : "/pc");
                                           const itemQty = Number(item.quantity || 0);
                                           const isFullyReady = readyQty >= itemQty && itemQty > 0;
                                           const isPartial = readyQty > 0 && readyQty < itemQty;
@@ -8413,30 +8416,16 @@ Valid Until: ${quotationValidUntil || "—"}
                               </h4>
 
                               {(() => {
-                                const foundBill = (typeof receipts !== "undefined" && Array.isArray(receipts) ? receipts.find(r => (r.type === "bill" || r.paymentMode === "invoice") && String(r.orderId?._id || r.orderId) === String(availabilityOrder?.id || availabilityOrder?._id)) : null) || availabilityOrder?.bill || availabilityOrder?.latestBill;
-                                
-                                const billSub = Number(foundBill?.billDetails?.subtotal || availabilityOrder?.billDetails?.subtotal || 0);
-                                const rawOrderSub = Number(availabilityOrder?.subtotalAmount || availabilityOrder?.quotation?.subtotalAmount || confirmOrderForm.subtotalAmount || 0);
-                                
-                                const lines = availabilityOrder?.orderDetailsList?.length > 0 ? availabilityOrder.orderDetailsList : [availabilityOrder?.orderDetails].filter(Boolean);
-                                const lineItemsSub = lines.reduce((sum, l) => {
-                                  const qty = Number(l?.quantity || 0);
-                                  const price = Number(l?.pricePerUnit || l?.unitPrice || l?.rate || l?.sellingPrice || 65);
-                                  return sum + (qty * price);
-                                }, 0);
+                                const itemBreakdown = getQuotationItemsBreakdown(availabilityOrder, availabilityResult, Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || 0), productItems);
+                                const breakdownSub = itemBreakdown.reduce((sum, it) => sum + Number(it.subtotal || 0), 0);
 
-                                let displaySubtotal = lineItemsSub > 0 ? lineItemsSub : (rawOrderSub > 0 ? rawOrderSub : (billSub > 0 ? billSub : 0));
-                                if (displaySubtotal === 0) {
-                                  const tot = Number(confirmOrderForm.totalAmount || availabilityOrder?.totalAmount || 0);
-                                  const ship = Number(confirmOrderForm.shippingCharges || availabilityOrder?.shippingCharges || 0);
-                                  if (tot > 0) {
-                                    displaySubtotal = Number(Math.max(0, (tot - ship) / 1.05).toFixed(2));
-                                  }
-                                }
+                                const billSub = Number(availabilityOrder?.bill?.billDetails?.subtotal || availabilityOrder?.billDetails?.subtotal || 0);
+                                const rawOrderSub = Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || availabilityOrder?.quotation?.subtotalAmount || 0);
+
+                                let displaySubtotal = rawOrderSub > 0 ? rawOrderSub : (breakdownSub > 0 ? breakdownSub : (billSub > 0 ? billSub : 0));
 
                                 let displayMaterialCost = Number(availabilityResult.totalOrderMaterialCost || 0);
                                 if (displayMaterialCost === 0) {
-                                  const itemBreakdown = getQuotationItemsBreakdown(availabilityOrder, availabilityResult, displaySubtotal, productItems);
                                   displayMaterialCost = itemBreakdown.reduce((sum, item) => {
                                     const prMatch = availabilityResult.perProductResults?.find(p => String(p.productId || "").trim() === String(item.productId || "").trim());
                                     return sum + Number(prMatch?.totalOrderMaterialCost || (Number(item.quantity || 10) * 50));
@@ -8445,25 +8434,33 @@ Valid Until: ${quotationValidUntil || "—"}
 
                                 const grossMargin = Math.max(0, displaySubtotal - displayMaterialCost);
                                 const marginPct = displaySubtotal > 0 ? ((grossMargin / displaySubtotal) * 100).toFixed(1) : "0.0";
+                                
                                 const displayTotal = Number(confirmOrderForm.totalAmount || availabilityOrder?.totalAmount || (displaySubtotal > 0 ? (displaySubtotal * 1.05) : 0));
+                                const gstDiff = Math.max(0, displayTotal - displaySubtotal);
 
-                                const totalQty = lines.reduce((sum, l) => sum + Number(l?.quantity || 0), 0) || 12;
-                                const sellingPerKg = displaySubtotal > 0 ? (displaySubtotal / totalQty) : 65;
-                                const materialPerKg = displayMaterialCost > 0 ? (displayMaterialCost / totalQty) : 50;
-                                const marginPerKg = grossMargin > 0 ? (grossMargin / totalQty) : 15;
+                                const lines = availabilityOrder?.orderDetailsList?.length > 0 ? availabilityOrder.orderDetailsList : [availabilityOrder?.orderDetails].filter(Boolean);
+                                const firstLineUnit = String(lines[0]?.unit || availabilityOrder?.unit || "pcs").toLowerCase();
+                                const isRollOrder = availabilityOrder?.productCategory?.toLowerCase().includes("roll") || firstLineUnit === "kg" || firstLineUnit === "m";
+                                const overallUnitLabel = isRollOrder ? (firstLineUnit === "m" ? "m" : "kg") : (firstLineUnit.includes("bag") ? "bag" : "pc");
+                                const unitBadgeText = `/${overallUnitLabel}`;
+
+                                const totalQty = lines.reduce((sum, l) => sum + Number(l?.quantity || 0), 0) || 1;
+                                const sellingPerUnit = displaySubtotal > 0 ? (displaySubtotal / totalQty) : 0;
+                                const materialPerUnit = displayMaterialCost > 0 ? (displayMaterialCost / totalQty) : 0;
+                                const marginPerUnit = grossMargin > 0 ? (grossMargin / totalQty) : 0;
 
                                 return (
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                                     <div className="rounded-xl bg-white p-3 border border-emerald-100 shadow-2xs">
                                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Selling Subtotal</p>
                                       <p className="mt-1 text-base font-black text-gray-900">₹{displaySubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5">@ ₹{sellingPerKg.toFixed(2)}/kg</span>
+                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5">@ ₹{sellingPerUnit.toFixed(2)}{unitBadgeText}</span>
                                     </div>
 
                                     <div className="rounded-xl bg-white p-3 border border-amber-100 shadow-2xs">
                                       <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Est. Material Cost</p>
                                       <p className="mt-1 text-base font-black text-amber-900">₹{displayMaterialCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 rounded-full px-2 py-0.5">@ ₹{materialPerKg.toFixed(2)}/kg</span>
+                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 rounded-full px-2 py-0.5">@ ₹{materialPerUnit.toFixed(2)}{unitBadgeText}</span>
                                     </div>
 
                                     <div className="rounded-xl bg-white p-3 border border-emerald-100 shadow-2xs">
@@ -8471,13 +8468,13 @@ Valid Until: ${quotationValidUntil || "—"}
                                       <p className="mt-1 text-base font-black text-emerald-700">
                                         ₹{grossMargin.toLocaleString("en-IN", { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-emerald-600">({marginPct}%)</span>
                                       </p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5">@ ₹{marginPerKg.toFixed(2)}/kg</span>
+                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5">@ ₹{marginPerUnit.toFixed(2)}{unitBadgeText}</span>
                                     </div>
 
                                     <div className="rounded-xl bg-white p-3 border border-emerald-200 shadow-2xs">
                                       <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Total Order Price</p>
                                       <p className="mt-1 text-base font-black text-emerald-800">₹{displayTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-900 bg-emerald-100 rounded-full px-2 py-0.5">incl. 5% GST (₹{(displayTotal - displaySubtotal).toFixed(2)})</span>
+                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-900 bg-emerald-100 rounded-full px-2 py-0.5">incl. GST (₹{gstDiff.toFixed(2)})</span>
                                     </div>
                                   </div>
                                 );

@@ -316,50 +316,48 @@ export const Receipts = () => {
     }, 0);
   }, [filteredReceipts]);
 
+  const getRealtimeReceiptGstAmount = (rc, matchingOrder) => {
+    if (!rc) return 0;
+    
+    const bDetails = rc.billDetails || matchingOrder?.billDetails || {};
+    const subtotal = Number(
+      bDetails.subtotal ||
+      matchingOrder?.subtotalAmount ||
+      matchingOrder?.quotation?.subtotalAmount ||
+      rc.subtotalAmount ||
+      rc.totalOrderAmount ||
+      rc.amount || 0
+    );
+    
+    const preTaxDiscountVal = Number(bDetails.preTaxDiscount ?? (bDetails.postTaxDiscount == null ? (bDetails.discount || rc.discountAmount || 0) : 0));
+    const taxRate = Number(bDetails.taxRate ?? matchingOrder?.taxRate ?? matchingOrder?.quotation?.taxRate ?? (bDetails.items?.[0]?.gstRate || 0));
+
+    if (taxRate > 0) {
+      const taxableBase = Math.max(0, subtotal - preTaxDiscountVal);
+      return Number((taxableBase * (taxRate / 100)).toFixed(2));
+    }
+
+    const rawLines = (bDetails.items && bDetails.items.length > 0)
+      ? bDetails.items
+      : (matchingOrder?.billDetails?.items?.length > 0 ? matchingOrder.billDetails.items : (matchingOrder?.quotation?.items || matchingOrder?.orderDetailsList || []));
+    
+    if (rawLines && rawLines.length > 0) {
+      const lineGstTotal = rawLines.reduce((acc, line) => {
+        const lineSub = Number(line.subtotal || ((line.quantity || 0) * (line.unitPrice || line.rate || 0)) || 0);
+        const lineRate = Number(line.gstRate || 0);
+        return acc + (lineSub * (lineRate / 100));
+      }, 0);
+      if (lineGstTotal > 0) return Number(lineGstTotal.toFixed(2));
+    }
+
+    return 0;
+  };
+
   const getReceiptGstPortion = (rc, ordersList, receiptsList) => {
     const ord = (ordersList || []).find((o) => String(o._id || o.id || "").trim() === String(rc.orderId || "").trim());
 
-    let taxAmount = 0;
-    let totalOrderAmount = 0;
-
-    if (ord) {
-      totalOrderAmount = Number(ord.totalAmount || 0);
-      const subtotal = Number(ord.subtotalAmount || 0);
-      const taxRate = Number(ord.taxRate || ord.quotation?.taxRate || 0);
-
-      let rawTax = Number(ord.taxAmount || ord.quotation?.taxAmount || 0);
-      if (rawTax > 0) {
-        taxAmount = rawTax;
-      } else if (subtotal > 0 && taxRate > 0) {
-        taxAmount = subtotal * (taxRate / 100);
-      } else if (totalOrderAmount > 0 && taxRate > 0) {
-        taxAmount = totalOrderAmount - (totalOrderAmount / (1 + taxRate / 100));
-      } else {
-        const lines = ord.orderDetailsList && ord.orderDetailsList.length > 0
-          ? ord.orderDetailsList
-          : [ord.orderDetails].filter(Boolean);
-        taxAmount = lines.reduce((acc, line) => {
-          if (!line) return acc;
-          const lSub = Number(line.subtotal || ((line.quantity || 0) * (line.unitPrice || 0)) || 0);
-          const lRate = Number(line.gstRate || taxRate || 0);
-          return acc + (lSub * (lRate / 100));
-        }, 0);
-      }
-    } else {
-      const siblingBill = (receiptsList || []).find(
-        (r) => String(r.orderId || "").trim() === String(rc.orderId || "").trim() && r.billDetails && r.billDetails.taxRate != null
-      );
-      if (siblingBill) {
-        const taxRate = Number(siblingBill.billDetails.taxRate || 0);
-        const subtotal = Number(siblingBill.billDetails.subtotal || 0);
-        taxAmount = subtotal * (taxRate / 100);
-        totalOrderAmount = Number(siblingBill.totalOrderAmount || siblingBill.totalAmount || 0);
-      } else if (rc.billDetails && rc.billDetails.taxRate != null) {
-        const taxRate = Number(rc.billDetails.taxRate || 0);
-        const subtotal = Number(rc.billDetails.subtotal || 0);
-        taxAmount = subtotal * (taxRate / 100);
-        totalOrderAmount = Number(rc.totalOrderAmount || rc.totalAmount || 0);
-      }
+    if (rc.type === "bill" || rc.paymentMode === "invoice") {
+      return getRealtimeReceiptGstAmount(rc, ord);
     }
 
     const isRefund = rc.paymentMode === "refund" || rc.type === "refund";
@@ -370,19 +368,29 @@ export const Receipts = () => {
           return -Number(returnItem.gstRefundAmount || 0);
         }
       }
-      const refundAmt = Number(rc.amount || 0);
-      return totalOrderAmount > 0 ? -(taxAmount * (refundAmt / totalOrderAmount)) : 0;
+      const realGstAmount = getRealtimeReceiptGstAmount(rc, ord);
+      return -realGstAmount;
     }
 
     const paidAmount = Number(rc.amount || 0);
-    if (totalOrderAmount > 0) {
-      return taxAmount * (paidAmount / totalOrderAmount);
+    const taxRate = Number(
+      rc.billDetails?.taxRate ??
+      ord?.taxRate ??
+      ord?.quotation?.taxRate ??
+      (ord?.orderDetailsList?.[0]?.gstRate || rc.orderDetailsList?.[0]?.gstRate || 0)
+    );
+
+    if (paidAmount > 0 && taxRate > 0) {
+      return Number((paidAmount * (taxRate / 100)).toFixed(2));
     }
+
     return 0;
   };
 
   const totalGstCollected = useMemo(() => {
     return filteredReceipts.reduce((sum, rc) => {
+      // Exclude issued bills/invoices; calculate GST collected ONLY from actual payment receipts & refunds
+      if (rc.type === "bill" || rc.paymentMode === "invoice") return sum;
       return sum + getReceiptGstPortion(rc, allOrdersList, receipts);
     }, 0);
   }, [filteredReceipts, allOrdersList, receipts]);
@@ -1082,20 +1090,27 @@ export const Receipts = () => {
     doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
     doc.text(`Email: ${rc.email || "—"}`, 15, 73);
 
+    // Associated Invoice lookup
+    const assocBill = (receipts || []).find(
+      (r) => String(r.orderId || "").trim() === String(rc.orderId || "").trim() && (r.type === "bill" || String(r.receiptNumber || "").startsWith("INV-"))
+    );
+    const invoiceNum = assocBill?.receiptNumber || rc.invoiceNumber || "—";
+
     // Payment details
     doc.setFont("helvetica", "bold");
     doc.text("RECEIPT DETAILS:", 110, 52);
     doc.setFont("helvetica", "normal");
-    doc.text(`Order Reference: ${rc.orderRef || "—"}`, 110, 58);
-    doc.text(`Quotation Number: ${rc.quotationNumber || "—"}`, 110, 63);
-    doc.text(`Payment Mode: ${String(rc.paymentMode || "cash").toUpperCase()}`, 110, 68);
-    doc.text(`Payment Status: ${rc.isPaidInFull ? "Paid in Full" : "Partial Payment"}`, 110, 73);
+    doc.text(`Order Reference: ${rc.orderRef || "—"}`, 110, 57);
+    doc.text(`Quotation Number: ${rc.quotationNumber || "—"}`, 110, 61.5);
+    doc.text(`Associated Invoice: ${invoiceNum}`, 110, 66);
+    doc.text(`Payment Mode: ${String(rc.paymentMode || "cash").toUpperCase()}`, 110, 70.5);
+    doc.text(`Payment Status: ${rc.isPaidInFull ? "Paid in Full" : "Partial Payment"}`, 110, 75);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // Build Table Body (multi-product compatible with proportional payment distribution & HSN Code)
+    // Build Table Body (shows Total Amount per item line)
     const lines = rc.orderDetailsList || [];
     const totalOrderVal = Number(rc.totalOrderAmount || 0);
     const totalSellingValue = lines.reduce((sum, line) => {
@@ -1112,19 +1127,19 @@ export const Receipts = () => {
 
       const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 1;
       const lineVal = Number(line.quantity || 0) * price;
-      const allocatedAmount = (lineVal / totalSellingValue) * Number(rc.amount || 0);
+      const itemTotalVal = totalOrderVal > 0 ? (lineVal / totalSellingValue) * totalOrderVal : lineVal;
 
       return [
         specDetails,
         lineHsn,
         `${line.quantity || 0} ${line.unit || "pcs"}`,
-        `Rs. ${allocatedAmount.toFixed(2)}`
+        `Rs. ${itemTotalVal.toFixed(2)}`
       ];
     });
 
     autoTable(doc, {
       startY: 84,
-      head: [["Order Item Details & Specifications", "HSN Code", "Quantity Ordered", "Allocated Payment"]],
+      head: [["Order Item Details & Specifications", "HSN Code", "Quantity Ordered", "Total Amount"]],
       body: tableBody,
       theme: "striped",
       styles: { fontSize: 9.5, cellPadding: 5, valign: "middle" },
