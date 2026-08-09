@@ -334,16 +334,18 @@ export const Toast = ({ message, type = "success", onClose }) => {
   );
 };
 
-export const Pagination = ({ current, total, onPageChange }) => {
-  const pages = Array.from({ length: total }, (_, i) => i + 1);
+export const Pagination = ({ current, total, currentPage, totalPages, onPageChange }) => {
+  const activePage = current ?? currentPage ?? 1;
+  const pageTotal = total ?? totalPages ?? 1;
+  const pages = Array.from({ length: pageTotal }, (_, i) => i + 1);
 
   return (
     <div className="flex items-center gap-2">
       <Button
         variant="secondary"
         size="sm"
-        disabled={current === 1}
-        onClick={() => onPageChange(current - 1)}
+        disabled={activePage <= 1}
+        onClick={() => onPageChange(activePage - 1)}
       >
         Previous
       </Button>
@@ -352,7 +354,7 @@ export const Pagination = ({ current, total, onPageChange }) => {
           key={page}
           className={clsx(
             "px-3 py-1 rounded text-sm font-medium transition-colors",
-            page === current
+            page === activePage
               ? "bg-primary-600 text-white"
               : "border border-gray-300 text-gray-900 hover:bg-gray-50",
           )}
@@ -364,8 +366,8 @@ export const Pagination = ({ current, total, onPageChange }) => {
       <Button
         variant="secondary"
         size="sm"
-        disabled={current === total}
-        onClick={() => onPageChange(current + 1)}
+        disabled={activePage >= pageTotal}
+        onClick={() => onPageChange(activePage + 1)}
       >
         Next
       </Button>

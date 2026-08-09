@@ -22,10 +22,7 @@ const leadSchema = z.object({
     }),
   business_name: z.string().optional().or(z.literal("")),
   product_category: z.string().optional().or(z.literal("")),
-  status: z
-    .enum(["New", "Contacted", "Interested", "Converted", "Completed", "Delivered", "Lost"])
-    .optional()
-    .default("New"),
+  status: z.string().optional().default("New"),
   quantity: z.string().optional().or(z.literal("")),
   quantity_unit: z.enum(["pcs", "kg", "pieces"]).optional().default("pcs"),
   requirement: z.string().optional().or(z.literal("")),
@@ -65,6 +62,13 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
 
   const parsedQty = parseInitialQtyAndUnit(initialData?.quantity);
 
+  const cleanStatus = React.useMemo(() => {
+    if (!initialData) return "New";
+    const rawSt = String(initialData.statusLabel || initialData.status || "New").trim();
+    if (!rawSt) return "New";
+    return rawSt.charAt(0).toUpperCase() + rawSt.slice(1).toLowerCase();
+  }, [initialData]);
+
   const defaultValues = React.useMemo(() => {
     if (!initialData) return { quantity_unit: "pcs", status: "New" };
     const rawPhone = initialData.phone || initialData.wa_phone || "";
@@ -74,14 +78,14 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
       name: initialData.name || "",
       email: initialData.email || "",
       phone: cleanPhone || String(rawPhone),
-      business_name: initialData.business_name || initialData.companyName || "",
+      business_name: initialData.business_name || initialData.businessName || initialData.companyName || "",
       product_category: initialData.product_category || initialData.productInterest || "",
-      status: initialData.status || initialData.statusLabel || "New",
+      status: cleanStatus,
       quantity: parsedQty.quantity || "",
       quantity_unit: parsedQty.quantity_unit || "pcs",
       requirement: initialData.requirement || "",
     };
-  }, [initialData]);
+  }, [initialData, cleanStatus]);
 
   const {
     register,
@@ -185,12 +189,13 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
           { value: "New", label: "New" },
           { value: "Contacted", label: "Contacted" },
           { value: "Interested", label: "Interested" },
+          { value: "Qualified", label: "Qualified" },
           { value: "Converted", label: "Converted" },
           { value: "Completed", label: "Completed" },
           { value: "Delivered", label: "Delivered" },
           { value: "Lost", label: "Lost" },
         ]}
-        disabled={initialData && ["Converted", "Completed", "Delivered"].includes(initialData.status)}
+        disabled={initialData && ["Converted", "Completed", "Delivered"].includes(cleanStatus)}
         error={errors.status?.message}
         {...register("status")}
       />

@@ -44,6 +44,7 @@ import { useAuthContext } from "../../../context/Adminauth";
 import { useGetInventory } from "../../../../hook/inventory";
 import { useGetAllProducts } from "../../../../hook/Product";
 import { exportToExcel } from "../../utils";
+import { INDIAN_STATES, GSTIN_REGEX } from "../../utils/gstStates";
 
 const FOLLOWUP_FLOW = [
   { key: "first_followup", label: "First Follow-up", order: 1, dayLabel: "Day 1" },
@@ -276,7 +277,8 @@ const Leads = () => {
       if (response.data.success) {
         setShowModal(false);
         showNotification("Lead added successfully", "success");
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
       }
     } catch (error) {
       console.error("Add Lead Error:", error);
@@ -296,7 +298,8 @@ const Leads = () => {
         setShowModal(false);
         setEditingLead(null);
         showNotification("Lead updated successfully", "success");
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
       }
     } catch (error) {
       console.error("Update Lead Error:", error);
@@ -335,7 +338,14 @@ const Leads = () => {
       specsExpanded: true,
     };
     setLeadToConvert(lead);
-    setOrderForm({ orderLines: [firstLine], notes: "" });
+    setOrderForm({
+      orderLines: [firstLine],
+      notes: "",
+      gstNumber: lead?.gstNumber || "",
+      stateName: lead?.stateName || "",
+      stateCode: lead?.stateCode || "",
+      address: lead?.address || "",
+    });
     setShowConvertModal(true);
   };
 
@@ -465,20 +475,20 @@ const Leads = () => {
     if (isLockedStatus || isMovingBackwards) {
       const confirmChange = window.confirm(`Warning: You are modifying a finalized lead or changing status backward from "${oldStatus}" to "${status}". Are you sure you want to proceed?`);
       if (!confirmChange) {
-        queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
         return;
       }
       const userReason = window.prompt(`Please enter the reason for changing status from "${oldStatus}" to "${status}":`);
       if (userReason === null) {
-        queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
         return;
       }
       if (!userReason.trim()) {
         toast.error("Reason is required to change lead status backward or modify a finalized lead.");
-        queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
         return;
       }
       reason = userReason.trim();
@@ -502,11 +512,11 @@ const Leads = () => {
         id: loadingToast,
       });
 
-      queryClient.invalidateQueries({
-        queryKey: ["getAllLeads"],
+      await queryClient.invalidateQueries({
+        queryKey: ["getAllLeadsData"],
       });
 
-      refetch();
+      await refetch();
 
       if (updatedLead) {
         const formattedUpdated = {
@@ -684,23 +694,59 @@ const Leads = () => {
         };
       });
 
-      const firstProd = productItems.find(
-        (p) => String(p?._id || p?.id || p?.productId || "").trim() === lines[0].selectedProductId
-      );
+    // Calculate total estimated order value including GST
+    const estimatedOrderTotal = lines.reduce((sum, line) => {
+      const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === String(line.selectedProductId).trim());
+      const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0);
+      const sub = Number(line.quantity || 0) * price;
+      const taxRate = Number(prod?.gstRate ?? 18);
+      return sum + (sub + sub * (taxRate / 100));
+    }, 0);
 
-      const orderPayload = {
-        leadId: leadToConvert.id,
-        customerName: leadToConvert.name,
-        businessName: leadToConvert.businessName,
-        phone: leadToConvert.phone,
-        email: leadToConvert.email,
-        productCategory: firstProd?.category || leadToConvert.productInterest,
-        source: leadToConvert.source,
-        orderDetails: orderDetailsList[0],
-        orderDetailsList,
-        payment: { paymentType: "partial", partialPaidAmount: 0 },
-        notes: orderForm.notes,
-      };
+    const isGstEntered = Boolean(orderForm.gstNumber && orderForm.gstNumber.trim().length > 0);
+    const isHighValue = estimatedOrderTotal > 50000;
+    const isAddressRequired = isGstEntered || isHighValue;
+
+    if (isGstEntered) {
+      const cleanGst = orderForm.gstNumber.trim().toUpperCase();
+      if (!GSTIN_REGEX.test(cleanGst)) {
+        toast.error("Invalid GSTIN format. Expected: 2-digit State + 10-char PAN + 1 Entity + 'Z' + 1 Checksum");
+        return;
+      }
+    }
+
+    if (isAddressRequired) {
+      if (!orderForm.stateCode) {
+        toast.error("State selection is required when GSTIN is provided or order exceeds ₹50,000");
+        return;
+      }
+      if (!orderForm.address || !orderForm.address.trim()) {
+        toast.error("Address is required when GSTIN is provided or order exceeds ₹50,000");
+        return;
+      }
+    }
+
+    const firstProd = productItems.find(
+      (p) => String(p?._id || p?.id || p?.productId || "").trim() === lines[0].selectedProductId
+    );
+
+    const orderPayload = {
+      leadId: leadToConvert.id,
+      customerName: leadToConvert.name,
+      businessName: leadToConvert.businessName,
+      phone: leadToConvert.phone,
+      email: leadToConvert.email,
+      gstNumber: orderForm.gstNumber ? orderForm.gstNumber.trim().toUpperCase() : "",
+      stateName: orderForm.stateName || "",
+      stateCode: orderForm.stateCode || "",
+      address: orderForm.address ? orderForm.address.trim() : "",
+      productCategory: firstProd?.category || leadToConvert.productInterest,
+      source: leadToConvert.source,
+      orderDetails: orderDetailsList[0],
+      orderDetailsList,
+      payment: { paymentType: "partial", partialPaidAmount: 0 },
+      notes: orderForm.notes,
+    };
 
       await axiosInstance.post(`/order/create`, orderPayload);
       const response = await axiosInstance.patch(`/leads/${leadToConvert.id}/status`, {
@@ -710,7 +756,7 @@ const Leads = () => {
       const updatedLead = response?.data?.data;
 
       toast.success("Lead converted to order successfully 🎉", { id: loadingToast });
-      queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
+      await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
       await refetch();
 
       if (updatedLead) {
@@ -765,7 +811,8 @@ const Leads = () => {
       const response = await axiosInstance.delete(`/leads/${id}`);
       if (response.data.success) {
         toast.success("Lead deleted successfully", { id: loadingToast });
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
 
         if (selectedLead?.id === id) {
           setSelectedLead(null);
@@ -785,7 +832,8 @@ const Leads = () => {
       const response = await axiosInstance.patch(`/leads/${id}/recover`);
       if (response.data.success) {
         toast.success("Lead restored successfully 🎉", { id: loadingToast });
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
       }
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to restore lead", { id: loadingToast });
@@ -901,8 +949,8 @@ const Leads = () => {
 
       setNoteInput("");
 
-      queryClient.invalidateQueries({
-        queryKey: ["getAllLeads"],
+      await queryClient.invalidateQueries({
+        queryKey: ["getAllLeadsData"],
       });
 
       await refetch();
@@ -944,8 +992,8 @@ const Leads = () => {
         id: loadingToast,
       });
 
-      queryClient.invalidateQueries({
-        queryKey: ["getAllLeads"],
+      await queryClient.invalidateQueries({
+        queryKey: ["getAllLeadsData"],
       });
 
       await refetch();
@@ -2024,6 +2072,127 @@ const Leads = () => {
                     </div>
                   </div>
 
+
+                  {/* ── SECTION: GST & Billing Address Details ── */}
+                  {(() => {
+                    const estimatedOrderTotal = (orderForm.orderLines || []).reduce((sum, line) => {
+                      const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === String(line.selectedProductId).trim());
+                      const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0);
+                      const sub = Number(line.quantity || 0) * price;
+                      const taxRate = Number(prod?.gstRate ?? 18);
+                      return sum + (sub + sub * (taxRate / 100));
+                    }, 0);
+
+                    const isGstEntered = Boolean(orderForm.gstNumber && orderForm.gstNumber.trim().length > 0);
+                    const isHighValue = estimatedOrderTotal > 50000;
+                    const isAddressRequired = isGstEntered || isHighValue;
+
+                    return (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-emerald-600" />
+                          <h4 className="text-sm font-bold text-gray-900">GST &amp; Billing / Delivery Details</h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* GST Number */}
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+                              GST Number (GSTIN) <span className="text-gray-400 font-normal">(Optional, 15 chars)</span>
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={15}
+                              value={orderForm.gstNumber || ""}
+                              onChange={(e) => {
+                                const upper = e.target.value.toUpperCase();
+                                handleOrderFormChange("gstNumber", upper);
+                              }}
+                              placeholder="e.g. 27ABCDE1234F1Z5"
+                              className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition font-mono ${
+                                orderForm.gstNumber && !GSTIN_REGEX.test(orderForm.gstNumber.trim())
+                                  ? "border-red-300 bg-red-50/30 text-red-900 focus:border-red-500"
+                                  : "border-gray-200 bg-white focus:border-emerald-500"
+                              }`}
+                            />
+                            {orderForm.gstNumber && !GSTIN_REGEX.test(orderForm.gstNumber.trim()) && (
+                              <p className="mt-1 text-[11px] font-semibold text-red-500">
+                                Format: 2-digit State + 10-char PAN + 1 Entity + 'Z' + 1 Checksum
+                              </p>
+                            )}
+                          </div>
+
+                          {/* State Dropdown */}
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+                              State {isAddressRequired && <span className="text-red-500">*</span>}
+                            </label>
+                            <select
+                              value={orderForm.stateCode || ""}
+                              onChange={(e) => {
+                                const selectedCode = e.target.value;
+                                const found = INDIAN_STATES.find(s => s.code === selectedCode);
+                                setOrderForm(prev => ({
+                                  ...prev,
+                                  stateCode: selectedCode,
+                                  stateName: found ? found.name : ""
+                                }));
+                              }}
+                              required={isAddressRequired}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500"
+                            >
+                              <option value="">Select State / UT...</option>
+                              {INDIAN_STATES.map((s) => (
+                                <option key={s.code} value={s.code}>
+                                  {s.code} - {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* State Mismatch Cross-Check Warning */}
+                        {orderForm.gstNumber && orderForm.stateCode && (
+                          (() => {
+                            const gstPrefix = orderForm.gstNumber.trim().substring(0, 2);
+                            if (gstPrefix.length === 2 && gstPrefix !== orderForm.stateCode) {
+                              return (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800 flex items-center gap-2">
+                                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                                  <span>
+                                    <b>Cross-Check Note:</b> GSTIN state prefix (<b>{gstPrefix}</b>) does not match selected State (<b>{orderForm.stateCode} - {orderForm.stateName}</b>).
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()
+                        )}
+
+                        {/* Address Field */}
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+                            Billing / Delivery Address {isAddressRequired && <span className="text-red-500">*</span>}
+                            {isGstEntered ? (
+                              <span className="ml-1 text-[11px] font-medium text-emerald-600">(Required for GST registered buyers)</span>
+                            ) : isHighValue ? (
+                              <span className="ml-1 text-[11px] font-medium text-amber-600">(Required for orders exceeding ₹50,000)</span>
+                            ) : (
+                              <span className="ml-1 text-[11px] font-medium text-gray-400">(Optional below ₹50,000)</span>
+                            )}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={orderForm.address || ""}
+                            onChange={(e) => handleOrderFormChange("address", e.target.value)}
+                            required={isAddressRequired}
+                            placeholder="Enter complete building, street, city, pin code..."
+                            className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* ── SECTION: Notes ── */}
                   <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">

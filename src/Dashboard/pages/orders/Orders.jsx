@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { INDIAN_STATES, GSTIN_REGEX } from "../../utils/gstStates";
 import { getEffectiveTaxRate, getSystemGstConfigFromStorage } from "../../../utils/gstConfig.js";
 import { Layout } from "../../components/common/Layout";
 import {
@@ -71,6 +72,10 @@ const initialManualOrderForm = {
   businessName: "",
   phone: "",
   email: "",
+  gstNumber: "",
+  stateName: "",
+  stateCode: "",
+  address: "",
   productId: "",
   productCategory: "",
   source: "Manual Order",
@@ -763,11 +768,16 @@ const Orders = () => {
 
       return {
         id: order?._id,
+        _id: order?._id,
         leadId: order?.leadId?._id || order?.leadId || null,
         customerName: order?.customerName || "Unknown",
         businessName: order?.businessName || "—",
         phone: order?.phone || "—",
         email: order?.email || "—",
+        gstNumber: order?.gstNumber || "",
+        stateName: order?.stateName || "",
+        stateCode: order?.stateCode || "",
+        address: order?.address || order?.deliveryAddress || order?.delivery?.deliveryAddress || "",
         productCategory: order?.productCategory || "—",
         source: order?.source || "Manual",
         orderStatus: order?.orderStatus || "Pending",
@@ -834,7 +844,8 @@ const Orders = () => {
   const totalOrders = orderStats?.totalOrders ?? pagination?.total ?? formattedOrders.length;
   const pendingCount = orderStats?.statusCounts?.Pending ?? rawOrders.filter((o) => o.orderStatus === "Pending").length;
   const processingCount = orderStats?.statusCounts?.Processing ?? rawOrders.filter((o) => o.orderStatus === "Processing").length;
-  const completedCount = orderStats?.statusCounts?.Completed ?? rawOrders.filter((o) => o.orderStatus === "Completed").length;
+  const deliveredCount = orderStats?.statusCounts?.Delivered ?? rawOrders.filter((o) => o.orderStatus === "Delivered" || o.orderStatusKey === "DELIVERED").length;
+  const completedCount = orderStats?.statusCounts?.Finished ?? ((orderStats?.statusCounts?.Completed || 0) + (orderStats?.statusCounts?.Delivered || 0));
   const confirmedCount = orderStats?.statusCounts?.Confirmed ?? rawOrders.filter((o) => o.orderStatus === "Confirmed").length;
   const partialPaidCount = orderStats?.paymentCounts?.["Partial Paid"] ?? rawOrders.filter(
     (o) => o.paymentStatus === "Partial Paid"
@@ -4143,6 +4154,10 @@ Valid Until: ${quotationValidUntil || "—"}
       businessName: order.businessName || "",
       phone: order.phone || "",
       email: order.email || "",
+      gstNumber: order.gstNumber || "",
+      stateName: order.stateName || "",
+      stateCode: order.stateCode || "",
+      address: order.address || order.deliveryAddress || order.delivery?.deliveryAddress || "",
       productId: order.orderDetails?.productId || "",
       productCategory: order.productCategory || "",
       source: order.source || "Manual Order",
@@ -4226,6 +4241,10 @@ Valid Until: ${quotationValidUntil || "—"}
         businessName: editOrderForm.businessName,
         phone: editOrderForm.phone,
         email: editOrderForm.email,
+        gstNumber: editOrderForm.gstNumber ? editOrderForm.gstNumber.trim().toUpperCase() : "",
+        stateName: editOrderForm.stateName || "",
+        stateCode: editOrderForm.stateCode || "",
+        address: editOrderForm.address ? editOrderForm.address.trim() : "",
         source: editOrderForm.source,
         notes: editOrderForm.notes,
         editReason: editOrderForm.editReason.trim(),
@@ -4284,19 +4303,30 @@ Valid Until: ${quotationValidUntil || "—"}
         payload.orderDetailsList = [payload.orderDetails];
       }
 
-      await axiosInstance.patch(`/orders/${editingOrder.id}/update`, payload);
+      const updateResp = await axiosInstance.patch(`/orders/${editingOrder.id}/update`, payload);
 
       toast.success("Order updated successfully 🎉", { id: loadingToast });
 
       queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
       queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
 
+      const updatedDoc = updateResp?.data?.data || updateResp?.data;
+
       await refetch();
       setShowEditModal(false);
       setEditingOrder(null);
-      if (selectedOrder && selectedOrder.id === editingOrder.id) {
-        setShowDetailPanel(false);
-        setSelectedOrder(null);
+
+      if (selectedOrder && (selectedOrder.id === editingOrder.id || selectedOrder._id === editingOrder.id)) {
+        if (updatedDoc) {
+          setSelectedOrder(prev => ({
+            ...prev,
+            ...updatedDoc,
+            gstNumber: updatedDoc.gstNumber || editOrderForm.gstNumber || prev?.gstNumber || "",
+            stateName: updatedDoc.stateName || editOrderForm.stateName || prev?.stateName || "",
+            stateCode: updatedDoc.stateCode || editOrderForm.stateCode || prev?.stateCode || "",
+            address: updatedDoc.address || editOrderForm.address || prev?.address || "",
+          }));
+        }
       }
     } catch (error) {
       toast.error(
@@ -4379,8 +4409,38 @@ Valid Until: ${quotationValidUntil || "—"}
       return;
     }
 
-    const loadingToast = toast.loading(`Creating order with ${productsToSubmit.length} products...`);
+    // Calculate estimated total order value
+    const estimatedTotal = productsToSubmit.reduce((sum, p) => {
+      const price = Number(p.pricePerUnit || p.unitPrice || 0);
+      const sub = Number(p.quantity || 0) * price;
+      const taxRate = Number(p.gstRate ?? 18);
+      return sum + (sub + sub * (taxRate / 100));
+    }, 0);
 
+    const isGstEntered = Boolean(manualOrderForm.gstNumber && manualOrderForm.gstNumber.trim().length > 0);
+    const isHighValue = estimatedTotal > 50000;
+    const isAddressRequired = isGstEntered || isHighValue;
+
+    if (isGstEntered) {
+      const cleanGst = manualOrderForm.gstNumber.trim().toUpperCase();
+      if (!GSTIN_REGEX.test(cleanGst)) {
+        showNotification("Invalid GSTIN format. Expected: 2-digit State + 10-char PAN + 1 Entity + 'Z' + 1 Checksum", "error");
+        return;
+      }
+    }
+
+    if (isAddressRequired) {
+      if (!manualOrderForm.stateCode) {
+        showNotification("State selection is required when GSTIN is provided or order exceeds ₹50,000", "error");
+        return;
+      }
+      if (!manualOrderForm.address || !manualOrderForm.address.trim()) {
+        showNotification("Address is required when GSTIN is provided or order exceeds ₹50,000", "error");
+        return;
+      }
+    }
+
+    const loadingToast = toast.loading(`Creating order with ${productsToSubmit.length} products...`);
 
     try {
       // Build ONE order with all products in orderDetailsList
@@ -4391,6 +4451,10 @@ Valid Until: ${quotationValidUntil || "—"}
         businessName: manualOrderForm.businessName,
         phone: manualOrderForm.phone,
         email: manualOrderForm.email,
+        gstNumber: manualOrderForm.gstNumber ? manualOrderForm.gstNumber.trim().toUpperCase() : "",
+        stateName: manualOrderForm.stateName || "",
+        stateCode: manualOrderForm.stateCode || "",
+        address: manualOrderForm.address ? manualOrderForm.address.trim() : "",
         productCategory: productsToSubmit.map(p => p.productCategory).join(", "),
         source: manualOrderForm.source,
         orderDetails: {
@@ -4856,7 +4920,7 @@ Valid Until: ${quotationValidUntil || "—"}
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+          className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
@@ -4922,7 +4986,21 @@ Valid Until: ${quotationValidUntil || "—"}
             </div>
           </Card>
 
-
+          <Card className="rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Delivered
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {deliveredCount}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-teal-50 p-3 text-teal-600">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+            </div>
+          </Card>
         </motion.div>
 
         {/* View Mode Toggle */}
@@ -5659,6 +5737,118 @@ Valid Until: ${quotationValidUntil || "—"}
                             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                           />
                         </div>
+
+                        {/* GST Number */}
+                        <div>
+                          <label className="mb-1 block text-xs font-bold text-gray-700">
+                            GST Number (GSTIN) <span className="text-gray-400 font-normal">(Optional, 15 chars)</span>
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            value={manualOrderForm.gstNumber || ""}
+                            onChange={(e) => {
+                              const upper = e.target.value.toUpperCase();
+                              handleFormChange("gstNumber", upper);
+                            }}
+                            placeholder="e.g. 27ABCDE1234F1Z5"
+                            className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition font-mono ${
+                              manualOrderForm.gstNumber && !GSTIN_REGEX.test(manualOrderForm.gstNumber.trim())
+                                ? "border-red-300 bg-red-50/30 text-red-900 focus:border-red-500"
+                                : "border-gray-200 bg-white focus:border-emerald-500"
+                            }`}
+                          />
+                          {manualOrderForm.gstNumber && !GSTIN_REGEX.test(manualOrderForm.gstNumber.trim()) && (
+                            <p className="mt-1 text-[11px] font-semibold text-red-500">
+                              Format: 2-digit State + 10-char PAN + 1 Entity + 'Z' + 1 Checksum
+                            </p>
+                          )}
+                        </div>
+
+                        {/* State Selection Dropdown */}
+                        {(() => {
+                          const estimatedTotal = (manualSelectedProducts.length > 0 ? manualSelectedProducts : [manualOrderForm]).reduce((sum, p) => {
+                            const price = Number(p.pricePerUnit || p.unitPrice || 0);
+                            const sub = Number(p.quantity || 0) * price;
+                            const taxRate = Number(p.gstRate ?? 18);
+                            return sum + (sub + sub * (taxRate / 100));
+                          }, 0);
+
+                          const isGstEntered = Boolean(manualOrderForm.gstNumber && manualOrderForm.gstNumber.trim().length > 0);
+                          const isHighValue = estimatedTotal > 50000;
+                          const isAddressRequired = isGstEntered || isHighValue;
+
+                          return (
+                            <>
+                              <div>
+                                <label className="mb-1 block text-xs font-bold text-gray-700">
+                                  State {isAddressRequired && <span className="text-red-500">*</span>}
+                                </label>
+                                <select
+                                  value={manualOrderForm.stateCode || ""}
+                                  onChange={(e) => {
+                                    const selectedCode = e.target.value;
+                                    const found = INDIAN_STATES.find(s => s.code === selectedCode);
+                                    setManualOrderForm(prev => ({
+                                      ...prev,
+                                      stateCode: selectedCode,
+                                      stateName: found ? found.name : ""
+                                    }));
+                                  }}
+                                  required={isAddressRequired}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                >
+                                  <option value="">Select State / UT...</option>
+                                  {INDIAN_STATES.map((s) => (
+                                    <option key={s.code} value={s.code}>
+                                      {s.code} - {s.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* State Mismatch Warning */}
+                              {manualOrderForm.gstNumber && manualOrderForm.stateCode && (
+                                (() => {
+                                  const gstPrefix = manualOrderForm.gstNumber.trim().substring(0, 2);
+                                  if (gstPrefix.length === 2 && gstPrefix !== manualOrderForm.stateCode) {
+                                    return (
+                                      <div className="col-span-1 sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800 flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                                        <span>
+                                          <b>Cross-Check Note:</b> GSTIN state prefix (<b>{gstPrefix}</b>) does not match selected State (<b>{manualOrderForm.stateCode} - {manualOrderForm.stateName}</b>).
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()
+                              )}
+
+                              {/* Billing Address Field */}
+                              <div className="col-span-1 sm:col-span-2">
+                                <label className="mb-1 block text-xs font-bold text-gray-700">
+                                  Billing / Delivery Address {isAddressRequired && <span className="text-red-500">*</span>}
+                                  {isGstEntered ? (
+                                    <span className="ml-1 text-[11px] font-medium text-emerald-600">(Required for GST registered buyers)</span>
+                                  ) : isHighValue ? (
+                                    <span className="ml-1 text-[11px] font-medium text-amber-600">(Required for orders exceeding ₹50,000)</span>
+                                  ) : (
+                                    <span className="ml-1 text-[11px] font-medium text-gray-400">(Optional below ₹50,000)</span>
+                                  )}
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={manualOrderForm.address || ""}
+                                  onChange={(e) => handleFormChange("address", e.target.value)}
+                                  required={isAddressRequired}
+                                  placeholder="Enter complete building, street, city, pin code..."
+                                  className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                />
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -6415,6 +6605,69 @@ Valid Until: ${quotationValidUntil || "—"}
                         onChange={(e) => handleEditFormChange("source", e.target.value)}
                         placeholder="Source"
                         className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    {/* GST Number */}
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        GST Number (GSTIN) <span className="text-gray-400 font-normal">(Optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={15}
+                        value={editOrderForm.gstNumber || ""}
+                        onChange={(e) => {
+                          const upper = e.target.value.toUpperCase();
+                          handleEditFormChange("gstNumber", upper);
+                        }}
+                        placeholder="e.g. 27ABCDE1234F1Z5"
+                        className={`w-full rounded-xl border px-4 py-3 text-sm outline-none font-mono ${
+                          editOrderForm.gstNumber && !GSTIN_REGEX.test(editOrderForm.gstNumber.trim())
+                            ? "border-red-300 bg-red-50/30 text-red-900 focus:border-red-500"
+                            : "border-gray-200 focus:border-emerald-500"
+                        }`}
+                      />
+                    </div>
+
+                    {/* State Dropdown */}
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        State
+                      </label>
+                      <select
+                        value={editOrderForm.stateCode || ""}
+                        onChange={(e) => {
+                          const selectedCode = e.target.value;
+                          const found = INDIAN_STATES.find(s => s.code === selectedCode);
+                          setEditOrderForm(prev => ({
+                            ...prev,
+                            stateCode: selectedCode,
+                            stateName: found ? found.name : ""
+                          }));
+                        }}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                      >
+                        <option value="">Select State / UT...</option>
+                        {INDIAN_STATES.map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.code} - {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Billing Address Field */}
+                    <div className="col-span-1 sm:col-span-2">
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        Billing / Delivery Address
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editOrderForm.address || ""}
+                        onChange={(e) => handleEditFormChange("address", e.target.value)}
+                        placeholder="Enter complete address..."
+                        className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>

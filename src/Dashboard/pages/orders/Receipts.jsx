@@ -282,13 +282,15 @@ export const Receipts = () => {
       });
     }
 
-    // Sorting
+    // Sorting (merges both RCT- receipts and INV- invoices chronologically)
     list = [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.paidAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.paidAt || 0).getTime();
       if (sortBy === "date-desc") {
-        return new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime();
+        return timeB - timeA;
       }
       if (sortBy === "date-asc") {
-        return new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime();
+        return timeA - timeB;
       }
       if (sortBy === "customer-asc") {
         return (a.customerName || "").localeCompare(b.customerName || "");
@@ -302,7 +304,7 @@ export const Receipts = () => {
       if (sortBy === "amount-asc") {
         return (a.amount || 0) - (b.amount || 0);
       }
-      return 0;
+      return timeB - timeA;
     });
 
     return list;
@@ -356,10 +358,12 @@ export const Receipts = () => {
   const getReceiptGstPortion = (rc, ordersList, receiptsList) => {
     const ord = (ordersList || []).find((o) => String(o._id || o.id || "").trim() === String(rc.orderId || "").trim());
 
+    // 1. For Tax Invoices (Bills)
     if (rc.type === "bill" || rc.paymentMode === "invoice") {
       return getRealtimeReceiptGstAmount(rc, ord);
     }
 
+    // 2. For Refunds
     const isRefund = rc.paymentMode === "refund" || rc.type === "refund";
     if (isRefund) {
       if (ord) {
@@ -372,19 +376,80 @@ export const Receipts = () => {
       return -realGstAmount;
     }
 
+    // 3. For Payment Receipts (RCT-) -> Option 2: Proportional Allocation of Order's Dynamic GST
     const paidAmount = Number(rc.amount || 0);
-    const taxRate = Number(
-      rc.billDetails?.taxRate ??
-      ord?.taxRate ??
-      ord?.quotation?.taxRate ??
-      (ord?.orderDetailsList?.[0]?.gstRate || rc.orderDetailsList?.[0]?.gstRate || 0)
+    if (paidAmount <= 0) return 0;
+
+    // Full order grand total
+    const orderGrandTotal = Number(
+      rc.totalOrderAmount ||
+      ord?.grandTotal ||
+      ord?.billDetails?.grandTotal ||
+      ord?.quotation?.grandTotal ||
+      ord?.amount ||
+      0
     );
 
-    if (paidAmount > 0 && taxRate > 0) {
-      return Number((paidAmount * (taxRate / 100)).toFixed(2));
+    // Full order total GST amount (computed dynamically from order/quotation/billDetails line items or rate)
+    let orderTotalGst = 0;
+    if (ord) {
+      const billRc = (receiptsList || []).find(
+        (r) => String(r.orderId || "").trim() === String(ord._id || ord.id || "").trim() && (r.type === "bill" || r.paymentMode === "invoice")
+      );
+      if (billRc) {
+        orderTotalGst = getRealtimeReceiptGstAmount(billRc, ord);
+      } else {
+        orderTotalGst = getRealtimeReceiptGstAmount({ billDetails: ord.billDetails || ord.quotation }, ord);
+      }
+    } else if (rc.billDetails) {
+      orderTotalGst = getRealtimeReceiptGstAmount(rc, null);
     }
 
-    return 0;
+    // Fallback calculation if orderTotalGst wasn't derived from line items directly
+    if (orderTotalGst <= 0 && orderGrandTotal > 0) {
+      const taxRate = Number(
+        rc.billDetails?.taxRate ??
+        ord?.taxRate ??
+        ord?.quotation?.taxRate ??
+        (ord?.orderDetailsList?.[0]?.gstRate || rc.orderDetailsList?.[0]?.gstRate || 0)
+      );
+      if (taxRate > 0) {
+        const base = orderGrandTotal / (1 + taxRate / 100);
+        orderTotalGst = orderGrandTotal - base;
+      }
+    }
+
+    if (orderGrandTotal <= 0 || orderTotalGst <= 0) return 0;
+
+    // Get all payment receipts for this order
+    const orderIdStr = String(rc.orderId || "").trim();
+    const orderPaymentReceipts = (receiptsList || [])
+      .filter((r) => {
+        const isSameOrder = String(r.orderId || "").trim() === orderIdStr;
+        const isPayment = r.type !== "bill" && r.paymentMode !== "invoice" && r.type !== "refund" && r.paymentMode !== "refund";
+        return isSameOrder && isPayment;
+      })
+      .sort((a, b) => new Date(a.createdAt || a.paidAt || 0) - new Date(b.createdAt || b.paidAt || 0));
+
+    const currentRcIndex = orderPaymentReceipts.findIndex(
+      (r) => String(r._id || r.id || r.receiptNumber).trim() === String(rc._id || rc.id || rc.receiptNumber).trim()
+    );
+
+    // If this is the last payment receipt for the order, assign remaining unallocated GST to balance perfectly
+    if (currentRcIndex >= 0 && currentRcIndex === orderPaymentReceipts.length - 1) {
+      let previousAllocatedGst = 0;
+      for (let i = 0; i < currentRcIndex; i++) {
+        const prevRc = orderPaymentReceipts[i];
+        const prevPaid = Number(prevRc.amount || 0);
+        previousAllocatedGst += Number((orderTotalGst * (prevPaid / orderGrandTotal)).toFixed(2));
+      }
+      const remainingGst = Math.max(0, orderTotalGst - previousAllocatedGst);
+      return Number(remainingGst.toFixed(2));
+    }
+
+    // Standard Proportional Allocation: Order Total GST * (Paid Amount / Order Grand Total)
+    const allocatedGst = orderTotalGst * (paidAmount / orderGrandTotal);
+    return Number(allocatedGst.toFixed(2));
   };
 
   const totalGstCollected = useMemo(() => {
@@ -1580,7 +1645,10 @@ export const Receipts = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-xs">
-                          {new Date(rc.paidAt).toLocaleDateString()} · {new Date(rc.paidAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {(() => {
+                            const dateObj = new Date(rc.createdAt || rc.paidAt || Date.now());
+                            return `${dateObj.toLocaleDateString()} · ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                          })()}
                         </td>
                         <td className={`px-6 py-4 font-bold ${rc.paymentMode === "refund" ? "text-rose-600" : "text-emerald-700"}`}>
                           {rc.paymentMode === "refund" ? "-" : ""}₹{(rc.amount || 0).toLocaleString()}
@@ -1595,13 +1663,24 @@ export const Receipts = () => {
                           })()}
                         </td>
                         <td className="px-6 py-4">
-                          {rc.paymentMode === "refund" ? (
-                            <Badge variant="danger">Refunded</Badge>
-                          ) : rc.isPaidInFull ? (
-                            <Badge variant="success">Fully Paid</Badge>
-                          ) : (
-                            <Badge variant="warning">Partial (Due: ₹{rc.remainingAmount?.toLocaleString()})</Badge>
-                          )}
+                          {(() => {
+                            const isRefund = rc.paymentMode === "refund" || rc.type === "refund";
+                            if (isRefund) {
+                              return <Badge variant="danger">Refunded</Badge>;
+                            }
+
+                            const ord = allOrdersList.find((o) => String(o._id || o.id || "").trim() === String(rc.orderId || "").trim());
+                            const currentPaid = Number(ord?.paidAmount ?? rc.paidSoFar ?? 0);
+                            const totalAmt = Number(rc.totalOrderAmount || rc.amount || ord?.totalAmount || 0);
+                            const remainingDue = Math.max(0, Number((totalAmt - currentPaid).toFixed(2)));
+                            const isFullyPaid = rc.isPaidInFull || ord?.paymentStatus === "Paid" || (currentPaid >= totalAmt - 0.01 && totalAmt > 0);
+
+                            if (isFullyPaid) {
+                              return <Badge variant="success">Fully Paid</Badge>;
+                            }
+
+                            return <Badge variant="warning">Partial (Due: ₹{remainingDue.toLocaleString()})</Badge>;
+                          })()}
                         </td>
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-2">

@@ -42,8 +42,8 @@ const OrderActionsDashboard = ({
     ? (globalStats.statusCounts?.Processing || 0)
     : orders.filter((o) => o.orderStatusKey === "PROCESSING").length;
   const completedOrders = hasGlobal
-    ? (globalStats.statusCounts?.Completed || 0)
-    : orders.filter((o) => o.orderStatusKey === "COMPLETED").length;
+    ? (globalStats.statusCounts?.Finished ?? ((globalStats.statusCounts?.Completed || 0) + (globalStats.statusCounts?.Delivered || 0)))
+    : orders.filter((o) => ["COMPLETED", "DELIVERED"].includes(o.orderStatusKey) || ["Completed", "Delivered"].includes(o.orderStatus)).length;
   const cancelledOrders = hasGlobal
     ? (globalStats.statusCounts?.Cancelled || 0)
     : orders.filter((o) => o.orderStatusKey === "CANCELLED").length;
@@ -60,11 +60,13 @@ const OrderActionsDashboard = ({
         return o?.orderStatusKey === "PENDING" && !hasQuotation;
       }).length;
 
-  const totalRevenue = hasGlobal
-    ? (globalStats.completedRevenue || 0)
-    : orders
-        .filter((o) => o.orderStatusKey === "COMPLETED")
-        .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  const totalRevenue = (hasGlobal && globalStats.completedRevenue > 0)
+    ? globalStats.completedRevenue
+    : (hasGlobal && globalStats.totalPaid > 0)
+      ? globalStats.totalPaid
+      : orders
+          .filter((o) => ["COMPLETED", "DELIVERED"].includes(o.orderStatusKey) || ["Completed", "Delivered"].includes(o.orderStatus) || o.paymentStatus === "Paid" || Number(o.paidAmount || 0) > 0)
+          .reduce((sum, o) => sum + Number(o.paidAmount || o.totalAmount || 0), 0);
 
   const totalPaid = hasGlobal ? (globalStats.totalPaid || 0) : 0;
   const pendingDues = hasGlobal ? (globalStats.pendingDues || 0) : 0;

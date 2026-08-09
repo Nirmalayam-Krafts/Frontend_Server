@@ -31,6 +31,7 @@ const orderStatusConfig = {
   CONFIRMED: { label: "Confirmed", icon: ShieldCheck, variant: "success" },
   PROCESSING: { label: "Processing", icon: RefreshCw, variant: "primary" },
   COMPLETED: { label: "Completed", icon: CheckCircle2, variant: "success" },
+  DELIVERED: { label: "Delivered", icon: Truck, variant: "success" },
   CANCELLED: { label: "Cancelled", icon: AlertTriangle, variant: "danger" },
 };
 
@@ -86,9 +87,32 @@ export default function OrderDetail({ order, onEditDelivery }) {
 
   if (!order) return null;
 
-  const orderStatus = orderStatusConfig[order.orderStatusKey] || orderStatusConfig.PENDING;
-  const paymentStatus =
-    paymentStatusConfig[order.paymentStatusKey] || paymentStatusConfig.UNPAID;
+  const rawStatusStr = String(order.orderStatusKey || order.orderStatus || "Pending").trim().toUpperCase();
+  let normStatusKey = rawStatusStr;
+  if (rawStatusStr === "DELIVERED" || rawStatusStr === "DISPATCHED") {
+    normStatusKey = "COMPLETED";
+  }
+
+  const orderStatus = orderStatusConfig[normStatusKey] || orderStatusConfig[rawStatusStr] || {
+    label: order.orderStatus || "Pending",
+    icon: Clock,
+    variant: "warning"
+  };
+
+  const rawPaymentStr = String(order.paymentStatusKey || order.paymentStatus || "Unpaid").trim().toUpperCase();
+  let normPaymentKey = rawPaymentStr;
+  if (rawPaymentStr === "PARTIAL PAID" || rawPaymentStr === "PARTIAL_PAID" || rawPaymentStr === "PARTIAL") {
+    normPaymentKey = "PARTIAL";
+  } else if (rawPaymentStr === "PAID" || rawPaymentStr === "FULL PAID" || rawPaymentStr === "FULL_PAID" || rawPaymentStr === "FULLY PAID") {
+    normPaymentKey = "PAID";
+  }
+
+  const paymentStatus = paymentStatusConfig[normPaymentKey] || paymentStatusConfig[rawPaymentStr] || {
+    label: order.paymentStatus || "Unpaid",
+    icon: AlertTriangle,
+    variant: "danger"
+  };
+
   const OrderStatusIcon = orderStatus.icon;
   const PaymentStatusIcon = paymentStatus.icon;
 
@@ -118,7 +142,7 @@ export default function OrderDetail({ order, onEditDelivery }) {
       ? `${Number(dimensions.length || 0)} x ${Number(dimensions.width || 0)} x ${Number(dimensions.height || 0)} ${dimensions.unit || "inch"}`
       : "Not added";
 
-  const currentStepIndex = workflowSteps.findIndex((step) => step.key === order.orderStatusKey);
+  const currentStepIndex = workflowSteps.findIndex((step) => step.key === normStatusKey);
 
   return (
     <motion.div
@@ -214,6 +238,28 @@ export default function OrderDetail({ order, onEditDelivery }) {
               />
               <DetailBlock icon={Phone} label="Phone" value={order.phone || "Not added"} />
               <DetailBlock icon={Mail} label="Email" value={order.email || "Not added"} />
+              <DetailBlock
+                icon={FileText}
+                label="GSTIN (GST Number)"
+                value={order.gstNumber || order.billDetails?.gstNumber || order.quotation?.gstNumber || "Not added"}
+                tone={order.gstNumber || order.billDetails?.gstNumber ? "text-emerald-700 font-mono font-bold" : "text-gray-500 font-normal"}
+              />
+              <DetailBlock
+                icon={Building2}
+                label="State"
+                value={
+                  order.stateCode && order.stateName
+                    ? `${order.stateCode} - ${order.stateName}`
+                    : order.stateCode || order.stateName || order.state || "Not added"
+                }
+              />
+              <div className="md:col-span-2">
+                <DetailBlock
+                  icon={MapPin}
+                  label="Billing / Delivery Address"
+                  value={order.address || order.deliveryAddress || order.delivery?.deliveryAddress || "Not added"}
+                />
+              </div>
             </div>
           </div>
 
