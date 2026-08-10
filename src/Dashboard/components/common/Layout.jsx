@@ -16,7 +16,7 @@ import {
   Search,
   ChevronRight,
   Leaf,
-   Package,
+  Package,
   Boxes,
   Trash2,
   AlertTriangle,
@@ -24,6 +24,7 @@ import {
   Info,
   Package2,
   Clock,
+  RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
@@ -67,7 +68,7 @@ export const Sidebar = () => {
     location.pathname === "/inventory" || location.pathname === "/rawmaterial" || location.pathname === "/Product"
   );
   const [ordersOpen, setOrdersOpen] = useState(
-    location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts"
+    location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts" || location.pathname === "/order-returns"
   );
 
   const menuItems = [
@@ -91,6 +92,7 @@ export const Sidebar = () => {
         { icon: ShoppingCart, label: "All Orders", path: "/orders" },
         { icon: FileText, label: "Quotations", path: "/quotations" },
         { icon: FileText, label: "Receipts", path: "/receipts" },
+        { icon: RotateCcw, label: "Returns", path: "/order-returns" },
       ],
     },
     { icon: FileText, label: "Finance", path: "/finance" },
@@ -104,7 +106,7 @@ export const Sidebar = () => {
     location.pathname === "/inventory" || location.pathname === "/rawmaterial" || location.pathname === "/Product";
 
   const isOrdersActive =
-    location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts";
+    location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts" || location.pathname === "/order-returns";
 
 
   return (

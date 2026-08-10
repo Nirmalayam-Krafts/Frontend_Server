@@ -545,44 +545,46 @@ export const Receipts = () => {
     const redTheme = [185, 28, 28]; // Rose red
     const gold = [212, 175, 55]; // Gold accent
 
-    // Draw header band
+    // Draw header band (38mm height)
     doc.setFillColor(redTheme[0], redTheme[1], redTheme[2]);
-    doc.rect(0, 0, pageWidth, 40, "F");
+    doc.rect(0, 0, pageWidth, 38, "F");
     doc.setFillColor(gold[0], gold[1], gold[2]);
-    doc.rect(0, 40, pageWidth, 2, "F");
+    doc.rect(0, 38, pageWidth, 2, "F");
 
     // Logo
     try {
       if (logoBase64) {
-        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+        doc.addImage(logoBase64, "PNG", 12, 5, 26, 26);
       } else {
-        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 12, 5, 26, 26);
       }
     } catch (e) {
       console.warn("Logo load failed:", e);
     }
 
+    // Company info (Left)
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(COMPANY_NAME, 46, 18);
+    doc.setFontSize(16);
+    doc.text(COMPANY_NAME, 42, 15);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(250, 230, 230);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+    doc.text("Email: nirmalyamkrafts@gmail.com", 42, 22);
+    doc.text("Mob: +91 90490 01299", 42, 28);
 
-    // Title on right side
+    // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
+    doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
-    doc.text("RETURN RECEIPT", pageWidth - 15, 20, { align: "right" });
+    doc.text("RETURN RECEIPT", pageWidth - 12, 15, { align: "right" });
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(250, 230, 230);
-    doc.text(`Return Ref: ${returnDetails.returnNumber}`, pageWidth - 15, 28, { align: "right" });
-    doc.text(`Date & Time: ${new Date(returnDetails.returnedAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 15, 33, { align: "right" });
+    doc.text(`Return Ref: ${returnDetails.returnNumber}`, pageWidth - 12, 22, { align: "right" });
+    doc.text(`Date & Time: ${new Date(returnDetails.returnedAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 12, 28, { align: "right" });
 
     // Client details
     doc.setTextColor(60, 60, 60);
@@ -616,25 +618,17 @@ export const Receipts = () => {
     const gstRefund = Number(returnDetails.gstRefundAmount || 0);
     const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
 
-    // Enrich items with selling-price weight, HSN code, and GST rate
+    // Enrich items with exact HSN code, GST rate, unit price, and GST refund
     const items = returnDetails.items || [];
-    const enrichedItems = items.map(it => {
+    const tableBody = items.map((it, index) => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || it);
       const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
       const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
-      const gstRateVal = it.gstRate != null ? Number(it.gstRate) : taxInfo.gstRate;
-      const sellPrice = Number(prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || it.unitPrice || 0) || 1;
-      const weight = Number(it.quantity || 0) * sellPrice;
-      return { ...it, hsnCode, gstRateVal, weight };
-    });
-
-    const totalWeight = enrichedItems.reduce((s, d) => s + d.weight, 0) || 1;
-
-    const tableBody = enrichedItems.map((it, index) => {
-      // Distribute the exact gstRefundAmount proportionally across items so table sum matches bottom summary
-      const lineWeightFrac = totalWeight > 0 ? (it.weight / totalWeight) : (1 / enrichedItems.length);
-      const lineGstRefund = (lineWeightFrac * gstRefund);
+      const gstRateVal = it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5);
+      const unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 60;
+      const lineBaseRefund = Number(it.quantity || 0) * unitRate;
+      const lineGstRefund = Number((lineBaseRefund * (gstRateVal / 100)).toFixed(2));
 
       // Format quantity cleanly with pieces hint if applicable
       let qtyStr = `${it.quantity || 0} ${it.unit || "pcs"}`;
@@ -644,8 +638,8 @@ export const Receipts = () => {
 
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
-        it.hsnCode,
-        `${it.gstRateVal}%`,
+        hsnCode,
+        `${gstRateVal}%`,
         `Rs. ${lineGstRefund.toFixed(2)}`,
         qtyStr,
         `Refunded`
@@ -728,119 +722,149 @@ export const Receipts = () => {
     const brand = [10, 92, 67]; // Emerald Green
     const gold = [212, 175, 55]; // Gold accent
 
-    // Draw header band
+    // Draw header band (38mm height)
     doc.setFillColor(brand[0], brand[1], brand[2]);
-    doc.rect(0, 0, pageWidth, 40, "F");
+    doc.rect(0, 0, pageWidth, 38, "F");
     doc.setFillColor(gold[0], gold[1], gold[2]);
-    doc.rect(0, 40, pageWidth, 2, "F");
+    doc.rect(0, 38, pageWidth, 2, "F");
 
     // Logo
     try {
       if (logoBase64) {
-        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
+        doc.addImage(logoBase64, "PNG", 12, 5, 26, 26);
       } else {
-        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
+        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 12, 5, 26, 26);
       }
     } catch (e) {
       console.warn("Logo load failed:", e);
     }
 
+    // Company info (Left) - Clean non-overlapping layout
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(COMPANY_NAME, 46, 18);
+    doc.setFontSize(16);
+    doc.text(COMPANY_NAME, 42, 15);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+    doc.text("Email: nirmalyamkrafts@gmail.com", 42, 22);
+    doc.text("Mob: +91 90490 01299", 42, 28);
 
-    // Title on right side
+    // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
+    doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
-    doc.text("PAYMENT RECEIPT", pageWidth - 15, 20, { align: "right" });
+    doc.text("PAYMENT RECEIPT", pageWidth - 12, 15, { align: "right" });
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(230, 245, 238);
-    doc.text(`Receipt No: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
-    doc.text(`Date & Time: ${new Date(rc.paidAt || Date.now()).toLocaleString()}`, pageWidth - 15, 33, { align: "right" });
+    doc.text(`Receipt No: ${rc.receiptNumber}`, pageWidth - 12, 22, { align: "right" });
+    doc.text(`Date & Time: ${new Date(rc.paidAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 12, 28, { align: "right" });
 
     // Client details
     doc.setTextColor(60, 60, 60);
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
-    doc.text("RECEIVED FROM:", 15, 52);
+    doc.text("RECEIVED FROM:", 15, 50);
     doc.setFont("helvetica", "normal");
-    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 58);
-    doc.text(`Business: ${rc.businessName || "—"}`, 15, 63);
-    doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
-    doc.text(`Email: ${rc.email || "—"}`, 15, 73);
+    doc.setFontSize(9);
+    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 55.5);
+    doc.text(`Business: ${rc.businessName || "—"}`, 15, 60.5);
+    doc.text(`Phone: ${rc.phone || "—"}`, 15, 65.5);
+    doc.text(`Email: ${rc.email || "—"}`, 15, 70.5);
 
     // Associated Invoice lookup
     const assocBill = (receipts || []).find(
       (r) => String(r.orderId || "").trim() === String(rc.orderId || "").trim() && (r.type === "bill" || String(r.receiptNumber || "").startsWith("INV-"))
     );
-    const invoiceNum = assocBill?.receiptNumber || rc.invoiceNumber || "—";
+    const invoiceNum = assocBill?.receiptNumber || rc.invoiceNumber || rc.billDetails?.billNumber || "—";
 
     // Payment details
     doc.setFont("helvetica", "bold");
-    doc.text("RECEIPT DETAILS:", 110, 52);
+    doc.setFontSize(9.5);
+    doc.text("RECEIPT DETAILS:", 110, 50);
     doc.setFont("helvetica", "normal");
-    doc.text(`Order Reference: ${rc.orderRef || "—"}`, 110, 57);
-    doc.text(`Quotation Number: ${rc.quotationNumber || "—"}`, 110, 61.5);
-    doc.text(`Associated Invoice: ${invoiceNum}`, 110, 66);
+    doc.setFontSize(9);
+    doc.text(`Order Reference: ${rc.orderRef || "—"}`, 110, 55.5);
+    doc.text(`Quotation Number: ${rc.quotationNumber || "—"}`, 110, 60.5);
+    doc.text(`Referred Invoice No: ${invoiceNum}`, 110, 65.5);
     let modeText = `Payment Mode: ${String(rc.paymentMode || "cash").toUpperCase()}`;
     if (rc.paymentRefNumber) {
       modeText += ` (${rc.paymentRefType || "Ref"}: ${rc.paymentRefNumber})`;
     }
     doc.text(modeText, 110, 70.5);
-    doc.text(`Payment Status: ${rc.isPaidInFull ? "Paid in Full" : "Partial Payment"}`, 110, 75);
+    doc.text(`Payment Status: ${rc.isPaidInFull ? "Paid in Full" : "Partial Payment"}`, 110, 75.5);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
-    doc.line(15, 78, pageWidth - 15, 78);
+    doc.line(15, 79, pageWidth - 15, 79);
 
-    // Build Table Body (shows Total Amount per item line)
+    // Build Table Body matching Tax Invoice line calculations exact to the paise
     const lines = rc.orderDetailsList || [];
-    const totalOrderVal = Number(rc.totalOrderAmount || 0);
-    const totalSellingValue = lines.reduce((sum, line) => {
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
-      const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 1;
-      return sum + (Number(line.quantity || 0) * price);
-    }, 0) || 1;
+    const orderIdKey = String(rc.orderId || "");
+    let lineUnitPrices = {};
+    try {
+      if (typeof window !== "undefined" && orderIdKey) {
+        const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderIdKey}`);
+        if (stored) lineUnitPrices = JSON.parse(stored);
+      }
+    } catch (_) {}
 
-    const tableBody = lines.map((line) => {
+    const tableBody = lines.map((line, idx) => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || line);
       const lineHsn = line.hsnCode || taxInfo.hsnCode || "—";
       const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
 
-      const price = Number(line.pricePerUnit || line.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 1;
-      const lineVal = Number(line.quantity || 0) * price;
-      const itemTotalVal = totalOrderVal > 0 ? (lineVal / totalSellingValue) * totalOrderVal : lineVal;
+      const qty = Number(line.quantity || line.qty || 1);
+      const itemKey = line.productId || idx;
+
+      let unitRate = 0;
+      if (lineUnitPrices[itemKey] && Number(lineUnitPrices[itemKey]) > 0) {
+        unitRate = Number(lineUnitPrices[itemKey]);
+      } else if (lineUnitPrices[idx] && Number(lineUnitPrices[idx]) > 0) {
+        unitRate = Number(lineUnitPrices[idx]);
+      } else if (line.unitPrice && Number(line.unitPrice) > 0) {
+        unitRate = Number(line.unitPrice);
+      } else if (line.pricePerUnit && Number(line.pricePerUnit) > 0) {
+        unitRate = Number(line.pricePerUnit);
+      } else if (line.rate && Number(line.rate) > 0) {
+        unitRate = Number(line.rate);
+      } else if (prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice) {
+        unitRate = Number(prod.sellingPricePerUnit || prod.sellingPrice || prod.unitPrice || prod.basePrice);
+      }
+
+      if (unitRate === 0 || isNaN(unitRate)) unitRate = 100;
+
+      const grossTaxable = Number((qty * unitRate).toFixed(2));
+      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate || 5;
+      const lineTax = Number((grossTaxable * (lineGstRate / 100)).toFixed(2));
+      const lineInvoiceTotal = Number((grossTaxable + lineTax).toFixed(2));
 
       return [
         specDetails,
         lineHsn,
-        `${line.quantity || 0} ${line.unit || "pcs"}`,
-        `Rs. ${itemTotalVal.toFixed(2)}`
+        `${qty} ${line.unit || "pcs"}`,
+        `Rs. ${unitRate.toFixed(2)}`,
+        `Rs. ${lineInvoiceTotal.toFixed(2)}`
       ];
     });
 
     autoTable(doc, {
       startY: 84,
-      head: [["Order Item Details & Specifications", "HSN Code", "Quantity Ordered", "Total Amount"]],
-      body: tableBody,
+      head: [["Order Item Details & Specifications", "HSN Code", "Quantity", "Rate (Rs)", "Line Total (Rs)"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00"]],
       theme: "striped",
-      styles: { fontSize: 9.5, cellPadding: 5, valign: "middle" },
+      styles: { fontSize: 9.5, cellPadding: 4, valign: "middle" },
       headStyles: { fillColor: brand, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 32 },
-        2: { halign: "center", cellWidth: 35 },
-        3: { halign: "right", cellWidth: 42 }
+        1: { halign: "center", cellWidth: 28 },
+        2: { halign: "center", cellWidth: 28 },
+        3: { halign: "right", cellWidth: 32 },
+        4: { halign: "right", cellWidth: 36 }
       }
     });
 

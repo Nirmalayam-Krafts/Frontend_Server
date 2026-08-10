@@ -82,7 +82,8 @@ function AppLayout() {
     "/rawmaterial",
     "/Product",
     "/quotations",
-    "/receipts"
+    "/receipts",
+    "/order-returns"
   ];
 
   const isDashboardRoute = dashboardRoutes.some((route) =>
@@ -179,6 +180,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Receipts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/order-returns"
+            element={
+              <ProtectedRoute>
+                <Orders />
               </ProtectedRoute>
             }
           />
