@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Modal } from "../../components/ui";
-import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { getProductTaxInfo, exportToExcel, exportToCSV } from "../../utils";
 import ProductForm from "../../components/forms/ProductForm";
 import {
   Plus,
@@ -291,16 +291,7 @@ const Product = () => {
     });
 
     if (format === "csv") {
-      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "products.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      exportToCSV(headers, rows, "products");
       toast.success("CSV exported successfully");
     } else {
       exportToExcel(headers, rows, "products");

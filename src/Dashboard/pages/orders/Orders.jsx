@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { getProductTaxInfo, exportToExcel, exportToCSV } from "../../utils";
 import { INDIAN_STATES, GSTIN_REGEX } from "../../utils/gstStates";
+import { generateTaxInvoicePDF } from "../../utils/taxInvoiceGenerator";
 import { getEffectiveTaxRate, getSystemGstConfigFromStorage } from "../../../utils/gstConfig.js";
 import { Layout } from "../../components/common/Layout";
 import {
@@ -112,7 +113,7 @@ const initialConfirmOrderForm = {
   deliveryNotes: "",
 };
 
-const COMPANY_NAME = "Nirmalyam Krafts";
+const COMPANY_NAME = "Nirmalyam Kraft";
 
 const DEDUCTION_MODE_HELP = {
   AUTO: "Uses finished bags first, then scales the product BOM for any remaining bags.",
@@ -204,9 +205,12 @@ const getProductBaseSellingPrice = (prod) => {
 };
 
 const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
-  const lines = order?.orderDetailsList?.length > 0
-    ? order.orderDetailsList
-    : [order?.orderDetails].filter(Boolean);
+  const qItems = order?.quotation?.items || [];
+  const lines = qItems.length > 0
+    ? qItems
+    : (order?.orderDetailsList?.length > 0
+        ? order.orderDetailsList
+        : [order?.orderDetails].filter(Boolean));
 
   const sub = Number(subtotal || 0);
 
@@ -214,7 +218,26 @@ const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
   const lineSuggestedVals = lines.map(line => {
     const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
     const calcPrice = getProductBaseSellingPrice(prod);
-    const catalogPrice = Number(line?.unitPrice || line?.sellingPrice || (calcPrice > 0 ? calcPrice : 0) || prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 0);
+    const qMatch = qItems.find(q =>
+      (q.productId && line?.productId && String(q.productId).trim() === String(line.productId).trim()) ||
+      (q.productName && line?.productName && q.productName.toLowerCase().trim() === line.productName.toLowerCase().trim())
+    );
+    const catalogPrice = Number(
+      qMatch?.unitPrice ||
+      qMatch?.pricePerUnit ||
+      qMatch?.rate ||
+      qMatch?.price ||
+      line?.unitPrice ||
+      line?.pricePerUnit ||
+      line?.rate ||
+      line?.price ||
+      line?.sellingPrice ||
+      (calcPrice > 0 ? calcPrice : 0) ||
+      prod?.basePrice ||
+      prod?.unitPrice ||
+      prod?.sellingPrice ||
+      0
+    );
     
     let lineQty = Number(line.quantity || 0);
     const isRoll = prod?.category?.toLowerCase().includes("roll");
@@ -409,7 +432,7 @@ const Orders = () => {
   const [deliveredActionId, setDeliveredActionId] = useState(null);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ amount: "", paymentMode: "cash", note: "" });
+  const [paymentForm, setPaymentForm] = useState({ amount: "", paymentMode: "cash", paymentRefType: "UTR Number", paymentRefNumber: "", note: "" });
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelOrderTarget, setCancelOrderTarget] = useState(null);
   const [cancellationReasonInput, setCancellationReasonInput] = useState("");
@@ -1316,6 +1339,8 @@ const Orders = () => {
           otherCharges: String(qOther),
           paidAmount: String(remainingToPay),
           paymentMode: "cash",
+          paymentRefType: "UTR Number",
+          paymentRefNumber: "",
           deliveryMode: order.delivery?.deliveryMode || "courier",
           deliveryAddress: order.delivery?.deliveryAddress || "",
           deliveryDate: order.delivery?.deliveryDate ? new Date(order.delivery.deliveryDate).toISOString().slice(0, 10) : "",
@@ -1457,6 +1482,14 @@ const Orders = () => {
       }
     }
 
+    if (confirmOrderForm.paymentMode !== "cash" && Number(confirmOrderForm.paidAmount || 0) > 0) {
+      if (!confirmOrderForm.paymentRefNumber || !confirmOrderForm.paymentRefNumber.trim()) {
+        toast.error("Reference Number (e.g. UTR / Txn / Cheque No.) is mandatory for non-cash payment modes.");
+        showNotification("Reference Number (e.g. UTR / Txn / Cheque No.) is mandatory for non-cash payment modes.", "error");
+        return;
+      }
+    }
+
     const loadingToast = toast.loading(isDispatch ? "Dispatching order..." : "Confirming order...");
 
     try {
@@ -1469,6 +1502,8 @@ const Orders = () => {
         otherCharges: Number(confirmOrderForm.otherCharges || 0),
         paidAmount: Number(confirmOrderForm.paidAmount || 0),
         paymentMode: confirmOrderForm.paymentMode,
+        paymentRefType: confirmOrderForm.paymentRefType || "UTR Number",
+        paymentRefNumber: confirmOrderForm.paymentRefNumber ? confirmOrderForm.paymentRefNumber.trim() : "",
         receiverName: confirmOrderForm.receiverName,
         receiverPhone: confirmOrderForm.receiverPhone,
         deliveryAddress: confirmOrderForm.deliveryAddress,
@@ -1609,10 +1644,10 @@ const Orders = () => {
       ? ((order.taxRate && order.taxRate !== 18) ? order.taxRate : (order.quotation?.taxRate && order.quotation.taxRate !== 18) ? order.quotation.taxRate : dominantGstRate)
       : 0;
 
-    const approvedSubtotal = Number(order.subtotalAmount || order.quotation?.subtotalAmount || 0);
-    const approvedShipping = Number(order.shippingCharges || order.quotation?.shippingCharges || 0);
-    const approvedOther = Number(order.otherCharges || order.quotation?.otherCharges || 0);
-    const approvedDisc = Number(order.discountAmount || order.quotation?.discountAmount || 0);
+    const approvedSubtotal = Number(order.quotation?.subtotalAmount || order.subtotalAmount || 0);
+    const approvedShipping = Number(order.quotation?.shippingCharges || order.shippingCharges || 0);
+    const approvedOther = Number(order.quotation?.otherCharges || order.otherCharges || 0);
+    const approvedDisc = Number(order.quotation?.discountAmount || order.discountAmount || 0);
     const postTaxDisc = Number(order.billDetails?.postTaxDiscount || order.billDetails?.discount || order.bill?.billDetails?.postTaxDiscount || order.bill?.billDetails?.discount || 0);
 
     const taxableBaseVal = Math.max(0, approvedSubtotal - approvedDisc);
@@ -1634,7 +1669,7 @@ const Orders = () => {
     setBillPreTaxDiscount("0");
     setBillPostTaxDiscount("0");
     setBillPaymentMode("invoice");
-    setBillNotes("Thank you for doing business with Nirmalyam Krafts!");
+    setBillNotes("Thank you for doing business with Nirmalyam Kraft!");
     setShowBillModal(true);
   };
 
@@ -1840,72 +1875,6 @@ Note: ${meta.billNotes || "—"}`;
   };
 
   const generateInvoicePDF = (rc, mode = "download") => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const sysConfig = getSystemGstConfigFromStorage();
-    
-    const brand = [10, 92, 67]; // Emerald Green
-    const gold = [212, 175, 55]; // Gold accent
-
-    // Draw top layout headers
-    doc.setFillColor(brand[0], brand[1], brand[2]);
-    doc.rect(0, 0, pageWidth, 40, "F");
-    
-    doc.setFillColor(gold[0], gold[1], gold[2]);
-    doc.rect(0, 40, pageWidth, 2, "F");
-    
-    // Header company logo & details
-    try {
-      if (logoBase64) {
-        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
-      } else {
-        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
-      }
-    } catch (e) {
-      console.warn("Failed to load logo in PDF:", e);
-    }
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(COMPANY_NAME, 46, 18);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
-    
-    // Title "INVOICE" on the right side of header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
-    doc.text("INVOICE", pageWidth - 15, 20, { align: "right" });
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(230, 245, 238);
-    doc.text(`Invoice No: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
-    doc.text(`Date: ${rc.paidAt ? new Date(rc.paidAt).toLocaleDateString() : new Date().toLocaleDateString()}`, pageWidth - 15, 33, { align: "right" });
-    
-    // Client & Invoice details
-    doc.setTextColor(60, 60, 60);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("BILL TO:", 15, 52);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 58);
-    doc.text(`Business: ${rc.businessName || "—"}`, 15, 63);
-    doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
-    doc.text(`Email: ${rc.email || "—"}`, 15, 73);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("DELIVERY DETAILS:", 110, 52);
-    doc.setFont("helvetica", "normal");
-    const addressLines = doc.splitTextToSize(rc.deliveryAddress || "Pickup / Standard Delivery", 85);
-    doc.text(addressLines, 110, 58);
-    
-    // Lookup target order from data?.orders if rc is a receipt/bill record
     const targetOrderId = String(rc.orderId?._id || rc.orderId || rc.order || "").trim();
     const matchingOrder = (data?.orders || []).find(o =>
       String(o._id || o.id || "").trim() === targetOrderId ||
@@ -1913,318 +1882,16 @@ Note: ${meta.billNotes || "—"}`;
       String(o.reference || "").toLowerCase().trim() === String(rc.orderRef || "").toLowerCase().trim()
     ) || rc;
 
-    // Item Table
-    const billDetails = rc.billDetails || matchingOrder?.billDetails || {};
-    const subtotal = Number(
-      billDetails.subtotal ||
-      matchingOrder?.subtotalAmount ||
-      matchingOrder?.quotation?.subtotalAmount ||
-      rc.subtotalAmount ||
-      rc.totalOrderAmount ||
-      rc.amount || 0
-    );
-    const preTaxDiscountVal = Number(billDetails.preTaxDiscount ?? (billDetails.postTaxDiscount == null ? (billDetails.discount || rc.discountAmount || 0) : 0));
-    const postTaxDiscountVal = Number(billDetails.postTaxDiscount ?? 0);
-    const shippingVal = Number(billDetails.shipping || rc.shippingCharges || 0);
-    const otherVal = Number(billDetails.other || rc.otherCharges || 0);
-    const taxRate = Number(billDetails.taxRate || 0);
+    const sysConfig = getSystemGstConfigFromStorage();
 
-    // Invoice Meta Table or Section
-    const termsY = 85;
-    doc.setFillColor(245, 247, 246);
-    doc.rect(15, termsY, pageWidth - 30, 10, "F");
-    doc.setTextColor(40, 40, 40);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    const pdfPaidSoFar = Number(rc.paidSoFar || matchingOrder?.paidSoFar || 0);
-    const pdfPaymentStatusText = pdfPaidSoFar <= 0
-      ? "UNPAID"
-      : (rc.isPaidInFull || pdfPaidSoFar >= ((subtotal - preTaxDiscountVal + shippingVal + otherVal) - postTaxDiscountVal) - 0.01 ? "PAID IN FULL" : "PARTIAL PAID");
-
-    doc.text(`Due Date: ${rc.billDetails?.dueDate ? new Date(rc.billDetails.dueDate).toLocaleDateString() : "—"}`, 20, termsY + 6.5);
-    doc.text(`Payment Mode: ${String(rc.paymentMode || "invoice").toUpperCase()}  |  Payment Status: ${pdfPaymentStatusText}`, 95, termsY + 6.5);
-
-    const baseQuotationItems = matchingOrder?.quotation?.items?.length > 0
-      ? matchingOrder.quotation.items
-      : (matchingOrder?.orderDetailsList?.length > 0 ? matchingOrder.orderDetailsList : (rc.quotation?.items || rc.orderDetailsList || []));
-
-    const rawLines = (rc.billDetails?.items && rc.billDetails.items.length > 0)
-      ? rc.billDetails.items
-      : (matchingOrder?.billDetails?.items?.length > 0 ? matchingOrder.billDetails.items : baseQuotationItems);
-
-    const lines = rawLines.map(line => {
-      const qMatch = baseQuotationItems.find(q =>
-        (q.productId && line.productId && String(q.productId).trim() === String(line.productId).trim()) ||
-        (q.productName && line.productName && q.productName.toLowerCase().trim() === line.productName.toLowerCase().trim())
-      );
-
-      const explicitUnitPrice = Number(line.unitPrice || line.sellingPrice || line.price || line.lineUnitPrice || qMatch?.unitPrice || qMatch?.sellingPrice || qMatch?.price || qMatch?.lineUnitPrice || 0);
-
-      return {
-        ...line,
-        unitPrice: explicitUnitPrice > 0 ? explicitUnitPrice : line.unitPrice,
-      };
+    return generateTaxInvoicePDF({
+      order: matchingOrder,
+      billReceipt: rc,
+      mode,
+      businessConfig: sysConfig,
+      allProducts: productItems,
+      logoBase64Input: logoBase64,
     });
-    const totalQty = lines.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-
-    // Per-line GST breakdown accumulator by rate
-    const gstByRate = {}; // { "18": { taxableAmount, taxAmount }, "12": { ... } }
-
-    const tableBody = lines.map((line, index) => {
-      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
-      const lineQty = Number(line.quantity || 0);
-      const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
-      const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / (lines.length || 1));
-      const rate = lineQty > 0 ? (lineSubtotal / lineQty) : lineSubtotal;
-
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
-      const taxInfo = getProductTaxInfo(prod || line);
-      const lineHsn = line.hsnCode || prod?.hsnCode || taxInfo.hsnCode;
-      const productGst = prod ? (prod.custom_gst_rate ?? prod.gstRate) : null;
-      let lineGstRate = 0;
-      if (sysConfig.gstEnabled) {
-        if (productGst != null) {
-          lineGstRate = Number(productGst);
-        } else if (line.gstRate != null && Number(line.gstRate) > 0 && Number(line.gstRate) !== 18) {
-          lineGstRate = Number(line.gstRate);
-        } else {
-          lineGstRate = Number(taxInfo.gstRate || 5);
-        }
-      }
-
-      // Accumulate GST by rate
-      const rateKey = String(lineGstRate);
-      const taxableBase = Math.max(0, lineSubtotal - (preTaxDiscountVal * lineFraction));
-      const lineTax = taxableBase * (lineGstRate / 100);
-      if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
-      gstByRate[rateKey].taxableAmount += taxableBase;
-      gstByRate[rateKey].taxAmount += lineTax;
-
-      return [
-        specDetails,
-        lineHsn,
-        `${lineGstRate}%`,
-        `Rs. ${lineTax.toFixed(2)}`,
-        `${line.quantity || 0} ${line.unit || "pcs"}`,
-        `Rs. ${rate.toFixed(2)}`,
-        `Rs. ${lineSubtotal.toFixed(2)}`
-      ];
-    });
-    
-    autoTable(doc, {
-      startY: termsY + 16,
-      head: [["Item Description & Specifications", "HSN Code", "GST %", "GST Amt", "Quantity", "Rate", "Amount"]],
-      body: tableBody,
-      theme: "striped",
-      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
-      headStyles: { fillColor: brand, fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 14 },
-        3: { halign: "right", cellWidth: 20 },
-        4: { halign: "center", cellWidth: 18 },
-        5: { halign: "right", cellWidth: 22 },
-        6: { halign: "right", cellWidth: 24 }
-      }
-    });
-    
-    const finalY = doc.lastAutoTable.finalY + 8;
-    
-    // Totals Grid
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 80, 80);
-    
-    const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 90;
-    
-    let currentY = finalY;
-    doc.text("Subtotal:", labelX, currentY);
-    doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    
-    if (preTaxDiscountVal > 0) {
-      currentY += 6;
-      doc.text("Pre-Tax Discount:", labelX, currentY);
-      doc.text(`- Rs. ${preTaxDiscountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.text("Taxable Value:", labelX, currentY);
-      doc.text(`Rs. ${(subtotal - preTaxDiscountVal).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-    }
-
-    // GST Breakdown calculation
-    const gstRateKeys = Object.keys(gstByRate).sort((a, b) => Number(a) - Number(b));
-    let totalGstCollected = 0;
-    if (gstRateKeys.length > 0) {
-      for (const rk of gstRateKeys) {
-        totalGstCollected += gstByRate[rk].taxAmount;
-      }
-    } else if (taxRate > 0) {
-      totalGstCollected = Math.max(0, subtotal - preTaxDiscountVal) * (taxRate / 100);
-    }
-
-    const grossVal = (subtotal - preTaxDiscountVal) + totalGstCollected + shippingVal + otherVal;
-    const grandTotal = Math.max(0, grossVal - postTaxDiscountVal);
-
-    if (gstRateKeys.length > 1) {
-      // Multiple GST rates — show per-rate breakdown
-      for (const rk of gstRateKeys) {
-        const { taxAmount: ta } = gstByRate[rk];
-        currentY += 6;
-        doc.setFontSize(9);
-        doc.text(`GST @ ${rk}%:`, labelX, currentY);
-        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      }
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.text(`Total GST Collected:`, labelX, currentY);
-      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-    } else if (gstRateKeys.length === 1) {
-      const rk = gstRateKeys[0];
-      const { taxAmount: ta } = gstByRate[rk];
-      if (ta > 0) {
-        currentY += 6;
-        doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
-        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      }
-    } else if (taxRate > 0) {
-      currentY += 6;
-      doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
-      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-    
-    if (shippingVal > 0) {
-      currentY += 6;
-      doc.text("Shipping Charges:", labelX, currentY);
-      doc.text(`Rs. ${shippingVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-
-    if (otherVal > 0) {
-      currentY += 6;
-      doc.text("Other Charges:", labelX, currentY);
-      doc.text(`Rs. ${otherVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-
-    if (postTaxDiscountVal > 0) {
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(180, 80, 0);
-      doc.text("Post-Tax Disc. (Commercial):", labelX, currentY);
-      doc.text(`- Rs. ${postTaxDiscountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(80, 80, 80);
-    }
-    
-    currentY += 8;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(brand[0], brand[1], brand[2]);
-    doc.text("Grand Total:", labelX, currentY);
-    doc.text(`Rs. ${grandTotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    
-    currentY += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 80, 80);
-    doc.text("Amount Paid So Far:", labelX, currentY);
-    doc.text(`Rs. ${Number(rc.paidSoFar || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    
-    currentY += 7;
-    doc.setFillColor(254, 242, 242);
-    doc.rect(labelX - 4, currentY - 5, 83, 8, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(185, 28, 28);
-    const balanceDue = Math.max(0, grandTotal - Number(rc.paidSoFar || 0));
-    doc.text("Balance Due:", labelX, currentY);
-    doc.text(`Rs. ${balanceDue.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-
-    const orderSubtotal = Number(rc.orderSubtotal || rc.totalOrderAmount || 0);
-    const isFullInvoice = subtotal >= (orderSubtotal > 0 ? orderSubtotal - 0.01 : subtotal);
-    const approvedTotal = !sysConfig.gstEnabled
-      ? Number(rc.orderSubtotal || rc.totalOrderAmount || 0)
-      : Number(rc.totalOrderAmount || 0);
-    const remainingToInvoiceVal = isFullInvoice ? 0 : Math.max(0, approvedTotal - grandTotal - (preTaxDiscountVal + postTaxDiscountVal));
-
-    if (!isFullInvoice && remainingToInvoiceVal > 1.00) {
-      currentY += 7;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(120, 110, 30);
-      doc.text("Remaining Order Bal. to Invoice:", labelX, currentY);
-      doc.text(`Rs. ${remainingToInvoiceVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-    
-    // Notes & Payment instructions on bottom left (below totals to prevent collision)
-    const notesY = currentY + 12;
-    doc.setTextColor(60, 60, 60);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Notes:", 15, notesY);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const noteTextLines = doc.splitTextToSize(billDetails.notes || "Please clear payment within due date.", 90);
-    doc.text(noteTextLines, 15, notesY + 5);
-
-    // Terms & Conditions (loaded from localStorage or default)
-    const tcString = localStorage.getItem("nirmalyam_invoice_terms") || 
-      "1. Payment is strict Net due upon receipt.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Subject to local jurisdiction.";
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Terms & Conditions:", 15, notesY + 18);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    const tcLines = doc.splitTextToSize(tcString, 90);
-    doc.text(tcLines, 15, notesY + 23);
-
-    // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
-    const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
-    if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
-      const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
-      const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
-      const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
-      const bUpi    = localStorage.getItem("nirmalyam_bank_upi")    || "nirmalyam@sbi";
-
-      const bankY = notesY;
-      doc.setTextColor(60, 60, 60);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text("Bank Details for Payment:", 115, bankY);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text(`Account Name: ${bHolder}`, 115, bankY + 5);
-      doc.text(`Bank Name: ${bName}`, 115, bankY + 10);
-      doc.text(`A/C Number: ${bAcc}`, 115, bankY + 15);
-      doc.text(`IFSC Code: ${bIfsc}`, 115, bankY + 20);
-      doc.text(`UPI ID: ${bUpi}`, 115, bankY + 25);
-    }
-    
-    // Footer
-    const footY = pageHeight - 12;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(140, 140, 140);
-    doc.text(
-      "Thank you for doing business with Nirmalyam Krafts! This is a system-generated invoice.",
-      pageWidth / 2,
-      footY,
-      { align: "center" }
-    );
-    
-    if (mode === "view") {
-      const blob = doc.output("blob");
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
-    } else {
-      doc.save(`Nirmalyam_Invoice_${rc.receiptNumber}.pdf`);
-    }
   };
 
   const downloadReceiptPDF = (rc, mode = "download") => {
@@ -2486,7 +2153,7 @@ Note: ${meta.billNotes || "—"}`;
 
   const getOrderReportData = (order) => {
     return {
-      companyName: "Nirmalyam Krafts",
+      companyName: "Nirmalyam Kraft",
       reportTitle: "Order Report",
       customerName: order?.customerName || "—",
       businessName: order?.businessName || "—",
@@ -2698,7 +2365,7 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
-    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Krafts.", 15, footY);
+    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Kraft.", 15, footY);
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
@@ -2793,7 +2460,7 @@ Note: ${meta.billNotes || "—"}`;
       headStyles: { fillColor: [10, 92, 67] },
     });
 
-    doc.save(`Nirmalyam_Krafts_Order_${order?.id || "report"}.pdf`);
+    doc.save(`Nirmalyam_Kraft_Order_${order?.id || "report"}.pdf`);
   };
 
   const handleShareOrder = async (order) => {
@@ -2801,7 +2468,7 @@ Note: ${meta.billNotes || "—"}`;
     const productSummary = getWhatsAppProductSummary(order, productItems);
 
     const shareText = `
-Nirmalyam Krafts - Order Report
+Nirmalyam Kraft - Order Report
 
 Customer: ${report.customerName}
 Business: ${report.businessName}
@@ -2822,7 +2489,7 @@ Notes: ${report.notes}
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Nirmalyam Krafts - Order Report",
+          title: "Nirmalyam Kraft - Order Report",
           text: shareText,
         });
       } catch (error) {
@@ -2839,7 +2506,7 @@ Notes: ${report.notes}
     const productSummary = getWhatsAppProductSummary(order, productItems);
 
     const message = `
-*Nirmalyam Krafts - Order Report*
+*Nirmalyam Kraft - Order Report*
 
 *Customer:* ${report.customerName}
 *Business:* ${report.businessName}
@@ -2897,16 +2564,7 @@ ${productSummary}
     ]);
 
     if (format === "csv") {
-      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "orders.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      exportToCSV(headers, rows, "orders");
       showNotification("CSV exported successfully", "success");
     } else {
       exportToExcel(headers, rows, "orders");
@@ -3099,19 +2757,29 @@ ${productSummary}
       toast.error("Enter a valid payment amount");
       return;
     }
+
+    if (paymentForm.paymentMode !== "cash") {
+      if (!paymentForm.paymentRefNumber || !paymentForm.paymentRefNumber.trim()) {
+        toast.error("Reference Number (e.g. UTR / Txn / Cheque No.) is mandatory for non-cash payment modes.");
+        return;
+      }
+    }
+
     setPaymentLoading(true);
     const loadingToast = toast.loading("Recording payment...");
     try {
       const response = await axiosInstance.post(`/orders/${selectedOrder.id}/payment`, {
         amount,
         paymentMode: paymentForm.paymentMode,
+        paymentRefType: paymentForm.paymentRefType || "UTR Number",
+        paymentRefNumber: paymentForm.paymentRefNumber ? paymentForm.paymentRefNumber.trim() : "",
         note: paymentForm.note.trim() || undefined,
       });
       if (response.data.success) {
         const rcNum = response.data.data.receipt?.receiptNumber || "";
         toast.success(`₹${amount} recorded successfully! Receipt: ${rcNum}`, { id: loadingToast });
         setShowPaymentModal(false);
-        setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
+        setPaymentForm({ amount: "", paymentMode: "cash", paymentRefType: "UTR Number", paymentRefNumber: "", note: "" });
         queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
         queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
         await refetch();
@@ -3986,7 +3654,7 @@ ${productSummary}
     // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
     if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft";
       const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
       const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
       const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
@@ -9564,9 +9232,48 @@ Valid Until: ${quotationValidUntil || "—"}
                               <option value="upi">UPI</option>
                               <option value="bank_transfer">Bank Transfer</option>
                               <option value="card">Card</option>
+                              <option value="cheque">Cheque</option>
+                              <option value="online">Online / Payment Gateway</option>
+                              <option value="other">Other</option>
                             </select>
                           </div>
                         </div>
+
+                        {confirmOrderForm.paymentMode !== "cash" && Number(confirmOrderForm.paidAmount || 0) > 0 && (
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-3 pt-3 border-t border-gray-100">
+                            <div>
+                              <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                Reference Type <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={confirmOrderForm.paymentRefType || "UTR Number"}
+                                onChange={(e) => handleConfirmOrderChange("paymentRefType", e.target.value)}
+                                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 font-semibold text-gray-800"
+                              >
+                                <option value="UTR Number">UTR Number</option>
+                                <option value="Transaction ID">Transaction ID</option>
+                                <option value="Cheque Number">Cheque Number</option>
+                                <option value="Payment ID">Payment ID</option>
+                                <option value="UPI Ref / RRN">UPI Ref / RRN</option>
+                                <option value="Other Reference">Other Reference</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                Reference / Txn Number <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={confirmOrderForm.paymentRefNumber || ""}
+                                onChange={(e) => handleConfirmOrderChange("paymentRefNumber", e.target.value)}
+                                placeholder="e.g. UTR9876543210"
+                                className="w-full rounded-2xl border border-emerald-300 bg-emerald-50/30 px-4 py-3 text-sm outline-none font-medium transition focus:border-emerald-500 focus:bg-white"
+                              />
+                            </div>
+                          </div>
+                        )}
 
                         {/* Delivery details path ONLY for Dispatch path */}
                         {confirmPath === "dispatch" && (
@@ -10976,8 +10683,47 @@ Valid Until: ${quotationValidUntil || "—"}
                   <option value="upi">UPI</option>
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="card">Card</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="online">Online / Payment Gateway</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
+
+              {paymentForm.paymentMode !== "cash" && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-gray-100">
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-gray-700">
+                      Reference Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={paymentForm.paymentRefType || "UTR Number"}
+                      onChange={(e) => setPaymentForm((p) => ({ ...p, paymentRefType: e.target.value }))}
+                      className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 font-medium"
+                    >
+                      <option value="UTR Number">UTR Number</option>
+                      <option value="Transaction ID">Transaction ID</option>
+                      <option value="Cheque Number">Cheque Number</option>
+                      <option value="Payment ID">Payment ID</option>
+                      <option value="UPI Ref / RRN">UPI Ref / RRN</option>
+                      <option value="Other Reference">Other Reference</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-gray-700">
+                      Reference Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={paymentForm.paymentRefNumber || ""}
+                      onChange={(e) => setPaymentForm((p) => ({ ...p, paymentRefNumber: e.target.value }))}
+                      placeholder="e.g. UTR1234567890"
+                      className="w-full rounded-xl border border-amber-300 bg-amber-50/40 px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 focus:bg-white font-medium"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
@@ -11175,8 +10921,8 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const handleShareWhatsAppForReceipt = (rec) => {
     const isRefund = rec.paymentMode === "refund";
     const text = isRefund 
-      ? `*Nirmalyam Krafts - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
-      : `*Nirmalyam Krafts - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
+      ? `*Nirmalyam Kraft - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
+      : `*Nirmalyam Kraft - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
     const targetPhone = rec.phone || selectedOrder?.phone || "";
     const url = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
@@ -11644,7 +11390,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const handleShareWhatsApp = () => {
     if (!successDetails) return;
     const message = `
-*Nirmalyam Krafts - Return Receipt*
+*Nirmalyam Kraft - Return Receipt*
 
 *Return Ref:* ${successDetails.returnNumber}
 *Date:* ${new Date(successDetails.returnedAt).toLocaleDateString("en-IN")}

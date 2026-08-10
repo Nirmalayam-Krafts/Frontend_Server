@@ -1,3 +1,5 @@
+import * as XLSX from "xlsx";
+
 /**
  * Format dates
  */
@@ -265,59 +267,44 @@ export const getProductTaxInfo = (product) => {
 };
 
 export const exportToExcel = (headers, rows, filename = "export") => {
-  let xml = '<?xml version="1.0"?>\n';
-  xml += '<?mso-application progid="Excel.Sheet"?>\n';
-  xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
-  xml += ' xmlns:o="urn:schemas-microsoft-com:office:office"\n';
-  xml += ' xmlns:x="urn:schemas-microsoft-com:office:excel"\n';
-  xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\n';
-  xml += ' xmlns:html="http://www.w3.org/TR/REC-html40">\n';
-  xml += ' <Worksheet ss:Name="Sheet1">\n';
-  xml += '  <Table>\n';
-  
-  // Headers row
-  xml += '   <Row ss:StyleID="HeaderStyle">\n';
-  headers.forEach(h => {
-    xml += `    <Cell><Data ss:Type="String">${escapeXml(h)}</Data></Cell>\n`;
-  });
-  xml += '   </Row>\n';
+  try {
+    const data = [headers, ...rows];
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
 
-  // Data rows
-  rows.forEach(r => {
-    xml += '   <Row>\n';
-    r.forEach(val => {
-      const isNum = typeof val === 'number' && !isNaN(val);
-      const type = isNum ? 'Number' : 'String';
-      const cleanVal = val === null || val === undefined ? '' : String(val);
-      xml += `    <Cell><Data ss:Type="${type}">${escapeXml(cleanVal)}</Data></Cell>\n`;
+    const colWidths = headers.map((h, i) => {
+      let maxLen = String(h || "").length;
+      rows.forEach((r) => {
+        const valLen = r[i] != null ? String(r[i]).length : 0;
+        if (valLen > maxLen) maxLen = valLen;
+      });
+      return { wch: Math.min(Math.max(maxLen + 3, 12), 60) };
     });
-    xml += '   </Row>\n';
-  });
+    worksheet["!cols"] = colWidths;
 
-  xml += '  </Table>\n';
-  xml += ' </Worksheet>\n';
-  xml += '</Workbook>\n';
+    const cleanFilename = filename.replace(/\.(xlsx|xls|csv)$/i, "");
+    XLSX.writeFile(workbook, `${cleanFilename}.xlsx`);
+  } catch (err) {
+    console.error("Excel export error:", err);
+    exportToCSV(headers, rows, filename);
+  }
+};
 
-  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+export const exportToCSV = (headers, rows, filename = "export") => {
+  const csvContent = [
+    headers.map(h => `"${String(h || "").replace(/"/g, '""')}"`).join(","),
+    ...rows.map(r => r.map(val => `"${val === null || val === undefined ? "" : String(val).replace(/"/g, '""')}"`).join(","))
+  ].join("\r\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${filename}.xls`;
+  const cleanFilename = filename.replace(/\.(xlsx|xls|csv)$/i, "");
+  a.download = `${cleanFilename}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-};
-
-const escapeXml = (unsafe) => {
-  return unsafe.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case '\'': return '&apos;';
-      case '"': return '&quot;';
-      default: return c;
-    }
-  });
 };

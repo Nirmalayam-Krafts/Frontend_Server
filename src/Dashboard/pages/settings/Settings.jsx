@@ -65,7 +65,7 @@ const Settings = () => {
     email: "",
     phone: "",
     role: "",
-    businessName: "Nirmalyam Krafts",
+    businessName: "Nirmalyam Kraft",
   });
   const [initialFormData, setInitialFormData] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -95,6 +95,19 @@ const Settings = () => {
     gstEnabled: true,
     defaultGstRate: 18,
     defaultHsnCode: "4819 40 00",
+    businessGstNumber: "27AAACN1234F1Z1",
+    businessStateName: "Maharashtra",
+    businessStateCode: "27",
+    businessAddress: "Plot No. 12, Industrial Area, Nagpur, Maharashtra - 440001",
+    businessPhone: "+91 90490 01299",
+    businessEmail: "nirmalyamkrafts@gmail.com",
+    bankDetails: {
+      bankName: "State Bank of India",
+      accountNo: "38920192019",
+      ifscCode: "SBIN0001234",
+      branch: "Nagpur Main",
+    },
+    termsAndConditions: "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within due date.\n3. Subject to Nagpur Jurisdiction.",
   });
   const [savingGstConfig, setSavingGstConfig] = useState(false);
 
@@ -214,7 +227,7 @@ const Settings = () => {
       email: profile?.email || "",
       phone: profile?.phone || "",
       role: profile?.role || "Admin",
-      businessName: "Nirmalyam Krafts",
+      businessName: "Nirmalyam Kraft",
     };
 
     setFormData(nextForm);
@@ -773,6 +786,66 @@ const Settings = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Business & Tax Profile Settings */}
+                  <div className="pt-4 border-t border-gray-200 space-y-4">
+                    <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Business GST & Tax Profile</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-gray-200 p-3 bg-white">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                          Business GSTIN
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={15}
+                          value={gstConfig.businessGstNumber || ""}
+                          onChange={(e) => setGstConfig(prev => ({ ...prev, businessGstNumber: e.target.value.toUpperCase() }))}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none uppercase"
+                          placeholder="27AAACN1234F1Z1"
+                        />
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 p-3 bg-white">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                          Business State Code
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={gstConfig.businessStateCode || ""}
+                          onChange={(e) => setGstConfig(prev => ({ ...prev, businessStateCode: e.target.value }))}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                          placeholder="27"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 p-3 bg-white">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Registered Business Address
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={gstConfig.businessAddress || ""}
+                        onChange={(e) => setGstConfig(prev => ({ ...prev, businessAddress: e.target.value }))}
+                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                        placeholder="Plot No. 12, Industrial Area, Nagpur, Maharashtra - 440001"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 p-3 bg-white space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">
+                        Invoice Terms & Conditions
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={gstConfig.termsAndConditions || ""}
+                        onChange={(e) => setGstConfig(prev => ({ ...prev, termsAndConditions: e.target.value }))}
+                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs text-gray-900 focus:border-emerald-600 outline-none"
+                        placeholder="1. Goods once sold will not be taken back."
+                      />
+                    </div>
+                  </div>
 
                   <div className="flex justify-end pt-2">
                     <Button

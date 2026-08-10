@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Pagination } from "../../components/ui";
-import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { getProductTaxInfo, exportToExcel, exportToCSV } from "../../utils";
+import { generateTaxInvoicePDF } from "../../utils/taxInvoiceGenerator";
 import { getEffectiveTaxRate, getSystemGstConfigFromStorage } from "../../../utils/gstConfig.js";
 import {
   FileText,
@@ -28,7 +29,7 @@ import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COMPANY_NAME = "Nirmalyam Krafts";
+const COMPANY_NAME = "Nirmalyam Kraft";
 
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   if (!lines || lines.length === 0) return 0;
@@ -160,7 +161,7 @@ export const Receipts = () => {
     localStorage.getItem("nirmalyam_show_payment_info") === "true"
   );
   const [bankHolder, setBankHolder] = useState(() => 
-    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts"
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft"
   );
   const [bankName, setBankName] = useState(() => 
     localStorage.getItem("nirmalyam_bank_name") || "State Bank of India"
@@ -516,73 +517,7 @@ export const Receipts = () => {
     return specParts.join("\n");
   };
 
-  // Professional PDF Receipt Generator
   const generateInvoicePDF = (rc, mode = "download") => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    
-    const brand = [10, 92, 67]; // Emerald Green
-    const gold = [212, 175, 55]; // Gold accent
-
-    // Draw top layout headers
-    doc.setFillColor(brand[0], brand[1], brand[2]);
-    doc.rect(0, 0, pageWidth, 40, "F");
-    
-    doc.setFillColor(gold[0], gold[1], gold[2]);
-    doc.rect(0, 40, pageWidth, 2, "F");
-    
-    // Header company logo & details
-    try {
-      if (logoBase64) {
-        doc.addImage(logoBase64, "PNG", 15, 6, 28, 28);
-      } else {
-        doc.addImage("/Nirmalyam_Logo-removebg-preview.webp", "WEBP", 15, 6, 28, 28);
-      }
-    } catch (e) {
-      console.warn("Failed to load logo in PDF:", e);
-    }
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(COMPANY_NAME, 46, 18);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
-    
-    // Title "INVOICE" on the right side of header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
-    doc.text("INVOICE", pageWidth - 15, 20, { align: "right" });
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(230, 245, 238);
-    doc.text(`Invoice No: ${rc.receiptNumber}`, pageWidth - 15, 28, { align: "right" });
-    doc.text(`Date: ${rc.paidAt ? new Date(rc.paidAt).toLocaleDateString() : new Date().toLocaleDateString()}`, pageWidth - 15, 33, { align: "right" });
-    
-    // Client & Invoice details
-    doc.setTextColor(60, 60, 60);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("BILL TO:", 15, 52);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Customer: ${rc.customerName || "—"}`, 15, 58);
-    doc.text(`Business: ${rc.businessName || "—"}`, 15, 63);
-    doc.text(`Phone: ${rc.phone || "—"}`, 15, 68);
-    doc.text(`Email: ${rc.email || "—"}`, 15, 73);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("DELIVERY DETAILS:", 110, 52);
-    doc.setFont("helvetica", "normal");
-    const addressLines = doc.splitTextToSize(rc.deliveryAddress || "Pickup / Standard Delivery", 85);
-    doc.text(addressLines, 110, 58);
-    
-    // Lookup target order from allOrdersList if rc is a receipt/bill record
     const targetOrderId = String(rc.orderId?._id || rc.orderId || rc.order || "").trim();
     const matchingOrder = (allOrdersList || []).find(o =>
       String(o._id || o.id || "").trim() === targetOrderId ||
@@ -590,328 +525,16 @@ export const Receipts = () => {
       String(o.reference || "").toLowerCase().trim() === String(rc.orderRef || "").toLowerCase().trim()
     ) || rc;
 
-    // Item Table
-    const billDetails = rc.billDetails || matchingOrder?.billDetails || {};
-    const subtotal = Number(
-      billDetails.subtotal ||
-      matchingOrder?.subtotalAmount ||
-      matchingOrder?.quotation?.subtotalAmount ||
-      rc.subtotalAmount ||
-      rc.totalOrderAmount ||
-      rc.amount || 0
-    );
-    const preTaxDiscountVal = Number(billDetails.preTaxDiscount ?? (billDetails.postTaxDiscount == null ? (billDetails.discount || rc.discountAmount || 0) : 0));
-    const postTaxDiscountVal = Number(billDetails.postTaxDiscount ?? 0);
-    const shippingVal = Number(billDetails.shipping || rc.shippingCharges || 0);
-    const otherVal = Number(billDetails.other || rc.otherCharges || 0);
-    const taxRate = Number(billDetails.taxRate || 0);
+    const sysConfig = getSystemGstConfigFromStorage();
 
-    // Invoice Meta Table or Section
-    const termsY = 85;
-    doc.setFillColor(245, 247, 246);
-    doc.rect(15, termsY, pageWidth - 30, 10, "F");
-    doc.setTextColor(40, 40, 40);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    const pdfPaidSoFar = Number(rc.paidSoFar || matchingOrder?.paidSoFar || 0);
-    const pdfPaymentStatusText = pdfPaidSoFar <= 0
-      ? "UNPAID"
-      : (rc.isPaidInFull || pdfPaidSoFar >= ((subtotal - preTaxDiscountVal + shippingVal + otherVal) - postTaxDiscountVal) - 0.01 ? "PAID IN FULL" : "PARTIAL PAID");
-
-    doc.text(`Due Date: ${rc.billDetails?.dueDate ? new Date(rc.billDetails.dueDate).toLocaleDateString() : "—"}`, 20, termsY + 6.5);
-    doc.text(`Payment Mode: ${String(rc.paymentMode || "invoice").toUpperCase()}  |  Payment Status: ${pdfPaymentStatusText}`, 95, termsY + 6.5);
-
-    const baseQuotationItems = matchingOrder?.quotation?.items?.length > 0
-      ? matchingOrder.quotation.items
-      : (matchingOrder?.orderDetailsList?.length > 0 ? matchingOrder.orderDetailsList : (rc.quotation?.items || rc.orderDetailsList || []));
-
-    const rawLines = (rc.billDetails?.items && rc.billDetails.items.length > 0)
-      ? rc.billDetails.items
-      : (matchingOrder?.billDetails?.items?.length > 0 ? matchingOrder.billDetails.items : baseQuotationItems);
-
-    const lines = rawLines.map(line => {
-      const qMatch = baseQuotationItems.find(q =>
-        (q.productId && line.productId && String(q.productId).trim() === String(line.productId).trim()) ||
-        (q.productName && line.productName && q.productName.toLowerCase().trim() === line.productName.toLowerCase().trim())
-      );
-
-      const explicitUnitPrice = Number(line.unitPrice || line.sellingPrice || line.price || line.lineUnitPrice || qMatch?.unitPrice || qMatch?.sellingPrice || qMatch?.price || qMatch?.lineUnitPrice || 0);
-
-      return {
-        ...line,
-        unitPrice: explicitUnitPrice > 0 ? explicitUnitPrice : line.unitPrice,
-      };
+    return generateTaxInvoicePDF({
+      order: matchingOrder,
+      billReceipt: rc,
+      mode,
+      businessConfig: sysConfig,
+      allProducts: productItems,
+      logoBase64Input: logoBase64,
     });
-    const totalQty = lines.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    // Per-line GST breakdown accumulator by rate
-    const gstByRate = {};
-    const tableBody = lines.map((line, index) => {
-      const lineQty = Number(line.quantity || 0);
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
-      const lineIsRoll = rc.productCategory?.toLowerCase().includes("roll");
-      const isRoll = prod?.category?.toLowerCase().includes("roll") || lineIsRoll;
-
-      let displayQty = `${lineQty} ${line.unit || "pcs"}`;
-      let calcQty = lineQty;
-
-      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
-        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
-        displayQty = `${pcsQty} pcs`;
-        calcQty = pcsQty;
-      }
-
-      const lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
-      const lineFraction = subtotal > 0 ? (lineSubtotal / subtotal) : (1 / (lines.length || 1));
-      const rate = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
-
-      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
-
-      const taxInfo = getProductTaxInfo(prod || line);
-      const lineHsn = line.hsnCode || prod?.hsnCode || taxInfo.hsnCode;
-      const sysConfig = getSystemGstConfigFromStorage();
-      const productGst = prod ? (prod.custom_gst_rate ?? prod.gstRate) : null;
-      let lineGstRate = 0;
-      if (sysConfig.gstEnabled) {
-        if (productGst != null) {
-          lineGstRate = Number(productGst);
-        } else if (line.gstRate != null && Number(line.gstRate) > 0 && Number(line.gstRate) !== 18) {
-          lineGstRate = Number(line.gstRate);
-        } else {
-          lineGstRate = Number(taxInfo.gstRate || 5);
-        }
-      }
-
-      // Accumulate GST by rate
-      const rateKey = String(lineGstRate);
-      const taxableBase = Math.max(0, lineSubtotal - (preTaxDiscountVal * lineFraction));
-      const lineTax = taxableBase * (lineGstRate / 100);
-      if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
-      gstByRate[rateKey].taxableAmount += taxableBase;
-      gstByRate[rateKey].taxAmount += lineTax;
-
-      return [
-        specDetails,
-        lineHsn,
-        `${lineGstRate}%`,
-        `Rs. ${lineTax.toFixed(2)}`,
-        displayQty,
-        `Rs. ${rate.toFixed(2)}`,
-        `Rs. ${lineSubtotal.toFixed(2)}`
-      ];
-    });
-    
-    autoTable(doc, {
-      startY: termsY + 16,
-      head: [["Item Description & Specifications", "HSN Code", "GST %", "GST Amt", "Quantity", "Rate", "Amount"]],
-      body: tableBody,
-      theme: "striped",
-      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
-      headStyles: { fillColor: brand, fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 14 },
-        3: { halign: "right", cellWidth: 20 },
-        4: { halign: "center", cellWidth: 18 },
-        5: { halign: "right", cellWidth: 22 },
-        6: { halign: "right", cellWidth: 24 }
-      }
-    });
-    
-    const finalY = doc.lastAutoTable.finalY + 8;
-    
-    // Totals Grid
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 80, 80);
-    
-    const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 90;
-    
-    let currentY = finalY;
-    doc.text("Subtotal:", labelX, currentY);
-    doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    
-    if (preTaxDiscountVal > 0) {
-      currentY += 6;
-      doc.text("Pre-Tax Discount:", labelX, currentY);
-      doc.text(`- Rs. ${preTaxDiscountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.text("Taxable Value:", labelX, currentY);
-      doc.text(`Rs. ${(subtotal - preTaxDiscountVal).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-    }
-
-    // GST Breakdown by rate
-    const gstRateKeys = Object.keys(gstByRate).sort((a, b) => Number(a) - Number(b));
-    let totalGstCollected = 0;
-    
-    if (gstRateKeys.length > 0) {
-       for (const rk of gstRateKeys) {
-         totalGstCollected += gstByRate[rk].taxAmount;
-       }
-    }
-
-    if (gstRateKeys.length > 1) {
-      for (const rk of gstRateKeys) {
-        const { taxAmount: ta } = gstByRate[rk];
-        currentY += 6;
-        doc.setFontSize(9);
-        doc.text(`GST @ ${rk}%:`, labelX, currentY);
-        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      }
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.text(`Total GST Collected:`, labelX, currentY);
-      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-    } else if (gstRateKeys.length === 1) {
-      const rk = gstRateKeys[0];
-      const { taxAmount: ta } = gstByRate[rk];
-      if (ta > 0) {
-        currentY += 6;
-        doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
-        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      }
-    } else if (taxRate > 0) {
-      // Fallback
-      const fallbackTax = (subtotal - preTaxDiscountVal) * (taxRate / 100);
-      currentY += 6;
-      doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
-      doc.text(`Rs. ${fallbackTax.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-    
-    if (shippingVal > 0) {
-      currentY += 6;
-      doc.text("Shipping Charges:", labelX, currentY);
-      doc.text(`Rs. ${shippingVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-
-    if (otherVal > 0) {
-      currentY += 6;
-      doc.text("Other Charges:", labelX, currentY);
-      doc.text(`Rs. ${otherVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-
-    if (postTaxDiscountVal > 0) {
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(180, 80, 0);
-      doc.text("Post-Tax Disc. (Commercial):", labelX, currentY);
-      doc.text(`- Rs. ${postTaxDiscountVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(80, 80, 80);
-    }
-    
-    const grossVal = (subtotal - preTaxDiscountVal) + totalGstCollected + shippingVal + otherVal;
-    const grandTotal = Math.max(0, grossVal - postTaxDiscountVal);
-    
-    currentY += 8;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(brand[0], brand[1], brand[2]);
-    doc.text("Grand Total:", labelX, currentY);
-    doc.text(`Rs. ${grandTotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    
-    currentY += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 80, 80);
-    doc.text("Amount Paid So Far:", labelX, currentY);
-    doc.text(`Rs. ${Number(rc.paidSoFar || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    
-    currentY += 7;
-    doc.setFillColor(254, 242, 242);
-    doc.rect(labelX - 4, currentY - 5, 83, 8, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(185, 28, 28);
-    const balanceDue = Math.max(0, grandTotal - Number(rc.paidSoFar || 0));
-    doc.text("Balance Due:", labelX, currentY);
-    doc.text(`Rs. ${balanceDue.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-
-    // Print remaining approved balance to be invoiced (for partial invoicing/slabs)
-    const discountVal = preTaxDiscountVal + postTaxDiscountVal;
-    const approvedTotal = Number(rc.totalOrderAmount || 0);
-    const effectiveInvoiced = grandTotal + discountVal;
-    const remainingToInvoiceVal = Math.max(0, approvedTotal - effectiveInvoiced);
-    if (remainingToInvoiceVal > 0.01) {
-      currentY += 7;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(120, 110, 30);
-      doc.text("Remaining Order Bal. to Invoice:", labelX, currentY);
-      doc.text(`Rs. ${remainingToInvoiceVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-    }
-    
-    // Notes & Payment instructions on bottom left (below totals to prevent collision)
-    const notesY = currentY + 12;
-    doc.setTextColor(60, 60, 60);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Notes:", 15, notesY);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const noteTextLines = doc.splitTextToSize(billDetails.notes || "Please clear payment within due date.", 90);
-    doc.text(noteTextLines, 15, notesY + 5);
-
-    // Terms & Conditions (loaded from localStorage or default)
-    const tcString = localStorage.getItem("nirmalyam_invoice_terms") || 
-      "1. Payment is strict Net due upon receipt.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Subject to local jurisdiction.";
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Terms & Conditions:", 15, notesY + 18);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    const tcLines = doc.splitTextToSize(tcString, 90);
-    doc.text(tcLines, 15, notesY + 23);
-
-    // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
-    const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
-    if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
-      const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
-      const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
-      const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
-      const bUpi    = localStorage.getItem("nirmalyam_bank_upi")    || "nirmalyam@sbi";
-
-      const bankY = notesY;
-      doc.setTextColor(60, 60, 60);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text("Bank Details for Payment:", 115, bankY);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text(`Account Name: ${bHolder}`, 115, bankY + 5);
-      doc.text(`Bank Name: ${bName}`, 115, bankY + 10);
-      doc.text(`A/C Number: ${bAcc}`, 115, bankY + 15);
-      doc.text(`IFSC Code: ${bIfsc}`, 115, bankY + 20);
-      doc.text(`UPI ID: ${bUpi}`, 115, bankY + 25);
-    }
-    
-    // Footer
-    const footY = pageHeight - 12;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(140, 140, 140);
-    doc.text(
-      "Thank you for doing business with Nirmalyam Krafts! This is a system-generated invoice.",
-      pageWidth / 2,
-      footY,
-      { align: "center" }
-    );
-    
-    if (mode === "view") {
-      const blob = doc.output("blob");
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
-    } else {
-      doc.save(`Nirmalyam_Invoice_${rc.receiptNumber}.pdf`);
-    }
   };
 
   const generateReturnReceiptPDF = (order, returnDetails, mode = "download") => {
@@ -1088,7 +711,7 @@ export const Receipts = () => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
-    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Krafts.", 15, footY);
+    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Kraft.", 15, footY);
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
@@ -1168,7 +791,11 @@ export const Receipts = () => {
     doc.text(`Order Reference: ${rc.orderRef || "—"}`, 110, 57);
     doc.text(`Quotation Number: ${rc.quotationNumber || "—"}`, 110, 61.5);
     doc.text(`Associated Invoice: ${invoiceNum}`, 110, 66);
-    doc.text(`Payment Mode: ${String(rc.paymentMode || "cash").toUpperCase()}`, 110, 70.5);
+    let modeText = `Payment Mode: ${String(rc.paymentMode || "cash").toUpperCase()}`;
+    if (rc.paymentRefNumber) {
+      modeText += ` (${rc.paymentRefType || "Ref"}: ${rc.paymentRefNumber})`;
+    }
+    doc.text(modeText, 110, 70.5);
     doc.text(`Payment Status: ${rc.isPaidInFull ? "Paid in Full" : "Partial Payment"}`, 110, 75);
 
     doc.setDrawColor(220, 220, 220);
@@ -1273,7 +900,7 @@ export const Receipts = () => {
     doc.setFontSize(7.5);
     doc.setTextColor(140, 140, 140);
     doc.text(
-      "This is an electronically generated official receipt. Thank you for doing business with Nirmalyam Krafts!",
+      "This is an electronically generated official receipt. Thank you for doing business with Nirmalyam Kraft!",
       pageWidth / 2,
       footY,
       { align: "center" }
@@ -1355,37 +982,33 @@ export const Receipts = () => {
       "Paid At",
       "Amount",
       "Payment Mode",
+      "Reference Type",
+      "Reference Number",
       "Status",
       "Remaining Amount"
     ];
 
-    const rows = filteredReceipts.map(rc => [
-      rc.receiptNumber,
-      rc.orderRef || "—",
-      rc.customerName,
-      rc.businessName || "—",
-      new Date(rc.paidAt).toLocaleString(),
-      rc.amount,
-      rc.paymentMode,
-      rc.paymentMode === "refund" ? "Refunded" : (rc.isPaidInFull ? "Fully Paid" : "Partial"),
-      rc.remainingAmount || 0
-    ]);
+    const rows = filteredReceipts.map(rc => {
+      const refNum = rc.paymentRefNumber || rc.referenceNumber || rc.paymentRef;
+      const refType = rc.paymentRefType ? rc.paymentRefType : (refNum ? "Reference" : "NA");
+
+      return [
+        rc.receiptNumber,
+        rc.orderRef || "—",
+        rc.customerName,
+        rc.businessName || "—",
+        new Date(rc.paidAt).toLocaleString(),
+        rc.amount,
+        rc.paymentMode,
+        refType,
+        refNum || "NA",
+        rc.paymentMode === "refund" ? "Refunded" : (rc.isPaidInFull ? "Fully Paid" : "Partial"),
+        rc.remainingAmount || 0
+      ];
+    });
 
     if (exportType === "csv") {
-      const csvContent = [
-        headers.join(","),
-        ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Receipts_Export_${new Date().toISOString().slice(0, 10)}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      exportToCSV(headers, rows, `Receipts_Export_${new Date().toISOString().slice(0, 10)}`);
       toast.success("CSV file downloaded successfully!");
     } else {
       exportToExcel(headers, rows, `Receipts_Export_${new Date().toISOString().slice(0, 10)}`);
@@ -1659,7 +1282,16 @@ export const Receipts = () => {
                         <td className="px-6 py-4 uppercase text-xs font-bold text-gray-700">
                           {(() => {
                             const mode = rc.paymentMode || rc.type || "invoice";
-                            return mode === "bank_transfer" ? "Bank" : mode === "card" ? "Card/Cheque" : mode;
+                            return (
+                              <div>
+                                <span>{mode === "bank_transfer" ? "Bank" : mode === "card" ? "Card" : mode}</span>
+                                {rc.paymentRefNumber && (
+                                  <div className="text-[10px] text-emerald-700 font-semibold normal-case font-mono mt-0.5">
+                                    {rc.paymentRefType || "Ref"}: {rc.paymentRefNumber}
+                                  </div>
+                                )}
+                              </div>
+                            );
                           })()}
                         </td>
                         <td className="px-6 py-4">

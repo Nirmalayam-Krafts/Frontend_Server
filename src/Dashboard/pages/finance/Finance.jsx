@@ -23,7 +23,7 @@ import { useGetAllOrders } from "../../../../hook/order";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useAuthContext } from "../../../context/Adminauth";
-import { exportToExcel } from "../../utils";
+import { exportToExcel, exportToCSV } from "../../utils";
 import {
   BarChart,
   Bar,
@@ -272,16 +272,7 @@ const Finance = () => {
     ]);
 
     if (format === "csv") {
-      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Expenses_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      exportToCSV(headers, rows, `Expenses_Report_${new Date().toISOString().slice(0, 10)}`);
     } else {
       exportToExcel(headers, rows, `Expenses_Report_${new Date().toISOString().slice(0, 10)}`);
     }
@@ -305,16 +296,7 @@ const Finance = () => {
     ];
 
     if (format === "csv") {
-      const csvContent = [headers, ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`))].map((row) => row.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Finance_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      exportToCSV(headers, rows, `Finance_Report_${new Date().toISOString().slice(0, 10)}`);
     } else {
       exportToExcel(headers, rows, `Finance_Report_${new Date().toISOString().slice(0, 10)}`);
     }

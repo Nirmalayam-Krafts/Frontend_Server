@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Pagination } from "../../components/ui";
-import { getProductTaxInfo, exportToExcel } from "../../utils";
+import { getProductTaxInfo, exportToExcel, exportToCSV } from "../../utils";
 import { getEffectiveTaxRate, getSystemGstConfigFromStorage } from "../../../utils/gstConfig.js";
 import {
   FileText,
@@ -27,7 +27,7 @@ import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COMPANY_NAME = "Nirmalyam Krafts";
+const COMPANY_NAME = "Nirmalyam Kraft";
 
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   let totalSuggestedOfAll = 0;
@@ -622,7 +622,7 @@ export const Quotations = () => {
     // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
     if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft";
       const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
       const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
       const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
@@ -715,20 +715,7 @@ export const Quotations = () => {
     ]);
 
     if (exportType === "csv") {
-      const csvContent = [
-        headers.join(","),
-        ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Quotations_Export_${new Date().toISOString().slice(0, 10)}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      exportToCSV(headers, rows, `Quotations_Export_${new Date().toISOString().slice(0, 10)}`);
       toast.success("CSV file downloaded successfully!");
     } else {
       exportToExcel(headers, rows, `Quotations_Export_${new Date().toISOString().slice(0, 10)}`);
