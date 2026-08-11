@@ -25,6 +25,7 @@ import {
   Package2,
   Clock,
   RotateCcw,
+  ShieldAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
@@ -97,6 +98,7 @@ export const Sidebar = () => {
     },
     { icon: FileText, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
+    { icon: ShieldAlert, label: "Activity Logs", path: "/activity-logs" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 

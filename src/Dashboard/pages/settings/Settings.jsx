@@ -5,6 +5,7 @@ import { Layout } from "../../components/common/Layout";
 import { Card, Button, Input, Modal } from "../../components/ui";
 import { useAuthStore, useUIStore } from "../../store";
 import { motion as Motion } from "framer-motion";
+import { toast } from "react-hot-toast";
 import {
   Settings as SettingsIcon,
   Lock,
@@ -19,6 +20,8 @@ import {
   UserPlus,
   KeyRound,
   Plus,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
 import { useCurrentUser } from "../../../../hook/admin";
 import { useAuthContext } from "../../../context/Adminauth";
@@ -110,6 +113,55 @@ const Settings = () => {
     termsAndConditions: "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within due date.\n3. Subject to Nagpur Jurisdiction.",
   });
   const [savingGstConfig, setSavingGstConfig] = useState(false);
+
+  // TERMS, CONDITIONS & BANK SETTINGS STATES
+  const [showTermsPanel, setShowTermsPanel] = useState(true);
+  const [invoiceTerms, setInvoiceTerms] = useState(() => 
+    localStorage.getItem("nirmalyam_invoice_terms") || 
+    "1. Payment is strictly net due upon receipt of invoice.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Goods once sold cannot be returned without validation."
+  );
+  const [quotationTerms, setQuotationTerms] = useState(() => 
+    localStorage.getItem("nirmalyam_quotation_terms") || 
+    "1. Quotation is valid for 10 days from the date of the quote.\n2. Standard delivery is within 5-7 working days.\n3. Prices are on an ex-factory basis."
+  );
+  const [refundTerms, setRefundTerms] = useState(() => 
+    localStorage.getItem("nirmalyam_refund_terms") || 
+    "1. A refund is processed to the source account within 6-7 days.\n2. A restocking fee of 10% may apply to returns.\n3. Goods must be in original condition."
+  );
+  const [showPaymentInfo, setShowPaymentInfo] = useState(() => 
+    localStorage.getItem("nirmalyam_show_payment_info") !== "false"
+  );
+  const [bankHolder, setBankHolder] = useState(() => 
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft"
+  );
+  const [bankName, setBankName] = useState(() => 
+    localStorage.getItem("nirmalyam_bank_name") || "Bank Of Maharashtra"
+  );
+  const [bankAccount, setBankAccount] = useState(() => 
+    localStorage.getItem("nirmalyam_bank_account") || "39824872901"
+  );
+  const [bankIfsc, setBankIfsc] = useState(() => 
+    localStorage.getItem("nirmalyam_bank_ifsc") || "BOM0001299"
+  );
+  const [bankUpi, setBankUpi] = useState(() => 
+    localStorage.getItem("nirmalyam_bank_upi") || "nirmalyam@bom"
+  );
+
+  const handleSaveTermsAndBankDetails = () => {
+    localStorage.setItem("nirmalyam_invoice_terms", invoiceTerms);
+    localStorage.setItem("nirmalyam_quotation_terms", quotationTerms);
+    localStorage.setItem("nirmalyam_refund_terms", refundTerms);
+    localStorage.setItem("nirmalyam_show_payment_info", showPaymentInfo ? "true" : "false");
+    localStorage.setItem("nirmalyam_bank_holder", bankHolder);
+    localStorage.setItem("nirmalyam_bank_name", bankName);
+    localStorage.setItem("nirmalyam_bank_account", bankAccount);
+    localStorage.setItem("nirmalyam_bank_ifsc", bankIfsc);
+    localStorage.setItem("nirmalyam_bank_upi", bankUpi);
+
+    window.dispatchEvent(new Event("nirmalyam_config_updated"));
+    showNotification("Document terms & bank details updated successfully! 🎉", "success");
+    toast.success("Document terms & bank details updated successfully! 🎉");
+  };
 
   // HSN Master States
   const [showAddHsnModal, setShowAddHsnModal] = useState(false);
@@ -955,6 +1007,162 @@ const Settings = () => {
                   </div>
                 </div>
               </Card>
+            </Motion.div>
+
+            {/* Configure Terms, Conditions & Payment Info Card */}
+            <Motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 }}
+              className="mt-8 bg-white rounded-3xl border border-gray-200 p-6 shadow-sm"
+            >
+              <button
+                type="button"
+                onClick={() => setShowTermsPanel(!showTermsPanel)}
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl hover:from-emerald-100/50 hover:to-teal-100/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-gray-900">Configure Terms, Conditions &amp; Payment Info</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Define default terms for Invoices, Quotations, Refunds, and customize Bank Details shown on PDFs.</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold bg-white text-emerald-700 px-3 py-1.5 rounded-xl border border-emerald-200">
+                  {showTermsPanel ? "Collapse ▴" : "Expand ▾"}
+                </span>
+              </button>
+
+              {showTermsPanel && (
+                <div className="mt-6 border-t border-gray-100 pt-6 space-y-6 animate-fade-in">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Textareas for terms */}
+                    <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">DOCUMENT TERMS &amp; CONDITIONS</h4>
+                      </div>
+                      <div className="space-y-3.5">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">Invoice T&amp;C (Invoices/Bills)</label>
+                          <textarea
+                            rows={4}
+                            value={invoiceTerms}
+                            onChange={(e) => setInvoiceTerms(e.target.value)}
+                            className="w-full text-xs font-semibold rounded-xl border border-gray-200 bg-white px-3.5 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800 min-h-[90px] leading-relaxed hover:border-gray-300"
+                            placeholder="Enter invoice terms & conditions..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">Quotation T&amp;C</label>
+                          <textarea
+                            rows={4}
+                            value={quotationTerms}
+                            onChange={(e) => setQuotationTerms(e.target.value)}
+                            className="w-full text-xs font-semibold rounded-xl border border-gray-200 bg-white px-3.5 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800 min-h-[90px] leading-relaxed hover:border-gray-300"
+                            placeholder="Enter quotation terms & conditions..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">Refund/Return T&amp;C (Refund Receipts)</label>
+                          <textarea
+                            rows={4}
+                            value={refundTerms}
+                            onChange={(e) => setRefundTerms(e.target.value)}
+                            className="w-full text-xs font-semibold rounded-xl border border-gray-200 bg-white px-3.5 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800 min-h-[90px] leading-relaxed hover:border-gray-300"
+                            placeholder="Enter refund terms & conditions..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank / Payment Info Details */}
+                    <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">PAYMENT &amp; BANK INFO</h4>
+                        </div>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-emerald-700 bg-white border border-emerald-200/80 px-2.5 py-1 rounded-xl shadow-xs hover:bg-emerald-50 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={showPaymentInfo}
+                            onChange={(e) => setShowPaymentInfo(e.target.checked)}
+                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
+                          />
+                          Show on Quotations &amp; Bills
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="sm:col-span-2">
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">Account Holder Name</label>
+                          <input
+                            type="text"
+                            value={bankHolder}
+                            onChange={(e) => setBankHolder(e.target.value)}
+                            className="w-full text-xs font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">Bank Name</label>
+                          <input
+                            type="text"
+                            value={bankName}
+                            onChange={(e) => setBankName(e.target.value)}
+                            className="w-full text-xs font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">Account Number</label>
+                          <input
+                            type="text"
+                            value={bankAccount}
+                            onChange={(e) => setBankAccount(e.target.value)}
+                            className="w-full text-xs font-mono font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">IFSC Code</label>
+                          <input
+                            type="text"
+                            value={bankIfsc}
+                            onChange={(e) => setBankIfsc(e.target.value)}
+                            className="w-full text-xs font-mono font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-600 block mb-1">UPI ID</label>
+                          <input
+                            type="text"
+                            value={bankUpi}
+                            onChange={(e) => setBankUpi(e.target.value)}
+                            className="w-full text-xs font-mono font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Save / Update Details Bar */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200/80 pt-5 mt-2 bg-slate-50/80 p-4 rounded-2xl">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Click <strong className="font-bold text-gray-900">Update Details</strong> to save and apply customized terms &amp; bank details across all Invoices, Quotations, and Refund PDFs.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveTermsAndBankDetails}
+                      className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs px-6 py-2.5 shadow-md hover:shadow-lg transition-all shrink-0 cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-white" />
+                      <span>Update Details</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </Motion.div>
           </div>
 

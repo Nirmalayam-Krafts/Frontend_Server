@@ -28,6 +28,7 @@ import Receipts from "./Dashboard/pages/orders/Receipts";
 import Finance from "./Dashboard/pages/finance/Finance";
 import Analytics from "./Dashboard/pages/analytics/Analytics";
 import Settings from "./Dashboard/pages/settings/Settings";
+import ActivityLogs from "./Dashboard/pages/logs/ActivityLogs";
 import Login from "./Dashboard/auth/Login";
 import Signup from "./Dashboard/auth/Signup";
 
@@ -83,7 +84,8 @@ function AppLayout() {
     "/Product",
     "/quotations",
     "/receipts",
-    "/order-returns"
+    "/order-returns",
+    "/activity-logs"
   ];
 
   const isDashboardRoute = dashboardRoutes.some((route) =>
@@ -204,6 +206,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Analytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/activity-logs"
+            element={
+              <ProtectedRoute>
+                <ActivityLogs />
               </ProtectedRoute>
             }
           />

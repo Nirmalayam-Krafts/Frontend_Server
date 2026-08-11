@@ -101,13 +101,24 @@ export const generateTaxInvoicePDF = ({
   const busStateCode = businessConfig.businessStateCode || "27";
   const busPhone = businessConfig.businessPhone || "+91 90490 01299";
   const busEmail = businessConfig.businessEmail || "nirmalyamkrafts@gmail.com";
-  const bankInfo = businessConfig.bankDetails || {
-    bankName: "State Bank of India",
-    accountNo: "38920192019",
-    ifscCode: "SBIN0001234",
-    branch: "Nagpur Main",
+  const savedInvoiceTerms = localStorage.getItem("nirmalyam_invoice_terms");
+  const savedShowPayment = localStorage.getItem("nirmalyam_show_payment_info") !== "false";
+  const savedBankHolder = localStorage.getItem("nirmalyam_bank_holder");
+  const savedBankName = localStorage.getItem("nirmalyam_bank_name");
+  const savedBankAccount = localStorage.getItem("nirmalyam_bank_account");
+  const savedBankIfsc = localStorage.getItem("nirmalyam_bank_ifsc");
+  const savedBankUpi = localStorage.getItem("nirmalyam_bank_upi");
+
+  const bankInfo = {
+    holder: savedBankHolder || businessConfig.bankDetails?.holder || "Nirmalyam Kraft",
+    bankName: savedBankName || businessConfig.bankDetails?.bankName || "Bank Of Maharashtra",
+    accountNo: savedBankAccount || businessConfig.bankDetails?.accountNo || "39824872901",
+    ifscCode: savedBankIfsc || businessConfig.bankDetails?.ifscCode || "BOM0001299",
+    upiId: savedBankUpi || businessConfig.bankDetails?.upiId || "nirmalyam@bom",
+    show: savedShowPayment
   };
-  const termsText = businessConfig.termsAndConditions || "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within due date.\n3. Subject to Nagpur Jurisdiction.";
+
+  const termsText = savedInvoiceTerms || businessConfig.termsAndConditions || "1. Payment is strictly net due upon receipt of invoice.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Goods once sold cannot be returned without validation.";
 
   // Pre-generation validation check #1: Business GSTIN
   if (!busGst || !busGst.trim()) {
@@ -520,15 +531,15 @@ export const generateTaxInvoicePDF = ({
 
   doc.setFont("helvetica", "normal");
   doc.setTextColor(51, 65, 85);
-  doc.text(`Bank Name: ${bankInfo.bankName}`, 14, finalY + 11);
-  doc.text(`A/C No: ${bankInfo.accountNo}`, 14, finalY + 16);
-  doc.text(`IFSC Code: ${bankInfo.ifscCode} | Branch: ${bankInfo.branch}`, 14, finalY + 21);
+  doc.text(`Account Holder: ${bankInfo.holder}`, 14, finalY + 10);
+  doc.text(`Bank: ${bankInfo.bankName} | A/C: ${bankInfo.accountNo}`, 14, finalY + 15);
+  doc.text(`IFSC: ${bankInfo.ifscCode}${bankInfo.upiId ? ` | UPI: ${bankInfo.upiId}` : ""}`, 14, finalY + 20);
   doc.setFont("helvetica", "bold");
-  doc.text(`Amount in Words:`, 14, finalY + 27);
+  doc.text(`Amount in Words:`, 14, finalY + 26);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(10, 92, 67);
   const wordsText = numberToIndianWords(roundedGrandTotal);
-  doc.text(doc.splitTextToSize(wordsText, 88), 14, finalY + 32);
+  doc.text(doc.splitTextToSize(wordsText, 88), 14, finalY + 31);
 
   // Totals Summary Box (Right Side)
   const rightLabelX = pageWidth - 80;
@@ -543,7 +554,7 @@ export const generateTaxInvoicePDF = ({
     doc.text(`Rs. ${cumulativeGrossSubtotal.toFixed(2)}`, rightValX, currentY, { align: "right" });
 
     currentY += 5;
-    doc.text("Pre-Tax Discount:", rightLabelX, currentY);
+    doc.text("Discount:", rightLabelX, currentY);
     doc.text(`- Rs. ${preTaxDiscountVal.toFixed(2)}`, rightValX, currentY, { align: "right" });
 
     currentY += 5;
@@ -584,7 +595,7 @@ export const generateTaxInvoicePDF = ({
 
   if (postTaxDiscountVal > 0) {
     currentY += 5;
-    doc.text("Post-Tax Discount:", rightLabelX, currentY);
+    doc.text("Discount:", rightLabelX, currentY);
     doc.text(`- Rs. ${postTaxDiscountVal.toFixed(2)}`, rightValX, currentY, { align: "right" });
   }
 

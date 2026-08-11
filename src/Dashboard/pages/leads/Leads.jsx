@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
+import * as XLSX from "xlsx";
 import { Layout } from "../../components/common/Layout";
 import {
   Card,
@@ -15,6 +16,7 @@ import {
   Plus,
   Download,
   FileSpreadsheet,
+  Upload,
   X,
   Search,
   Building2,
@@ -127,7 +129,7 @@ const Leads = () => {
   const [orderForm, setOrderForm] = useState(initialOrderForm);
   const [statusChangeReason, setStatusChangeReason] = useState("");
 
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
   const rawLeads = data?.leads || [];
   const inventoryItems = useMemo(() => {
     if (Array.isArray(inventoryData)) return inventoryData;
@@ -925,6 +927,115 @@ const Leads = () => {
     showNotification("Excel exported successfully", "success");
   };
 
+  const fileInputRef = useRef(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleImportFileSelected = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileExt = file.name.split(".").pop().toLowerCase();
+    if (!["csv", "xlsx", "xls"].includes(fileExt)) {
+      toast.error("Invalid file format. Please upload a CSV or Excel (.xlsx / .xls) file.");
+      e.target.value = "";
+      return;
+    }
+
+    setIsImporting(true);
+    const loadingToast = toast.loading(`Parsing and importing ${file.name}...`);
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const buffer = evt.target.result;
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const firstSheet = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheet];
+        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!jsonRows || jsonRows.length <= 1) {
+          toast.error("File appears to be empty or has no data rows.", { id: loadingToast });
+          setIsImporting(false);
+          e.target.value = "";
+          return;
+        }
+
+        const rawHeaders = jsonRows[0] || [];
+        const cleanHeaders = rawHeaders.map((h) => String(h || "").trim().toLowerCase());
+
+        const findIdx = (keywords) =>
+          cleanHeaders.findIndex((h) => keywords.some((k) => h.includes(k)));
+
+        const nameIdx = findIdx(["name", "customer", "contact"]);
+        const businessIdx = findIdx(["business", "company", "org"]);
+        const phoneIdx = findIdx(["phone", "mobile", "contact", "number"]);
+        const emailIdx = findIdx(["email", "mail"]);
+        const categoryIdx = findIdx(["category", "product", "interest"]);
+        const qtyIdx = findIdx(["quantity", "qty"]);
+        const reqIdx = findIdx(["requirement", "comment", "description", "note"]);
+        const sourceIdx = findIdx(["source", "channel"]);
+        const statusIdx = findIdx(["status", "stage"]);
+        const cityIdx = findIdx(["city"]);
+        const stateIdx = findIdx(["state"]);
+        const daysIdx = findIdx(["days", "age", "old"]);
+
+        const leadsToImport = [];
+        for (let i = 1; i < jsonRows.length; i++) {
+          const row = jsonRows[i];
+          if (!row || row.length === 0) continue;
+
+          const name = nameIdx !== -1 ? String(row[nameIdx] || "").trim() : "";
+          const phone = phoneIdx !== -1 ? String(row[phoneIdx] || "").trim() : "";
+          const businessName = businessIdx !== -1 ? String(row[businessIdx] || "").trim() : "";
+          const email = emailIdx !== -1 ? String(row[emailIdx] || "").trim() : "";
+          const daysOld = daysIdx !== -1 ? String(row[daysIdx] || "").trim() : "0";
+
+          if (!name && !phone && !businessName && !email) continue;
+
+          leadsToImport.push({
+            name: name || "Unnamed Lead",
+            business_name: businessName,
+            phone: phone,
+            email: email,
+            product_category: categoryIdx !== -1 ? String(row[categoryIdx] || "").trim() : "Kraft Paper Bags",
+            quantity: qtyIdx !== -1 ? String(row[qtyIdx] || "").trim() : "1000",
+            requirement: reqIdx !== -1 ? String(row[reqIdx] || "").trim() : "",
+            source: sourceIdx !== -1 ? String(row[sourceIdx] || "").trim() : "Manual",
+            status: statusIdx !== -1 ? String(row[statusIdx] || "").trim() : "New",
+            delivery_city: cityIdx !== -1 ? String(row[cityIdx] || "").trim() : "",
+            delivery_state: stateIdx !== -1 ? String(row[stateIdx] || "").trim() : "",
+            days_old: daysOld,
+          });
+        }
+
+        if (leadsToImport.length === 0) {
+          toast.error("No valid lead records found in file.", { id: loadingToast });
+          setIsImporting(false);
+          e.target.value = "";
+          return;
+        }
+
+        const resp = await axiosInstance.post("/leads/import", { leads: leadsToImport });
+
+        if (resp.data?.success) {
+          toast.success(`Successfully imported ${resp.data?.data?.importedCount || leadsToImport.length} leads! 🎉`, { id: loadingToast });
+          queryClient.invalidateQueries({ queryKey: ["getAllLeads"] });
+          refetch();
+        } else {
+          toast.error(resp.data?.message || "Failed to import leads", { id: loadingToast });
+        }
+      } catch (err) {
+        console.error("Import error:", err);
+        toast.error(err?.response?.data?.message || "Failed to parse and import file.", { id: loadingToast });
+      } finally {
+        setIsImporting(false);
+        if (e.target) e.target.value = "";
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
   const handleAddNote = async () => {
     if (!selectedLead || !noteInput.trim()) {
       showNotification("Please write a note first", "error");
@@ -1086,6 +1197,24 @@ const Leads = () => {
                 className="rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-4 py-2"
               >
                 Export Excel
+              </Button>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".csv, .xlsx, .xls"
+                className="hidden"
+                onChange={handleImportFileSelected}
+              />
+
+              <Button
+                variant="custom"
+                icon={Upload}
+                disabled={isImporting}
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-2xl border border-white/20 bg-emerald-950/40 text-white hover:bg-emerald-900/50 px-4 py-2 flex items-center gap-2"
+              >
+                {isImporting ? "Importing..." : "Import Data"}
               </Button>
 
               <Button

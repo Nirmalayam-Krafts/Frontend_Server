@@ -576,141 +576,211 @@ export const Receipts = () => {
 
     // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
+    doc.setFontSize(15);
     doc.setTextColor(255, 255, 255);
-    doc.text("RETURN RECEIPT", pageWidth - 12, 15, { align: "right" });
+    doc.text("GST CREDIT NOTE / RETURN RECEIPT", pageWidth - 12, 14, { align: "right" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(250, 230, 230);
-    doc.text(`Return Ref: ${returnDetails.returnNumber}`, pageWidth - 12, 22, { align: "right" });
+    doc.text(`Credit Note Ref: ${returnDetails.returnNumber}`, pageWidth - 12, 22, { align: "right" });
     doc.text(`Date & Time: ${new Date(returnDetails.returnedAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 12, 28, { align: "right" });
 
-    // Client details
+    // Client details (Left)
     doc.setTextColor(60, 60, 60);
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
-    doc.text("RETURNED BY:", 15, 52);
+    doc.text("RETURNED BY / BUYER:", 15, 48);
     doc.setFont("helvetica", "normal");
-    doc.text(`Customer: ${order.customerName || "—"}`, 15, 58);
-    doc.text(`Business: ${order.businessName || "—"}`, 15, 63);
-    doc.text(`Phone: ${order.phone || "—"}`, 15, 68);
-    doc.text(`Email: ${order.email || "—"}`, 15, 73);
+    doc.text(`Customer: ${order.customerName || "—"}`, 15, 54);
+    doc.text(`Business: ${order.businessName || "—"}`, 15, 59);
+    doc.text(`Phone: ${order.phone || "—"}`, 15, 64);
+    doc.text(`Email: ${order.email || "—"}`, 15, 69);
+    doc.text(`GSTIN: ${order.gstNumber || order.gstin || "Unregistered"}`, 15, 74);
 
-    // Return details
+    // Return & Credit Note Details (Right)
+    const origInvoiceNo = order.invoiceNumber || order.billDetails?.billNumber || order.invoiceNo || (order.reference ? `INV-${order.reference}` : "INV-013");
+    const origInvoiceDate = order.invoiceDate || order.billDetails?.billDate || (order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN") : "09/08/2026");
+
+    // Dynamic Return Type determination
+    const items = returnDetails.items || [];
+    const orderLines = order.orderDetailsList?.length > 0 ? order.orderDetailsList : [order.orderDetails].filter(Boolean);
+    let isPartial = items.length < orderLines.length;
+    if (!isPartial) {
+      items.forEach(it => {
+        const matchLine = orderLines.find(ol => String(ol.productId?._id || ol.productId || "").trim() === String(it.productId?._id || it.productId || "").trim());
+        if (matchLine && Number(it.quantity) < Number(matchLine.quantity)) {
+          isPartial = true;
+        }
+      });
+    }
     const rawType = String(returnDetails.returnType || "").toLowerCase();
-    const returnTypeLabel = rawType === "complete" ? "Full Return" : (rawType === "partial" ? "Partial Return" : (returnDetails.notes ? "Partial Return" : "Full Return"));
+    const returnTypeLabel = rawType === "partial" || isPartial ? "Partial Return" : "Complete Return";
 
     doc.setFont("helvetica", "bold");
-    doc.text("RETURN DETAILS:", 110, 52);
+    doc.text("STATUTORY CREDIT NOTE DETAILS:", 110, 48);
     doc.setFont("helvetica", "normal");
-    doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 58);
-    doc.text(`Return Type: ${returnTypeLabel}`, 110, 63);
-    doc.text(`GST Status: Refund Configured`, 110, 68);
-    doc.text(`Refund Status: Refund Processed & Stock Restored`, 110, 73);
+    doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 54);
+    doc.text(`Original Tax Invoice: ${origInvoiceNo}`, 110, 59);
+    doc.text(`Invoice Date: ${origInvoiceDate}`, 110, 64);
+    doc.text(`Return Type: ${returnTypeLabel}`, 110, 69);
+    doc.text(`Stock Status: Stock Restored`, 110, 74);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // Totals from returnDetails
-    const baseRefund = Number(returnDetails.refundAmount || 0);
-    const gstRefund = Number(returnDetails.gstRefundAmount || 0);
-    const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
+    // Totals calculation
+    let grossReturnedVal = 0;
+    let totalCgstRefund = 0;
+    let totalSgstRefund = 0;
 
-    // Enrich items with exact HSN code, GST rate, unit price, and GST refund
-    const items = returnDetails.items || [];
     const tableBody = items.map((it, index) => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || it);
-      const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
+      const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819";
       const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
       const gstRateVal = it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5);
-      const unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 60;
-      const lineBaseRefund = Number(it.quantity || 0) * unitRate;
-      const lineGstRefund = Number((lineBaseRefund * (gstRateVal / 100)).toFixed(2));
+      const halfRate = gstRateVal / 2;
 
-      // Format quantity cleanly with pieces hint if applicable
-      let qtyStr = `${it.quantity || 0} ${it.unit || "pcs"}`;
-      if (it.quantityInPcs && Number(it.quantityInPcs) > 1 && String(it.unit || "").toLowerCase() !== "pcs") {
-        qtyStr = `${it.quantity || 0} ${it.unit || "kg"} (${it.quantityInPcs} pcs)`;
+      // Exact rate resolution
+      const pId = String(it.productId?._id || it.productId || "").trim();
+      const qMatch = order?.quotation?.items?.find(q => String(q.productId?._id || q.productId || "").trim() === pId);
+      let unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || it.sellingPrice || qMatch?.unitPrice || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || 0);
+      if (unitRate <= 0) {
+        const isRoll = prod?.category?.toLowerCase().includes("roll") || String(it.productName || "").toLowerCase().includes("roll");
+        unitRate = isRoll ? 60 : 10;
       }
+
+      const lineGrossBase = Number(it.quantity || 0) * unitRate;
+      grossReturnedVal += lineGrossBase;
+
+      const lineCgst = lineGrossBase * (halfRate / 100);
+      const lineSgst = lineGrossBase * (halfRate / 100);
+      const lineTotalGst = lineCgst + lineSgst;
+
+      totalCgstRefund += lineCgst;
+      totalSgstRefund += lineSgst;
+
+      // Clean quantity display without unwanted (pcs) on kg items
+      const unitStr = String(it.unit || "pcs").trim();
+      const qtyStr = `${it.quantity || 0} ${unitStr}`;
 
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
         hsnCode,
-        `${gstRateVal}%`,
-        `Rs. ${lineGstRefund.toFixed(2)}`,
         qtyStr,
-        `Refunded`
+        `Rs. ${lineGrossBase.toFixed(2)}`,
+        `Rs. ${lineCgst.toFixed(2)} (${halfRate}%)`,
+        `Rs. ${lineSgst.toFixed(2)} (${halfRate}%)`,
+        `Rs. ${lineTotalGst.toFixed(2)}`
       ];
     });
 
+    const totalGstRefund = totalCgstRefund + totalSgstRefund;
+    const baseRefund = Number(returnDetails.refundAmount || 0); // Pre-tax base refund net of discount
+    const totalRefunded = Number((baseRefund + totalGstRefund).toFixed(2));
+    const allocatedDiscount = Math.max(0, grossReturnedVal - baseRefund);
+
     autoTable(doc, {
-      startY: 84,
-      head: [["Returned Item Details", "HSN Code", "GST %", "GST Refund", "Qty Returned", "Status"]],
-      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "—", "—", "0", "—"]],
+      startY: 82,
+      head: [["Returned Item Details", "HSN", "Qty", "Taxable Value", "CGST", "SGST", "Total GST"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00"]],
       theme: "striped",
-      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
+      styles: { fontSize: 8, cellPadding: 3, valign: "middle" },
       headStyles: { fillColor: redTheme, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 28 }, // HSN Code fits 4819 40 00 on one line
-        2: { halign: "center", cellWidth: 16 },
-        3: { halign: "right", cellWidth: 26 },
-        4: { halign: "center", cellWidth: 32 },
-        5: { halign: "center", cellWidth: 24 }
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "center", cellWidth: 24 },
+        3: { halign: "right", cellWidth: 28 },
+        4: { halign: "right", cellWidth: 28 },
+        5: { halign: "right", cellWidth: 28 },
+        6: { halign: "right", cellWidth: 26 }
       }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 8;
+    const finalY = doc.lastAutoTable.finalY + 6;
 
     // Totals Grid
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(80, 80, 80);
 
     const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 90;
+    const labelX = pageWidth - 100;
 
     let currentY = finalY;
 
-    doc.text("Base Refund Amount:", labelX, currentY);
+    if (allocatedDiscount > 0) {
+      doc.text("Gross Returned Item Value:", labelX, currentY);
+      doc.text(`Rs. ${grossReturnedVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+
+      doc.setTextColor(185, 28, 28);
+      doc.text("Less Discount:", labelX, currentY);
+      doc.text(`-Rs. ${allocatedDiscount.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+
+      doc.setTextColor(80, 80, 80);
+    }
+
+    doc.text("Base Refund Amount (excl. GST):", labelX, currentY);
     doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 6;
-    doc.text(`GST Refund:`, labelX, currentY);
-    doc.text(`Rs. ${gstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    currentY += 5;
+    doc.text(`CGST Refund (2.5%):`, labelX, currentY);
+    doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 8;
+    currentY += 5;
+    doc.text(`SGST Refund (2.5%):`, labelX, currentY);
+    doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 5;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.text(`Total GST Refund (5%):`, labelX, currentY);
+    doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 7;
+    doc.setFontSize(11);
     doc.setTextColor(redTheme[0], redTheme[1], redTheme[2]);
     doc.text("Total Amount Refunded:", labelX, currentY);
     doc.text(`Rs. ${totalRefunded.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Note block
-    const tcY = Math.max(currentY + 12, doc.lastAutoTable.finalY + 15);
+    const tcY = Math.max(currentY + 10, doc.lastAutoTable.finalY + 12);
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.text("Return Notes / Remarks:", 15, tcY);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(returnDetails.notes || "No custom return remarks added.", 15, tcY + 6);
+    doc.setFontSize(8.5);
+    doc.text(returnDetails.notes || "No custom return remarks added.", 15, tcY + 5);
 
-    // Footer
-    const footY = pageHeight - 12;
+    // Refund Terms & Conditions block
+    const savedRefundTerms = localStorage.getItem("nirmalyam_refund_terms") || "1. Refund is processed to source account within 5-7 days.\n2. A restocking fee of 10% may apply to returns.\n3. Goods must be in original condition.";
+    const refundTcY = tcY + 14;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(60, 60, 60);
+    doc.text("Refund Terms & Conditions:", 15, refundTcY);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(150, 150, 150);
-    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Kraft.", 15, footY);
+    const splitRefundTerms = doc.splitTextToSize(savedRefundTerms, 180);
+    doc.text(splitRefundTerms, 15, refundTcY + 4);
+
+    // Statutory Credit Note Legal Footer
+    const footY = pageHeight - 12;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Kraft.`, 15, footY);
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
     } else {
-      doc.save(`Return_Receipt_${returnDetails.returnNumber}.pdf`);
+      doc.save(`CreditNote_${returnDetails.returnNumber}.pdf`);
     }
   };
 
@@ -907,16 +977,40 @@ export const Receipts = () => {
       doc.text(`Rs. ${Number(rc.remainingAmount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
 
-    // Receipt note block on bottom left
+    // Bank Details & Invoice Terms block
+    const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") !== "false";
+    const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft";
+    const bName   = localStorage.getItem("nirmalyam_bank_name")   || "Bank Of Maharashtra";
+    const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
+    const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "BOM0001299";
+    const bUpi    = localStorage.getItem("nirmalyam_bank_upi")    || "nirmalyam@bom";
+
+    const savedTerms = localStorage.getItem("nirmalyam_invoice_terms") || "1. Payment is strictly net due upon receipt of invoice.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Goods once sold cannot be returned without validation.";
+
     const tcY = currentY + 12;
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Payment Notes / Reference:", 15, tcY);
+    doc.setFontSize(9);
+    doc.text("Terms & Conditions:", 15, tcY);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(rc.note || "No custom payment remarks.", 15, tcY + 6);
+    doc.setFontSize(7.5);
+    const splitTerms = doc.splitTextToSize(savedTerms, 90);
+    doc.text(splitTerms, 15, tcY + 5);
+
+    if (isPaymentInfoEnabled) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("Bank & Payment Details:", 115, tcY);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text(`Account Holder: ${bHolder}`, 115, tcY + 5);
+      doc.text(`Bank Name: ${bName}`, 115, tcY + 10);
+      doc.text(`A/C Number: ${bAcc}`, 115, tcY + 15);
+      doc.text(`IFSC Code: ${bIfsc}`, 115, tcY + 20);
+      if (bUpi) doc.text(`UPI ID: ${bUpi}`, 115, tcY + 25);
+    }
 
     // Footer
     const footY = pageHeight - 12;
@@ -1383,166 +1477,7 @@ export const Receipts = () => {
           )}
         </Card>
 
-        {/* ── TERMS, CONDITIONS & PAYMENT INFO SETTINGS PANEL ────────────────── */}
-        <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm">
-          <button
-            onClick={() => setShowTermsPanel(!showTermsPanel)}
-            className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl hover:from-emerald-100/50 hover:to-teal-100/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-sm font-bold text-gray-900">Configure Terms, Conditions &amp; Payment Info</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Define default terms for Invoices, Quotations, Refunds, and customize Bank Details shown on PDFs.</p>
-              </div>
-            </div>
-            <span className="text-xs font-bold bg-white text-emerald-700 px-3 py-1.5 rounded-xl border border-emerald-200">
-              {showTermsPanel ? "Collapse ▴" : "Expand ▾"}
-            </span>
-          </button>
 
-          {showTermsPanel && (
-            <div className="mt-6 border-t border-gray-100 pt-6 space-y-6 animate-fade-in">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Textareas for terms */}
-                <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Document Terms &amp; Conditions</h4>
-                  </div>
-                  <div className="space-y-3.5">
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">Invoice T&amp;C (Invoices/Bills)</label>
-                      <textarea
-                        rows={4}
-                        value={invoiceTerms}
-                        onChange={(e) => {
-                          setInvoiceTerms(e.target.value);
-                          localStorage.setItem("nirmalyam_invoice_terms", e.target.value);
-                        }}
-                        className="w-full text-xs font-semibold rounded-xl border border-gray-200 bg-white px-3.5 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800 min-h-[90px] leading-relaxed hover:border-gray-300"
-                        placeholder="Enter invoice terms & conditions..."
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">Quotation T&amp;C</label>
-                      <textarea
-                        rows={4}
-                        value={quotationTerms}
-                        onChange={(e) => {
-                          setQuotationTerms(e.target.value);
-                          localStorage.setItem("nirmalyam_quotation_terms", e.target.value);
-                        }}
-                        className="w-full text-xs font-semibold rounded-xl border border-gray-200 bg-white px-3.5 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800 min-h-[90px] leading-relaxed hover:border-gray-300"
-                        placeholder="Enter quotation terms & conditions..."
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">Refund/Return T&amp;C (Refund Receipts)</label>
-                      <textarea
-                        rows={4}
-                        value={refundTerms}
-                        onChange={(e) => {
-                          setRefundTerms(e.target.value);
-                          localStorage.setItem("nirmalyam_refund_terms", e.target.value);
-                        }}
-                        className="w-full text-xs font-semibold rounded-xl border border-gray-200 bg-white px-3.5 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800 min-h-[90px] leading-relaxed hover:border-gray-300"
-                        placeholder="Enter refund terms & conditions..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bank / Payment Info Details */}
-                <div className="bg-slate-50/40 border border-slate-100 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Payment &amp; Bank Info</h4>
-                    </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-emerald-700 bg-white border border-emerald-200/80 px-2.5 py-1 rounded-xl shadow-xs hover:bg-emerald-50 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={showPaymentInfo}
-                        onChange={(e) => {
-                          setShowPaymentInfo(e.target.checked);
-                          localStorage.setItem("nirmalyam_show_payment_info", e.target.checked ? "true" : "false");
-                        }}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
-                      />
-                      Show on Quotations &amp; Bills
-                    </label>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="sm:col-span-2">
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">Account Holder Name</label>
-                      <input
-                        type="text"
-                        value={bankHolder}
-                        onChange={(e) => {
-                          setBankHolder(e.target.value);
-                          localStorage.setItem("nirmalyam_bank_holder", e.target.value);
-                        }}
-                        className="w-full text-xs font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">Bank Name</label>
-                      <input
-                        type="text"
-                        value={bankName}
-                        onChange={(e) => {
-                          setBankName(e.target.value);
-                          localStorage.setItem("nirmalyam_bank_name", e.target.value);
-                        }}
-                        className="w-full text-xs font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">Account Number</label>
-                      <input
-                        type="text"
-                        value={bankAccount}
-                        onChange={(e) => {
-                          setBankAccount(e.target.value);
-                          localStorage.setItem("nirmalyam_bank_account", e.target.value);
-                        }}
-                        className="w-full text-xs font-mono font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">IFSC Code</label>
-                      <input
-                        type="text"
-                        value={bankIfsc}
-                        onChange={(e) => {
-                          setBankIfsc(e.target.value);
-                          localStorage.setItem("nirmalyam_bank_ifsc", e.target.value);
-                        }}
-                        className="w-full text-xs font-mono font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-600 block mb-1">UPI ID</label>
-                      <input
-                        type="text"
-                        value={bankUpi}
-                        onChange={(e) => {
-                          setBankUpi(e.target.value);
-                          localStorage.setItem("nirmalyam_bank_upi", e.target.value);
-                        }}
-                        className="w-full text-xs font-mono font-bold rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 text-gray-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Activity Logs Section */}
         <div className="mt-8 bg-white rounded-3xl border border-gray-150 p-6 shadow-sm">

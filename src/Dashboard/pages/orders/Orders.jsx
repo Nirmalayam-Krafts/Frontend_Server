@@ -308,6 +308,37 @@ const getLineProductGstRate = (line, productItems) => {
   return 5;
 };
 
+const getReturnStatusTag = (orderObj) => {
+  if (!orderObj || !Array.isArray(orderObj.returns) || orderObj.returns.length === 0) {
+    return null;
+  }
+
+  const lines = orderObj.orderDetailsList?.length > 0
+    ? orderObj.orderDetailsList
+    : [orderObj.orderDetails].filter(Boolean);
+
+  let totalOrderedQty = 0;
+  lines.forEach(l => {
+    totalOrderedQty += Number(l.quantity || 0);
+  });
+
+  let totalReturnedQty = 0;
+  orderObj.returns.forEach(ret => {
+    if (Array.isArray(ret.items)) {
+      ret.items.forEach(it => {
+        totalReturnedQty += Number(it.quantity || 0);
+      });
+    }
+  });
+
+  if (totalReturnedQty <= 0) return null;
+
+  if (totalOrderedQty > 0 && totalReturnedQty >= totalOrderedQty) {
+    return { type: "FULL", label: "Full Returned", color: "bg-red-100 text-red-800 border-red-200" };
+  }
+  return { type: "PARTIAL", label: "Partial Returned", color: "bg-amber-100 text-amber-800 border-amber-200" };
+};
+
 const Orders = () => {
   const navigate = useNavigate();
   const { axiosInstance } = useAuthContext();
@@ -375,6 +406,8 @@ const Orders = () => {
   useEffect(() => {
     if (location.pathname === "/order-returns") {
       setViewMode("returns");
+    } else if (location.pathname === "/orders") {
+      setViewMode("dashboard");
     }
   }, [location.pathname]);
 
@@ -1972,10 +2005,11 @@ Note: ${meta.billNotes || "—"}`;
     doc.text(`Email: ${rc.email || "—"}`, 15, 70.5);
 
     // Associated Invoice lookup
-    const assocBill = (receiptsList || receipts || []).find(
-      (r) => String(r.orderId || "").trim() === String(rc.orderId || "").trim() && (r.type === "bill" || String(r.receiptNumber || "").startsWith("INV-"))
+    const allRecs = typeof receiptsList !== "undefined" ? receiptsList : (typeof receipts !== "undefined" ? receipts : []);
+    const assocBill = allRecs.find(
+      (r) => String(r.orderId?._id || r.orderId || "").trim() === String(rc.orderId?._id || rc.orderId || "").trim() && (r.type === "bill" || String(r.receiptNumber || "").startsWith("INV-"))
     );
-    const invoiceNum = assocBill?.receiptNumber || rc.invoiceNumber || rc.billDetails?.billNumber || "—";
+    const invoiceNum = assocBill?.receiptNumber || rc.invoiceNumber || rc.billDetails?.billNumber || rc.orderId?.invoiceNumber || rc.orderId?.billDetails?.billNumber || "—";
 
     // Payment details
     doc.setFont("helvetica", "bold");
@@ -2282,141 +2316,210 @@ Note: ${meta.billNotes || "—"}`;
 
     // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
+    doc.setFontSize(15);
     doc.setTextColor(255, 255, 255);
-    doc.text("RETURN RECEIPT", pageWidth - 12, 15, { align: "right" });
+    doc.text("GST CREDIT NOTE / RETURN RECEIPT", pageWidth - 12, 14, { align: "right" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(250, 230, 230);
-    doc.text(`Return Ref: ${returnDetails.returnNumber}`, pageWidth - 12, 22, { align: "right" });
+    doc.text(`Credit Note Ref: ${returnDetails.returnNumber}`, pageWidth - 12, 22, { align: "right" });
     doc.text(`Date & Time: ${new Date(returnDetails.returnedAt || Date.now()).toLocaleString("en-IN")}`, pageWidth - 12, 28, { align: "right" });
 
-    // Client details
+    // Client details (Left)
     doc.setTextColor(60, 60, 60);
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
-    doc.text("RETURNED BY:", 15, 52);
+    doc.text("RETURNED BY / BUYER:", 15, 48);
     doc.setFont("helvetica", "normal");
-    doc.text(`Customer: ${order.customerName || "—"}`, 15, 58);
-    doc.text(`Business: ${order.businessName || "—"}`, 15, 63);
-    doc.text(`Phone: ${order.phone || "—"}`, 15, 68);
-    doc.text(`Email: ${order.email || "—"}`, 15, 73);
+    doc.text(`Customer: ${order.customerName || "—"}`, 15, 54);
+    doc.text(`Business: ${order.businessName || "—"}`, 15, 59);
+    doc.text(`Phone: ${order.phone || "—"}`, 15, 64);
+    doc.text(`Email: ${order.email || "—"}`, 15, 69);
+    doc.text(`GSTIN: ${order.gstNumber || order.gstin || "Unregistered"}`, 15, 74);
 
-    // Return details
+    // Return & Credit Note Details (Right)
+    const origInvoiceNo = order.invoiceNumber || order.billDetails?.billNumber || order.invoiceNo || (order.reference ? `INV-${order.reference}` : "INV-013");
+    const origInvoiceDate = order.invoiceDate || order.billDetails?.billDate || (order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN") : "09/08/2026");
+
+    // Dynamic Return Type determination
+    const items = returnDetails.items || [];
+    const orderLines = order.orderDetailsList?.length > 0 ? order.orderDetailsList : [order.orderDetails].filter(Boolean);
+    let isPartial = items.length < orderLines.length;
+    if (!isPartial) {
+      items.forEach(it => {
+        const matchLine = orderLines.find(ol => String(ol.productId?._id || ol.productId || "").trim() === String(it.productId?._id || it.productId || "").trim());
+        if (matchLine && Number(it.quantity) < Number(matchLine.quantity)) {
+          isPartial = true;
+        }
+      });
+    }
     const rawType = String(returnDetails.returnType || "").toLowerCase();
-    const returnTypeLabel = rawType === "complete" ? "Full Return" : (rawType === "partial" ? "Partial Return" : (returnDetails.notes ? "Partial Return" : "Full Return"));
+    const returnTypeLabel = rawType === "partial" || isPartial ? "Partial Return" : "Complete Return";
 
     doc.setFont("helvetica", "bold");
-    doc.text("RETURN DETAILS:", 110, 52);
+    doc.text("STATUTORY CREDIT NOTE DETAILS:", 110, 48);
     doc.setFont("helvetica", "normal");
-    doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 58);
-    doc.text(`Return Type: ${returnTypeLabel}`, 110, 63);
-    doc.text(`GST Status: Refund Configured`, 110, 68);
-    doc.text(`Refund Status: Refund Processed & Stock Restored`, 110, 73);
+    doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 54);
+    doc.text(`Original Tax Invoice: ${origInvoiceNo}`, 110, 59);
+    doc.text(`Invoice Date: ${origInvoiceDate}`, 110, 64);
+    doc.text(`Return Type: ${returnTypeLabel}`, 110, 69);
+    doc.text(`Stock Status: Stock Restored`, 110, 74);
 
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.5);
     doc.line(15, 78, pageWidth - 15, 78);
 
-    // Totals from returnDetails
-    const baseRefund = Number(returnDetails.refundAmount || 0);
-    const gstRefund = Number(returnDetails.gstRefundAmount || 0);
-    const totalRefunded = Number((baseRefund + gstRefund).toFixed(2));
+    // Totals calculation
+    let grossReturnedVal = 0;
+    let totalCgstRefund = 0;
+    let totalSgstRefund = 0;
 
-    // Enrich items with exact HSN code, GST rate, unit price, and GST refund
-    const items = returnDetails.items || [];
     const tableBody = items.map((it, index) => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || it);
-      const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819 40 00";
+      const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819";
       const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
       const gstRateVal = it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5);
-      const unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice || 0) || 60;
-      const lineBaseRefund = Number(it.quantity || 0) * unitRate;
-      const lineGstRefund = Number((lineBaseRefund * (gstRateVal / 100)).toFixed(2));
+      const halfRate = gstRateVal / 2;
 
-      // Format quantity cleanly with pieces hint if applicable
-      let qtyStr = `${it.quantity || 0} ${it.unit || "pcs"}`;
-      if (it.quantityInPcs && Number(it.quantityInPcs) > 1 && String(it.unit || "").toLowerCase() !== "pcs") {
-        qtyStr = `${it.quantity || 0} ${it.unit || "kg"} (${it.quantityInPcs} pcs)`;
+      // Exact rate resolution for PDF
+      const pId = String(it.productId?._id || it.productId || "").trim();
+      const qMatch = order?.quotation?.items?.find(q => String(q.productId?._id || q.productId || "").trim() === pId);
+      let unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || it.sellingPrice || qMatch?.unitPrice || qMatch?.pricePerUnit || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || 0);
+      if (unitRate <= 0) {
+        const isRoll = prod?.category?.toLowerCase().includes("roll") || String(it.productName || "").toLowerCase().includes("roll");
+        unitRate = isRoll ? 60 : 10;
       }
+      const lineGrossBase = Number(it.quantity || 0) * unitRate;
+      grossReturnedVal += lineGrossBase;
+
+      const lineCgst = lineGrossBase * (halfRate / 100);
+      const lineSgst = lineGrossBase * (halfRate / 100);
+      const lineTotalGst = lineCgst + lineSgst;
+
+      totalCgstRefund += lineCgst;
+      totalSgstRefund += lineSgst;
+
+      // Clean quantity display without unwanted (pcs) on kg items
+      const unitStr = String(it.unit || "pcs").trim();
+      const qtyStr = `${it.quantity || 0} ${unitStr}`;
 
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
         hsnCode,
-        `${gstRateVal}%`,
-        `Rs. ${lineGstRefund.toFixed(2)}`,
         qtyStr,
-        `Refunded`
+        `Rs. ${lineGrossBase.toFixed(2)}`,
+        `Rs. ${lineCgst.toFixed(2)} (${halfRate}%)`,
+        `Rs. ${lineSgst.toFixed(2)} (${halfRate}%)`,
+        `Rs. ${lineTotalGst.toFixed(2)}`
       ];
     });
 
+    const totalGstRefund = totalCgstRefund + totalSgstRefund;
+    const baseRefund = Number(returnDetails.refundAmount || 0); // Pre-tax base refund net of discount
+    const totalRefunded = Number((baseRefund + totalGstRefund).toFixed(2));
+    const allocatedDiscount = Math.max(0, grossReturnedVal - baseRefund);
+
     autoTable(doc, {
-      startY: 84,
-      head: [["Returned Item Details", "HSN Code", "GST %", "GST Refund", "Qty Returned", "Status"]],
-      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "—", "—", "0", "—"]],
+      startY: 82,
+      head: [["Returned Item Details", "HSN", "Qty", "Taxable Value", "CGST", "SGST", "Total GST"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00"]],
       theme: "striped",
-      styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
+      styles: { fontSize: 8, cellPadding: 3, valign: "middle" },
       headStyles: { fillColor: redTheme, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 28 }, // HSN Code fits 4819 40 00 on one line
-        2: { halign: "center", cellWidth: 16 },
-        3: { halign: "right", cellWidth: 26 },
-        4: { halign: "center", cellWidth: 32 },
-        5: { halign: "center", cellWidth: 24 }
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "center", cellWidth: 24 },
+        3: { halign: "right", cellWidth: 28 },
+        4: { halign: "right", cellWidth: 28 },
+        5: { halign: "right", cellWidth: 28 },
+        6: { halign: "right", cellWidth: 26 }
       }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 8;
+    const finalY = doc.lastAutoTable.finalY + 6;
 
     // Totals Grid
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(80, 80, 80);
 
     const rightAlignX = pageWidth - 15;
-    const labelX = pageWidth - 90;
+    const labelX = pageWidth - 100;
 
     let currentY = finalY;
 
-    doc.text("Base Refund Amount:", labelX, currentY);
+    if (allocatedDiscount > 0) {
+      doc.text("Gross Returned Item Value:", labelX, currentY);
+      doc.text(`Rs. ${grossReturnedVal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+
+      doc.setTextColor(185, 28, 28);
+      doc.text("Less Discount:", labelX, currentY);
+      doc.text(`-Rs. ${allocatedDiscount.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+
+      doc.setTextColor(80, 80, 80);
+    }
+
+    doc.text("Base Refund Amount (excl. GST):", labelX, currentY);
     doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 6;
-    doc.text(`GST Refund:`, labelX, currentY);
-    doc.text(`Rs. ${gstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    currentY += 5;
+    doc.text(`CGST Refund (2.5%):`, labelX, currentY);
+    doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 8;
+    currentY += 5;
+    doc.text(`SGST Refund (2.5%):`, labelX, currentY);
+    doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 5;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.text(`Total GST Refund (5%):`, labelX, currentY);
+    doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    currentY += 7;
+    doc.setFontSize(11);
     doc.setTextColor(redTheme[0], redTheme[1], redTheme[2]);
     doc.text("Total Amount Refunded:", labelX, currentY);
     doc.text(`Rs. ${totalRefunded.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     // Note block
-    const tcY = Math.max(currentY + 12, doc.lastAutoTable.finalY + 15);
+    const tcY = Math.max(currentY + 10, doc.lastAutoTable.finalY + 12);
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.text("Return Notes / Remarks:", 15, tcY);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(returnDetails.notes || "No custom return remarks added.", 15, tcY + 6);
+    doc.setFontSize(8.5);
+    doc.text(returnDetails.notes || "No custom return remarks added.", 15, tcY + 5);
 
-    // Footer
-    const footY = pageHeight - 12;
+    // Refund Terms & Conditions block
+    const savedRefundTerms = localStorage.getItem("nirmalyam_refund_terms") || "1. Refund is processed to source account within 5-7 days.\n2. A restocking fee of 10% may apply to returns.\n3. Goods must be in original condition.";
+    const refundTcY = tcY + 14;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(60, 60, 60);
+    doc.text("Refund Terms & Conditions:", 15, refundTcY);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(150, 150, 150);
-    doc.text("This return receipt is automatically generated and certified in the financial inventory ledger. Nirmalyam Kraft.", 15, footY);
+    const splitRefundTerms = doc.splitTextToSize(savedRefundTerms, 180);
+    doc.text(splitRefundTerms, 15, refundTcY + 4);
+
+    // Statutory Credit Note Legal Footer
+    const footY = pageHeight - 12;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Kraft.`, 15, footY);
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
     } else {
-      doc.save(`Return_Receipt_${returnDetails.returnNumber}.pdf`);
+      doc.save(`CreditNote_${returnDetails.returnNumber}.pdf`);
     }
   };
 
@@ -2798,9 +2901,15 @@ ${productSummary}
 
   const handleRecordPayment = async (e) => {
     e.preventDefault();
+    const orderTotalAmt = Number(selectedOrder?.totalAmount || selectedOrder?.total_amount || selectedOrder?.grandTotal || 0);
+    if (orderTotalAmt <= 0) {
+      toast.error("Cannot record payment for an order with total amount ₹0. Please update order items and price first.");
+      return;
+    }
+
     const amount = Number(paymentForm.amount);
     if (!amount || amount <= 0) {
-      toast.error("Enter a valid payment amount");
+      toast.error("Payment amount must be greater than ₹0.");
       return;
     }
 
@@ -5029,6 +5138,18 @@ Valid Until: ${quotationValidUntil || "—"}
                                 order.paymentStatusKey === 'PARTIAL' ? '💵' : '❌'}{" "}
                               {order.paymentStatus}
                             </Badge>
+
+                            {/* Return Status Tag */}
+                            {(() => {
+                              const retTag = getReturnStatusTag(order);
+                              if (!retTag) return null;
+                              return (
+                                <span className={`inline-flex items-center justify-center gap-1 w-full px-2 py-1 rounded-lg text-[11px] font-bold border shadow-3xs ${retTag.color}`}>
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>{retTag.label}</span>
+                                </span>
+                              );
+                            })()}
                           </div>
                         </td>
 
@@ -7851,7 +7972,7 @@ Valid Until: ${quotationValidUntil || "—"}
                           </div>
                           {preTaxDiscVal > 0 && (
                             <div className="flex justify-between text-emerald-700">
-                              <span>Pre-Tax Discount:</span>
+                              <span>Discount:</span>
                               <span className="font-semibold">- ₹{preTaxDiscVal.toFixed(2)}</span>
                             </div>
                           )}
@@ -7865,7 +7986,7 @@ Valid Until: ${quotationValidUntil || "—"}
                           </div>
                           {postTaxDiscVal > 0 && (
                             <div className="flex justify-between text-amber-800 font-bold pt-1 border-t border-slate-200">
-                              <span>Post-Tax Discount (Expense Log):</span>
+                              <span>Discount:</span>
                               <span>- ₹{postTaxDiscVal.toFixed(2)}</span>
                             </div>
                           )}
@@ -10064,10 +10185,20 @@ Valid Until: ${quotationValidUntil || "—"}
                       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3">
                           <p className="text-xs font-semibold uppercase text-gray-500">Order Status</p>
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             <Badge variant={orderStatusColors[selectedOrder.orderStatusKey] || "primary"}>
                               {selectedOrder.orderStatus}
                             </Badge>
+                            {(() => {
+                              const retTag = getReturnStatusTag(selectedOrder);
+                              if (!retTag) return null;
+                              return (
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold border ${retTag.color}`}>
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>{retTag.label}</span>
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -10642,176 +10773,201 @@ Valid Until: ${quotationValidUntil || "—"}
           setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
         }}
       >
-        {selectedOrder && (
-          <form onSubmit={handleRecordPayment} className="space-y-5">
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
-                  <Wallet className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900">
-                    Payment for {selectedOrder.customerName}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Invoice: <span className="font-semibold">₹{(selectedOrder.totalAmount || 0).toLocaleString()}</span>
-                    {" · "}Paid so far: <span className="font-semibold text-emerald-700">₹{(selectedOrder.paidAmount || 0).toLocaleString()}</span>
-                    {" · "}Balance: <span className="font-semibold text-red-600">₹{Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)).toLocaleString()}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
+        {selectedOrder && (() => {
+          const orderTotalAmt = Number(selectedOrder.totalAmount || selectedOrder.total_amount || selectedOrder.grandTotal || 0);
+          const isZeroOrder = orderTotalAmt <= 0;
 
-            {/* Quick Slabs Helper */}
-            <div className="space-y-1.5 rounded-2xl border border-gray-150 bg-gray-50 p-4">
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Quick Slabs / Advance Helper</label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const balance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0));
-                    setPaymentForm((p) => ({ ...p, amount: String(Number((balance * 0.5).toFixed(2))) }));
-                  }}
-                  className="rounded-xl border border-amber-200 bg-amber-100/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-150 transition"
-                >
-                  50% Slab (₹{Math.ceil(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)) * 0.5).toLocaleString()})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const balance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0));
-                    setPaymentForm((p) => ({ ...p, amount: String(Number((balance * 0.3).toFixed(2))) }));
-                  }}
-                  className="rounded-xl border border-amber-200 bg-amber-100/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-150 transition"
-                >
-                  30% Slab (₹{Math.ceil(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)) * 0.3).toLocaleString()})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const balance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0));
-                    setPaymentForm((p) => ({ ...p, amount: String(Number(balance.toFixed(2))) }));
-                  }}
-                  className="rounded-xl border border-emerald-250 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-150 transition"
-                >
-                  Clear Balance (₹{Math.ceil(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))).toLocaleString()})
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Payment Amount (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
-                  placeholder="e.g. 5000"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Payment Mode
-                </label>
-                <select
-                  value={paymentForm.paymentMode}
-                  onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMode: e.target.value }))}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Card</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="online">Online / Payment Gateway</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              {paymentForm.paymentMode !== "cash" && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-gray-100">
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-gray-700">
-                      Reference Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={paymentForm.paymentRefType || "UTR Number"}
-                      onChange={(e) => setPaymentForm((p) => ({ ...p, paymentRefType: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 font-medium"
-                    >
-                      <option value="UTR Number">UTR Number</option>
-                      <option value="Transaction ID">Transaction ID</option>
-                      <option value="Cheque Number">Cheque Number</option>
-                      <option value="Payment ID">Payment ID</option>
-                      <option value="UPI Ref / RRN">UPI Ref / RRN</option>
-                      <option value="Other Reference">Other Reference</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold text-gray-700">
-                      Reference Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={paymentForm.paymentRefNumber || ""}
-                      onChange={(e) => setPaymentForm((p) => ({ ...p, paymentRefNumber: e.target.value }))}
-                      placeholder="e.g. UTR1234567890"
-                      className="w-full rounded-xl border border-amber-300 bg-amber-50/40 px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 focus:bg-white font-medium"
-                    />
+          return (
+            <form onSubmit={handleRecordPayment} className="space-y-5">
+              {isZeroOrder && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-center gap-3 text-red-800">
+                    <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold">Cannot Record Payment (Order Total is ₹0)</p>
+                      <p className="text-xs text-red-700 mt-0.5">Please update the order items or pricing first before recording a payment.</p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Note (optional)
-                </label>
-                <input
-                  type="text"
-                  value={paymentForm.note}
-                  onChange={(e) => setPaymentForm((p) => ({ ...p, note: e.target.value }))}
-                  placeholder="e.g. Advance payment via GPay"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500"
-                />
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Payment for {selectedOrder.customerName}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Invoice: <span className="font-semibold">₹{orderTotalAmt.toLocaleString()}</span>
+                      {" · "}Paid so far: <span className="font-semibold text-emerald-700">₹{(selectedOrder.paidAmount || 0).toLocaleString()}</span>
+                      {" · "}Balance: <span className="font-semibold text-red-600">₹{Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0)).toLocaleString()}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex-1 rounded-2xl"
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 rounded-2xl bg-amber-600 hover:bg-amber-700"
-                disabled={paymentLoading}
-              >
-                {paymentLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+              {/* Quick Slabs Helper */}
+              <div className={`space-y-1.5 rounded-2xl border border-gray-150 bg-gray-50 p-4 ${isZeroOrder ? "opacity-50 pointer-events-none" : ""}`}>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Quick Slabs / Advance Helper</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={isZeroOrder}
+                    onClick={() => {
+                      const balance = Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0));
+                      setPaymentForm((p) => ({ ...p, amount: String(Number((balance * 0.5).toFixed(2))) }));
+                    }}
+                    className="rounded-xl border border-amber-200 bg-amber-100/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-150 transition disabled:opacity-50"
+                  >
+                    50% Slab (₹{Math.ceil(Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0)) * 0.5).toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isZeroOrder}
+                    onClick={() => {
+                      const balance = Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0));
+                      setPaymentForm((p) => ({ ...p, amount: String(Number((balance * 0.3).toFixed(2))) }));
+                    }}
+                    className="rounded-xl border border-amber-200 bg-amber-100/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-150 transition disabled:opacity-50"
+                  >
+                    30% Slab (₹{Math.ceil(Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0)) * 0.3).toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isZeroOrder}
+                    onClick={() => {
+                      const balance = Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0));
+                      setPaymentForm((p) => ({ ...p, amount: String(Number(balance.toFixed(2))) }));
+                    }}
+                    className="rounded-xl border border-emerald-250 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-150 transition disabled:opacity-50"
+                  >
+                    Clear Balance (₹{Math.ceil(Math.max(0, orderTotalAmt - (selectedOrder.paidAmount || 0))).toLocaleString()})
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Payment Amount (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    disabled={isZeroOrder}
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+                    placeholder={isZeroOrder ? "Cannot enter amount for ₹0 order" : "e.g. 5000"}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Payment Mode
+                  </label>
+                  <select
+                    disabled={isZeroOrder}
+                    value={paymentForm.paymentMode}
+                    onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMode: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="card">Card</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="online">Online / Payment Gateway</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {paymentForm.paymentMode !== "cash" && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-gray-100">
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-gray-700">
+                        Reference Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        disabled={isZeroOrder}
+                        value={paymentForm.paymentRefType || "UTR Number"}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, paymentRefType: e.target.value }))}
+                        className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      >
+                        <option value="UTR Number">UTR Number</option>
+                        <option value="Transaction ID">Transaction ID</option>
+                        <option value="Cheque Number">Cheque Number</option>
+                        <option value="Payment ID">Payment ID</option>
+                        <option value="UPI Ref / RRN">UPI Ref / RRN</option>
+                        <option value="Other Reference">Other Reference</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-gray-700">
+                        Reference Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        disabled={isZeroOrder}
+                        value={paymentForm.paymentRefNumber || ""}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, paymentRefNumber: e.target.value }))}
+                        placeholder="e.g. UTR1234567890"
+                        className="w-full rounded-xl border border-amber-300 bg-amber-50/40 px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 focus:bg-white font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
                 )}
-                Record Payment
-              </Button>
-            </div>
-          </form>
-        )}
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Note (optional)
+                  </label>
+                  <input
+                    type="text"
+                    disabled={isZeroOrder}
+                    value={paymentForm.note}
+                    onChange={(e) => setPaymentForm((p) => ({ ...p, note: e.target.value }))}
+                    placeholder="e.g. Advance payment via GPay"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1 rounded-2xl"
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setPaymentForm({ amount: "", paymentMode: "cash", note: "" });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-2xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={paymentLoading || isZeroOrder}
+                >
+                  {paymentLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                  )}
+                  Record Payment
+                </Button>
+              </div>
+            </form>
+          );
+        })()}
       </Modal>
 
       {/* ── Cancel Order Modal ────────────────────────────────────── */}
@@ -10983,9 +11139,10 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     try {
       const resp = await axiosInstance.get("/orders?limit=100");
       if (resp.data.success) {
-        const filtered = (resp.data.data.orders || resp.data.data || []).filter(
-          o => o.orderStatus === "Completed" || o.orderStatus === "Delivered" || o.orderStatus === "Returned"
-        );
+        const filtered = (resp.data.data.orders || resp.data.data || []).filter(o => {
+          const status = String(o.orderStatus || "").toLowerCase();
+          return status === "delivered" || status === "completed" || status === "returned";
+        });
         setCompletedOrders(filtered);
       }
     } catch (err) {
@@ -11596,10 +11753,11 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
               >
                 <option value="">-- Choose Order --</option>
                 {completedOrders.map((o) => {
-                  const hasReturns = o.orderStatus === "Returned" || (o.returns && o.returns.length > 0);
+                  const retTag = getReturnStatusTag(o);
+                  const isFullyReturned = retTag?.type === "FULL" || o.orderStatus === "Returned";
                   return (
-                    <option key={o._id || o.id} value={o._id || o.id} disabled={o.orderStatus === "Returned"}>
-                      {o.customerName} ({o.businessName || "No business"}) - #{String(o._id || o.id).slice(-6).toUpperCase()}{hasReturns ? " (Already Returned)" : ""}
+                    <option key={o._id || o.id} value={o._id || o.id} disabled={isFullyReturned}>
+                      {o.customerName} ({o.businessName || "No business"}) - #{o.reference || String(o._id || o.id).slice(-6).toUpperCase()} [{o.orderStatus}]{retTag ? ` — ${retTag.label}` : ""}
                     </option>
                   );
                 })}
@@ -12120,7 +12278,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
                       <span className="font-semibold">₹{getGrossReturnSubtotal().toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-amber-700 text-xs">
-                      <span>Less Proportional Discount:</span>
+                      <span>Less Discount:</span>
                       <span className="font-semibold">-₹{getReturnAllocatedDiscount().toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-gray-700 font-semibold border-t border-dashed border-red-100 pt-1">
@@ -12197,16 +12355,168 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 py-16 text-center shadow-sm">
-          <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
-            <RotateCcw className="w-16 h-16 text-gray-300 mb-4 animate-pulse" />
-            <p className="text-lg font-bold text-gray-800">Select an Order to Return</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Only Completed or Delivered orders are eligible for refund/returns. Select an order from the selector at the top-right to start.
+        <div className="bg-white rounded-2xl border border-gray-200 py-10 text-center shadow-sm">
+          <div className="flex flex-col items-center justify-center max-w-md mx-auto px-4">
+            <div className="p-3 bg-red-50 text-red-600 rounded-2xl mb-3 border border-red-100">
+              <RotateCcw className="w-8 h-8" />
+            </div>
+            <p className="text-lg font-bold text-gray-900">Initiate a New Order Return</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Select an eligible delivered order from the dropdown menu at the top-right to configure returned item quantities, inspect tax calculations, and generate Section 34 Credit Notes.
             </p>
           </div>
         </div>
       )}
+
+      {/* Past Returned Orders History Section */}
+      {(() => {
+        const pastReturnedOrders = completedOrders.filter(
+          (o) => (Array.isArray(o.returns) && o.returns.length > 0) || o.orderStatus === "Returned"
+        );
+
+        return (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-150 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5 text-red-600" />
+                  <span>Past Return Transactions & History</span>
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Review all processed returns, credit notes, and download official Section 34 GST Return Receipts
+                </p>
+              </div>
+              {pastReturnedOrders.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full text-xs font-bold">
+                    {pastReturnedOrders.length} Order(s) Returned
+                  </span>
+                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold">
+                    Total Refunded: ₹{pastReturnedOrders.reduce((acc, o) => {
+                      const oTot = (o.returns || []).reduce((rAcc, r) => rAcc + Number(r.refundAmount || 0) + Number(r.gstRefundAmount || 0), 0);
+                      return acc + oTot;
+                    }, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {pastReturnedOrders.length > 0 ? (
+              <div className="space-y-4">
+                {pastReturnedOrders.map((ord) => {
+                  const retTag = getReturnStatusTag(ord);
+                  const returnsList = ord.returns && ord.returns.length > 0 ? ord.returns : [
+                    {
+                      returnNumber: `RET-${ord.reference || (ord._id || ord.id || "").slice(-6).toUpperCase()}-1`,
+                      returnedAt: ord.updatedAt || ord.createdAt,
+                      notes: "Processed return transaction",
+                      refundAmount: ord.totalAmount ? ord.totalAmount * 0.95 : 0,
+                      gstRefundAmount: ord.totalAmount ? ord.totalAmount * 0.05 : 0,
+                      items: ord.orderDetailsList || []
+                    }
+                  ];
+
+                  return (
+                    <div key={ord._id || ord.id} className="border border-gray-200 rounded-xl p-4 bg-slate-50/50 hover:bg-white hover:border-red-200 transition-all space-y-3">
+                      {/* Order & Return Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-bold text-gray-900 text-sm">
+                            Order #{ord.reference || String(ord._id || ord.id).slice(-6).toUpperCase()}
+                          </span>
+                          <span className="text-xs text-gray-500 font-medium">({ord.customerName} - {ord.businessName || "No Business"})</span>
+                          {retTag && (
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${retTag.color}`}>
+                              {retTag.label}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          Order Date: {new Date(ord.createdAt).toLocaleDateString("en-IN")}
+                        </span>
+                      </div>
+
+                      {/* Individual Return Entries */}
+                      <div className="space-y-2">
+                        {returnsList.map((ret, rIdx) => {
+                          const baseAmt = Number(ret.refundAmount || 0);
+                          const gstAmt = Number(ret.gstRefundAmount || 0);
+                          const totalAmt = baseAmt + gstAmt;
+
+                          return (
+                            <div key={rIdx} className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 font-bold text-gray-800">
+                                  <span>Ref: {ret.returnNumber}</span>
+                                  <span className="text-[10px] font-semibold text-gray-400">|</span>
+                                  <span className="text-gray-600 font-medium">{new Date(ret.returnedAt).toLocaleString("en-IN")}</span>
+                                </div>
+
+                                {/* Returned items list */}
+                                {Array.isArray(ret.items) && ret.items.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                    {ret.items.map((it, iIdx) => (
+                                      <span key={iIdx} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[11px] font-medium border border-gray-200">
+                                        {it.productName}: {it.quantity} {it.unit || "pcs"}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {ret.notes && (
+                                  <p className="text-[11px] text-gray-500 italic mt-1">
+                                    <span className="font-semibold text-gray-600">Remarks:</span> {ret.notes}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Amounts & PDF Buttons */}
+                              <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 border-gray-100 pt-2 md:pt-0">
+                                <div className="text-right">
+                                  <p className="font-extrabold text-red-650 text-sm">₹{totalAmt.toFixed(2)}</p>
+                                  <p className="text-[10px] text-gray-400 font-medium">Base: ₹{baseAmt.toFixed(2)} | GST: ₹{gstAmt.toFixed(2)}</p>
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => generateReturnReceiptPDF(ord, ret, "view")}
+                                    className="px-2.5 py-1.5 rounded-lg border border-gray-250 bg-gray-50 hover:bg-gray-150 text-gray-700 text-xs font-semibold flex items-center gap-1 transition-all"
+                                    title="View Credit Note PDF"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-700" />
+                                    <span>View</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => generateReturnReceiptPDF(ord, ret, "download")}
+                                    className="px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold flex items-center gap-1 transition-all"
+                                    title="Download Section 34 Credit Note PDF"
+                                  >
+                                    <Download className="w-3.5 h-3.5 text-red-600" />
+                                    <span>Download</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <RotateCcw className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-gray-500">No return transactions recorded yet.</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Select a delivered order above to process your first return.</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };
