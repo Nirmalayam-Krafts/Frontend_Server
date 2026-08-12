@@ -29,7 +29,7 @@ import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COMPANY_NAME = "Nirmalyam Kraft";
+const COMPANY_NAME = "Nirmalyam Krafts";
 
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   if (!lines || lines.length === 0) return 0;
@@ -161,7 +161,7 @@ export const Receipts = () => {
     localStorage.getItem("nirmalyam_show_payment_info") === "true"
   );
   const [bankHolder, setBankHolder] = useState(() => 
-    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft"
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts"
   );
   const [bankName, setBankName] = useState(() => 
     localStorage.getItem("nirmalyam_bank_name") || "State Bank of India"
@@ -965,13 +965,14 @@ export const Receipts = () => {
     doc.text(`Rs. ${Number(rc.paidSoFar || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
     currentY += 7;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10.5);
-    if (rc.isPaidInFull) {
-      doc.setTextColor(brand[0], brand[1], brand[2]);
-      doc.text("Balance Remaining:", labelX, currentY);
-      doc.text("Rs. 0.00 (Fully Paid)", rightAlignX, currentY, { align: "right" });
-    } else {
+    currentY += 5;
+    doc.text("Total Amount Paid So Far:", labelX, currentY);
+    doc.setTextColor(5, 122, 85);
+    doc.text(`Rs. ${Number(rc.paidSoFar || rc.amount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+
+    if ((rc.remainingAmount || 0) > 0) {
+      currentY += 5;
+      doc.setFont("helvetica", "bold");
       doc.setTextColor(190, 30, 30);
       doc.text("Balance Remaining:", labelX, currentY);
       doc.text(`Rs. ${Number(rc.remainingAmount || 0).toFixed(2)}`, rightAlignX, currentY, { align: "right" });
@@ -979,7 +980,7 @@ export const Receipts = () => {
 
     // Bank Details & Invoice Terms block
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") !== "false";
-    const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft";
+    const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
     const bName   = localStorage.getItem("nirmalyam_bank_name")   || "Bank Of Maharashtra";
     const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
     const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "BOM0001299";
@@ -1018,7 +1019,7 @@ export const Receipts = () => {
     doc.setFontSize(7.5);
     doc.setTextColor(140, 140, 140);
     doc.text(
-      "This is an electronically generated official receipt. Thank you for doing business with Nirmalyam Kraft!",
+      "This is an electronically generated official receipt. Thank you for doing business with Nirmalyam Krafts!",
       pageWidth / 2,
       footY,
       { align: "center" }

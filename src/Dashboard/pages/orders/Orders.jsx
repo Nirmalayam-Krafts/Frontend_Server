@@ -113,7 +113,7 @@ const initialConfirmOrderForm = {
   deliveryNotes: "",
 };
 
-const COMPANY_NAME = "Nirmalyam Kraft";
+const COMPANY_NAME = "Nirmalyam Krafts";
 
 const DEDUCTION_MODE_HELP = {
   AUTO: "Uses finished bags first, then scales the product BOM for any remaining bags.",
@@ -1713,7 +1713,7 @@ const Orders = () => {
     setBillPreTaxDiscount("0");
     setBillPostTaxDiscount("0");
     setBillPaymentMode("invoice");
-    setBillNotes("Thank you for doing business with Nirmalyam Kraft!");
+    setBillNotes("Thank you for doing business with Nirmalyam Krafts!");
     setShowBillModal(true);
   };
 
@@ -2239,7 +2239,7 @@ Note: ${meta.billNotes || "—"}`;
 
   const getOrderReportData = (order) => {
     return {
-      companyName: "Nirmalyam Kraft",
+      companyName: "Nirmalyam Krafts",
       reportTitle: "Order Report",
       customerName: order?.customerName || "—",
       businessName: order?.businessName || "—",
@@ -2514,7 +2514,7 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Kraft.`, 15, footY);
+    doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts.`, 15, footY);
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
@@ -2617,7 +2617,7 @@ Note: ${meta.billNotes || "—"}`;
     const productSummary = getWhatsAppProductSummary(order, productItems);
 
     const shareText = `
-Nirmalyam Kraft - Order Report
+Nirmalyam Krafts - Order Report
 
 Customer: ${report.customerName}
 Business: ${report.businessName}
@@ -2638,7 +2638,7 @@ Notes: ${report.notes}
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Nirmalyam Kraft - Order Report",
+          title: "Nirmalyam Krafts - Order Report",
           text: shareText,
         });
       } catch (error) {
@@ -2655,7 +2655,7 @@ Notes: ${report.notes}
     const productSummary = getWhatsAppProductSummary(order, productItems);
 
     const message = `
-*Nirmalyam Kraft - Order Report*
+*Nirmalyam Krafts - Order Report*
 
 *Customer:* ${report.customerName}
 *Business:* ${report.businessName}
@@ -3809,7 +3809,7 @@ ${productSummary}
     // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
     if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft";
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
       const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
       const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
       const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
@@ -11123,8 +11123,8 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const handleShareWhatsAppForReceipt = (rec) => {
     const isRefund = rec.paymentMode === "refund";
     const text = isRefund 
-      ? `*Nirmalyam Kraft - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
-      : `*Nirmalyam Kraft - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
+      ? `*Nirmalyam Krafts - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
+      : `*Nirmalyam Krafts - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
     const targetPhone = rec.phone || selectedOrder?.phone || "";
     const url = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
@@ -11700,7 +11700,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const handleShareWhatsApp = () => {
     if (!successDetails) return;
     const message = `
-*Nirmalyam Kraft - Return Receipt*
+*Nirmalyam Krafts - Return Receipt*
 
 *Return Ref:* ${successDetails.returnNumber}
 *Date:* ${new Date(successDetails.returnedAt).toLocaleDateString("en-IN")}

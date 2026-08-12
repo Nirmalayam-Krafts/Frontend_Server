@@ -27,7 +27,7 @@ import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COMPANY_NAME = "Nirmalyam Kraft";
+const COMPANY_NAME = "Nirmalyam Krafts";
 
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   let totalSuggestedOfAll = 0;
@@ -622,7 +622,7 @@ export const Quotations = () => {
     // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
     if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft";
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
       const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
       const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
       const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";

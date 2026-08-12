@@ -68,7 +68,7 @@ const Settings = () => {
     email: "",
     phone: "",
     role: "",
-    businessName: "Nirmalyam Kraft",
+    businessName: "Nirmalyam Krafts",
   });
   const [initialFormData, setInitialFormData] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -132,7 +132,7 @@ const Settings = () => {
     localStorage.getItem("nirmalyam_show_payment_info") !== "false"
   );
   const [bankHolder, setBankHolder] = useState(() => 
-    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Kraft"
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts"
   );
   const [bankName, setBankName] = useState(() => 
     localStorage.getItem("nirmalyam_bank_name") || "Bank Of Maharashtra"
@@ -279,7 +279,7 @@ const Settings = () => {
       email: profile?.email || "",
       phone: profile?.phone || "",
       role: profile?.role || "Admin",
-      businessName: "Nirmalyam Kraft",
+      businessName: "Nirmalyam Krafts",
     };
 
     setFormData(nextForm);

@@ -297,26 +297,6 @@ export const Sidebar = () => {
             </div>
 
             <div className="border-t border-emerald-100 bg-white/80 px-5 py-5 space-y-3">
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      Nirmalyam Krafts
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Sustainable Packaging
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={toggleSidebar}
-                    className="rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
               <button
                 type="button"
                 onClick={handleResetDatabase}

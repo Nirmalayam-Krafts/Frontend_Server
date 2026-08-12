@@ -95,7 +95,7 @@ export const generateTaxInvoicePDF = ({
 }) => {
   // 1. Business Profile Settings
   const busGst = businessConfig.businessGstNumber || "27AAACN1234F1Z1";
-  const busName = businessConfig.companyName || "Nirmalyam Kraft";
+  const busName = businessConfig.companyName || "Nirmalyam Krafts";
   const busAddress = businessConfig.businessAddress || "Plot No. 12, Industrial Area, Nagpur, Maharashtra - 440001";
   const busStateName = businessConfig.businessStateName || "Maharashtra";
   const busStateCode = businessConfig.businessStateCode || "27";
@@ -110,7 +110,7 @@ export const generateTaxInvoicePDF = ({
   const savedBankUpi = localStorage.getItem("nirmalyam_bank_upi");
 
   const bankInfo = {
-    holder: savedBankHolder || businessConfig.bankDetails?.holder || "Nirmalyam Kraft",
+    holder: savedBankHolder || businessConfig.bankDetails?.holder || "Nirmalyam Krafts",
     bankName: savedBankName || businessConfig.bankDetails?.bankName || "Bank Of Maharashtra",
     accountNo: savedBankAccount || businessConfig.bankDetails?.accountNo || "39824872901",
     ifscCode: savedBankIfsc || businessConfig.bankDetails?.ifscCode || "BOM0001299",
