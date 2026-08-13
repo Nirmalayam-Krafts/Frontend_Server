@@ -71,7 +71,7 @@ const faqs = [
 
 const PRODUCT_OPTIONS = [
   { value: '', label: 'Select a product...' },
-  { value: 'Ecocraft Bags', label: 'Ecocraft Bags' },
+  { value: 'Ecokraft Bags', label: 'Ecokraft Bags' },
   { value: 'F&B Gourmet Bags', label: 'F&B Gourmet Bags' },
   { value: 'Luxury Bags', label: 'Luxury Kraft Bags' },
   { value: 'Kraft Paper Rolls', label: 'Kraft Paper Rolls' },

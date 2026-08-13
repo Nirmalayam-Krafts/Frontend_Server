@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 const carouselImages = [
   {
     src: '/images/generated/ecocraft_vibrant_branded.webp',
-    title: 'Ecocraft Collection',
+    title: 'Ecokraft Collection',
     desc: 'Sustainable Everyday Packaging'
   },
   {
@@ -305,7 +305,7 @@ export default function FloatingWidgets() {
                 Eco-Luxury Packaging
               </h3>
               <p style={{ fontSize: isMobile ? 12 : 13, color: '#6f5b46', lineHeight: 1.5, marginBottom: isMobile ? 12 : 16 }}>
-                Specializing in <strong>Ecocraft</strong>, <strong>Luxury Kraft</strong>, and <strong>F&B Gourmet</strong> collections. 
+                Specializing in <strong>Ecokraft</strong>, <strong>Luxury Kraft</strong>, and <strong>F&B Gourmet</strong> collections. 
                 {isMobile ? '' : ' Custom branding available.'}
               </p>
 

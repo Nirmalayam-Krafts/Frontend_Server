@@ -31,16 +31,23 @@ const DEFAULT_SUMMARY = {
   customerGrowth:  { value: "—", change: "" },
 };
 
+const getLocalDateString = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const Analytics = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0];
+    return getLocalDateString(d);
   });
   const [endDate, setEndDate] = useState(() => {
-    return new Date().toISOString().split("T")[0];
+    return getLocalDateString(new Date());
   });
 
   const handleStartDateChange = (e) => {
@@ -99,14 +106,12 @@ const Analytics = () => {
           analyticsAPI.getProducts(),
         ]);
 
-        if (revenueRes.success && leadRes.success && inventoryRes.success && paperRes.success) {
-          setAnalyticsData({
-            revenue: revenueRes.data,
-            leadConversion: leadRes.data,
-            inventory: inventoryRes.data,
-            paperWeights: paperRes.data,
-          });
-        }
+        setAnalyticsData({
+          revenue: revenueRes.success ? (revenueRes.data || []) : [],
+          leadConversion: leadRes.success ? (leadRes.data || []) : [],
+          inventory: inventoryRes.success ? (inventoryRes.data || []) : [],
+          paperWeights: paperRes.success ? (paperRes.data || []) : [],
+        });
 
         const productDetails = {};
         if (productsRes.success && Array.isArray(productsRes.data)) {

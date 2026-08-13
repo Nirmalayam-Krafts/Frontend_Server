@@ -6,7 +6,7 @@ import { useAuthContext } from "../../../context/Adminauth";
 import toast from "react-hot-toast";
 
 const PRODUCT_CATEGORY_OPTIONS = [
-  "Ecocraft bags",
+  "Ecokraft bags",
   "F&B Gourmet Bags",
   "Luxury bags",
   "Kraft paper roll",
@@ -42,11 +42,12 @@ const getInitialState = (initialData = null) => {
   if (!initialData) {
     return {
       name: "",
-      category: "Ecocraft bags",
+      category: "Ecokraft bags",
       sku: "",
       description: "",
       bagType: "custom",
       bagSize: "",
+      bagColor: "",
       dimensions: {
         length: "",
         width: "",
@@ -79,11 +80,12 @@ const getInitialState = (initialData = null) => {
 
   return {
     name: initialData?.name || "",
-    category: initialData?.category || "Ecocraft bags",
+    category: initialData?.category || "Ecokraft bags",
     sku: initialData?.sku || "",
     description: initialData?.description || "",
     bagType: initialData?.bagType || "custom",
     bagSize: initialData?.bagSize || "",
+    bagColor: initialData?.bagColor || initialData?.color || "",
     dimensions: {
       length: initialData?.dimensions?.length ?? "",
       width: initialData?.dimensions?.width ?? "",
@@ -454,6 +456,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       sku: formData.sku.trim(),
       description: formData.description.trim(),
       bagType: isRoll ? "none" : formData.bagType,
+      bagColor: formData.bagColor?.trim() || "",
       dimensions: {
         length: isRoll ? 0 : Number(formData.dimensions.length),
         width: Number(formData.dimensions.width),
@@ -587,6 +590,28 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
               ))}
             </select>
           </div>
+
+          {!isRoll && (
+            <div>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">
+                Bag Color <span className="text-gray-400 font-normal text-xs">(Optional)</span>
+              </label>
+              <select
+                value={formData.bagColor || ""}
+                onChange={(e) => updateField("bagColor", e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 bg-white text-gray-900 font-medium cursor-pointer"
+              >
+                <option value="">Select Color...</option>
+                <option value="Brown">Brown</option>
+                <option value="Natural brown">Natural brown</option>
+                <option value="White">White</option>
+                <option value="Pink">Pink</option>
+                {formData.bagColor && !["Brown", "Natural brown", "White", "Pink"].includes(formData.bagColor) && (
+                  <option value={formData.bagColor}>{formData.bagColor}</option>
+                )}
+              </select>
+            </div>
+          )}
 
           {!isRoll && (
             <div>

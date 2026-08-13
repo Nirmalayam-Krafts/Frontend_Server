@@ -78,13 +78,13 @@ const testimonials = [
 /* ── Category cards ── */
 const categories = [
   {
-    title: 'Ecocraft Bags',
+    title: 'Ecokraft Bags',
     desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
     icon: Package,
     image: '/images/new/V_BottomBag6.webp',
     color: '#4ade80',
     bg: '#f0fdf4',
-    to: '/products/ecocraft',
+    to: '/products/ecokraft',
     // priceBadge: 'From ₹2/Bag'
   },
   {
@@ -1113,8 +1113,8 @@ export default function Home() {
             {[
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.webp', badge: 'Affordable Rates' },
               { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/HERO2.webp', badge: 'Wholesale Deal' },
-              { name: 'Eco-Pouches', cat: 'Ecocraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget Option' },
-              { name: 'Handle Bags', cat: 'Ecocraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/collection_ecocraft_new.webp', badge: 'From ₹2.50/pc' },
+              { name: 'Eco-Pouches', cat: 'Ecokraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget Option' },
+              { name: 'Handle Bags', cat: 'Ecokraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/collection_ecocraft_new.webp', badge: 'From ₹2.50/pc' },
               { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/new/KraftRoll_New.webp', badge: 'Cheapest in India' },
             ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"

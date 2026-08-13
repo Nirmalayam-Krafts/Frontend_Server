@@ -5,8 +5,8 @@ import PagePopup from '../components/PagePopup';
 
 const categories = [
   {
-    id: 'ecocraft',
-    title: 'Ecocraft Collection',
+    id: 'ecokraft',
+    title: 'Ecokraft Collection',
     subtitle: 'Sustainable Everyday Packaging',
     description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, boutiques, and eco-conscious brands looking for durability and natural aesthetics.',
     image: '/images/newGen/BOTTOMV.jpeg',

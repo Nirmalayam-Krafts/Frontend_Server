@@ -521,7 +521,10 @@ const Product = () => {
                         <td className="px-4 py-4">
                           <div>
                             <p className="font-medium text-gray-900">{item.name}</p>
-                            <p className="text-xs text-gray-500">{item.bagType}</p>
+                            <p className="text-xs text-gray-500">
+                              {item.bagType}
+                              {(item.bagColor || item.color) ? ` · Color: ${item.bagColor || item.color}` : ""}
+                            </p>
                           </div>
                         </td>
 

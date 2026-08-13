@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import PagePopup from '../components/PagePopup';
 
 const bagTypes = [
-  { id: 'ecocraft', label: 'Ecocraft Standard', desc: 'Tall, robust bags perfect for retail and daily carry.', color: 'var(--eco-600)' },
+  { id: 'ecokraft', label: 'Ecokraft Standard', desc: 'Tall, robust bags perfect for retail and daily carry.', color: 'var(--eco-600)' },
   { id: 'fnb', label: 'F&B Takeaway', desc: 'Wider base designs for food boxes and secure transport.', color: '#f59e0b' },
   { id: 'luxury', label: 'Luxury Boutique', desc: 'Premium horizontal orientation for high-end gifting.', color: 'var(--gold-500)' },
 ];
@@ -27,7 +27,7 @@ const handleTypes = [
 ];
 
 export default function DesignYourProduct() {
-  const [selectedBag, setSelectedBag] = useState('ecocraft');
+  const [selectedBag, setSelectedBag] = useState('ecokraft');
   const [color, setColor] = useState('#c09457');
   const [handle, setHandle] = useState('Twisted Paper Cord');
   const [brandText, setBrandText] = useState('YOUR BRAND');

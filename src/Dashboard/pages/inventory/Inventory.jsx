@@ -1313,13 +1313,15 @@ const Inventory = () => {
                           {/* Pricing & Value */}
                           <td className="px-6 py-4">
                             {(() => {
-                              // Find linked product & compute ideal price
+                              // Find linked product & compute effective selling price
                               const linkedProd = item.productId
                                 ? products.find(p => String(p._id || p.id) === String(item.productId))
                                 : null;
                               const idealSell = computeIdealSell(linkedProd);
                               const storedSell = Number(item.sellingPricePerUnit || 0);
-                              const hasMismatch = idealSell !== null && Math.abs(storedSell - idealSell) > 1;
+                              const effectiveSell = idealSell !== null && idealSell > 0
+                                ? idealSell
+                                : (storedSell > 0 ? storedSell : Number(linkedProd?.basePrice || item.basePrice || 0));
 
                               return (
                                 <div className="space-y-2">
@@ -1330,43 +1332,24 @@ const Inventory = () => {
                                         ₹{unitPrice.toFixed(2)}
                                       </span>
                                     </div>
-                                    {storedSell > 0 && (
+                                    {effectiveSell > 0 && (
                                       <div className="flex items-center justify-between">
                                         <span className="text-gray-500">Sell:</span>
                                         <span className="font-semibold text-emerald-600">
-                                          ₹{storedSell.toFixed(2)}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {/* Ideal price from product formula */}
-                                    {idealSell !== null && (
-                                      <div className="flex items-center justify-between mt-0.5">
-                                        <span className="text-indigo-500 text-[10px] font-medium">Ideal:</span>
-                                        <span className="font-bold text-indigo-600 text-[10px]">
-                                          ₹{idealSell.toFixed(2)}
+                                          ₹{effectiveSell.toFixed(2)}
                                         </span>
                                       </div>
                                     )}
                                   </div>
-
-                                  {/* Price mismatch warning */}
-                                  {hasMismatch && (
-                                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-                                      <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                                      <span className="text-[9px] font-bold text-amber-700">
-                                        Price mismatch! Stored ₹{storedSell.toFixed(0)} vs Ideal ₹{idealSell.toFixed(0)}
-                                      </span>
-                                    </div>
-                                  )}
 
                                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-2 border border-emerald-100">
                                     <p className="text-[10px] text-emerald-600 font-medium">Stock Value</p>
                                     <p className="text-base font-bold text-emerald-700">
                                       ₹{totalValue.toLocaleString()}
                                     </p>
-                                    {idealSell !== null && storedSell > 0 && (
+                                    {effectiveSell > 0 && (
                                       <p className="text-[9px] text-indigo-500 font-medium mt-0.5">
-                                        At ideal: ₹{(Number(item.stockLevel || 0) * idealSell).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                                        At sell price: ₹{(Number(item.stockLevel || 0) * effectiveSell).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                                       </p>
                                     )}
                                   </div>
@@ -1840,6 +1823,7 @@ const Inventory = () => {
               <div className="p-6">
                 <InventoryDetail
                   item={selectedItem}
+                  products={products}
                   onClose={() => setShowDetailPanel(false)}
                 />
               </div>

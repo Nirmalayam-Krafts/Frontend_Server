@@ -346,16 +346,17 @@ export const Quotations = () => {
     if (line.brandingText && line.brandingText !== "—" && line.brandingText !== "None") {
       printParts.push(`Branding: ${line.brandingText}`);
     }
-    if (printParts.length > 0) {
-      specParts.push(printParts.join(" · "));
-    }
-
     specParts.push(`Dimensions: ${dimsLabel}`);
     return specParts.join("\n");
   };
 
   const downloadQuotationPDF = (q, mode = "download") => {
     const sysConfig = getSystemGstConfigFromStorage();
+    const snapshottedGstMode = q.gstEnabled ?? q.quotation?.gstEnabled;
+    const isGstEnabled = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+      ? Boolean(snapshottedGstMode)
+      : sysConfig.gstEnabled;
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -450,8 +451,6 @@ export const Quotations = () => {
       ? q.orderDetailsList
       : [q.orderDetails].filter(Boolean);
 
-    const totalQty = lines.reduce((acc, l) => acc + Number(l?.quantity || 0), 0) || 1;
-
     // Per-line GST breakdown accumulator by rate
     const gstByRate = {};
 
@@ -478,26 +477,34 @@ export const Quotations = () => {
         lineSubtotal = lineUnitPrice * calcQty;
       } else {
         lineSubtotal = getLineSubtotalShare(line, subtotal, lines, productItems);
-        lineUnitPrice = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
+        lineUnitPrice = calcQty > 0 ? lineSubtotal / calcQty : 0;
       }
 
-      // Resolve HSN and GST
-      const taxInfo = getProductTaxInfo(prod || line);
-      const lineHsn = line.hsnCode || prod?.hsnCode || taxInfo.hsnCode;
-      const productGst = prod ? (prod.custom_gst_rate ?? prod.gstRate) : null;
-      const rawGst = (line.gstRate != null && line.gstRate > 0 && line.gstRate !== 18)
-        ? Number(line.gstRate)
-        : (productGst ?? taxInfo.gstRate ?? 5);
-      const lineGstRate = sysConfig.gstEnabled ? Number(rawGst) : 0;
-
-      // Accumulate GST by rate
-      const rateKey = String(lineGstRate);
+      // Per-line GST rate resolution
+      const lineGstRate = isGstEnabled ? getLineProductGstRate(line, productItems) : 0;
       const lineTax = lineSubtotal * (lineGstRate / 100);
-      if (!gstByRate[rateKey]) gstByRate[rateKey] = { taxableAmount: 0, taxAmount: 0 };
-      gstByRate[rateKey].taxableAmount += lineSubtotal;
-      gstByRate[rateKey].taxAmount += lineTax;
 
+      // Accumulate tax by rate
+      if (isGstEnabled && lineGstRate > 0) {
+        if (!gstByRate[lineGstRate]) {
+          gstByRate[lineGstRate] = { taxable: 0, taxAmount: 0 };
+        }
+        gstByRate[lineGstRate].taxable += lineSubtotal;
+        gstByRate[lineGstRate].taxAmount += lineTax;
+      }
+
+      const lineHsn = line.hsnCode || getProductTaxInfo(prod).hsnCode || "4805";
       const specDetails = getPDFSpecDetails(line, q.productCategory, productItems);
+
+      if (!isGstEnabled) {
+        return [
+          specDetails,
+          lineHsn,
+          `Rs. ${lineUnitPrice.toFixed(2)}`,
+          displayQty,
+          `Rs. ${lineSubtotal.toFixed(2)}`
+        ];
+      }
 
       // Column order: Specs | HSN | Unit Rate | Quantity | GST % | GST Amt | Amount
       return [
@@ -513,20 +520,30 @@ export const Quotations = () => {
 
     autoTable(doc, {
       startY: 84,
-      head: [["Item Details & Specifications", "HSN Code", "Unit Rate", "Quantity", "GST %", "GST Amt", "Amount"]],
+      head: !isGstEnabled
+        ? [["Item Details & Specifications", "HSN Code", "Unit Rate", "Quantity", "Amount"]]
+        : [["Item Details & Specifications", "HSN Code", "Unit Rate", "Quantity", "GST %", "GST Amt", "Amount"]],
       body: tableBody,
       theme: "striped",
       styles: { fontSize: 8.5, cellPadding: 3.5, valign: "middle" },
       headStyles: { fillColor: brand, fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "right", cellWidth: 22 },
-        3: { halign: "center", cellWidth: 18 },
-        4: { halign: "center", cellWidth: 14 },
-        5: { halign: "right", cellWidth: 20 },
-        6: { halign: "right", cellWidth: 24 }
-      }
+      columnStyles: !isGstEnabled
+        ? {
+            0: { cellWidth: "auto" },
+            1: { halign: "center", cellWidth: 24 },
+            2: { halign: "right", cellWidth: 26 },
+            3: { halign: "center", cellWidth: 22 },
+            4: { halign: "right", cellWidth: 28 }
+          }
+        : {
+            0: { cellWidth: "auto" },
+            1: { halign: "center", cellWidth: 20 },
+            2: { halign: "right", cellWidth: 22 },
+            3: { halign: "center", cellWidth: 18 },
+            4: { halign: "center", cellWidth: 14 },
+            5: { halign: "right", cellWidth: 20 },
+            6: { halign: "right", cellWidth: 24 }
+          }
     });
 
     const finalY = doc.lastAutoTable.finalY + 8;
@@ -535,7 +552,7 @@ export const Quotations = () => {
     const gstRateKeys = Object.keys(gstByRate).sort((a, b) => Number(a) - Number(b));
     let totalGstCollected = 0;
     
-    if (gstRateKeys.length > 0) {
+    if (isGstEnabled && gstRateKeys.length > 0) {
       for (const rk of gstRateKeys) {
         totalGstCollected += gstByRate[rk].taxAmount;
       }
@@ -555,35 +572,37 @@ export const Quotations = () => {
     doc.text("Subtotal:", labelX, currentY);
     doc.text(`Rs. ${subtotal.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    if (gstRateKeys.length > 1) {
-      for (const rk of gstRateKeys) {
+    if (isGstEnabled) {
+      if (gstRateKeys.length > 1) {
+        for (const rk of gstRateKeys) {
+          const { taxAmount: ta } = gstByRate[rk];
+          currentY += 6;
+          doc.setFontSize(9);
+          doc.text(`GST @ ${rk}%:`, labelX, currentY);
+          doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+        }
+        currentY += 6;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.text(`Total GST Collected:`, labelX, currentY);
+        doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+      } else if (gstRateKeys.length === 1) {
+        const rk = gstRateKeys[0];
         const { taxAmount: ta } = gstByRate[rk];
+        if (ta > 0) {
+          currentY += 6;
+          doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
+          doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+        }
+      } else if (taxRate > 0) {
+        // Fallback
+        const fallbackTax = subtotal * (taxRate / 100);
         currentY += 6;
-        doc.setFontSize(9);
-        doc.text(`GST @ ${rk}%:`, labelX, currentY);
-        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+        doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
+        doc.text(`Rs. ${fallbackTax.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
       }
-      currentY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.text(`Total GST Collected:`, labelX, currentY);
-      doc.text(`Rs. ${totalGstCollected.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-    } else if (gstRateKeys.length === 1) {
-      const rk = gstRateKeys[0];
-      const { taxAmount: ta } = gstByRate[rk];
-      if (ta > 0) {
-        currentY += 6;
-        doc.text(`Tax/GST (${rk}%):`, labelX, currentY);
-        doc.text(`Rs. ${ta.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
-      }
-    } else if (taxRate > 0) {
-      // Fallback
-      const fallbackTax = subtotal * (taxRate / 100);
-      currentY += 6;
-      doc.text(`Tax/GST (${taxRate}%):`, labelX, currentY);
-      doc.text(`Rs. ${fallbackTax.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
 
     if (shippingVal > 0) {

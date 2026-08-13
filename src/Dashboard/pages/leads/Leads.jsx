@@ -440,7 +440,7 @@ const Leads = () => {
               dimensionUnit: prod?.dimensions?.unit || "inch",
               gsm: prod?.gsm || "",
               bf: prod?.bf ? String(prod.bf) : "",
-              color: prod?.color || "",
+              color: prod?.bagColor || prod?.color || "",
               bagSize: prod?.bagSize || "",
               customPrinting: prod?.customPrinting || false,
               unit: isRollCat ? "kg" : "pcs",
@@ -456,6 +456,11 @@ const Leads = () => {
 
 
   const handleUpdateLeadStatus = async (id, status, leadData = null) => {
+    if (status === "Completed" || status === "Delivered") {
+      toast.error("Completed and Delivered statuses are updated automatically by the order workflow.");
+      return;
+    }
+
     const currentLead =
       leadData || formattedLeads.find((item) => item.id === id) || null;
 
@@ -598,7 +603,7 @@ const Leads = () => {
         [
           leadCategory,
           leadCategory.replace(/\bbags?\b/g, "").trim(),
-          leadCategory.includes("ecocraft") ? "ecocraft" : "",
+          leadCategory.includes("ecocraft") || leadCategory.includes("ecokraft") ? "ecokraft" : "",
           leadCategory.includes("f&b") || leadCategory.includes("gourmet")
             ? "f&b gourmet"
             : "",
@@ -839,6 +844,37 @@ const Leads = () => {
       }
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to restore lead", { id: loadingToast });
+    }
+  };
+
+  const handlePermanentDeleteLead = async (id) => {
+    if (!window.confirm("⚠️ PERMANENT DELETE WARNING: Are you sure you want to permanently delete this lead from the database?")) return;
+    if (!window.confirm("🔴 THIS CANNOT BE UNDONE. Are you 100% sure you want to permanently delete this record?")) return;
+    const loadingToast = toast.loading("Permanently deleting lead...");
+    try {
+      let response;
+      try {
+        response = await axiosInstance.delete(`/leads/${id}/permanent`);
+      } catch (err1) {
+        try {
+          response = await axiosInstance.delete(`/leads/${id}?permanent=true`);
+        } catch (err2) {
+          response = await axiosInstance.delete(`/leads/${id}`);
+        }
+      }
+
+      if (response.data?.success) {
+        toast.success("Lead permanently deleted 🗑️", { id: loadingToast });
+        await queryClient.invalidateQueries({ queryKey: ["getAllLeadsData"] });
+        await refetch();
+
+        if (selectedLead?.id === id) {
+          setSelectedLead(null);
+          setShowDetailPanel(false);
+        }
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to permanently delete lead", { id: loadingToast });
     }
   };
 
@@ -1482,21 +1518,28 @@ const Leads = () => {
                         </td>
 
                         <td className="px-4 py-4">
-                          <select
-                            value={lead.statusLabel}
-                            onChange={(e) =>
-                              handleUpdateLeadStatus(lead.id, e.target.value, lead)
-                            }
-                            className={`rounded-lg border px-3 py-2 text-sm font-semibold outline-none transition duration-150 shadow-sm ${getStatusSelectClass(lead.statusLabel)}`}
-                          >
-                            <option value="New">New</option>
-                            <option value="Contacted">Contacted</option>
-                            <option value="Interested">Interested</option>
-                            <option value="Converted">Converted</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Lost">Lost</option>
-                          </select>
+                          {["Completed", "Delivered"].includes(lead.statusLabel) ? (
+                            <span
+                              className={`inline-flex items-center rounded-lg border px-3 py-2 text-sm font-semibold shadow-sm cursor-not-allowed ${getStatusSelectClass(lead.statusLabel)}`}
+                              title="Automated status updated via Order workflow"
+                            >
+                              {lead.statusLabel} (Auto)
+                            </span>
+                          ) : (
+                            <select
+                              value={lead.statusLabel}
+                              onChange={(e) =>
+                                handleUpdateLeadStatus(lead.id, e.target.value, lead)
+                              }
+                              className={`rounded-lg border px-3 py-2 text-sm font-semibold outline-none transition duration-150 shadow-sm ${getStatusSelectClass(lead.statusLabel)}`}
+                            >
+                              <option value="New">New</option>
+                              <option value="Contacted">Contacted</option>
+                              <option value="Interested">Interested</option>
+                              <option value="Converted">Converted</option>
+                              <option value="Lost">Lost</option>
+                            </select>
+                          )}
                         </td>
 
                         <td className="px-4 py-4 text-sm text-gray-600">
@@ -1522,12 +1565,29 @@ const Leads = () => {
                               View
                             </button>
 
-                            {showDeleted && (
+                            {showDeleted ? (
+                              <>
+                                <button
+                                  onClick={() => handleRecoverLead(lead.id)}
+                                  className="rounded-lg px-3 py-1.5 text-sm font-semibold text-green-700 hover:bg-green-50"
+                                >
+                                  Recover
+                                </button>
+                                <button
+                                  onClick={() => handlePermanentDeleteLead(lead.id)}
+                                  className="rounded-lg px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
+                                  title="Delete permanently from database"
+                                >
+                                  Delete Permanently
+                                </button>
+                              </>
+                            ) : (
                               <button
-                                onClick={() => handleRecoverLead(lead.id)}
-                                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-green-700 hover:bg-green-50"
+                                onClick={() => handleDeleteLead(lead.id)}
+                                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-red-500 hover:bg-red-50 hover:text-red-700"
+                                title="Move to trash"
                               >
-                                Recover
+                                Delete
                               </button>
                             )}
                           </div>
@@ -1880,10 +1940,10 @@ const Leads = () => {
                                       <span className="font-semibold text-emerald-700">{lineProd.bf}</span>
                                     </div>
                                   )}
-                                  {lineProd.color && (
+                                  {(lineProd.bagColor || lineProd.color) && (
                                     <div>
                                       <span className="block text-gray-400 font-medium">Color</span>
-                                      <span className="font-semibold text-gray-800">{lineProd.color}</span>
+                                      <span className="font-semibold text-gray-800">{lineProd.bagColor || lineProd.color}</span>
                                     </div>
                                   )}
                                   {Boolean(lineProd.weight) && (
@@ -1964,43 +2024,112 @@ const Leads = () => {
                                         required
                                       />
                                     </div>
-                                    <p className="mt-1 text-[10px] text-gray-400">Pre-filled from product</p>
                                   </div>
                                 ) : (
-                                  <div>
-                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                      Bag Size <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                      value={line.bagSize}
-                                      onChange={(e) => handleLineChange(line.id, "bagSize", e.target.value)}
-                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                                    >
-                                      <option value="">Select size</option>
-                                      {["Small", "Medium", "Large", "Extra Large"].map((s) => (
-                                        <option key={s} value={s}>{s}</option>
-                                      ))}
-                                    </select>
-                                  </div>
+                                  (() => {
+                                    const currentSize = line.bagSize || "";
+                                    const presetSizes = ["Small", "Medium", "Large", "8x10", "10x12", "12x16"];
+                                    if (lineProd?.bagSize && !presetSizes.includes(lineProd.bagSize)) {
+                                      presetSizes.push(lineProd.bagSize);
+                                    }
+                                    const isCustom = currentSize !== "" && !presetSizes.includes(currentSize);
+                                    const selectValue = isCustom ? "Custom" : currentSize;
+
+                                    return (
+                                      <div className="space-y-1">
+                                        <label className="block text-xs font-semibold text-gray-600">
+                                          Bag Size <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                          value={selectValue}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "Custom") {
+                                              handleLineChange(line.id, "bagSize", isCustom ? currentSize : "");
+                                            } else {
+                                              handleLineChange(line.id, "bagSize", val);
+                                            }
+                                          }}
+                                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 font-medium text-gray-900"
+                                        >
+                                          <option value="">Select Bag Size...</option>
+                                          <option value="Small">Small</option>
+                                          <option value="Medium">Medium</option>
+                                          <option value="Large">Large</option>
+                                          <option value="8x10">8×10</option>
+                                          <option value="10x12">10×12</option>
+                                          <option value="12x16">12×16</option>
+                                          {lineProd?.bagSize && !["Small", "Medium", "Large", "8x10", "10x12", "12x16"].includes(lineProd.bagSize) && (
+                                            <option value={lineProd.bagSize}>{lineProd.bagSize}</option>
+                                          )}
+                                          <option value="Custom">⚙️ Custom (Type Custom Size)</option>
+                                        </select>
+                                        {(selectValue === "Custom" || isCustom) && (
+                                          <input
+                                            type="text"
+                                            value={line.bagSize || ""}
+                                            onChange={(e) => handleLineChange(line.id, "bagSize", e.target.value)}
+                                            placeholder="Enter custom bag size..."
+                                            className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
+                                            required
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })()
                                 )}
 
+                                 {!lineRoll && (
+                                   (() => {
+                                     const currentColor = line.color || "";
+                                     const standardColors = ["Brown", "Natural brown", "White", "Pink"];
+                                     const prodColor = lineProd?.bagColor || lineProd?.color;
+                                     if (prodColor && !standardColors.includes(prodColor)) {
+                                       standardColors.push(prodColor);
+                                     }
+                                     const isCustomColor = currentColor !== "" && !standardColors.includes(currentColor);
+                                     const selectColorValue = isCustomColor ? "Custom" : currentColor;
 
+                                     return (
+                                       <div className="space-y-1">
+                                         <label className="block text-xs font-semibold text-gray-600">Bag Color</label>
+                                         <select
+                                           value={selectColorValue}
+                                           onChange={(e) => {
+                                             const val = e.target.value;
+                                             if (val === "Custom") {
+                                               handleLineChange(line.id, "color", isCustomColor ? currentColor : "");
+                                             } else {
+                                               handleLineChange(line.id, "color", val);
+                                             }
+                                           }}
+                                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 font-medium text-gray-900"
+                                         >
+                                           <option value="">Select Color...</option>
+                                           <option value="Brown">Brown</option>
+                                           <option value="Natural brown">Natural brown</option>
+                                           <option value="White">White</option>
+                                           <option value="Pink">Pink</option>
+                                           {prodColor && !["Brown", "Natural brown", "White", "Pink"].includes(prodColor) && (
+                                             <option value={prodColor}>{prodColor}</option>
+                                           )}
+                                           <option value="Custom">⚙️ Custom (Type Custom Color)</option>
+                                         </select>
+                                         {(selectColorValue === "Custom" || isCustomColor) && (
+                                           <input
+                                             type="text"
+                                             value={line.color || ""}
+                                             onChange={(e) => handleLineChange(line.id, "color", e.target.value)}
+                                             placeholder="Enter custom color..."
+                                             className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
+                                           />
+                                         )}
+                                       </div>
+                                     );
+                                   })()
+                                 )}
 
-                                {/* Bag Color (non-roll) */}
-                                {!lineRoll ? (
-                                  <div>
-                                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">Bag Color</label>
-                                    <select
-                                      value={line.color}
-                                      onChange={(e) => handleLineChange(line.id, "color", e.target.value)}
-                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-                                    >
-                                      <option value="">Select color</option>
-                                      <option value="Brown">Brown</option>
-                                      <option value="White">White</option>
-                                    </select>
-                                  </div>
-                                ) : (
+                                {lineRoll && (
                                   <div>
                                     <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                                       Width Unit

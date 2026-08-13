@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "react-hot-toast";
+import { getSystemGstConfigFromStorage } from "../../utils/gstConfig";
 
 // Helper function to convert number to Words in Indian Currency format
 export function numberToIndianWords(num) {
@@ -93,7 +94,21 @@ export const generateTaxInvoicePDF = ({
   allProducts = [],
   logoBase64Input = null,
 }) => {
-  // 1. Business Profile Settings
+  const ordObj = order || {};
+  const rc = billReceipt || {};
+  const sysConfig = getSystemGstConfigFromStorage();
+
+  // Resolve GST mode strictly from document snapshot first to preserve historical record
+  const snapshottedGstMode = rc.billDetails?.gstEnabled ?? rc.gstEnabled ?? ordObj.billDetails?.gstEnabled ?? ordObj.quotation?.gstEnabled ?? ordObj.gstEnabled;
+
+  const isGstEnabled = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+    ? Boolean(snapshottedGstMode)
+    : (businessConfig.gstEnabled !== undefined
+        ? Boolean(businessConfig.gstEnabled)
+        : (businessConfig.isGstEnabled !== undefined
+            ? Boolean(businessConfig.isGstEnabled)
+            : Boolean(sysConfig.gstEnabled)));
+
   const busGst = businessConfig.businessGstNumber || "27AAACN1234F1Z1";
   const busName = businessConfig.companyName || "Nirmalyam Krafts";
   const busAddress = businessConfig.businessAddress || "Plot No. 12, Industrial Area, Nagpur, Maharashtra - 440001";
@@ -101,13 +116,14 @@ export const generateTaxInvoicePDF = ({
   const busStateCode = businessConfig.businessStateCode || "27";
   const busPhone = businessConfig.businessPhone || "+91 90490 01299";
   const busEmail = businessConfig.businessEmail || "nirmalyamkrafts@gmail.com";
-  const savedInvoiceTerms = localStorage.getItem("nirmalyam_invoice_terms");
-  const savedShowPayment = localStorage.getItem("nirmalyam_show_payment_info") !== "false";
+
   const savedBankHolder = localStorage.getItem("nirmalyam_bank_holder");
   const savedBankName = localStorage.getItem("nirmalyam_bank_name");
   const savedBankAccount = localStorage.getItem("nirmalyam_bank_account");
   const savedBankIfsc = localStorage.getItem("nirmalyam_bank_ifsc");
   const savedBankUpi = localStorage.getItem("nirmalyam_bank_upi");
+  const savedShowPayment = localStorage.getItem("nirmalyam_show_payment") !== "false";
+  const savedInvoiceTerms = localStorage.getItem("nirmalyam_invoice_terms");
 
   const bankInfo = {
     holder: savedBankHolder || businessConfig.bankDetails?.holder || "Nirmalyam Krafts",
@@ -120,14 +136,11 @@ export const generateTaxInvoicePDF = ({
 
   const termsText = savedInvoiceTerms || businessConfig.termsAndConditions || "1. Payment is strictly net due upon receipt of invoice.\n2. Interest of 18% p.a. will be charged on late payments.\n3. Goods once sold cannot be returned without validation.";
 
-  // Pre-generation validation check #1: Business GSTIN
-  if (!busGst || !busGst.trim()) {
+  // Pre-generation validation check #1: Business GSTIN (only required if GST is enabled)
+  if (isGstEnabled && (!busGst || !busGst.trim())) {
     toast.error("Business GSTIN is missing in settings. Please configure business GSTIN before issuing tax invoices.");
     return false;
   }
-
-  const ordObj = order || {};
-  const rc = billReceipt || {};
 
   // Extract recipient details
   const custName = rc.customerName || ordObj.customerName || "Customer";
@@ -229,7 +242,11 @@ export const generateTaxInvoicePDF = ({
   doc.setTextColor(230, 245, 238);
   doc.text(`${busAddress}`, 34, 19);
   doc.text(`Phone: ${busPhone} | Email: ${busEmail}`, 34, 25);
-  doc.text(`GSTIN: ${busGst} | State: ${busStateCode} - ${busStateName}`, 34, 31);
+  if (isGstEnabled) {
+    doc.text(`GSTIN: ${busGst} | State: ${busStateCode} - ${busStateName}`, 34, 31);
+  } else {
+    doc.text(`State: ${busStateCode} - ${busStateName}`, 34, 31);
+  }
 
   // Right Invoice Title & Meta
   doc.setFont("helvetica", "bold");
@@ -275,7 +292,11 @@ export const generateTaxInvoicePDF = ({
   const billAddrLines = doc.splitTextToSize(`Address: ${cleanAddr || "—"}`, 84);
   doc.text(billAddrLines.slice(0, 2), 14, startY + 16);
   doc.text(`State: ${custStateCode} - ${custStateName}`, 14, startY + 26);
-  doc.text(`GSTIN: ${custGst ? custGst : "Unregistered"} | Mob: ${custPhone || "—"}`, 14, startY + 31);
+  if (isGstEnabled) {
+    doc.text(`GSTIN: ${custGst ? custGst : "Unregistered"} | Mob: ${custPhone || "—"}`, 14, startY + 31);
+  } else {
+    doc.text(`Mob: ${custPhone || "—"}`, 14, startY + 31);
+  }
 
   // Ship To Box (Right Side)
   const rightCardX = 108;
@@ -304,22 +325,26 @@ export const generateTaxInvoicePDF = ({
   doc.text(payModeDisplay, rightCardX + 4, startY + 28);
 
   // Determine dominant GST Rate for column header
-  let dominantGstRate = 5;
-  if (sourceItems.length > 0) {
-    const firstItem = sourceItems[0];
-    const qMatch = qItems.find(q =>
-      (q.productId && firstItem.productId && String(q.productId).trim() === String(firstItem.productId).trim()) ||
-      (q.productName && firstItem.productName && q.productName.toLowerCase().trim() === firstItem.productName.toLowerCase().trim())
-    );
-    dominantGstRate = Number(firstItem.gstRate ?? qMatch?.gstRate ?? qObj.taxRate ?? ordObj.taxRate ?? 5);
+  let dominantGstRate = 0;
+  if (isGstEnabled) {
+    if (sourceItems.length > 0) {
+      const firstItem = sourceItems[0];
+      const qMatch = qItems.find(q =>
+        (q.productId && firstItem.productId && String(q.productId).trim() === String(firstItem.productId).trim()) ||
+        (q.productName && firstItem.productName && q.productName.toLowerCase().trim() === firstItem.productName.toLowerCase().trim())
+      );
+      dominantGstRate = Number(firstItem.gstRate ?? qMatch?.gstRate ?? qObj.taxRate ?? ordObj.taxRate ?? sysConfig.defaultGstRate ?? 5);
+    }
   }
 
   const halfDominantRate = dominantGstRate / 2;
 
-  // Clean 9-Column (Intra-State) or 8-Column (Inter-State) Header without overlapping
-  const headRow = isIntraState
-    ? [["Sr", "Item Details & Specifications", "HSN", "Qty", "Rate (Rs)", "Taxable (Rs)", `CGST (${halfDominantRate}%)`, `SGST (${halfDominantRate}%)`, "Total (Rs)"]]
-    : [["Sr", "Item Details & Specifications", "HSN", "Qty", "Rate (Rs)", "Taxable (Rs)", `IGST (${dominantGstRate}%)`, "Total (Rs)"]];
+  // Clean 9-Column (Intra-State), 8-Column (Inter-State), or 6-Column (GST Disabled) Header
+  const headRow = !isGstEnabled
+    ? [["#", "Item Details & Specifications", "HSN", "Qty", "Rate (Rs)", "Amount (Rs)"]]
+    : (isIntraState
+        ? [["#", "Item Details & Specifications", "HSN", "Qty", "Rate (Rs)", "Taxable (Rs)", `CGST (${halfDominantRate}%)`, `SGST (${halfDominantRate}%)`, "Total (Rs)"]]
+        : [["#", "Item Details & Specifications", "HSN", "Qty", "Rate (Rs)", "Taxable (Rs)", `IGST (${dominantGstRate}%)`, "Total (Rs)"]]);
 
   const qSubtotal = Number(bObj.subtotal || qObj.subtotalAmount || ordObj.quotation?.subtotalAmount || ordObj.subtotalAmount || 0);
 
@@ -384,11 +409,14 @@ export const generateTaxInvoicePDF = ({
     const grossTaxable = Number((qty * unitRate).toFixed(2));
     grossSubtotalSum += grossTaxable;
 
-    let lineGstRate = dominantGstRate;
-    if (item.gstRate != null && !isNaN(Number(item.gstRate))) {
-      lineGstRate = Number(item.gstRate);
-    } else if (qMatch?.gstRate != null && !isNaN(Number(qMatch.gstRate))) {
-      lineGstRate = Number(qMatch.gstRate);
+    let lineGstRate = 0;
+    if (isGstEnabled) {
+      lineGstRate = dominantGstRate;
+      if (item.gstRate != null && !isNaN(Number(item.gstRate))) {
+        lineGstRate = Number(item.gstRate);
+      } else if (qMatch?.gstRate != null && !isNaN(Number(qMatch.gstRate))) {
+        lineGstRate = Number(qMatch.gstRate);
+      }
     }
 
     return { item, qMatch, prod, productName, hsn, qty, unit, unitRate, grossTaxable, lineGstRate };
@@ -437,13 +465,22 @@ export const generateTaxInvoicePDF = ({
       specText += `\n(${extraSpecs.join(" | ")})`;
     }
 
-    if (isIntraState) {
+    if (!isGstEnabled) {
+      return [
+        idx + 1,
+        specText,
+        spec.hsn,
+        `${spec.qty} ${spec.unit}`,
+        `Rs. ${spec.unitRate.toFixed(2)}`,
+        `Rs. ${spec.grossTaxable.toFixed(2)}`,
+      ];
+    } else if (isIntraState) {
       const halfRate = spec.lineGstRate / 2;
       const cgst = Number((netTaxableVal * (halfRate / 100)).toFixed(2));
       const sgst = Number((netTaxableVal * (halfRate / 100)).toFixed(2));
       cumulativeCgst += cgst;
       cumulativeSgst += sgst;
-      const lineTotal = Number((netTaxableVal + cgst + sgst).toFixed(2));
+      const lineTotal = Number((spec.grossTaxable + cgst + sgst).toFixed(2));
 
       return [
         idx + 1,
@@ -451,7 +488,7 @@ export const generateTaxInvoicePDF = ({
         spec.hsn,
         `${spec.qty} ${spec.unit}`,
         `Rs. ${spec.unitRate.toFixed(2)}`,
-        `Rs. ${netTaxableVal.toFixed(2)}`,
+        `Rs. ${spec.grossTaxable.toFixed(2)}`,
         `Rs. ${cgst.toFixed(2)}`,
         `Rs. ${sgst.toFixed(2)}`,
         `Rs. ${lineTotal.toFixed(2)}`,
@@ -459,7 +496,7 @@ export const generateTaxInvoicePDF = ({
     } else {
       const igst = Number((netTaxableVal * (spec.lineGstRate / 100)).toFixed(2));
       cumulativeIgst += igst;
-      const lineTotal = Number((netTaxableVal + igst).toFixed(2));
+      const lineTotal = Number((spec.grossTaxable + igst).toFixed(2));
 
       return [
         idx + 1,
@@ -467,7 +504,7 @@ export const generateTaxInvoicePDF = ({
         spec.hsn,
         `${spec.qty} ${spec.unit}`,
         `Rs. ${spec.unitRate.toFixed(2)}`,
-        `Rs. ${netTaxableVal.toFixed(2)}`,
+        `Rs. ${spec.grossTaxable.toFixed(2)}`,
         `Rs. ${igst.toFixed(2)}`,
         `Rs. ${lineTotal.toFixed(2)}`,
       ];
@@ -475,9 +512,11 @@ export const generateTaxInvoicePDF = ({
   });
 
   // Calculate Grand Total: Taxable Base + GST + Shipping + Other - Post-Tax Discount
-  const rawGrandTotal = isIntraState
-    ? cumulativeTaxableBase + cumulativeCgst + cumulativeSgst + shippingVal + otherVal - postTaxDiscountVal
-    : cumulativeTaxableBase + cumulativeIgst + shippingVal + otherVal - postTaxDiscountVal;
+  const rawGrandTotal = isGstEnabled
+    ? (isIntraState
+        ? cumulativeTaxableBase + cumulativeCgst + cumulativeSgst + shippingVal + otherVal - postTaxDiscountVal
+        : cumulativeTaxableBase + cumulativeIgst + shippingVal + otherVal - postTaxDiscountVal)
+    : (cumulativeTaxableBase + shippingVal + otherVal - postTaxDiscountVal);
   const roundedGrandTotal = Math.round(rawGrandTotal);
   const roundOffAmount = Number((roundedGrandTotal - rawGrandTotal).toFixed(2));
 
@@ -487,31 +526,43 @@ export const generateTaxInvoicePDF = ({
   // Render Table with autoTable
   autoTable(doc, {
     startY: 84,
+    margin: { left: 10, right: 10 },
     head: headRow,
     body: tableBody,
     theme: "grid",
-    styles: { fontSize: 8, cellPadding: 3, valign: "middle", halign: "center" },
+    styles: { fontSize: 7.5, cellPadding: { top: 2.5, bottom: 2.5, left: 1.5, right: 1.5 }, valign: "middle", halign: "center" },
     headStyles: { fillColor: brand, fontStyle: "bold", textColor: [255, 255, 255] },
-    columnStyles: isIntraState ? {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 54, halign: "left" },
-      2: { cellWidth: 16 },
-      3: { cellWidth: 16 },
-      4: { cellWidth: 18, halign: "right" },
-      5: { cellWidth: 20, halign: "right" },
-      6: { cellWidth: 20, halign: "right" },
-      7: { cellWidth: 20, halign: "right" },
-      8: { cellWidth: 20, halign: "right" },
-    } : {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 64, halign: "left" },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 18 },
-      4: { cellWidth: 20, halign: "right" },
-      5: { cellWidth: 22, halign: "right" },
-      6: { cellWidth: 22, halign: "right" },
-      7: { cellWidth: 24, halign: "right" },
-    },
+    columnStyles: !isGstEnabled
+      ? {
+          0: { cellWidth: 12 },
+          1: { cellWidth: 80, halign: "left" },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 28, halign: "right" },
+          5: { cellWidth: 30, halign: "right" },
+        }
+      : (isIntraState
+          ? {
+              0: { cellWidth: 9 },
+              1: { cellWidth: 47, halign: "left" },
+              2: { cellWidth: 15 },
+              3: { cellWidth: 15 },
+              4: { cellWidth: 20, halign: "right" },
+              5: { cellWidth: 21, halign: "right" },
+              6: { cellWidth: 21, halign: "right" },
+              7: { cellWidth: 21, halign: "right" },
+              8: { cellWidth: 21, halign: "right" },
+            }
+          : {
+              0: { cellWidth: 10 },
+              1: { cellWidth: 58, halign: "left" },
+              2: { cellWidth: 16 },
+              3: { cellWidth: 16 },
+              4: { cellWidth: 22, halign: "right" },
+              5: { cellWidth: 22, halign: "right" },
+              6: { cellWidth: 22, halign: "right" },
+              7: { cellWidth: 24, halign: "right" },
+            }),
   });
 
   const finalY = doc.lastAutoTable.finalY + 6;
@@ -567,18 +618,20 @@ export const generateTaxInvoicePDF = ({
     doc.text(`Rs. ${cumulativeTaxableBase.toFixed(2)}`, rightValX, currentY, { align: "right" });
   }
 
-  if (isIntraState) {
-    currentY += 5;
-    doc.text(`Central Tax (CGST ${halfDominantRate}%):`, rightLabelX, currentY);
-    doc.text(`Rs. ${cumulativeCgst.toFixed(2)}`, rightValX, currentY, { align: "right" });
+  if (isGstEnabled) {
+    if (isIntraState) {
+      currentY += 5;
+      doc.text(`Central Tax (CGST ${halfDominantRate}%):`, rightLabelX, currentY);
+      doc.text(`Rs. ${cumulativeCgst.toFixed(2)}`, rightValX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.text(`State Tax (SGST ${halfDominantRate}%):`, rightLabelX, currentY);
-    doc.text(`Rs. ${cumulativeSgst.toFixed(2)}`, rightValX, currentY, { align: "right" });
-  } else {
-    currentY += 5;
-    doc.text(`Integrated Tax (IGST ${dominantGstRate}%):`, rightLabelX, currentY);
-    doc.text(`Rs. ${cumulativeIgst.toFixed(2)}`, rightValX, currentY, { align: "right" });
+      currentY += 5;
+      doc.text(`State Tax (SGST ${halfDominantRate}%):`, rightLabelX, currentY);
+      doc.text(`Rs. ${cumulativeSgst.toFixed(2)}`, rightValX, currentY, { align: "right" });
+    } else {
+      currentY += 5;
+      doc.text(`Integrated Tax (IGST ${dominantGstRate}%):`, rightLabelX, currentY);
+      doc.text(`Rs. ${cumulativeIgst.toFixed(2)}`, rightValX, currentY, { align: "right" });
+    }
   }
 
   if (shippingVal > 0) {

@@ -11,6 +11,13 @@ import {
   XCircle,
   DollarSign,
   Activity,
+  Calculator,
+  Building2,
+  Truck,
+  UserCheck,
+  MapPin,
+  Phone,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "../ui";
 
@@ -272,6 +279,99 @@ const RawMaterialDetail = ({ material, onClose }) => {
             Description
           </h3>
           <p className="text-gray-700 leading-relaxed">{material.description}</p>
+        </div>
+      )}
+
+      {/* Itemized Purchase Cost Breakdown */}
+      <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-xl border border-emerald-200 p-6 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Calculator className="w-5 h-5 text-emerald-700" />
+          Itemized Purchase Cost Breakdown
+        </h3>
+
+        <div className="bg-white rounded-xl p-4 border border-emerald-100 space-y-3 text-sm">
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 font-medium">Base Material Cost</span>
+            <span className="font-semibold text-gray-900">
+              {availableStock} {material.unit} × ₹{(material.baseRate || material.unitPrice || 0).toFixed(2)}/{material.unit} = <strong className="text-emerald-700">₹{(material.baseAmount || (availableStock * (material.baseRate || material.unitPrice || 0))).toFixed(2)}</strong>
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 font-medium flex items-center gap-1.5">
+              <Truck className="w-4 h-4 text-emerald-600" />
+              Transport / Freight Charges
+            </span>
+            <span className="font-semibold text-gray-900">+ ₹{(material.transportCharges || 0).toFixed(2)}</span>
+          </div>
+
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 font-medium flex items-center gap-1.5">
+              <UserCheck className="w-4 h-4 text-emerald-600" />
+              Labor / Handling Charges
+            </span>
+            <span className="font-semibold text-gray-900">+ ₹{(material.laborCharges || 0).toFixed(2)}</span>
+          </div>
+
+          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <span className="text-gray-600 font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              GST Tax Charges ({material.isGstApplicable ? `${material.gstRate || 18}%` : "Disabled / 0%"})
+            </span>
+            <span className="font-semibold text-emerald-700">
+              + ₹{(material.isGstApplicable ? (material.gstAmount || ((material.baseAmount || (availableStock * (material.baseRate || material.unitPrice || 0))) * ((material.gstRate || 18) / 100))) : 0).toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center pt-3 border-t-2 border-emerald-200 text-base">
+            <span className="font-bold text-gray-900">Total Landed Stock Price</span>
+            <span className="font-extrabold text-emerald-700 text-xl">
+              ₹{(material.totalPurchaseCost || (availableStock * unitPrice) || 0).toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center pt-2 text-xs text-gray-500">
+            <span>Effective Landed Unit Rate</span>
+            <span className="font-bold text-gray-900 bg-emerald-100 px-3 py-1.5 rounded-lg text-sm border border-emerald-300">
+              ₹{unitPrice.toFixed(2)} / {material.unit}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Supplier Audit Details */}
+      {(material.supplierName || material.supplierGstin || material.supplierAddress) && (
+        <div className="bg-amber-50/80 rounded-xl border border-amber-200 p-6 shadow-sm space-y-4">
+          <h3 className="text-lg font-bold text-amber-900 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-amber-700" />
+            Supplier Audit Records
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-white p-4 rounded-xl border border-amber-200 shadow-xs">
+            <div className="space-y-1">
+              <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block flex items-center gap-1">
+                🏢 Supplier Business Name
+              </span>
+              <span className="font-bold text-gray-900">{material.supplierName || "N/A"}</span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block flex items-center gap-1">
+                📄 Supplier GSTIN
+              </span>
+              <span className="font-bold text-gray-900">{material.supplierGstin || "N/A"}</span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block flex items-center gap-1">
+                📍 Supplier Address
+              </span>
+              <span className="font-semibold text-gray-800">{material.supplierAddress || "N/A"}</span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block flex items-center gap-1">
+                📞 Supplier Phone / Contact
+              </span>
+              <span className="font-semibold text-gray-800">{material.supplierPhone || "N/A"}</span>
+            </div>
+          </div>
         </div>
       )}
 

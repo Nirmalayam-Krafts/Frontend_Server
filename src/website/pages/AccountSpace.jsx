@@ -8,7 +8,7 @@ import {
 /* ── Mock transaction history ── */
 const initialTransactions = [
   { id: 'TXN001', type: 'credit', label: 'Added to Wallet', amount: 5000, date: '31 Mar 2026', status: 'success' },
-  { id: 'TXN002', type: 'debit', label: 'Order #NK-20420 – Ecocraft Bags', amount: 3240, date: '28 Mar 2026', status: 'success' },
+  { id: 'TXN002', type: 'debit', label: 'Order #NK-20420 – Ecokraft Bags', amount: 3240, date: '28 Mar 2026', status: 'success' },
   { id: 'TXN003', type: 'credit', label: 'Refund – Order #NK-20318', amount: 880, date: '22 Mar 2026', status: 'success' },
   { id: 'TXN004', type: 'debit', label: 'Order #NK-20310 – F&B Gourmet Bags', amount: 6800, date: '15 Mar 2026', status: 'success' },
   { id: 'TXN005', type: 'credit', label: 'Added to Wallet', amount: 10000, date: '10 Mar 2026', status: 'success' },

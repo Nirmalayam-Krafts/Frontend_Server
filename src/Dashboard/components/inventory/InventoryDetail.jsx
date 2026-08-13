@@ -16,21 +16,42 @@ import {
 import { Badge } from "../ui";
 import { getProductTaxInfo } from "../../utils";
 
-const InventoryDetail = ({ item, onClose }) => {
+const InventoryDetail = ({ item, products = [], onClose }) => {
   if (!item) return null;
 
   const isRoll = item.category === "KRAFT_ROLL" || String(item.productName || "").toLowerCase().includes("roll");
+
+  const linkedProd = item.productId && Array.isArray(products)
+    ? products.find(p => String(p._id || p.id) === String(item.productId))
+    : null;
+
+  const computeIdealSell = (prod) => {
+    if (!prod || !prod.estimationConfig) return null;
+    const ec = prod.estimationConfig;
+    const base = Number(prod.basePrice || 0);
+    const labor = Number(ec.laborCostPerBag || 0);
+    const overhead = Number(ec.overheadCostPerBag || 0);
+    const printing = Number(ec.printingCostPerBag || 0);
+    const margin = Number(ec.marginPercent || 10);
+    const totalCost = base + labor + overhead + printing;
+    return parseFloat((totalCost * (1 + margin / 100)).toFixed(2));
+  };
+
+  const idealSell = linkedProd ? computeIdealSell(linkedProd) : null;
+  const rawStoredSell = Number(item.sellingPricePerUnit || item.basePrice || 0);
+  const sellingPrice = idealSell !== null && idealSell > 0
+    ? idealSell
+    : (rawStoredSell > 0 ? rawStoredSell : Number(linkedProd?.basePrice || 0));
 
   const stockLevel = Number(item.stockLevel || 0);
   const reservedQuantity = Number(item.reservedQuantity || 0);
   const availableForSale = Math.max(0, stockLevel - reservedQuantity);
   const reorderPt = Number(item.reorderPt || 0);
-  const unitPrice = Number(item.unitPrice || 0);
-  const sellingPrice = Number(item.sellingPricePerUnit || 0);
-  const productionCost = Number(item.productionCostPerUnit || 0);
-  const totalStockValue = Number(item.totalStockValue || stockLevel * unitPrice);
+  const productionCost = Number(item.productionCostPerUnit || item.unitPrice || 0);
+  const unitPrice = productionCost > 0 ? productionCost : Number(item.unitPrice || 0);
+  const totalStockValue = Number(stockLevel * unitPrice);
   const totalProducedBags = Number(item.totalProducedBags || 0);
-  const totalProductionCost = Number(item.totalProductionCost || 0);
+  const totalProductionCost = Number(item.totalProductionCost || stockLevel * productionCost);
 
   const profitMargin = sellingPrice > 0 ? ((sellingPrice - productionCost) / sellingPrice) * 100 : 0;
 
@@ -296,8 +317,8 @@ const InventoryDetail = ({ item, onClose }) => {
             {sellingPrice > 0 && (
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-600">Profit Margin</span>
-                <span className="font-bold text-emerald-600">
-                  {profitMargin.toFixed(1)}%
+                <span className={`font-bold ${profitMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {profitMargin.toFixed(1)}% {profitMargin < 0 ? "(Loss)" : ""}
                 </span>
               </div>
             )}

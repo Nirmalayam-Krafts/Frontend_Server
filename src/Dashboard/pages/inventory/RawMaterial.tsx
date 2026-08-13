@@ -230,7 +230,7 @@ const RAW_MATERIAL_UNITS = [
 const INVENTORY_CATEGORY_OPTIONS = ["STANDARD", "PREMIUM", "FOOD_GRADE"] as const;
 
 const DIMENSION_UNITS = ["inch", "cm", "mm", "ft"];
-const DEFAULT_BAG_COLORS = ["Brown", "White"];
+const DEFAULT_BAG_COLORS = ["Brown", "Natural brown", "White", "Pink"];
 const DEFAULT_BAG_SIZES = ["Small", "Medium", "Large"];
 
 const getStockStatus = (availableStock: number | string, reorderPoint: number | string) => {
@@ -674,11 +674,24 @@ const RawMaterial = () => {
       type: values?.type || "Paper",
       unit: values?.unit || "kg",
       unitPrice: Number(values?.unitPrice || 0),
+      baseRate: values?.baseRate != null ? Number(values.baseRate) : undefined,
+      baseAmount: values?.baseAmount != null ? Number(values.baseAmount) : undefined,
+      transportCharges: values?.transportCharges != null ? Number(values.transportCharges) : undefined,
+      laborCharges: values?.laborCharges != null ? Number(values.laborCharges) : undefined,
+      isGstApplicable: values?.isGstApplicable ?? false,
+      gstRate: values?.gstRate != null ? Number(values.gstRate) : undefined,
+      gstAmount: values?.gstAmount != null ? Number(values.gstAmount) : undefined,
+      supplierName: values?.supplierName || undefined,
+      supplierGstin: values?.supplierGstin || undefined,
+      supplierAddress: values?.supplierAddress || undefined,
+      supplierPhone: values?.supplierPhone || undefined,
+      totalPurchaseCost: values?.totalPurchaseCost != null ? Number(values.totalPurchaseCost) : undefined,
       availableStock: Number(values?.availableStock || 0),
       reorderPoint: Number(values?.reorderPoint || 0),
       minStock: Number(values?.minStock || 0),
       description: String(values?.description || "").trim(),
       isActive: values?.isActive ?? true,
+      kgPerRoll: values?.kgPerRoll ? Number(values.kgPerRoll) : undefined,
       gsm: values?.gsm ? Number(values.gsm) : undefined,
       bf: values?.bf ? Number(values.bf) : undefined,
       rollWidth: values?.rollWidth ? Number(values.rollWidth) : undefined,

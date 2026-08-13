@@ -25,9 +25,36 @@ import {
 import PagePopup from '../components/PagePopup';
 
 const categoryData = {
+  ecokraft: {
+    id: 'ecokraft',
+    title: 'Ecokraft Collection',
+    image: '/images/newGen/BOTTOMV.jpeg',
+    minOrder: '100 UNITS',
+    color: '#4ade80',
+    description: 'Our signature high-strength kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
+    longDescription: 'Crafted from sustainably sourced FSC-certified fibers, these bags are designed to elevate your brand\'s presence while honoring the planet. Featuring premium twisted paper handles and reinforced bottoms.',
+    bullets: [
+      { label: 'FSC Certified', icon: CheckCircle2 },
+      { label: 'Biodegradable', icon: Leaf },
+      { label: 'Holds up to 12kg', icon: Zap },
+      { label: 'Soy-based Inks', icon: Droplets }
+    ],
+    specs: [
+      { label: 'Material', value: 'High-Tensile Kraft', icon: Layers },
+      { label: 'Weight Range', icon: Weight, value: '60 - 120 GSM' },
+      { label: 'Handle Types', icon: Settings, value: 'Twisted / Flat' },
+      // { label: 'Printing', value: 'Brown & White Colors', icon: Printer },
+      { label: 'Capacity', value: '3kg - 12kg', icon: Scale }
+    ],
+    gallery: [
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/collection_ecocraft_new.webp' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/newGen/BOTTOMvF.jpeg' },
+      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/newGen/bottomVSlider.png' }
+    ]
+  },
   ecocraft: {
-    id: 'ecocraft',
-    title: 'Ecocraft Collection',
+    id: 'ecokraft',
+    title: 'Ecokraft Collection',
     image: '/images/newGen/BOTTOMV.jpeg',
     minOrder: '100 UNITS',
     color: '#4ade80',

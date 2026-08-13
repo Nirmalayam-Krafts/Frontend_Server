@@ -107,7 +107,7 @@ export default function PromotionalPopup() {
         email,
         phone,
         business_name: 'Promotional Pop-up Lead',
-        product_category: 'Ecocraft Bags',
+        product_category: 'Ecokraft Bags',
         quantity: '100',
         requirement: 'Lead captured from the global promotional popup. Customer has requested a sample kit and discount code.',
       };

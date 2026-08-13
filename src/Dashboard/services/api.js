@@ -534,18 +534,27 @@ export const financeAPI = {
 };
 
 // Analytics APIs
+const parseFilterDate = (dateStr, isEnd = false) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  if (isEnd) d.setHours(23, 59, 59, 999);
+  else d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 export const analyticsAPI = {
   async getLeadConversionData(filters = {}) {
     try {
       const response = await apiClient.get("/leads", { params: { page: 1, limit: 1000 } });
       let leads = getArrayPayload(response, "leads");
       if (filters.from) {
-        const fromDate = new Date(filters.from);
-        leads = leads.filter(l => l?.createdAt && new Date(l.createdAt) >= fromDate);
+        const fromDate = parseFilterDate(filters.from, false);
+        if (fromDate) leads = leads.filter(l => l?.createdAt && new Date(l.createdAt) >= fromDate);
       }
       if (filters.to) {
-        const toDate = new Date(filters.to);
-        leads = leads.filter(l => l?.createdAt && new Date(l.createdAt) <= toDate);
+        const toDate = parseFilterDate(filters.to, true);
+        if (toDate) leads = leads.filter(l => l?.createdAt && new Date(l.createdAt) <= toDate);
       }
       return { success: true, data: buildLeadFunnel(leads) };
     } catch (error) {
@@ -611,14 +620,18 @@ export const analyticsAPI = {
       let filteredLeads = leads;
       let filteredOrders = orders;
       if (filters.from) {
-        const fromDate = new Date(filters.from);
-        filteredLeads = filteredLeads.filter(l => l?.createdAt && new Date(l.createdAt) >= fromDate);
-        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) >= fromDate);
+        const fromDate = parseFilterDate(filters.from, false);
+        if (fromDate) {
+          filteredLeads = filteredLeads.filter(l => l?.createdAt && new Date(l.createdAt) >= fromDate);
+          filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) >= fromDate);
+        }
       }
       if (filters.to) {
-        const toDate = new Date(filters.to);
-        filteredLeads = filteredLeads.filter(l => l?.createdAt && new Date(l.createdAt) <= toDate);
-        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) <= toDate);
+        const toDate = parseFilterDate(filters.to, true);
+        if (toDate) {
+          filteredLeads = filteredLeads.filter(l => l?.createdAt && new Date(l.createdAt) <= toDate);
+          filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) <= toDate);
+        }
       }
 
       const now = new Date();
@@ -664,12 +677,12 @@ export const analyticsAPI = {
       const orders = getArrayPayload(response, "orders");
       let filteredOrders = orders;
       if (filters.from) {
-        const fromDate = new Date(filters.from);
-        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) >= fromDate);
+        const fromDate = parseFilterDate(filters.from, false);
+        if (fromDate) filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) >= fromDate);
       }
       if (filters.to) {
-        const toDate = new Date(filters.to);
-        filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) <= toDate);
+        const toDate = parseFilterDate(filters.to, true);
+        if (toDate) filteredOrders = filteredOrders.filter(o => o?.createdAt && new Date(o.createdAt) <= toDate);
       }
       return { success: true, data: filteredOrders };
     } catch (error) {

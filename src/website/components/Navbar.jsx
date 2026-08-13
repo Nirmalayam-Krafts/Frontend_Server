@@ -8,7 +8,7 @@ const navLinks = [
     label: 'Products',
     to: '/products',
     children: [
-      { label: 'Ecocraft Bags', to: '/products/ecocraft' },
+      { label: 'Ecokraft Bags', to: '/products/ecokraft' },
       { label: 'F&B Gourmet Bags', to: '/products/fnb' },
       { label: 'Luxury Bags', to: '/products/luxury' },
       { label: 'Kraft Rolls', to: '/products/industrial' },

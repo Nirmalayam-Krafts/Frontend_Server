@@ -140,7 +140,7 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
       <Select
         label="Product Interest"
         options={[
-          { value: "Ecocraft Bags", label: "Ecocraft Bags" },
+          { value: "Ecokraft Bags", label: "Ecokraft Bags" },
           { value: "F&B Gourmet Bags", label: "F&B Gourmet Bags" },
           { value: "Luxury Bags", label: "Luxury Bags" },
           { value: "Kraft Paper Rolls", label: "Kraft Paper Rolls" },
@@ -185,17 +185,25 @@ export const LeadForm = ({ initialData, onSubmit, loading }) => {
       </div>
       <Select
         label="Status"
-        options={[
-          { value: "New", label: "New" },
-          { value: "Contacted", label: "Contacted" },
-          { value: "Interested", label: "Interested" },
-          { value: "Qualified", label: "Qualified" },
-          { value: "Converted", label: "Converted" },
-          { value: "Completed", label: "Completed" },
-          { value: "Delivered", label: "Delivered" },
-          { value: "Lost", label: "Lost" },
-        ]}
-        disabled={initialData && ["Converted", "Completed", "Delivered"].includes(cleanStatus)}
+        options={
+          ["Completed", "Delivered"].includes(cleanStatus)
+            ? [
+                { value: cleanStatus, label: `${cleanStatus} (Auto)` },
+                { value: "New", label: "New" },
+                { value: "Contacted", label: "Contacted" },
+                { value: "Interested", label: "Interested" },
+                { value: "Converted", label: "Converted" },
+                { value: "Lost", label: "Lost" },
+              ]
+            : [
+                { value: "New", label: "New" },
+                { value: "Contacted", label: "Contacted" },
+                { value: "Interested", label: "Interested" },
+                { value: "Converted", label: "Converted" },
+                { value: "Lost", label: "Lost" },
+              ]
+        }
+        disabled={["Completed", "Delivered"].includes(cleanStatus)}
         error={errors.status?.message}
         {...register("status")}
       />

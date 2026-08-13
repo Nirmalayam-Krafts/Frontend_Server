@@ -596,7 +596,15 @@ export const Receipts = () => {
     doc.text(`Business: ${order.businessName || "—"}`, 15, 59);
     doc.text(`Phone: ${order.phone || "—"}`, 15, 64);
     doc.text(`Email: ${order.email || "—"}`, 15, 69);
-    doc.text(`GSTIN: ${order.gstNumber || order.gstin || "Unregistered"}`, 15, 74);
+    const sysConfig = getSystemGstConfigFromStorage();
+    const snapshottedGstMode = order.billDetails?.gstEnabled ?? order.quotation?.gstEnabled ?? order.gstEnabled;
+    const isGstEnabled = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+      ? Boolean(snapshottedGstMode)
+      : sysConfig.gstEnabled;
+
+    if (isGstEnabled) {
+      doc.text(`GSTIN: ${order.gstNumber || order.gstin || "Unregistered"}`, 15, 74);
+    }
 
     // Return & Credit Note Details (Right)
     const origInvoiceNo = order.invoiceNumber || order.billDetails?.billNumber || order.invoiceNo || (order.reference ? `INV-${order.reference}` : "INV-013");
@@ -618,7 +626,7 @@ export const Receipts = () => {
     const returnTypeLabel = rawType === "partial" || isPartial ? "Partial Return" : "Complete Return";
 
     doc.setFont("helvetica", "bold");
-    doc.text("STATUTORY CREDIT NOTE DETAILS:", 110, 48);
+    doc.text(isGstEnabled ? "STATUTORY CREDIT NOTE DETAILS:" : "RETURN CREDIT NOTE DETAILS:", 110, 48);
     doc.setFont("helvetica", "normal");
     doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 54);
     doc.text(`Original Tax Invoice: ${origInvoiceNo}`, 110, 59);
@@ -640,7 +648,7 @@ export const Receipts = () => {
       const taxInfo = getProductTaxInfo(prod || it);
       const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819";
       const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
-      const gstRateVal = it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5);
+      const gstRateVal = isGstEnabled ? (it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5)) : 0;
       const halfRate = gstRateVal / 2;
 
       // Exact rate resolution
@@ -666,6 +674,16 @@ export const Receipts = () => {
       const unitStr = String(it.unit || "pcs").trim();
       const qtyStr = `${it.quantity || 0} ${unitStr}`;
 
+      if (!isGstEnabled) {
+        return [
+          `Item ${index + 1}: ${it.productName || "Product"}`,
+          hsnCode,
+          qtyStr,
+          `Rs. ${lineGrossBase.toFixed(2)}`,
+          `Rs. ${lineGrossBase.toFixed(2)}`
+        ];
+      }
+
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
         hsnCode,
@@ -677,27 +695,37 @@ export const Receipts = () => {
       ];
     });
 
-    const totalGstRefund = totalCgstRefund + totalSgstRefund;
+    const totalGstRefund = isGstEnabled ? (totalCgstRefund + totalSgstRefund) : 0;
     const baseRefund = Number(returnDetails.refundAmount || 0); // Pre-tax base refund net of discount
     const totalRefunded = Number((baseRefund + totalGstRefund).toFixed(2));
     const allocatedDiscount = Math.max(0, grossReturnedVal - baseRefund);
 
     autoTable(doc, {
       startY: 82,
-      head: [["Returned Item Details", "HSN", "Qty", "Taxable Value", "CGST", "SGST", "Total GST"]],
-      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00"]],
+      head: !isGstEnabled
+        ? [["Returned Item Details", "HSN", "Qty", "Taxable Value", "Refund Amt"]]
+        : [["Returned Item Details", "HSN", "Qty", "Taxable Value", "CGST", "SGST", "Total GST"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00"]],
       theme: "striped",
       styles: { fontSize: 8, cellPadding: 3, valign: "middle" },
       headStyles: { fillColor: redTheme, fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 24 },
-        3: { halign: "right", cellWidth: 28 },
-        4: { halign: "right", cellWidth: 28 },
-        5: { halign: "right", cellWidth: 28 },
-        6: { halign: "right", cellWidth: 26 }
-      }
+      columnStyles: !isGstEnabled
+        ? {
+            0: { cellWidth: "auto" },
+            1: { halign: "center", cellWidth: 20 },
+            2: { halign: "center", cellWidth: 24 },
+            3: { halign: "right", cellWidth: 32 },
+            4: { halign: "right", cellWidth: 32 }
+          }
+        : {
+            0: { cellWidth: "auto" },
+            1: { halign: "center", cellWidth: 20 },
+            2: { halign: "center", cellWidth: 24 },
+            3: { halign: "right", cellWidth: 28 },
+            4: { halign: "right", cellWidth: 28 },
+            5: { halign: "right", cellWidth: 28 },
+            6: { halign: "right", cellWidth: 26 }
+          }
     });
 
     const finalY = doc.lastAutoTable.finalY + 6;
@@ -725,21 +753,23 @@ export const Receipts = () => {
       doc.setTextColor(80, 80, 80);
     }
 
-    doc.text("Base Refund Amount (excl. GST):", labelX, currentY);
+    doc.text(sysConfig.gstEnabled ? "Base Refund Amount (excl. GST):" : "Refund Amount:", labelX, currentY);
     doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.text(`CGST Refund (2.5%):`, labelX, currentY);
-    doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    if (sysConfig.gstEnabled) {
+      currentY += 5;
+      doc.text(`CGST Refund (2.5%):`, labelX, currentY);
+      doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.text(`SGST Refund (2.5%):`, labelX, currentY);
-    doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+      doc.text(`SGST Refund (2.5%):`, labelX, currentY);
+      doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.setFont("helvetica", "bold");
-    doc.text(`Total GST Refund (5%):`, labelX, currentY);
-    doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text(`Total GST Refund (5%):`, labelX, currentY);
+      doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
 
     currentY += 7;
     doc.setFontSize(11);
@@ -775,7 +805,11 @@ export const Receipts = () => {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Kraft.`, 15, footY);
+    if (sysConfig.gstEnabled) {
+      doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts.`, 15, footY);
+    } else {
+      doc.text(`Issued against original Invoice ${origInvoiceNo}. Stock restored. Nirmalyam Krafts.`, 15, footY);
+    }
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
@@ -872,7 +906,19 @@ export const Receipts = () => {
     doc.line(15, 79, pageWidth - 15, 79);
 
     // Build Table Body matching Tax Invoice line calculations exact to the paise
-    const lines = rc.orderDetailsList || [];
+    const targetOrderId = String(rc.orderId?._id || rc.orderId || rc.order || "").trim();
+    const matchingOrder = (allOrdersList || []).find(o =>
+      String(o._id || o.id || "").trim() === targetOrderId ||
+      String(o.orderId || "").trim() === String(rc.orderId || "").trim() ||
+      String(o.reference || "").toLowerCase().trim() === String(rc.orderRef || "").toLowerCase().trim()
+    ) || {};
+
+    const lines = (rc.orderDetailsList && rc.orderDetailsList.length > 0)
+      ? rc.orderDetailsList
+      : (matchingOrder.orderDetailsList && matchingOrder.orderDetailsList.length > 0
+          ? matchingOrder.orderDetailsList
+          : [rc.orderDetails || matchingOrder.orderDetails].filter(Boolean));
+
     const orderIdKey = String(rc.orderId || "");
     let lineUnitPrices = {};
     try {
@@ -882,49 +928,71 @@ export const Receipts = () => {
       }
     } catch (_) {}
 
+    const sysConfig = getSystemGstConfigFromStorage();
+    const snapshottedGstMode = rc.billDetails?.gstEnabled ?? rc.gstEnabled ?? matchingOrder?.billDetails?.gstEnabled ?? matchingOrder?.quotation?.gstEnabled ?? matchingOrder?.gstEnabled;
+    const isGstEnabled = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+      ? Boolean(snapshottedGstMode)
+      : sysConfig.gstEnabled;
+
+    const orderSubtotal = Number(
+      matchingOrder.billDetails?.subtotal ||
+      matchingOrder.quotation?.subtotalAmount ||
+      matchingOrder.subtotalAmount ||
+      rc.subtotalAmount ||
+      rc.totalOrderAmount ||
+      matchingOrder.totalAmount ||
+      0
+    );
+
     const tableBody = lines.map((line, idx) => {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId || "").trim());
       const taxInfo = getProductTaxInfo(prod || line);
       const lineHsn = line.hsnCode || taxInfo.hsnCode || "—";
-      const specDetails = getPDFSpecDetails(line, rc.productCategory, productItems);
+      const specDetails = getPDFSpecDetails(line, rc.productCategory || matchingOrder.productCategory, productItems);
 
-      const qty = Number(line.quantity || line.qty || 1);
-      const itemKey = line.productId || idx;
+      const lineQty = Number(line.quantity || line.qty || 1);
+      const isRoll = prod?.category?.toLowerCase().includes("roll");
 
-      let unitRate = 0;
-      if (lineUnitPrices[itemKey] && Number(lineUnitPrices[itemKey]) > 0) {
-        unitRate = Number(lineUnitPrices[itemKey]);
-      } else if (lineUnitPrices[idx] && Number(lineUnitPrices[idx]) > 0) {
-        unitRate = Number(lineUnitPrices[idx]);
-      } else if (line.unitPrice && Number(line.unitPrice) > 0) {
-        unitRate = Number(line.unitPrice);
-      } else if (line.pricePerUnit && Number(line.pricePerUnit) > 0) {
-        unitRate = Number(line.pricePerUnit);
-      } else if (line.rate && Number(line.rate) > 0) {
-        unitRate = Number(line.rate);
-      } else if (prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || prod?.basePrice) {
-        unitRate = Number(prod.sellingPricePerUnit || prod.sellingPrice || prod.unitPrice || prod.basePrice);
+      let displayQty = `${lineQty} ${line.unit || "pcs"}`;
+      let calcQty = lineQty;
+
+      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
+        const pcsQty = line.convertedQuantity ? Number(line.convertedQuantity) : Math.ceil(lineQty / Number(prod.weight));
+        displayQty = `${pcsQty} pcs`;
+        calcQty = pcsQty;
       }
 
-      if (unitRate === 0 || isNaN(unitRate)) unitRate = 100;
+      // Use saved per-line unit price if available, otherwise derive from subtotal share
+      const itemKey = line.productId || idx;
+      const savedUnitPrice = lineUnitPrices[itemKey] || lineUnitPrices[idx];
+      let lineUnitPrice;
+      let lineSubtotal;
 
-      const grossTaxable = Number((qty * unitRate).toFixed(2));
-      const lineGstRate = line.gstRate != null ? Number(line.gstRate) : taxInfo.gstRate || 5;
-      const lineTax = Number((grossTaxable * (lineGstRate / 100)).toFixed(2));
-      const lineInvoiceTotal = Number((grossTaxable + lineTax).toFixed(2));
+      if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
+        lineUnitPrice = Number(savedUnitPrice);
+        lineSubtotal = lineUnitPrice * calcQty;
+      } else {
+        lineSubtotal = getLineSubtotalShare(line, orderSubtotal, lines, productItems, matchingOrder.quotation?.pricing);
+        lineUnitPrice = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
+      }
+
+      if (lineUnitPrice === 0 || isNaN(lineUnitPrice)) {
+        lineSubtotal = orderSubtotal > 0 ? orderSubtotal : 100;
+        lineUnitPrice = calcQty > 0 ? lineSubtotal / calcQty : lineSubtotal;
+      }
 
       return [
         specDetails,
         lineHsn,
-        `${qty} ${line.unit || "pcs"}`,
-        `Rs. ${unitRate.toFixed(2)}`,
-        `Rs. ${lineInvoiceTotal.toFixed(2)}`
+        displayQty,
+        `Rs. ${lineUnitPrice.toFixed(2)}`,
+        `Rs. ${lineSubtotal.toFixed(2)}`
       ];
     });
 
     autoTable(doc, {
       startY: 84,
-      head: [["Order Item Details & Specifications", "HSN Code", "Quantity", "Rate (Rs)", "Line Total (Rs)"]],
+      head: [["Order Item Details & Specifications", "HSN Code", "Quantity", "Rate (Rs)", "Total Amount (Rs)"]],
       body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00"]],
       theme: "striped",
       styles: { fontSize: 9.5, cellPadding: 4, valign: "middle" },

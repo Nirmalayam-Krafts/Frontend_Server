@@ -2277,6 +2277,279 @@ Note: ${meta.billNotes || "—"}`;
     };
   };
 
+  const getOrderLines = () => {
+    if (!selectedOrder) return [];
+    return selectedOrder.orderDetailsList?.length > 0 
+      ? selectedOrder.orderDetailsList 
+      : [selectedOrder.orderDetails].filter(Boolean);
+  };
+
+  const getRemainingQty = (line) => {
+    if (!selectedOrder || !line) return 0;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const maxQty = Number(line.quantity || 0);
+    
+    let alreadyReturned = 0;
+    if (Array.isArray(selectedOrder.returns)) {
+      selectedOrder.returns.forEach(ret => {
+        if (Array.isArray(ret.items)) {
+          ret.items.forEach(it => {
+            const pIdStr = String(it.productId?._id || it.productId || "").trim();
+            if (pIdStr === pId) {
+              alreadyReturned += Number(it.quantity || 0);
+            }
+          });
+        }
+      });
+    }
+    return Math.max(0, maxQty - alreadyReturned);
+  };
+
+  const getPcsPerUnit = (line) => {
+    if (!line) return 1;
+    const totalOrderedQty = Number(line.quantity || 1);
+    const convertedQtyInPcs = Number(line.convertedQuantity || line.quantityInPcs || totalOrderedQty);
+    return convertedQtyInPcs / Math.max(0.0001, totalOrderedQty);
+  };
+
+  const getReturnQtyInPrimaryUnit = (line) => {
+    if (!line) return 0;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const primaryUnit = line.unit || "kg";
+    const pcsPerUnit = getPcsPerUnit(line);
+
+    if (returnType === "complete") {
+      return getRemainingQty(line);
+    }
+    if (!selectedItems[pId]) return 0;
+
+    const rawInput = Number(returnQuantities[pId] || 0);
+    const selectedUnit = returnUnits[pId] || primaryUnit;
+
+    if (selectedUnit === "pcs") {
+      return rawInput / pcsPerUnit;
+    }
+    return rawInput;
+  };
+
+  const getItemUnitPrice = (line, idx = 0) => {
+    if (!line) return 60;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const orderIdKey = String(selectedOrder?._id || selectedOrder?.id || "");
+    
+    // 1. Check stored line unit prices
+    try {
+      if (typeof window !== "undefined" && orderIdKey) {
+        const stored = localStorage.getItem(`nirmalyam_lineUnitPrices_${orderIdKey}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed[pId] && Number(parsed[pId]) > 0) return Number(parsed[pId]);
+          if (parsed[idx] && Number(parsed[idx]) > 0) return Number(parsed[idx]);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Check direct line item properties
+    if (line.unitPrice != null && Number(line.unitPrice) > 0) return Number(line.unitPrice);
+    if (line.pricePerUnit != null && Number(line.pricePerUnit) > 0) return Number(line.pricePerUnit);
+    if (line.rate != null && Number(line.rate) > 0) return Number(line.rate);
+    if (line.sellingPrice != null && Number(line.sellingPrice) > 0) return Number(line.sellingPrice);
+    if (line.price != null && Number(line.price) > 0) return Number(line.price);
+    if (line.basePrice != null && Number(line.basePrice) > 0) return Number(line.basePrice);
+
+    // 3. Check line total / quantity ratio
+    const qty = Number(line.quantity || line.convertedQuantity || 1);
+    const lineTotal = Number(line.lineTotal || line.totalAmount || line.amount || 0);
+    if (lineTotal > 0 && qty > 0) {
+      return Number((lineTotal / qty).toFixed(2));
+    }
+
+    // 4. Check quotation or bill items
+    const qItems = selectedOrder?.quotation?.items || selectedOrder?.billDetails?.items || [];
+    const qMatch = qItems.find(q => String(q.productId?._id || q.productId || "").trim() === pId) || qItems[idx];
+    if (qMatch) {
+      if (qMatch.unitPrice != null && Number(qMatch.unitPrice) > 0) return Number(qMatch.unitPrice);
+      if (qMatch.pricePerUnit != null && Number(qMatch.pricePerUnit) > 0) return Number(qMatch.pricePerUnit);
+      if (qMatch.rate != null && Number(qMatch.rate) > 0) return Number(qMatch.rate);
+      if (qMatch.sellingPrice != null && Number(qMatch.sellingPrice) > 0) return Number(qMatch.sellingPrice);
+      if (qMatch.price != null && Number(qMatch.price) > 0) return Number(qMatch.price);
+    }
+
+    // 5. Check global product catalog matching
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+    if (prod) {
+      if (prod.sellingPricePerUnit != null && Number(prod.sellingPricePerUnit) > 0) return Number(prod.sellingPricePerUnit);
+      if (prod.sellingPrice != null && Number(prod.sellingPrice) > 0) return Number(prod.sellingPrice);
+      if (prod.unitPrice != null && Number(prod.unitPrice) > 0) return Number(prod.unitPrice);
+      if (prod.basePrice != null && Number(prod.basePrice) > 0) return Number(prod.basePrice);
+    }
+
+    // 6. Category-aware fallback
+    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+    return isRoll ? 60 : 10;
+  };
+
+  const getLineGrossReturnAmount = (line, idx = 0) => {
+    if (!line || !selectedOrder) return 0;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    if (returnType !== "complete" && !selectedItems[pId]) return 0;
+
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+    
+    // Total Ordered Line Qty
+    const totalOrderedQty = Number(line.quantity || 0);
+    if (totalOrderedQty <= 0) return 0;
+
+    // Piece Count & Weights
+    let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
+    if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
+      let weight = Number(prod?.weight || 0);
+      if (weight <= 0 && line?.length && line?.width && line?.gsm) {
+        const L = Number(line.length);
+        const W = Number(line.width);
+        const H = Number(line.height || 0);
+        const gsm = Number(line.gsm);
+        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
+        weight = (bagAreaSqM * gsm) / 1000;
+      }
+      if (weight > 0) {
+        totalLinePcs = Math.ceil(totalOrderedQty / weight);
+      }
+    }
+
+    // Determine unit price per piece (for non-roll bags) or per primary unit
+    const unitPrice = getItemUnitPrice(line, idx);
+
+    // Total gross subtotal value of this order line
+    let lineOrderSubtotal = 0;
+    if (line.lineTotal && Number(line.lineTotal) > 0) {
+      lineOrderSubtotal = Number(line.lineTotal);
+    } else if (line.amount && Number(line.amount) > 0) {
+      lineOrderSubtotal = Number(line.amount);
+    } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
+      lineOrderSubtotal = totalLinePcs * unitPrice;
+    } else {
+      lineOrderSubtotal = totalOrderedQty * unitPrice;
+    }
+
+    // Calculate returned fraction of this line
+    let returnedFraction = 0;
+    if (returnType === "complete") {
+      const remainingQty = getRemainingQty(line);
+      returnedFraction = remainingQty / totalOrderedQty;
+    } else {
+      const rawInput = Number(returnQuantities[pId] || 0);
+      const selectedUnit = returnUnits[pId] || line.unit || "kg";
+
+      if (selectedUnit === "pcs") {
+        if (totalLinePcs > 0) {
+          returnedFraction = rawInput / totalLinePcs;
+        } else {
+          returnedFraction = rawInput / totalOrderedQty;
+        }
+      } else {
+        returnedFraction = rawInput / totalOrderedQty;
+      }
+    }
+
+    returnedFraction = Math.min(1, Math.max(0, returnedFraction));
+    return Number((returnedFraction * lineOrderSubtotal).toFixed(2));
+  };
+
+  const getOrderDiscountAmount = () => {
+    if (!selectedOrder) return 0;
+    const q = selectedOrder.quotation || {};
+    const b = selectedOrder.billDetails || {};
+    return Number(selectedOrder.discountAmount || q.discountAmount || b.discountAmount || selectedOrder.discount || q.discount || b.discount || 0);
+  };
+
+  const getOrderGrossSubtotalAmount = () => {
+    if (!selectedOrder) return 0;
+    const lines = getOrderLines();
+    let totalGross = 0;
+    lines.forEach((line, idx) => {
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId?._id || line.productId || "").trim());
+      const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+      let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
+      if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) totalLinePcs = Math.ceil(Number(line.quantity || 0) / weight);
+      }
+      const unitPrice = getItemUnitPrice(line, idx);
+      if (line.lineTotal && Number(line.lineTotal) > 0) {
+        totalGross += Number(line.lineTotal);
+      } else if (line.amount && Number(line.amount) > 0) {
+        totalGross += Number(line.amount);
+      } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
+        totalGross += totalLinePcs * unitPrice;
+      } else {
+        totalGross += Number(line.quantity || 0) * unitPrice;
+      }
+    });
+    if (totalGross > 0) return totalGross;
+    const q = selectedOrder.quotation || {};
+    return Number(selectedOrder.subtotalAmount || q.subtotalAmount || selectedOrder.totalAmount || q.totalQuoted || 0);
+  };
+
+  const getGrossReturnSubtotal = () => {
+    if (!selectedOrder) return 0;
+    const lines = getOrderLines();
+    let grossTotal = 0;
+    lines.forEach((line, idx) => {
+      grossTotal += getLineGrossReturnAmount(line, idx);
+    });
+    return Number(grossTotal.toFixed(2));
+  };
+
+  const getReturnAllocatedDiscount = () => {
+    const grossReturn = getGrossReturnSubtotal();
+    const orderGrossSubtotal = getOrderGrossSubtotalAmount();
+    const totalDiscount = getOrderDiscountAmount();
+    if (grossReturn <= 0 || orderGrossSubtotal <= 0 || totalDiscount <= 0) return 0;
+    const returnFraction = grossReturn / orderGrossSubtotal;
+    return Number((returnFraction * totalDiscount).toFixed(2));
+  };
+
+  const calculateSuggestedProportionalRefund = () => {
+    const grossReturn = getGrossReturnSubtotal();
+    const returnDiscount = getReturnAllocatedDiscount();
+    const netBase = Math.max(0, grossReturn - returnDiscount);
+    return Number(netBase.toFixed(2));
+  };
+
+  const getRefundSubtotal = () => {
+    if (refundType === "full") return calculateSuggestedProportionalRefund();
+    return Number(customRefundAmount || 0);
+  };
+
+  const isGstChargedOnOrder = (order) => {
+    if (!order) return false;
+    const sysConfig = getSystemGstConfigFromStorage();
+    if (!sysConfig.gstEnabled) return false;
+
+    // Check explicit tax rates on order / bill / quotation
+    const billTax = order.billDetails?.taxRate != null ? Number(order.billDetails.taxRate) : null;
+    const quoteTax = order.quotation?.taxRate != null ? Number(order.quotation.taxRate) : null;
+    const orderTax = order.taxRate != null ? Number(order.taxRate) : null;
+
+    if (billTax === 0) return false;
+    if (billTax == null && quoteTax === 0) return false;
+    if (billTax == null && quoteTax == null && orderTax === 0) return false;
+
+    // Also check if approved total equals taxable base (meaning no GST was added when order was placed/paid)
+    const approvedTotal = Number(order.totalAmount || order.quotation?.totalQuoted || 0);
+    const subtotal = Number(order.subtotalAmount || order.quotation?.subtotalAmount || 0);
+    const preTaxDisc = Number(order.discountAmount || order.quotation?.discountAmount || 0);
+    const taxableBase = Math.max(0, subtotal - preTaxDisc);
+
+    if (approvedTotal > 0 && taxableBase > 0 && Math.abs(approvedTotal - taxableBase) < 1.0) {
+      return false;
+    }
+
+    return true;
+  };
+
   const generateReturnReceiptPDF = (order, returnDetails, mode = "download") => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2315,10 +2588,13 @@ Note: ${meta.billNotes || "—"}`;
     doc.text("Mob: +91 90490 01299", 42, 28);
 
     // Title & Metadata (Right)
+    const sysConfig = getSystemGstConfigFromStorage();
+    const isGstEnabled = isGstChargedOnOrder(order);
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
     doc.setTextColor(255, 255, 255);
-    doc.text("GST CREDIT NOTE / RETURN RECEIPT", pageWidth - 12, 14, { align: "right" });
+    doc.text(isGstEnabled ? "GST CREDIT NOTE / RETURN RECEIPT" : "RETURN RECEIPT", pageWidth - 12, 14, { align: "right" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
@@ -2336,11 +2612,16 @@ Note: ${meta.billNotes || "—"}`;
     doc.text(`Business: ${order.businessName || "—"}`, 15, 59);
     doc.text(`Phone: ${order.phone || "—"}`, 15, 64);
     doc.text(`Email: ${order.email || "—"}`, 15, 69);
-    doc.text(`GSTIN: ${order.gstNumber || order.gstin || "Unregistered"}`, 15, 74);
+    
+    // Only show GSTIN line if order was billed with GST and has an actual GSTIN
+    const hasGstNumber = Boolean(order.gstNumber || order.gstin);
+    if (isGstEnabled && hasGstNumber) {
+      doc.text(`GSTIN: ${order.gstNumber || order.gstin}`, 15, 74);
+    }
 
     // Return & Credit Note Details (Right)
-    const origInvoiceNo = order.invoiceNumber || order.billDetails?.billNumber || order.invoiceNo || (order.reference ? `INV-${order.reference}` : "INV-013");
-    const origInvoiceDate = order.invoiceDate || order.billDetails?.billDate || (order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN") : "09/08/2026");
+    const origInvoiceNo = order.invoiceNumber || order.billDetails?.billNumber || order.invoiceNo || (order.reference ? `INV-${order.reference}` : (order.quotation?.quotationNumber ? `INV-${order.quotation.quotationNumber}` : "—"));
+    const origInvoiceDate = order.invoiceDate || order.billDetails?.billDate || (order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"));
 
     // Dynamic Return Type determination
     const items = returnDetails.items || [];
@@ -2358,7 +2639,7 @@ Note: ${meta.billNotes || "—"}`;
     const returnTypeLabel = rawType === "partial" || isPartial ? "Partial Return" : "Complete Return";
 
     doc.setFont("helvetica", "bold");
-    doc.text("STATUTORY CREDIT NOTE DETAILS:", 110, 48);
+    doc.text(isGstEnabled ? "STATUTORY CREDIT NOTE DETAILS:" : "RETURN CREDIT NOTE DETAILS:", 110, 48);
     doc.setFont("helvetica", "normal");
     doc.text(`Original Order Ref: ${order.reference || (order.id || order._id || "").toString().slice(-6).toUpperCase()}`, 110, 54);
     doc.text(`Original Tax Invoice: ${origInvoiceNo}`, 110, 59);
@@ -2380,22 +2661,27 @@ Note: ${meta.billNotes || "—"}`;
       const taxInfo = getProductTaxInfo(prod || it);
       const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819";
       const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
-      const gstRateVal = it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5);
+      const gstRateVal = isGstEnabled ? (it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5)) : 0;
       const halfRate = gstRateVal / 2;
 
       // Exact rate resolution for PDF
       const pId = String(it.productId?._id || it.productId || "").trim();
-      const qMatch = order?.quotation?.items?.find(q => String(q.productId?._id || q.productId || "").trim() === pId);
-      let unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || it.sellingPrice || qMatch?.unitPrice || qMatch?.pricePerUnit || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || 0);
-      if (unitRate <= 0) {
-        const isRoll = prod?.category?.toLowerCase().includes("roll") || String(it.productName || "").toLowerCase().includes("roll");
-        unitRate = isRoll ? 60 : 10;
+      const matchLine = orderLines.find(ol => String(ol.productId?._id || ol.productId || "").trim() === pId) || orderLines[index] || it;
+      
+      let lineGrossBase = getLineGrossReturnAmount(matchLine, index);
+      if (lineGrossBase <= 0) {
+        const qMatch = order?.quotation?.items?.find(q => String(q.productId?._id || q.productId || "").trim() === pId);
+        let unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || it.sellingPrice || qMatch?.unitPrice || qMatch?.pricePerUnit || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || 0);
+        if (unitRate <= 0) {
+          const isRoll = prod?.category?.toLowerCase().includes("roll") || String(it.productName || "").toLowerCase().includes("roll");
+          unitRate = isRoll ? 60 : 10;
+        }
+        lineGrossBase = Number(it.quantity || 0) * unitRate;
       }
-      const lineGrossBase = Number(it.quantity || 0) * unitRate;
       grossReturnedVal += lineGrossBase;
 
-      const lineCgst = lineGrossBase * (halfRate / 100);
-      const lineSgst = lineGrossBase * (halfRate / 100);
+      const lineCgst = isGstEnabled ? lineGrossBase * (halfRate / 100) : 0;
+      const lineSgst = isGstEnabled ? lineGrossBase * (halfRate / 100) : 0;
       const lineTotalGst = lineCgst + lineSgst;
 
       totalCgstRefund += lineCgst;
@@ -2404,6 +2690,16 @@ Note: ${meta.billNotes || "—"}`;
       // Clean quantity display without unwanted (pcs) on kg items
       const unitStr = String(it.unit || "pcs").trim();
       const qtyStr = `${it.quantity || 0} ${unitStr}`;
+
+      if (!isGstEnabled) {
+        return [
+          `Item ${index + 1}: ${it.productName || "Product"}`,
+          hsnCode,
+          qtyStr,
+          `Rs. ${lineGrossBase.toFixed(2)}`,
+          `Rs. ${lineGrossBase.toFixed(2)}`
+        ];
+      }
 
       return [
         `Item ${index + 1}: ${it.productName || "Product"}`,
@@ -2416,27 +2712,39 @@ Note: ${meta.billNotes || "—"}`;
       ];
     });
 
-    const totalGstRefund = totalCgstRefund + totalSgstRefund;
+    const totalGstRefund = isGstEnabled ? (totalCgstRefund + totalSgstRefund) : 0;
     const baseRefund = Number(returnDetails.refundAmount || 0); // Pre-tax base refund net of discount
     const totalRefunded = Number((baseRefund + totalGstRefund).toFixed(2));
-    const allocatedDiscount = Math.max(0, grossReturnedVal - baseRefund);
+    const hasOrderDiscount = getOrderDiscountAmount() > 0;
+    const allocatedDiscount = hasOrderDiscount ? Math.max(0, grossReturnedVal - baseRefund) : 0;
 
     autoTable(doc, {
       startY: 82,
-      head: [["Returned Item Details", "HSN", "Qty", "Taxable Value", "CGST", "SGST", "Total GST"]],
-      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00", "Rs. 0.00"]],
+      margin: { left: 10, right: 10 },
+      head: !isGstEnabled
+        ? [["Returned Item Details", "HSN", "Qty", "Item Value", "Refund Amount"]]
+        : [["Returned Item Details", "HSN", "Qty", "Taxable Value", "CGST", "SGST", "Total GST"]],
+      body: tableBody.length > 0 ? tableBody : [["No items listed", "—", "0", "Rs. 0.00", "Rs. 0.00"]],
       theme: "striped",
-      styles: { fontSize: 8, cellPadding: 3, valign: "middle" },
+      styles: { fontSize: 7.5, cellPadding: { top: 2.5, bottom: 2.5, left: 1.5, right: 1.5 }, valign: "middle" },
       headStyles: { fillColor: redTheme, fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 24 },
-        3: { halign: "right", cellWidth: 28 },
-        4: { halign: "right", cellWidth: 28 },
-        5: { halign: "right", cellWidth: 28 },
-        6: { halign: "right", cellWidth: 26 }
-      }
+      columnStyles: !isGstEnabled
+        ? {
+            0: { cellWidth: 80 },
+            1: { halign: "center", cellWidth: 20 },
+            2: { halign: "center", cellWidth: 22 },
+            3: { halign: "right", cellWidth: 34 },
+            4: { halign: "right", cellWidth: 34 }
+          }
+        : {
+            0: { cellWidth: 50 },
+            1: { halign: "center", cellWidth: 18 },
+            2: { halign: "center", cellWidth: 20 },
+            3: { halign: "right", cellWidth: 26 },
+            4: { halign: "right", cellWidth: 25 },
+            5: { halign: "right", cellWidth: 25 },
+            6: { halign: "right", cellWidth: 26 }
+          }
     });
 
     const finalY = doc.lastAutoTable.finalY + 6;
@@ -2464,21 +2772,23 @@ Note: ${meta.billNotes || "—"}`;
       doc.setTextColor(80, 80, 80);
     }
 
-    doc.text("Base Refund Amount (excl. GST):", labelX, currentY);
+    doc.text(isGstEnabled ? "Base Refund Amount (excl. GST):" : "Refund Amount:", labelX, currentY);
     doc.text(`Rs. ${baseRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.text(`CGST Refund (2.5%):`, labelX, currentY);
-    doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    if (isGstEnabled) {
+      currentY += 5;
+      doc.text(`CGST Refund (${(totalGstRefund / (baseRefund || 1) * 50).toFixed(1)}%):`, labelX, currentY);
+      doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.text(`SGST Refund (2.5%):`, labelX, currentY);
-    doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+      doc.text(`SGST Refund (${(totalGstRefund / (baseRefund || 1) * 50).toFixed(1)}%):`, labelX, currentY);
+      doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
-    currentY += 5;
-    doc.setFont("helvetica", "bold");
-    doc.text(`Total GST Refund (5%):`, labelX, currentY);
-    doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      currentY += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text(`Total GST Refund:`, labelX, currentY);
+      doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+    }
 
     currentY += 7;
     doc.setFontSize(11);
@@ -2514,7 +2824,11 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts.`, 15, footY);
+    if (sysConfig.gstEnabled) {
+      doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts.`, 15, footY);
+    } else {
+      doc.text(`Issued against original Invoice ${origInvoiceNo}. Stock restored. Nirmalyam Krafts.`, 15, footY);
+    }
 
     if (mode === "view") {
       window.open(doc.output("bloburl"), "_blank");
@@ -3429,8 +3743,16 @@ ${productSummary}
               const weight = Number(pObj?.weight || 0);
               if (weight > 0) qty = Math.ceil(qty / weight);
             }
-            let suggestedUnitPrice = 0;
-            if (pr) {
+            let suggestedUnitPrice = Number(
+              pObj?.sellingPricePerUnit ||
+              pObj?.sellingPrice ||
+              pObj?.basePrice ||
+              pr?.stockItem?.sellingPricePerUnit ||
+              pr?.stockItem?.basePrice ||
+              0
+            );
+
+            if (suggestedUnitPrice <= 0 && pr) {
               const itemStockQty = Number(pr.canFulfillFromStock || 0);
               const itemRequiredProd = Number(pr.requiredFromProduction || 0);
               const itemNormalizedQty = itemStockQty + itemRequiredProd;
@@ -3440,8 +3762,6 @@ ${productSummary}
               const stockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 0;
               const lineSuggested = (itemStockQty * stockUnitPrice) + itemProdCost;
               suggestedUnitPrice = qty > 0 ? lineSuggested / qty : 0;
-            } else if (pObj) {
-              suggestedUnitPrice = pObj.basePrice || pObj.unitPrice || pObj.sellingPrice || 0;
             }
             if (suggestedUnitPrice > 0) {
               initialLineUnitPrices[line.productId] = String(Number(suggestedUnitPrice.toFixed(2)));
@@ -3545,8 +3865,12 @@ ${productSummary}
     return specParts.join("\n");
   };
 
-  const generateQuotationPDF = (order, pricing, meta) => {
+  const generateQuotationPDF = (order, pricing, meta = {}) => {
     const sysConfig = getSystemGstConfigFromStorage();
+    const snapshottedGstMode = order?.billDetails?.gstEnabled ?? order?.quotation?.gstEnabled ?? order?.gstEnabled;
+    const isGstEnabled = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+      ? Boolean(snapshottedGstMode)
+      : sysConfig.gstEnabled;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -3675,7 +3999,7 @@ ${productSummary}
       const rawLineGst = (line.gstRate != null && line.gstRate > 0 && line.gstRate !== 18)
         ? Number(line.gstRate)
         : (productGst ?? (taxRate > 0 ? taxRate : 5));
-      const lineGstRate = sysConfig.gstEnabled ? Number(rawLineGst) : 0;
+      const lineGstRate = isGstEnabled ? Number(rawLineGst) : 0;
 
       // Accumulate GST by rate
       const rateKey = String(lineGstRate);
@@ -3862,6 +4186,7 @@ ${productSummary}
         localStorage.setItem(`nirmalyam_lineUnitPrices_${orderId}`, JSON.stringify(quotationLineUnitPrices));
       } catch (_) {}
 
+      const sysConfig = getSystemGstConfigFromStorage();
       await axiosInstance.patch(`/orders/${quotationOrder.id}/quotation`, {
         status,
         totalQuoted,
@@ -3872,6 +4197,7 @@ ${productSummary}
         otherCharges: Number(quotationOtherInput || 0),
         subtotalAmount: Number(quotationSubtotalInput || 0),
         lineUnitPrices: quotationLineUnitPrices,
+        gstEnabled: sysConfig.gstEnabled,
       });
       toast.success("Quotation updated", { id: loadingToast });
       setShowQuotationModal(false);
@@ -3896,6 +4222,7 @@ ${productSummary}
 
     const loadingToast = toast.loading("Recreating quotation...");
     try {
+      const sysConfig = getSystemGstConfigFromStorage();
       await axiosInstance.patch(`/orders/${quotationOrder.id}/quotation`, {
         status: "draft",
         note: `Recreated quotation. Reason: ${reason.trim()}`,
@@ -3906,6 +4233,7 @@ ${productSummary}
         shippingCharges: Number(quotationShippingInput || 0),
         otherCharges: Number(quotationOtherInput || 0),
         subtotalAmount: Number(quotationSubtotalInput || 0),
+        gstEnabled: sysConfig.gstEnabled,
       });
 
       toast.success("Quotation status reset to draft. Fields unlocked.", { id: loadingToast });
@@ -4268,6 +4596,7 @@ Valid Until: ${quotationValidUntil || "—"}
     try {
       // Build ONE order with all products in orderDetailsList
       // orderDetails = primary (first) product; orderDetailsList = all products
+      const sysConfig = getSystemGstConfigFromStorage();
       const primaryProduct = productsToSubmit[0];
       const payload = {
         customerName: manualOrderForm.customerName,
@@ -4280,6 +4609,7 @@ Valid Until: ${quotationValidUntil || "—"}
         address: manualOrderForm.address ? manualOrderForm.address.trim() : "",
         productCategory: productsToSubmit.map(p => p.productCategory).join(", "),
         source: manualOrderForm.source,
+        gstEnabled: sysConfig.gstEnabled,
         orderDetails: {
           productId: primaryProduct.productId,
           bagSize: primaryProduct.bagSize,
@@ -5715,8 +6045,8 @@ Valid Until: ${quotationValidUntil || "—"}
                                 dimensionUnit: prod?.dimensions?.unit || "inch",
                                 gsm: prod?.gsm || "",
                                 bf: prod?.bf || prev.bf || "",
-                                color: prod?.color || prev.color || "",
-                                bagSize: prod?.bagSize || prev.bagSize || "",
+                                color: prod?.bagColor || prod?.color || "",
+                                bagSize: prod?.bagSize || "",
                                 unit: isRollCategory ? "kg" : "pcs",
                                 calculationMode: "auto",
                                 convertedQuantity: "",
@@ -5882,35 +6212,107 @@ Valid Until: ${quotationValidUntil || "—"}
                               />
                             </div>
 
-                            <div>
-                              <label className="mb-1 block text-xs font-bold text-gray-700">
-                                Bag Size <span className="text-red-500">*</span>
-                              </label>
-                              <select
-                                value={manualOrderForm.bagSize}
-                                onChange={(e) => handleFormChange("bagSize", e.target.value)}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                              >
-                                <option value="">Select Size</option>
-                                <option value="Small">Small</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Large">Large</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-bold text-gray-700">
-                                Color
-                              </label>
-                              <select
-                                value={manualOrderForm.color}
-                                onChange={(e) => handleFormChange("color", e.target.value)}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                              >
-                                <option value="">Select color</option>
-                                <option value="Brown">Brown</option>
-                                <option value="White">White</option>
-                              </select>
-                            </div>
+                            {(() => {
+                              const currentSize = manualOrderForm.bagSize || "";
+                              const presetSizes = ["Small", "Medium", "Large", "8x10", "10x12", "12x16"];
+                              if (selProd?.bagSize && !presetSizes.includes(selProd.bagSize)) {
+                                presetSizes.push(selProd.bagSize);
+                              }
+                              const isCustom = currentSize !== "" && !presetSizes.includes(currentSize);
+                              const selectValue = isCustom ? "Custom" : currentSize;
+
+                              return (
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-bold text-gray-700">
+                                    Bag Size <span className="text-red-500">*</span>
+                                  </label>
+                                  <select
+                                    value={selectValue}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "Custom") {
+                                        handleFormChange("bagSize", isCustom ? currentSize : "");
+                                      } else {
+                                        handleFormChange("bagSize", val);
+                                      }
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                  >
+                                    <option value="">Select Bag Size...</option>
+                                    <option value="Small">Small</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Large">Large</option>
+                                    <option value="8x10">8×10</option>
+                                    <option value="10x12">10×12</option>
+                                    <option value="12x16">12×16</option>
+                                    {selProd?.bagSize && !["Small", "Medium", "Large", "8x10", "10x12", "12x16"].includes(selProd.bagSize) && (
+                                      <option value={selProd.bagSize}>{selProd.bagSize}</option>
+                                    )}
+                                    <option value="Custom">⚙️ Custom (Type Custom Size)</option>
+                                  </select>
+                                  {(selectValue === "Custom" || isCustom) && (
+                                    <input
+                                      type="text"
+                                      value={manualOrderForm.bagSize || ""}
+                                      onChange={(e) => handleFormChange("bagSize", e.target.value)}
+                                      placeholder="Enter custom bag size..."
+                                      className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
+                                      required
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            {(() => {
+                              const currentColor = manualOrderForm.color || "";
+                              const standardColors = ["Brown", "White", "Natural", "Kraft", "Black", "Red", "Green", "Blue"];
+                              const prodColor = selProd?.bagColor || selProd?.color;
+                              if (prodColor && !standardColors.includes(prodColor)) {
+                                standardColors.push(prodColor);
+                              }
+                              const isCustomColor = currentColor !== "" && !standardColors.includes(currentColor);
+                              const selectColorValue = isCustomColor ? "Custom" : currentColor;
+
+                              return (
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-bold text-gray-700">
+                                    Color
+                                  </label>
+                                  <select
+                                    value={selectColorValue}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "Custom") {
+                                        handleFormChange("color", isCustomColor ? currentColor : "");
+                                      } else {
+                                        handleFormChange("color", val);
+                                      }
+                                    }}
+                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                  >
+                                    <option value="">Select Color...</option>
+                                    <option value="Brown">Brown</option>
+                                    <option value="Natural brown">Natural brown</option>
+                                    <option value="White">White</option>
+                                    <option value="Pink">Pink</option>
+                                    {prodColor && !["Brown", "Natural brown", "White", "Pink"].includes(prodColor) && (
+                                      <option value={prodColor}>{prodColor}</option>
+                                    )}
+                                    <option value="Custom">⚙️ Custom (Type Custom Color)</option>
+                                  </select>
+                                  {(selectColorValue === "Custom" || isCustomColor) && (
+                                    <input
+                                      type="text"
+                                      value={manualOrderForm.color || ""}
+                                      onChange={(e) => handleFormChange("color", e.target.value)}
+                                      placeholder="Enter custom color..."
+                                      className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })()}
                             <div>
                               <label className="mb-1 block text-xs font-bold text-gray-700">
                                 Length <span className="text-red-500">*</span>
@@ -5967,86 +6369,81 @@ Valid Until: ${quotationValidUntil || "—"}
                     </div>
 
                     {/* Specs & Stock Comparison Card */}
+                    {/* Specs & Stock Comparison Card */}
                     {selProd && (
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Info className="h-4 w-4 text-emerald-700" />
-                            <p className="text-sm font-bold text-emerald-800">Product Specs & Stock Status</p>
+                      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/20 p-4 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-emerald-100 rounded-lg text-emerald-800">
+                              <Info className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-extrabold text-gray-900">Product Specs & Stock Status</h4>
+                              <p className="text-[11px] text-gray-500 font-medium">Real-time match comparison against DB master template</p>
+                            </div>
                           </div>
                           {availableStock >= (Number(manualOrderForm.quantity) || 0) ? (
-                            <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1 rounded-full text-xs font-extrabold shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
                               In Stock
                             </span>
                           ) : (
-                            <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1 rounded-full text-xs font-extrabold shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-amber-600"></span>
                               Insufficient Stock
                             </span>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Left Panel: Actual Product Details */}
-                          <div className="bg-white rounded-xl p-3 border border-emerald-50">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-100">
-                              Actual Product Details (DB)
-                            </p>
-                            <div className="space-y-1.5 text-xs text-gray-700">
-                              <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Category:</span>
-                                <span className="font-bold text-gray-900">{selProd.category}</span>
+                        <div className="space-y-3">
+                          {/* Top Horizontal Summary Grid: DB Master Details */}
+                          <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Category</span>
+                              <span className="font-bold text-slate-900 truncate block leading-tight">{selProd.category}</span>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">SKU</span>
+                              <span className="font-bold text-slate-900 truncate block leading-tight">{selProd.sku || "N/A"}</span>
+                            </div>
+
+                            {!isManualRoll ? (
+                              <>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Master Size & Color</span>
+                                  <span className="font-bold text-slate-900 truncate block leading-tight">
+                                    {selProd.bagSize || "Not set"} • {selProd.bagColor || selProd.color || "Not set"}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Master Dims</span>
+                                  <span className="font-bold text-slate-900 truncate block leading-tight">
+                                    {selProd.dimensions?.length} × {selProd.dimensions?.width} × {selProd.dimensions?.height} {selProd.dimensions?.unit}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="space-y-1 col-span-2">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Master Specs</span>
+                                <span className="font-bold text-slate-900 truncate block leading-tight">
+                                  {selProd.gsm || "—"} GSM • {selProd.dimensions?.width} {selProd.dimensions?.unit} • {selProd.bf || "—"} BF
+                                </span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">SKU:</span>
-                                <span className="font-bold text-gray-900">{selProd.sku || "—"}</span>
-                              </div>
-                              {isManualRoll ? (
-                                <>
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Actual GSM:</span>
-                                    <span className="font-bold text-gray-900">{selProd.gsm || "—"}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Actual Width:</span>
-                                    <span className="font-bold text-gray-900">
-                                      {selProd.dimensions?.width} {selProd.dimensions?.unit}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Actual BF:</span>
-                                    <span className="font-bold text-gray-900">{selProd.bf || "—"}</span>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Actual Size:</span>
-                                    <span className="font-bold text-gray-900">{selProd.bagSize || "—"}</span>
-                                  </div>
-                                  {selProd.color && (
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-500 font-medium">Actual Color:</span>
-                                      <span className="font-bold text-gray-900">{selProd.color}</span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Actual Dims:</span>
-                                    <span className="font-bold text-gray-900">
-                                      {selProd.dimensions?.length} × {selProd.dimensions?.width} × {selProd.dimensions?.height} {selProd.dimensions?.unit}
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                              <div className="flex justify-between pt-1.5 border-t border-dashed border-gray-150">
-                                <span className="text-emerald-800 font-bold">Available Stock:</span>
-                                <span className="font-extrabold text-emerald-700">
-                                  {availableStock} {isManualRoll ? "kg" : "pcs"}
+                            )}
+
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider block">Available Stock</span>
+                              <div>
+                                <span className="inline-block font-extrabold text-xs text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg">
+                                  {availableStock.toLocaleString()} {isManualRoll ? "kg" : "pcs"}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Right Panel: Requested vs Actual Comparison */}
+                          {/* Full Width Parameter Comparison Table */}
                           {(() => {
                             const comparisonParams = [];
                             if (selProd) {
@@ -6055,50 +6452,53 @@ Valid Until: ${quotationValidUntil || "—"}
                                   name: "GSM",
                                   requested: manualOrderForm.gsm ? `${manualOrderForm.gsm} GSM` : "—",
                                   actual: selProd.gsm ? `${selProd.gsm} GSM` : "—",
-                                  isMatch: manualOrderForm.gsm && Number(manualOrderForm.gsm) === Number(selProd.gsm),
+                                  isMatch: Boolean(manualOrderForm.gsm && Number(manualOrderForm.gsm) === Number(selProd.gsm)),
                                 });
                                 comparisonParams.push({
                                   name: "Width",
                                   requested: manualOrderForm.width ? `${manualOrderForm.width} ${manualOrderForm.dimensionUnit}` : "—",
                                   actual: selProd.dimensions?.width ? `${selProd.dimensions.width} ${selProd.dimensions.unit}` : "—",
-                                  isMatch: manualOrderForm.width && Number(manualOrderForm.width) === Number(selProd.dimensions?.width),
+                                  isMatch: Boolean(manualOrderForm.width && Number(manualOrderForm.width) === Number(selProd.dimensions?.width)),
                                 });
                                 comparisonParams.push({
                                   name: "BF",
                                   requested: manualOrderForm.bf ? `${manualOrderForm.bf}` : "—",
                                   actual: selProd.bf ? `${selProd.bf}` : "—",
-                                  isMatch: manualOrderForm.bf && Number(manualOrderForm.bf) === Number(selProd.bf),
+                                  isMatch: Boolean(manualOrderForm.bf && Number(manualOrderForm.bf) === Number(selProd.bf)),
                                 });
                               } else {
+                                const actualColor = selProd.bagColor || selProd.color || "";
+                                const actualSize = selProd.bagSize || "";
+
                                 comparisonParams.push({
                                   name: "Bag Size",
                                   requested: manualOrderForm.bagSize || "—",
-                                  actual: selProd.bagSize || "—",
-                                  isMatch: (manualOrderForm.bagSize || "").toLowerCase().trim() === String(selProd.bagSize || "").toLowerCase().trim(),
+                                  actual: actualSize || "Not set in DB",
+                                  isMatch: Boolean(manualOrderForm.bagSize && actualSize && manualOrderForm.bagSize.toLowerCase().trim() === actualSize.toLowerCase().trim()),
                                 });
                                 comparisonParams.push({
                                   name: "Color",
                                   requested: manualOrderForm.color || "—",
-                                  actual: selProd.color || "—",
-                                  isMatch: !manualOrderForm.color || !selProd.color || manualOrderForm.color.toLowerCase().trim() === String(selProd.color || "").toLowerCase().trim(),
+                                  actual: actualColor || "Not set in DB",
+                                  isMatch: Boolean(manualOrderForm.color && actualColor && manualOrderForm.color.toLowerCase().trim() === actualColor.toLowerCase().trim()),
                                 });
                                 comparisonParams.push({
                                   name: "Length",
                                   requested: manualOrderForm.length ? `${manualOrderForm.length} ${manualOrderForm.dimensionUnit}` : "—",
                                   actual: selProd.dimensions?.length ? `${selProd.dimensions.length} ${selProd.dimensions.unit}` : "—",
-                                  isMatch: manualOrderForm.length && Number(manualOrderForm.length) === Number(selProd.dimensions?.length),
+                                  isMatch: Boolean(manualOrderForm.length && Number(manualOrderForm.length) === Number(selProd.dimensions?.length)),
                                 });
                                 comparisonParams.push({
                                   name: "Width",
                                   requested: manualOrderForm.width ? `${manualOrderForm.width} ${manualOrderForm.dimensionUnit}` : "—",
                                   actual: selProd.dimensions?.width ? `${selProd.dimensions.width} ${selProd.dimensions.unit}` : "—",
-                                  isMatch: manualOrderForm.width && Number(manualOrderForm.width) === Number(selProd.dimensions?.width),
+                                  isMatch: Boolean(manualOrderForm.width && Number(manualOrderForm.width) === Number(selProd.dimensions?.width)),
                                 });
                                 comparisonParams.push({
                                   name: "Height",
                                   requested: manualOrderForm.height ? `${manualOrderForm.height} ${manualOrderForm.dimensionUnit}` : "—",
                                   actual: selProd.dimensions?.height ? `${selProd.dimensions.height} ${selProd.dimensions.unit}` : "—",
-                                  isMatch: manualOrderForm.height && Number(manualOrderForm.height) === Number(selProd.dimensions?.height),
+                                  isMatch: Boolean(manualOrderForm.height && Number(manualOrderForm.height) === Number(selProd.dimensions?.height)),
                                 });
                               }
 
@@ -6112,43 +6512,104 @@ Valid Until: ${quotationValidUntil || "—"}
                             }
 
                             return (
-                              <div className="bg-white rounded-xl p-3 border border-emerald-50">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-100">
-                                  Requested vs Available Specs
-                                </p>
-                                <div className="overflow-x-auto">
+                              <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs space-y-2.5 w-full">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                  <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
+                                    Requested vs Master DB Comparison
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-bold">
+                                    Live Spec Audit
+                                  </span>
+                                </div>
+
+                                <div className="w-full overflow-x-auto">
                                   <table className="w-full text-left text-xs border-collapse">
                                     <thead>
-                                      <tr className="border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[9px]">
-                                        <th className="pb-1.5 text-gray-400">Parameter</th>
-                                        <th className="pb-1.5 text-gray-400">Requested</th>
-                                        <th className="pb-1.5 text-gray-400">Actual / Stock</th>
-                                        <th className="pb-1.5 text-right text-gray-400">Status</th>
+                                      <tr className="border-b border-slate-200 text-slate-500 font-extrabold uppercase tracking-wider text-[10px] bg-slate-50/80 whitespace-nowrap">
+                                        <th className="py-2 px-3 rounded-l-md w-1/4">Parameter</th>
+                                        <th className="py-2 px-3 w-1/4">Order Request</th>
+                                        <th className="py-2 px-3 w-1/4">Master DB Spec</th>
+                                        <th className="py-2 px-3 text-right rounded-r-md w-1/4">Status</th>
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                                      {comparisonParams.map((param, pIdx) => (
-                                        <tr key={pIdx}>
-                                          <td className="py-2 text-gray-900 font-bold">{param.name}</td>
-                                          <td className="py-2 text-gray-600">{param.requested}</td>
-                                          <td className="py-2 text-gray-950 font-bold">{param.actual}</td>
-                                          <td className="py-2 text-right">
-                                            {param.name === "BF" ? (
-                                              <span className="text-blue-750 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-150 text-[10px] font-bold">
-                                                Info
+                                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700 whitespace-nowrap">
+                                      {comparisonParams.map((param, pIdx) => {
+                                        let statusBadge = null;
+
+                                        if (param.name === "Quantity") {
+                                          statusBadge = param.isMatch ? (
+                                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                              ✓ In Stock
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                              ⚠ Shortage
+                                            </span>
+                                          );
+                                        } else if (param.name === "Bag Size" || param.name === "Color") {
+                                          const reqVal = (param.requested || "").trim();
+                                          const actVal = (param.actual || "").trim();
+
+                                          if (!reqVal || reqVal === "—") {
+                                            statusBadge = (
+                                              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                                — Any
                                               </span>
-                                            ) : param.isMatch ? (
-                                              <span className="text-green-750 bg-green-50/50 px-1.5 py-0.5 rounded border border-green-150 text-[10px] font-bold">
-                                                Match
+                                            );
+                                          } else if (!actVal || actVal === "—" || actVal === "Not set in DB") {
+                                            statusBadge = (
+                                              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                                ⚙️ Custom
                                               </span>
-                                            ) : (
-                                              <span className="text-amber-750 bg-amber-50/50 px-1.5 py-0.5 rounded border border-amber-150 text-[10px] font-bold">
-                                                Diff
+                                            );
+                                          } else if (param.isMatch) {
+                                            statusBadge = (
+                                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                                ✓ Match
                                               </span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ))}
+                                            );
+                                          } else {
+                                            statusBadge = (
+                                              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                                ⚠ Spec Diff
+                                              </span>
+                                            );
+                                          }
+                                        } else if (param.name === "BF") {
+                                          statusBadge = (
+                                            <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                              Info
+                                            </span>
+                                          );
+                                        } else {
+                                          statusBadge = param.isMatch ? (
+                                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                              ✓ Match
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
+                                              ⚠ Spec Diff
+                                            </span>
+                                          );
+                                        }
+
+                                        return (
+                                          <tr key={pIdx} className="hover:bg-slate-50/60 transition">
+                                            <td className="py-2.5 px-3 text-slate-900 font-bold">{param.name}</td>
+                                            <td className="py-2.5 px-3">
+                                              <span className="font-semibold text-emerald-800 bg-emerald-50/70 px-2 py-1 rounded-md text-xs border border-emerald-200 inline-block">
+                                                {param.requested}
+                                              </span>
+                                            </td>
+                                            <td className="py-2.5 px-3">
+                                              <span className="font-bold text-slate-800 bg-slate-100 px-2 py-1 rounded-md text-xs border border-slate-200 inline-block">
+                                                {param.actual}
+                                              </span>
+                                            </td>
+                                            <td className="py-2.5 px-3 text-right">{statusBadge}</td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>
@@ -6543,7 +7004,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                     height: prod?.dimensions?.height || "",
                                     dimensionUnit: prod?.dimensions?.unit || "inch",
                                     gsm: prod?.gsm || "",
-                                    color: prod?.color || "",
+                                    color: prod?.bagColor || prod?.color || "",
                                     bagSize: prod?.bagSize || "",
                                     unit: isRollCategory ? "kg" : "pcs",
                                   };
@@ -6646,46 +7107,123 @@ Valid Until: ${quotationValidUntil || "—"}
 
                             {!isItemRoll ? (
                               <>
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-                                    Bag Size <span className="text-red-500">*</span>
-                                  </label>
-                                  <select
-                                    value={item.bagSize}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].bagSize = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                                    required
-                                  >
-                                    <option value="">Select Size</option>
-                                    <option value="Small">Small</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="Large">Large</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-                                    Color
-                                  </label>
-                                  <select
-                                    value={item.color}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].color = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                  >
-                                    <option value="">Select color</option>
-                                    <option value="Brown">Brown</option>
-                                    <option value="White">White</option>
-                                  </select>
-                                </div>
+                                {(() => {
+                                  const currentSize = item.bagSize || "";
+                                  const presetSizes = ["Small", "Medium", "Large", "8x10", "10x12", "12x16"];
+                                  if (selProdItem?.bagSize && !presetSizes.includes(selProdItem.bagSize)) {
+                                    presetSizes.push(selProdItem.bagSize);
+                                  }
+                                  const isCustom = currentSize !== "" && !presetSizes.includes(currentSize);
+                                  const selectValue = isCustom ? "Custom" : currentSize;
+
+                                  return (
+                                    <div className="space-y-1">
+                                      <label className="block text-[11px] font-semibold text-gray-600">
+                                        Bag Size <span className="text-red-500">*</span>
+                                      </label>
+                                      <select
+                                        value={selectValue}
+                                        disabled={isOrderPaid}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const newList = [...editOrderForm.orderDetailsList];
+                                          if (val === "Custom") {
+                                            newList[index].bagSize = isCustom ? currentSize : "";
+                                          } else {
+                                            newList[index].bagSize = val;
+                                          }
+                                          setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                        }}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                      >
+                                        <option value="">Select Bag Size...</option>
+                                        <option value="Small">Small</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="Large">Large</option>
+                                        <option value="8x10">8×10</option>
+                                        <option value="10x12">10×12</option>
+                                        <option value="12x16">12×16</option>
+                                        {selProdItem?.bagSize && !["Small", "Medium", "Large", "8x10", "10x12", "12x16"].includes(selProdItem.bagSize) && (
+                                          <option value={selProdItem.bagSize}>{selProdItem.bagSize}</option>
+                                        )}
+                                        <option value="Custom">⚙️ Custom (Type Custom Size)</option>
+                                      </select>
+                                      {(selectValue === "Custom" || isCustom) && (
+                                        <input
+                                          type="text"
+                                          value={item.bagSize || ""}
+                                          disabled={isOrderPaid}
+                                          onChange={(e) => {
+                                            const newList = [...editOrderForm.orderDetailsList];
+                                            newList[index].bagSize = e.target.value;
+                                            setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                          }}
+                                          placeholder="Enter custom bag size..."
+                                          className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
+                                          required
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+
+                                {(() => {
+                                  const currentColor = item.color || "";
+                                  const standardColors = ["Brown", "White", "Natural", "Kraft", "Black", "Red", "Green", "Blue"];
+                                  const prodColor = selProdItem?.bagColor || selProdItem?.color;
+                                  if (prodColor && !standardColors.includes(prodColor)) {
+                                    standardColors.push(prodColor);
+                                  }
+                                  const isCustomColor = currentColor !== "" && !standardColors.includes(currentColor);
+                                  const selectColorValue = isCustomColor ? "Custom" : currentColor;
+
+                                  return (
+                                    <div className="space-y-1">
+                                      <label className="block text-[11px] font-semibold text-gray-600">
+                                        Color
+                                      </label>
+                                      <select
+                                        value={selectColorValue}
+                                        disabled={isOrderPaid}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const newList = [...editOrderForm.orderDetailsList];
+                                          if (val === "Custom") {
+                                            newList[index].color = isCustomColor ? currentColor : "";
+                                          } else {
+                                            newList[index].color = val;
+                                          }
+                                          setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                        }}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium"
+                                      >
+                                        <option value="">Select Color...</option>
+                                        <option value="Brown">Brown</option>
+                                        <option value="Natural brown">Natural brown</option>
+                                        <option value="White">White</option>
+                                        <option value="Pink">Pink</option>
+                                        {prodColor && !["Brown", "Natural brown", "White", "Pink"].includes(prodColor) && (
+                                          <option value={prodColor}>{prodColor}</option>
+                                        )}
+                                        <option value="Custom">⚙️ Custom (Type Custom Color)</option>
+                                      </select>
+                                      {(selectColorValue === "Custom" || isCustomColor) && (
+                                        <input
+                                          type="text"
+                                          value={item.color || ""}
+                                          disabled={isOrderPaid}
+                                          onChange={(e) => {
+                                            const newList = [...editOrderForm.orderDetailsList];
+                                            newList[index].color = e.target.value;
+                                            setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                          }}
+                                          placeholder="Enter custom color..."
+                                          className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                                 <div>
                                   <label className="mb-1 block text-[11px] font-semibold text-gray-600">Length <span className="text-red-500">*</span></label>
                                   <input
@@ -6989,7 +7527,12 @@ Valid Until: ${quotationValidUntil || "—"}
                             >
                               <option value="">Select color</option>
                               <option value="Brown">Brown</option>
+                              <option value="Natural brown">Natural brown</option>
                               <option value="White">White</option>
+                              <option value="Pink">Pink</option>
+                              {editOrderForm.color && !["Brown", "Natural brown", "White", "Pink"].includes(editOrderForm.color) && (
+                                <option value={editOrderForm.color}>{editOrderForm.color}</option>
+                              )}
                             </select>
                           </div>
                           <div>
@@ -7455,7 +7998,11 @@ Valid Until: ${quotationValidUntil || "—"}
                                       ? Number(quotationLineQuantities[row.productId] || 0)
                                       : defaultQty;
                                     const sysConfig = getSystemGstConfigFromStorage();
-                                    const effectiveGst = sysConfig.gstEnabled ? row.gstRate : 0;
+                                    const snapshottedGstMode = quotationOrder?.billDetails?.gstEnabled ?? quotationOrder?.quotation?.gstEnabled ?? quotationOrder?.gstEnabled;
+                                    const isGstActive = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+                                      ? Boolean(snapshottedGstMode)
+                                      : sysConfig.gstEnabled;
+                                    const effectiveGst = isGstActive ? row.gstRate : 0;
                                     const unitPrice = Number(quotationLineUnitPrices?.[row.productId] || 0);
                                     const lineSubtotal = unitPrice * activeQty;
                                     const lineGst = lineSubtotal * (effectiveGst / 100);
@@ -7536,7 +8083,14 @@ Valid Until: ${quotationValidUntil || "—"}
                           <div>
                             <label className="mb-1 block text-xs font-semibold text-gray-600">GST/Tax Rate</label>
                             <div className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700">
-                              {getSystemGstConfigFromStorage().gstEnabled ? "Product-wise (Auto-applied)" : "0% (GST Disabled)"}
+                              {(() => {
+                                const sysConfig = getSystemGstConfigFromStorage();
+                                const snapshottedGstMode = quotationOrder?.billDetails?.gstEnabled ?? quotationOrder?.quotation?.gstEnabled ?? quotationOrder?.gstEnabled;
+                                const isGstActive = snapshottedGstMode !== undefined && snapshottedGstMode !== null
+                                  ? Boolean(snapshottedGstMode)
+                                  : sysConfig.gstEnabled;
+                                return isGstActive ? "Product-wise (Auto-applied)" : "0% (GST Disabled)";
+                              })()}
                             </div>
                           </div>
                           <div>
@@ -7980,10 +8534,12 @@ Valid Until: ${quotationValidUntil || "—"}
                             <span>Taxable Base:</span>
                             <span>₹{taxableBase.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between text-gray-600">
-                            <span>GST Tax ({isGstActive ? "Active" : "Disabled 0%"}):</span>
-                            <span className="font-semibold">₹{totalGst.toFixed(2)}</span>
-                          </div>
+                          {isGstActive && (
+                            <div className="flex justify-between text-gray-600">
+                              <span>GST Tax:</span>
+                              <span className="font-semibold">₹{totalGst.toFixed(2)}</span>
+                            </div>
+                          )}
                           {postTaxDiscVal > 0 && (
                             <div className="flex justify-between text-amber-800 font-bold pt-1 border-t border-slate-200">
                               <span>Discount:</span>
@@ -8012,6 +8568,8 @@ Valid Until: ${quotationValidUntil || "—"}
               </div>
 
               {(() => {
+                const sysConfig = getSystemGstConfigFromStorage();
+                if (!sysConfig.gstEnabled) return null;
                 const modalTaxableBase = Math.max(0, Number(billSubtotal || 0) - Number(billPreTaxDiscount || 0));
                 const itemBreakdown = getQuotationItemsBreakdown(billOrder, null, modalTaxableBase, productItems);
                 if (itemBreakdown.length === 0) return null;
@@ -8434,29 +8992,55 @@ Valid Until: ${quotationValidUntil || "—"}
 
                                           const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
                                           const isRoll = prod?.category?.toLowerCase().includes("roll") || String(item.productName || "").toLowerCase().includes("roll");
-
+                                          
                                           let displayQty = `${item.quantity || 0} ${item.unit || "pcs"}`;
                                           let pcsCount = Number(item.quantity || 0);
 
                                           if (!isRoll && item.unit === "kg") {
-                                            const weight = Number(prod?.weight || 0);
-                                            if (weight > 0) {
-                                              pcsCount = Math.ceil(Number(item.quantity || 0) / weight);
+                                            if (item.convertedQuantity && Number(item.convertedQuantity) > 0) {
+                                              pcsCount = Number(item.convertedQuantity);
                                               displayQty = `${item.quantity} kg (${pcsCount} pcs)`;
+                                            } else {
+                                              let weight = Number(prod?.weight || 0);
+                                              if (weight <= 0 && item?.length && item?.width && item?.gsm) {
+                                                const L = Number(item.length);
+                                                const W = Number(item.width);
+                                                const H = Number(item.height || 0);
+                                                const gsm = Number(item.gsm);
+                                                const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
+                                                weight = (bagAreaSqM * gsm) / 1000;
+                                              }
+                                              if (weight > 0) {
+                                                pcsCount = Math.ceil(Number(item.quantity || 0) / weight);
+                                                displayQty = `${item.quantity} kg (${pcsCount} pcs)`;
+                                              }
                                             }
                                           }
 
                                           // Calculate order line selling rate and material cost
-                                          const itemUnitPrice = Number(item.unitPrice || item.pricePerUnit || item.rate || item.sellingPrice || prod?.basePrice || prod?.sellingPrice || availabilityOrder?.pricePerKg || 65);
-                                          const lineSellingSubtotal = Number(item.subtotal || (Number(item.quantity || 0) * itemUnitPrice));
-                                          const sellingRateUnit = Number(item.quantity || 0) > 0 ? (lineSellingSubtotal / Number(item.quantity || 1)) : itemUnitPrice;
+                                          const itemUnitPrice = Number(
+                                            item.unitPrice ||
+                                            item.pricePerUnit ||
+                                            item.rate ||
+                                            item.sellingPrice ||
+                                            (prod ? getProductBaseSellingPrice(prod) : 0) ||
+                                            prod?.basePrice ||
+                                            prod?.sellingPrice ||
+                                            availabilityOrder?.pricePerKg ||
+                                            7.50
+                                          );
+
+                                          // Effective Billing Qty: If non-roll bag is ordered in kg, bill by pieces (pcsCount)!
+                                          const effectiveBillingQty = (!isRoll && item.unit === "kg" && pcsCount > 0) ? pcsCount : Number(item.quantity || 0);
+                                          const lineSellingSubtotal = effectiveBillingQty * itemUnitPrice;
+                                          const sellingRateUnit = itemUnitPrice;
 
                                           const lineMatCost = prMatch && Number(prMatch.totalOrderMaterialCost || 0) > 0
                                             ? Number(prMatch.totalOrderMaterialCost)
                                             : (Number(item.quantity || 0) * 50);
 
                                           const rawItemUnit = String(item.unit || prod?.unit || "").toLowerCase();
-                                          const unitSuffix = isRoll ? (rawItemUnit.includes("m") ? "/m" : "/kg") : (rawItemUnit.includes("bag") ? "/bag" : "/pc");
+                                          const unitSuffix = isRoll ? (rawItemUnit.includes("m") ? "/m" : "/kg") : "/pc";
                                           const itemQty = Number(item.quantity || 0);
                                           const isFullyReady = readyQty >= itemQty && itemQty > 0;
                                           const isPartial = readyQty > 0 && readyQty < itemQty;
@@ -8500,17 +9084,53 @@ Valid Until: ${quotationValidUntil || "—"}
                             {/* Simple Step 4: Financial & Profit Margin Summary Cards */}
                             <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/40 p-4 space-y-3 shadow-xs">
                               <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 border-b border-emerald-100 pb-2">
-                                <span>💰</span> Financial & Profitability Summary
+                                <span>💰</span> Financial &amp; Profitability Summary
                               </h4>
 
                               {(() => {
                                 const itemBreakdown = getQuotationItemsBreakdown(availabilityOrder, availabilityResult, Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || 0), productItems);
-                                const breakdownSub = itemBreakdown.reduce((sum, it) => sum + Number(it.subtotal || 0), 0);
+                                
+                                const breakdownSub = itemBreakdown.reduce((sum, item) => {
+                                  const pId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
+                                  const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+                                  const isRoll = prod?.category?.toLowerCase().includes("roll") || String(item.productName || "").toLowerCase().includes("roll");
+                                  let pcsCount = Number(item.quantity || 0);
+                                  if (!isRoll && item.unit === "kg") {
+                                    if (item.convertedQuantity && Number(item.convertedQuantity) > 0) {
+                                      pcsCount = Number(item.convertedQuantity);
+                                    } else {
+                                      let weight = Number(prod?.weight || 0);
+                                      if (weight <= 0 && item?.length && item?.width && item?.gsm) {
+                                        const L = Number(item.length);
+                                        const W = Number(item.width);
+                                        const H = Number(item.height || 0);
+                                        const gsm = Number(item.gsm);
+                                        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
+                                        weight = (bagAreaSqM * gsm) / 1000;
+                                      }
+                                      if (weight > 0) {
+                                        pcsCount = Math.ceil(Number(item.quantity || 0) / weight);
+                                      }
+                                    }
+                                  }
+                                  const itemUnitPrice = Number(
+                                    item.unitPrice ||
+                                    item.pricePerUnit ||
+                                    item.rate ||
+                                    item.sellingPrice ||
+                                    (prod ? getProductBaseSellingPrice(prod) : 0) ||
+                                    prod?.basePrice ||
+                                    prod?.sellingPrice ||
+                                    7.50
+                                  );
+                                  const effectiveBillingQty = (!isRoll && item.unit === "kg" && pcsCount > 0) ? pcsCount : Number(item.quantity || 0);
+                                  return sum + (effectiveBillingQty * itemUnitPrice);
+                                }, 0);
 
                                 const billSub = Number(availabilityOrder?.bill?.billDetails?.subtotal || availabilityOrder?.billDetails?.subtotal || 0);
                                 const rawOrderSub = Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || availabilityOrder?.quotation?.subtotalAmount || 0);
 
-                                let displaySubtotal = rawOrderSub > 0 ? rawOrderSub : (breakdownSub > 0 ? breakdownSub : (billSub > 0 ? billSub : 0));
+                                let displaySubtotal = (rawOrderSub > 0 && rawOrderSub >= breakdownSub * 0.8) ? rawOrderSub : breakdownSub;
 
                                 let displayMaterialCost = Number(availabilityResult.totalOrderMaterialCost || 0);
                                 if (displayMaterialCost === 0) {
@@ -8523,7 +9143,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                 const grossMargin = Math.max(0, displaySubtotal - displayMaterialCost);
                                 const marginPct = displaySubtotal > 0 ? ((grossMargin / displaySubtotal) * 100).toFixed(1) : "0.0";
                                 
-                                const displayTotal = Number(confirmOrderForm.totalAmount || availabilityOrder?.totalAmount || (displaySubtotal > 0 ? (displaySubtotal * 1.05) : 0));
+                                const displayTotal = displaySubtotal;
                                 const gstDiff = Math.max(0, displayTotal - displaySubtotal);
 
                                 const lines = availabilityOrder?.orderDetailsList?.length > 0 ? availabilityOrder.orderDetailsList : [availabilityOrder?.orderDetails].filter(Boolean);
@@ -11424,6 +12044,74 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     return isRoll ? 60 : 10;
   };
 
+  const getLineGrossReturnAmount = (line, idx = 0) => {
+    if (!line || !selectedOrder) return 0;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    if (returnType !== "complete" && !selectedItems[pId]) return 0;
+
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+    
+    // Total Ordered Line Qty
+    const totalOrderedQty = Number(line.quantity || 0);
+    if (totalOrderedQty <= 0) return 0;
+
+    // Piece Count & Weights
+    let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
+    if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
+      let weight = Number(prod?.weight || 0);
+      if (weight <= 0 && line?.length && line?.width && line?.gsm) {
+        const L = Number(line.length);
+        const W = Number(line.width);
+        const H = Number(line.height || 0);
+        const gsm = Number(line.gsm);
+        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
+        weight = (bagAreaSqM * gsm) / 1000;
+      }
+      if (weight > 0) {
+        totalLinePcs = Math.ceil(totalOrderedQty / weight);
+      }
+    }
+
+    // Determine unit price per piece (for non-roll bags) or per primary unit
+    const unitPrice = getItemUnitPrice(line, idx);
+
+    // Total gross subtotal value of this order line
+    let lineOrderSubtotal = 0;
+    if (line.lineTotal && Number(line.lineTotal) > 0) {
+      lineOrderSubtotal = Number(line.lineTotal);
+    } else if (line.amount && Number(line.amount) > 0) {
+      lineOrderSubtotal = Number(line.amount);
+    } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
+      lineOrderSubtotal = totalLinePcs * unitPrice;
+    } else {
+      lineOrderSubtotal = totalOrderedQty * unitPrice;
+    }
+
+    // Calculate returned fraction of this line
+    let returnedFraction = 0;
+    if (returnType === "complete") {
+      const remainingQty = getRemainingQty(line);
+      returnedFraction = remainingQty / totalOrderedQty;
+    } else {
+      const rawInput = Number(returnQuantities[pId] || 0);
+      const selectedUnit = returnUnits[pId] || line.unit || "kg";
+
+      if (selectedUnit === "pcs") {
+        if (totalLinePcs > 0) {
+          returnedFraction = rawInput / totalLinePcs;
+        } else {
+          returnedFraction = rawInput / totalOrderedQty;
+        }
+      } else {
+        returnedFraction = rawInput / totalOrderedQty;
+      }
+    }
+
+    returnedFraction = Math.min(1, Math.max(0, returnedFraction));
+    return Number((returnedFraction * lineOrderSubtotal).toFixed(2));
+  };
+
   const getOrderDiscountAmount = () => {
     if (!selectedOrder) return 0;
     const q = selectedOrder.quotation || {};
@@ -11436,9 +12124,23 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     const lines = getOrderLines();
     let totalGross = 0;
     lines.forEach((line, idx) => {
-      const qty = Number(line.quantity || 0);
-      const rate = getItemUnitPrice(line, idx);
-      totalGross += qty * rate;
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId?._id || line.productId || "").trim());
+      const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+      let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
+      if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
+        const weight = Number(prod?.weight || 0);
+        if (weight > 0) totalLinePcs = Math.ceil(Number(line.quantity || 0) / weight);
+      }
+      const unitPrice = getItemUnitPrice(line, idx);
+      if (line.lineTotal && Number(line.lineTotal) > 0) {
+        totalGross += Number(line.lineTotal);
+      } else if (line.amount && Number(line.amount) > 0) {
+        totalGross += Number(line.amount);
+      } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
+        totalGross += totalLinePcs * unitPrice;
+      } else {
+        totalGross += Number(line.quantity || 0) * unitPrice;
+      }
     });
     if (totalGross > 0) return totalGross;
     const q = selectedOrder.quotation || {};
@@ -11450,13 +12152,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     const lines = getOrderLines();
     let grossTotal = 0;
     lines.forEach((line, idx) => {
-      const pId = String(line.productId?._id || line.productId || "").trim();
-      if (returnType === "complete" || selectedItems[pId]) {
-        const retQtyInPrimaryUnit = getReturnQtyInPrimaryUnit(line);
-        if (retQtyInPrimaryUnit <= 0) return;
-        const unitRate = getItemUnitPrice(line, idx);
-        grossTotal += retQtyInPrimaryUnit * unitRate;
-      }
+      grossTotal += getLineGrossReturnAmount(line, idx);
     });
     return Number(grossTotal.toFixed(2));
   };
@@ -11486,23 +12182,25 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   // Exact GST refund calculator from item line GST rates
   const getRefundGstAmount = () => {
     if (!selectedOrder) return 0;
-    const sysConfig = getSystemGstConfigFromStorage();
-    if (!sysConfig.gstEnabled) return 0;
+    if (!isGstChargedOnOrder(selectedOrder)) return 0;
     const lines = getOrderLines();
 
     if (gstType === "complete") {
+      const grossReturn = getGrossReturnSubtotal();
+      const returnDiscount = getReturnAllocatedDiscount();
+      const discountRatio = grossReturn > 0 ? Math.max(0, (grossReturn - returnDiscount) / grossReturn) : 1;
+
       let totalGst = 0;
       lines.forEach((line, idx) => {
         const pId = String(line.productId?._id || line.productId || "").trim();
         if (returnType === "complete" || selectedItems[pId]) {
-          const retQtyInPrimaryUnit = getReturnQtyInPrimaryUnit(line);
-          if (retQtyInPrimaryUnit <= 0) return;
-          const unitRate = getItemUnitPrice(line, idx);
-          const lineGrossBase = retQtyInPrimaryUnit * unitRate;
+          const lineGrossBase = getLineGrossReturnAmount(line, idx);
+          if (lineGrossBase <= 0) return;
+          const netLineBase = lineGrossBase * discountRatio;
           const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
           const taxInfo = getProductTaxInfo(prod || line);
           const lineGstRate = line.gstRate != null ? Number(line.gstRate) : (taxInfo.gstRate || 5);
-          const lineGst = lineGrossBase * (lineGstRate / 100);
+          const lineGst = netLineBase * (lineGstRate / 100);
           totalGst += lineGst;
         }
       });
@@ -11517,25 +12215,27 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
 
   const getRefundGstBreakdown = () => {
     if (!selectedOrder) return {};
-    const sysConfig = getSystemGstConfigFromStorage();
-    if (!sysConfig.gstEnabled) return {};
+    if (!isGstChargedOnOrder(selectedOrder)) return {};
     const lines = getOrderLines();
     const breakdown = {};
+
+    const grossReturn = getGrossReturnSubtotal();
+    const returnDiscount = getReturnAllocatedDiscount();
+    const discountRatio = grossReturn > 0 ? Math.max(0, (grossReturn - returnDiscount) / grossReturn) : 1;
 
     let calcTotalGst = 0;
     lines.forEach((line, idx) => {
       const pId = String(line.productId?._id || line.productId || "").trim();
       if (returnType === "complete" || selectedItems[pId]) {
-        const retQtyInPrimaryUnit = getReturnQtyInPrimaryUnit(line);
-        if (retQtyInPrimaryUnit <= 0) return;
-        const unitRate = getItemUnitPrice(line, idx);
-        const lineGrossBase = retQtyInPrimaryUnit * unitRate;
+        const lineGrossBase = getLineGrossReturnAmount(line, idx);
+        if (lineGrossBase <= 0) return;
+        const netLineBase = lineGrossBase * discountRatio;
 
         const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
         const taxInfo = getProductTaxInfo(prod || line);
         const lineHsn = line.hsnCode || taxInfo.hsnCode || "—";
         const lineGstRate = line.gstRate != null ? Number(line.gstRate) : (taxInfo.gstRate || 5);
-        const lineGst = lineGrossBase * (lineGstRate / 100);
+        const lineGst = netLineBase * (lineGstRate / 100);
 
         calcTotalGst += lineGst;
 
@@ -11906,7 +12606,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
                   </div>
                   <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-gray-900">
                     <span>Total Quoted</span>
-                    <span>₹{(selectedOrder.quotation.totalQuoted || selectedOrder.totalAmount || 0).toLocaleString()}</span>
+                    <span>₹{(selectedOrder.totalAmount || selectedOrder.quotation?.totalQuoted || 0).toLocaleString()}</span>
                   </div>
                 </div>
               ) : (

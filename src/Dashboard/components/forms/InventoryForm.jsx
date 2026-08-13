@@ -239,9 +239,14 @@ const InventoryForm = ({ initialData, onSubmit, loading }) => {
               </div>
               <div className="flex flex-col">
                 <FormLabel>Color</FormLabel>
-                <select className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 bg-white font-bold text-gray-900" {...register("bagColor")}>
+                <select className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 bg-white font-bold text-gray-900 cursor-pointer" {...register("bagColor")}>
                   <option value="Brown">Brown</option>
+                  <option value="Natural brown">Natural brown</option>
                   <option value="White">White</option>
+                  <option value="Pink">Pink</option>
+                  {watch("bagColor") && !["Brown", "Natural brown", "White", "Pink"].includes(watch("bagColor")) && (
+                    <option value={watch("bagColor")}>{watch("bagColor")}</option>
+                  )}
                 </select>
               </div>
               <div className="flex flex-col col-span-2">
