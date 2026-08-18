@@ -1,3 +1,4 @@
+import { getProductTaxInfo } from "./index.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "react-hot-toast";
@@ -333,7 +334,17 @@ export const generateTaxInvoicePDF = ({
         (q.productId && firstItem.productId && String(q.productId).trim() === String(firstItem.productId).trim()) ||
         (q.productName && firstItem.productName && q.productName.toLowerCase().trim() === firstItem.productName.toLowerCase().trim())
       );
-      dominantGstRate = Number(firstItem.gstRate ?? qMatch?.gstRate ?? qObj.taxRate ?? ordObj.taxRate ?? sysConfig.defaultGstRate ?? 5);
+      const firstProd = allProducts?.find(p => String(p?._id || p?.id || "").trim() === String(firstItem?.productId || "").trim());
+      const firstTaxInfo = getProductTaxInfo(firstProd || firstItem || qMatch);
+      const bTaxRate = Number(bObj.taxRate ?? rc.taxRate ?? ordObj.taxRate ?? 0);
+      dominantGstRate = Number(
+        (bTaxRate > 0 ? bTaxRate : null) ??
+        (firstProd?.gstRate != null && Number(firstProd.gstRate) > 0 ? Number(firstProd.gstRate) : null) ??
+        (firstTaxInfo?.gstRate != null ? Number(firstTaxInfo.gstRate) : null) ??
+        firstItem?.gstRate ??
+        qMatch?.gstRate ??
+        5
+      );
     }
   }
 
@@ -409,13 +420,22 @@ export const generateTaxInvoicePDF = ({
     const grossTaxable = Number((qty * unitRate).toFixed(2));
     grossSubtotalSum += grossTaxable;
 
+    const taxInfo = getProductTaxInfo(prod || item || qMatch);
     let lineGstRate = 0;
     if (isGstEnabled) {
-      lineGstRate = dominantGstRate;
-      if (item.gstRate != null && !isNaN(Number(item.gstRate))) {
+      const bTaxRate = Number(bObj.taxRate ?? rc.taxRate ?? ordObj.taxRate ?? 0);
+      if (bTaxRate > 0) {
+        lineGstRate = bTaxRate;
+      } else if (prod?.gstRate != null && !isNaN(Number(prod.gstRate)) && Number(prod.gstRate) > 0) {
+        lineGstRate = Number(prod.gstRate);
+      } else if (taxInfo?.gstRate != null && !isNaN(Number(taxInfo.gstRate))) {
+        lineGstRate = Number(taxInfo.gstRate);
+      } else if (item?.gstRate != null && !isNaN(Number(item.gstRate))) {
         lineGstRate = Number(item.gstRate);
       } else if (qMatch?.gstRate != null && !isNaN(Number(qMatch.gstRate))) {
         lineGstRate = Number(qMatch.gstRate);
+      } else {
+        lineGstRate = 5;
       }
     }
 

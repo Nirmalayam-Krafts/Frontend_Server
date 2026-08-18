@@ -2154,30 +2154,19 @@ const Leads = () => {
                                   </label>
                                   <div className="flex gap-1.5">
                                     <input
-                                      type="number" min="1"
+                                      type="number" min="0.001" step="any"
                                       value={line.quantity}
                                       onChange={(e) => handleLineChange(line.id, "quantity", e.target.value)}
                                       placeholder="Qty"
                                       className="flex-1 min-w-0 rounded-xl border border-gray-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-emerald-500"
                                       required
                                     />
-                                    <select
-                                      value={line.unit || (lineRoll ? "kg" : "pcs")}
-                                      onChange={(e) => handleLineChange(line.id, "unit", e.target.value)}
-                                      className="w-[64px] shrink-0 rounded-xl border border-gray-200 bg-white px-1.5 py-2.5 text-sm outline-none focus:border-emerald-500"
-                                    >
-                                      {lineRoll ? (
-                                        <>
-                                          <option value="kg">kg</option>
-                                          <option value="m">m</option>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <option value="pcs">pcs</option>
-                                          <option value="kg">kg</option>
-                                        </>
-                                      )}
-                                    </select>
+                                    <div className="w-[64px] shrink-0 flex items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-1 py-2.5 text-xs font-extrabold text-emerald-800 shadow-2xs select-none" title="Product Counting Unit locked to Master DB configuration">
+                                      {(() => {
+                                        const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(line.selectedProductId).trim());
+                                        return pObj?.unit || (lineRoll ? "kg" : "pcs");
+                                      })()}
+                                    </div>
                                   </div>
                                 </div>
 

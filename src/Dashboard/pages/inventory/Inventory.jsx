@@ -4,6 +4,7 @@ import { Layout } from "../../components/common/Layout";
 import { Card, Button, Badge, Input, Modal } from "../../components/ui";
 import InventoryDetail from "../../components/inventory/InventoryDetail";
 import InventoryForm from "../../components/forms/InventoryForm";
+import { ManualProductionModal } from "../../components/inventory/ManualProductionModal";
 import { useInventoryStore } from "../../store";
 import {
   Plus,
@@ -26,6 +27,8 @@ import {
   RotateCcw,
   Download,
   FileSpreadsheet,
+  Factory,
+  Recycle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { exportToExcel, exportToCSV } from "../../utils";
@@ -89,10 +92,12 @@ const Inventory = () => {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedStockItem, setSelectedStockItem] = useState(null);
+  const [preSelectedInventoryId, setPreSelectedInventoryId] = useState("");
   const [stockToAdd, setStockToAdd] = useState("");
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   const renderMaterialShortagePanel = () => {
     if (!stockShortage) return null;
@@ -392,9 +397,9 @@ const Inventory = () => {
   };
 
   const openAddStockModal = (item) => {
-    setSelectedStockItem(item);
-    setStockToAdd("");
-    setShowStockModal(true);
+    const itemId = String(item?._id || item?.id || "");
+    setPreSelectedInventoryId(itemId);
+    setShowBatchModal(true);
   };
 
   const handleAddStock = async () => {
@@ -687,6 +692,20 @@ const Inventory = () => {
 
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end xl:w-auto">
               <Button
+                onClick={() => setShowBatchModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-5 py-3 font-semibold shadow-md flex items-center gap-2 transition-transform hover:-translate-y-0.5"
+              >
+                <Factory className="w-4 h-4" />
+                Log Production Batch
+              </Button>
+              <Button
+                onClick={() => navigate("/recycling")}
+                className="bg-amber-600 hover:bg-amber-700 text-white rounded-2xl px-5 py-3 font-semibold shadow-md flex items-center gap-2 transition-transform hover:-translate-y-0.5"
+              >
+                <Recycle className="w-4 h-4" />
+                Recycling & Scrap
+              </Button>
+              <Button
                 variant={notificationOn ? "secondary" : "danger"}
                 onClick={() => setNotificationOn(!notificationOn)}
                 className={`rounded-2xl px-5 py-3 font-semibold shadow-md transition-all duration-200 hover:-translate-y-0.5 ${notificationOn
@@ -696,8 +715,6 @@ const Inventory = () => {
               >
                 {notificationOn ? "Notifications On" : "Notifications Off"}
               </Button>
-
-
             </div>
           </div>
         </motion.div>
@@ -1070,6 +1087,16 @@ const Inventory = () => {
               </div>
               <div className="flex gap-2">
                 <Button
+                  onClick={() => {
+                    setPreSelectedInventoryId("");
+                    setShowBatchModal(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+                >
+                  <Factory className="w-4 h-4" />
+                  Log Production Batch
+                </Button>
+                <Button
                   variant="secondary"
                   icon={Download}
                   onClick={() => handleExportStock("csv")}
@@ -1204,9 +1231,9 @@ const Inventory = () => {
                                 </span>
                               </div>
                               {item.reservedQuantity > 0 && (
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-gray-600">Reserved:</span>
-                                  <span className="font-semibold text-blue-600">
+                                <div className="flex items-center justify-between text-xs" title="Sold & reserved stock ready for delivery">
+                                  <span className="text-amber-900 font-semibold">Sold / Reserved:</span>
+                                  <span className="font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
                                     {Number(item.reservedQuantity || 0).toLocaleString()} {item.unit || 'bags'}
                                   </span>
                                 </div>
@@ -1313,15 +1340,35 @@ const Inventory = () => {
                           {/* Pricing & Value */}
                           <td className="px-6 py-4">
                             {(() => {
-                              // Find linked product & compute effective selling price
                               const linkedProd = item.productId
                                 ? products.find(p => String(p._id || p.id) === String(item.productId))
                                 : null;
+                              const isRollItem = item.category === "KRAFT_ROLL" || String(item.productName || "").toLowerCase().includes("roll");
+                              const countingUnit = item.unit || linkedProd?.unit || (isRollItem ? "kg" : "pcs");
+
                               const idealSell = computeIdealSell(linkedProd);
                               const storedSell = Number(item.sellingPricePerUnit || 0);
                               const effectiveSell = idealSell !== null && idealSell > 0
                                 ? idealSell
                                 : (storedSell > 0 ? storedSell : Number(linkedProd?.basePrice || item.basePrice || 0));
+
+                              let effectiveCost = 0;
+                              if (isRollItem) {
+                                effectiveCost = Number(item.unitPrice || linkedProd?.costPrice || linkedProd?.unitPrice || 57.70);
+                              } else if (countingUnit === "kg") {
+                                effectiveCost = 77.70;
+                              } else {
+                                const weight = Number(item.weight || linkedProd?.weight || 0);
+                                if (weight > 0) {
+                                  effectiveCost = Number((77.70 * weight).toFixed(2));
+                                } else {
+                                  const storedCost = Number(item.unitPrice || item.productionCostPerUnit || linkedProd?.costPrice || 0);
+                                  effectiveCost = (storedCost > 0 && storedCost < effectiveSell) ? storedCost : 3.50;
+                                }
+                              }
+
+                              const stockQty = Number(item.stockLevel || 0);
+                              const effectiveStockValue = Number((stockQty * effectiveCost).toFixed(2));
 
                               return (
                                 <div className="space-y-2">
@@ -1329,14 +1376,14 @@ const Inventory = () => {
                                     <div className="flex items-center justify-between mb-1">
                                       <span className="text-gray-500">Cost:</span>
                                       <span className="font-semibold text-gray-900">
-                                        ₹{unitPrice.toFixed(2)}
+                                        ₹{effectiveCost.toFixed(2)}{countingUnit === "kg" ? " /kg" : ""}
                                       </span>
                                     </div>
                                     {effectiveSell > 0 && (
                                       <div className="flex items-center justify-between">
                                         <span className="text-gray-500">Sell:</span>
                                         <span className="font-semibold text-emerald-600">
-                                          ₹{effectiveSell.toFixed(2)}
+                                          ₹{effectiveSell.toFixed(2)}{countingUnit === "kg" ? " /kg" : ""}
                                         </span>
                                       </div>
                                     )}
@@ -1345,11 +1392,11 @@ const Inventory = () => {
                                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-2 border border-emerald-100">
                                     <p className="text-[10px] text-emerald-600 font-medium">Stock Value</p>
                                     <p className="text-base font-bold text-emerald-700">
-                                      ₹{totalValue.toLocaleString()}
+                                      ₹{effectiveStockValue.toLocaleString("en-IN")}
                                     </p>
                                     {effectiveSell > 0 && (
                                       <p className="text-[9px] text-indigo-500 font-medium mt-0.5">
-                                        At sell price: ₹{(Number(item.stockLevel || 0) * effectiveSell).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                                        At sell price: ₹{(stockQty * effectiveSell).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                                       </p>
                                     )}
                                   </div>
@@ -1830,6 +1877,16 @@ const Inventory = () => {
             </motion.div>
           </motion.div>
         )}
+
+        <ManualProductionModal
+          isOpen={showBatchModal}
+          onClose={() => {
+            setShowBatchModal(false);
+            setPreSelectedInventoryId("");
+          }}
+          initialInventoryId={preSelectedInventoryId}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["getInventoryData"] })}
+        />
       </div>
     </Layout>
   );

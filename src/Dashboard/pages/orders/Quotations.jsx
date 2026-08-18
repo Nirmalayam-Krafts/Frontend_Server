@@ -29,6 +29,16 @@ import autoTable from "jspdf-autotable";
 
 const COMPANY_NAME = "Nirmalyam Krafts";
 
+const getLineProductGstRate = (line, productItems) => {
+  const pId = String(line?.productId?._id || line?.productId || "").trim();
+  const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+  const pGst = prod ? (prod.custom_gst_rate ?? prod.gstRate) : null;
+  if (pGst != null && !isNaN(Number(pGst))) return Number(pGst);
+  if (line?.gstRate != null && Number(line.gstRate) > 0) return Number(line.gstRate);
+  return 5;
+};
+
+
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   let totalSuggestedOfAll = 0;
   const lineSuggestedVals = lines.map(l => {
@@ -462,11 +472,11 @@ export const Quotations = () => {
       let displayQty = `${lineQty} ${line.unit || "pcs"}`;
       let calcQty = lineQty;
 
-      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
-        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
-        displayQty = `${pcsQty} pcs`;
-        calcQty = pcsQty;
-      }
+      // Preserving exact quantity and unit without piece conversion
+      //
+      //
+      //
+      //
 
       // Use saved per-line unit price if available, otherwise derive from subtotal share
       const savedUnitPrice = q.quotation?.lineUnitPrices?.[line.productId];

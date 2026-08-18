@@ -78,17 +78,17 @@ const getOrderDisplayFinancials = (order, productItems) => {
 
   let total = 0;
   if (rawBillGrandTotal > 0) {
-    total = rawBillGrandTotal;
+    total = Math.round(rawBillGrandTotal);
   } else if (Number(order?.totalAmount || 0) > 0) {
-    total = Number(order.totalAmount);
+    total = Math.round(Number(order.totalAmount));
   } else if (Number(order?.quotation?.totalQuoted || 0) > 0) {
-    total = Number(order.quotation.totalQuoted);
+    total = Math.round(Number(order.quotation.totalQuoted));
   } else if (calculatedTotal > 0) {
-    total = calculatedTotal;
+    total = Math.round(calculatedTotal);
   }
 
-  const paid = Number(order?.paidAmount || 0);
-  const due = Math.max(0, Number((total - paid).toFixed(2)));
+  const paid = Math.round(Number(order?.paidAmount || 0));
+  const due = Math.max(0, Math.round(total - paid));
 
   return {
     effectiveGstRate: effectiveTaxRate,

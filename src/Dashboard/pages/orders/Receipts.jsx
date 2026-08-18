@@ -79,12 +79,12 @@ const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = nul
       const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
       const isRoll = prod?.category?.toLowerCase().includes("roll");
       let lineQty = Number(l.quantity || 0);
-      if (!isRoll && l.unit === "kg") {
-        const weight = Number(prod?.weight || 0);
-        if (weight > 0) {
-          lineQty = Math.ceil(lineQty / weight);
-        }
-      }
+      // Keeping exact quantity without converting kg to pcs
+      lineQty = Number(l.quantity || l.qty || 1);
+      //
+      //
+      //
+      // exact qty
       suggested = lineQty * price;
     }
     totalSuggestedOfAll += suggested;
@@ -956,31 +956,27 @@ export const Receipts = () => {
       let displayQty = `${lineQty} ${line.unit || "pcs"}`;
       let calcQty = lineQty;
 
-      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
-        const pcsQty = line.convertedQuantity ? Number(line.convertedQuantity) : Math.ceil(lineQty / Number(prod.weight));
-        displayQty = `${pcsQty} pcs`;
-        calcQty = pcsQty;
-      }
+      // Preserving exact quantity and unit without piece conversion
+      //
+      //
+      //
+      //
 
-      // Use saved per-line unit price if available, otherwise derive from subtotal share
+      // Use explicit line unit price or subtotal if present, otherwise fallback to subtotal share
       const itemKey = line.productId || idx;
       const savedUnitPrice = lineUnitPrices[itemKey] || lineUnitPrices[idx];
-      let lineUnitPrice;
-      let lineSubtotal;
-
-      if (savedUnitPrice != null && Number(savedUnitPrice) > 0) {
-        lineUnitPrice = Number(savedUnitPrice);
+      const explicitRate = Number(line.unitPrice || line.rate || line.sellingPricePerUnit || line.basePrice || savedUnitPrice || 0);
+      const explicitSubtotal = Number(line.totalPrice || line.lineTotal || line.subtotal || line.amount || 0);
+      let lineUnitPrice = explicitRate;
+      let lineSubtotal = explicitSubtotal;
+      if (lineUnitPrice > 0 && lineSubtotal <= 0 && calcQty > 0) {
         lineSubtotal = lineUnitPrice * calcQty;
-      } else {
+      } else if (lineSubtotal > 0 && lineUnitPrice <= 0 && calcQty > 0) {
+        lineUnitPrice = lineSubtotal / calcQty;
+      } else if (lineUnitPrice <= 0 && lineSubtotal <= 0) {
         lineSubtotal = getLineSubtotalShare(line, orderSubtotal, lines, productItems, matchingOrder.quotation?.pricing);
         lineUnitPrice = calcQty > 0 ? (lineSubtotal / calcQty) : lineSubtotal;
       }
-
-      if (lineUnitPrice === 0 || isNaN(lineUnitPrice)) {
-        lineSubtotal = orderSubtotal > 0 ? orderSubtotal : 100;
-        lineUnitPrice = calcQty > 0 ? lineSubtotal / calcQty : lineSubtotal;
-      }
-
       return [
         specDetails,
         lineHsn,

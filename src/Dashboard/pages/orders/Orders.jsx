@@ -113,6 +113,31 @@ const initialConfirmOrderForm = {
   deliveryNotes: "",
 };
 
+const isGstChargedOnOrder = (order) => {
+  if (!order) return false;
+  const sysConfig = getSystemGstConfigFromStorage();
+  if (!sysConfig.gstEnabled) return false;
+
+  const billTax = order.billDetails?.taxRate != null ? Number(order.billDetails.taxRate) : null;
+  const quoteTax = order.quotation?.taxRate != null ? Number(order.quotation.taxRate) : null;
+  const orderTax = order.taxRate != null ? Number(order.taxRate) : null;
+
+  if (billTax === 0) return false;
+  if (billTax == null && quoteTax === 0) return false;
+  if (billTax == null && quoteTax == null && orderTax === 0) return false;
+
+  const approvedTotal = Number(order.totalAmount || order.quotation?.totalQuoted || 0);
+  const subtotal = Number(order.subtotalAmount || order.quotation?.subtotalAmount || 0);
+  const preTaxDisc = Number(order.discountAmount || order.quotation?.discountAmount || 0);
+  const taxableBase = Math.max(0, subtotal - preTaxDisc);
+
+  if (approvedTotal > 0 && taxableBase > 0 && Math.abs(approvedTotal - taxableBase) < 1.0) {
+    return false;
+  }
+
+  return true;
+};
+
 const COMPANY_NAME = "Nirmalyam Krafts";
 
 const DEDUCTION_MODE_HELP = {
@@ -168,15 +193,8 @@ const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = nul
       suggested = (itemStockQty * itemStockUnitPrice) + itemProdCost;
     } else {
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(l?.productId || "").trim());
-      const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || 8;
-      const isRoll = prod?.category?.toLowerCase().includes("roll");
-      let lineQty = Number(l.quantity || 0);
-      if (!isRoll && l.unit === "kg") {
-        const weight = Number(prod?.weight || 0);
-        if (weight > 0) {
-          lineQty = Math.ceil(lineQty / weight);
-        }
-      }
+      const price = prod?.basePrice || prod?.unitPrice || prod?.sellingPrice || prod?.sellingPricePerUnit || 8;
+      const lineQty = Number(l.quantity || 0);
       suggested = lineQty * price;
     }
     totalSuggestedOfAll += suggested;
@@ -240,13 +258,6 @@ const getQuotationItemsBreakdown = (order, pricing, subtotal, productItems) => {
     );
     
     let lineQty = Number(line.quantity || 0);
-    const isRoll = prod?.category?.toLowerCase().includes("roll");
-    if (!isRoll && line.unit === "kg") {
-      const weight = Number(prod?.weight || 0);
-      if (weight > 0) {
-        lineQty = Math.ceil(lineQty / weight);
-      }
-    }
 
     let suggested = 0;
     if (catalogPrice > 0) {
@@ -944,7 +955,7 @@ const Orders = () => {
     PAID: "success",
   };
 
-  const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString()}`;
+  const formatCurrency = (value) => `₹${Math.round(Number(value || 0)).toLocaleString("en-IN")}`;
 
   const orderStatusMeta = {
     PENDING: { label: "Pending", icon: Clock3, tone: "text-amber-700" },
@@ -1502,9 +1513,11 @@ const Orders = () => {
       return;
     }
 
-    if (!availabilityResult?.isFullyAvailable && !useAvailableStock && confirmPath !== "dispatch") {
-      toast.error("Cannot confirm & reserve stock: Missing required raw paper materials in factory. Please purchase missing raw materials first.");
-      showNotification("Cannot confirm & reserve stock: Missing required raw paper materials in factory. Please purchase missing raw materials first.", "error");
+    const canFulfill = Number(availabilityResult?.canFulfillFromStock || 0);
+    const reqQty = Number(availabilityResult?.requiredQty || 0);
+    if (confirmPath !== "dispatch" && canFulfill < reqQty) {
+      toast.error(`Cannot confirm & reserve stock: Finished stock is not 100% ready on shelf (${canFulfill} / ${reqQty} ready). Please produce missing stock first.`);
+      showNotification(`Cannot confirm & reserve stock: Finished stock is not 100% ready on shelf (${canFulfill} / ${reqQty} ready). Please produce missing stock first.`, "error");
       return;
     }
 
@@ -1526,13 +1539,7 @@ const Orders = () => {
       }
     }
 
-    if (confirmOrderForm.paymentMode !== "cash" && Number(confirmOrderForm.paidAmount || 0) > 0) {
-      if (!confirmOrderForm.paymentRefNumber || !confirmOrderForm.paymentRefNumber.trim()) {
-        toast.error("Reference Number (e.g. UTR / Txn / Cheque No.) is mandatory for non-cash payment modes.");
-        showNotification("Reference Number (e.g. UTR / Txn / Cheque No.) is mandatory for non-cash payment modes.", "error");
-        return;
-      }
-    }
+// Payment is not collected in check stock modal
 
     const loadingToast = toast.loading(isDispatch ? "Dispatching order..." : "Confirming order...");
 
@@ -1544,10 +1551,10 @@ const Orders = () => {
         taxRate: Number(confirmOrderForm.taxRate || 0),
         shippingCharges: Number(confirmOrderForm.shippingCharges || 0),
         otherCharges: Number(confirmOrderForm.otherCharges || 0),
-        paidAmount: Number(confirmOrderForm.paidAmount || 0),
-        paymentMode: confirmOrderForm.paymentMode,
-        paymentRefType: confirmOrderForm.paymentRefType || "UTR Number",
-        paymentRefNumber: confirmOrderForm.paymentRefNumber ? confirmOrderForm.paymentRefNumber.trim() : "",
+        paidAmount: 0, // Payment collection is strictly performed via Record Payment
+        paymentMode: "cash",
+        paymentRefType: "UTR Number",
+        paymentRefNumber: "",
         receiverName: confirmOrderForm.receiverName,
         receiverPhone: confirmOrderForm.receiverPhone,
         deliveryAddress: confirmOrderForm.deliveryAddress,
@@ -2307,9 +2314,35 @@ Note: ${meta.billNotes || "—"}`;
 
   const getPcsPerUnit = (line) => {
     if (!line) return 1;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+    if (isRoll) return 1;
+
+    let totalPcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
     const totalOrderedQty = Number(line.quantity || 1);
-    const convertedQtyInPcs = Number(line.convertedQuantity || line.quantityInPcs || totalOrderedQty);
-    return convertedQtyInPcs / Math.max(0.0001, totalOrderedQty);
+
+    if (totalPcs <= 0 && line.unit === "kg") {
+      let weight = Number(prod?.weight || 0);
+      if (weight <= 0 && line?.length && line?.width && line?.gsm) {
+        const L = Number(line.length);
+        const W = Number(line.width);
+        const H = Number(line.height || 0);
+        const gsm = Number(line.gsm);
+        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
+        weight = (bagAreaSqM * gsm) / 1000;
+      }
+      if (weight > 0) {
+        totalPcs = Math.ceil(totalOrderedQty / weight);
+      } else {
+        totalPcs = totalOrderedQty * 200; // 200 bags/kg fallback (0.005 kg per bag)
+      }
+    }
+
+    if (totalPcs > 0 && totalOrderedQty > 0) {
+      return totalPcs / totalOrderedQty;
+    }
+    return 1;
   };
 
   const getReturnQtyInPrimaryUnit = (line) => {
@@ -2394,46 +2427,20 @@ Note: ${meta.billNotes || "—"}`;
     const pId = String(line.productId?._id || line.productId || "").trim();
     if (returnType !== "complete" && !selectedItems[pId]) return 0;
 
-    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
-    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
-    
-    // Total Ordered Line Qty
     const totalOrderedQty = Number(line.quantity || 0);
     if (totalOrderedQty <= 0) return 0;
 
-    // Piece Count & Weights
-    let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
-    if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
-      let weight = Number(prod?.weight || 0);
-      if (weight <= 0 && line?.length && line?.width && line?.gsm) {
-        const L = Number(line.length);
-        const W = Number(line.width);
-        const H = Number(line.height || 0);
-        const gsm = Number(line.gsm);
-        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
-        weight = (bagAreaSqM * gsm) / 1000;
-      }
-      if (weight > 0) {
-        totalLinePcs = Math.ceil(totalOrderedQty / weight);
-      }
-    }
-
-    // Determine unit price per piece (for non-roll bags) or per primary unit
-    const unitPrice = getItemUnitPrice(line, idx);
-
-    // Total gross subtotal value of this order line
+    const allLines = getOrderLines();
+    const orderSub = Number(selectedOrder.subtotalAmount || selectedOrder.quotation?.subtotalAmount || selectedOrder.totalAmount || 0);
     let lineOrderSubtotal = 0;
     if (line.lineTotal && Number(line.lineTotal) > 0) {
       lineOrderSubtotal = Number(line.lineTotal);
     } else if (line.amount && Number(line.amount) > 0) {
       lineOrderSubtotal = Number(line.amount);
-    } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
-      lineOrderSubtotal = totalLinePcs * unitPrice;
     } else {
-      lineOrderSubtotal = totalOrderedQty * unitPrice;
+      lineOrderSubtotal = getLineSubtotalShare(line, orderSub, allLines, productItems);
     }
 
-    // Calculate returned fraction of this line
     let returnedFraction = 0;
     if (returnType === "complete") {
       const remainingQty = getRemainingQty(line);
@@ -2441,13 +2448,11 @@ Note: ${meta.billNotes || "—"}`;
     } else {
       const rawInput = Number(returnQuantities[pId] || 0);
       const selectedUnit = returnUnits[pId] || line.unit || "kg";
+      const pcsPerUnit = getPcsPerUnit(line);
 
       if (selectedUnit === "pcs") {
-        if (totalLinePcs > 0) {
-          returnedFraction = rawInput / totalLinePcs;
-        } else {
-          returnedFraction = rawInput / totalOrderedQty;
-        }
+        const qtyInPrimaryUnit = rawInput / pcsPerUnit;
+        returnedFraction = qtyInPrimaryUnit / totalOrderedQty;
       } else {
         returnedFraction = rawInput / totalOrderedQty;
       }
@@ -2467,24 +2472,15 @@ Note: ${meta.billNotes || "—"}`;
   const getOrderGrossSubtotalAmount = () => {
     if (!selectedOrder) return 0;
     const lines = getOrderLines();
+    const orderSub = Number(selectedOrder.subtotalAmount || selectedOrder.quotation?.subtotalAmount || selectedOrder.totalAmount || 0);
     let totalGross = 0;
     lines.forEach((line, idx) => {
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId?._id || line.productId || "").trim());
-      const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
-      let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
-      if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
-        const weight = Number(prod?.weight || 0);
-        if (weight > 0) totalLinePcs = Math.ceil(Number(line.quantity || 0) / weight);
-      }
-      const unitPrice = getItemUnitPrice(line, idx);
       if (line.lineTotal && Number(line.lineTotal) > 0) {
         totalGross += Number(line.lineTotal);
       } else if (line.amount && Number(line.amount) > 0) {
         totalGross += Number(line.amount);
-      } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
-        totalGross += totalLinePcs * unitPrice;
       } else {
-        totalGross += Number(line.quantity || 0) * unitPrice;
+        totalGross += getLineSubtotalShare(line, orderSub, lines, productItems);
       }
     });
     if (totalGross > 0) return totalGross;
@@ -2523,32 +2519,7 @@ Note: ${meta.billNotes || "—"}`;
     return Number(customRefundAmount || 0);
   };
 
-  const isGstChargedOnOrder = (order) => {
-    if (!order) return false;
-    const sysConfig = getSystemGstConfigFromStorage();
-    if (!sysConfig.gstEnabled) return false;
 
-    // Check explicit tax rates on order / bill / quotation
-    const billTax = order.billDetails?.taxRate != null ? Number(order.billDetails.taxRate) : null;
-    const quoteTax = order.quotation?.taxRate != null ? Number(order.quotation.taxRate) : null;
-    const orderTax = order.taxRate != null ? Number(order.taxRate) : null;
-
-    if (billTax === 0) return false;
-    if (billTax == null && quoteTax === 0) return false;
-    if (billTax == null && quoteTax == null && orderTax === 0) return false;
-
-    // Also check if approved total equals taxable base (meaning no GST was added when order was placed/paid)
-    const approvedTotal = Number(order.totalAmount || order.quotation?.totalQuoted || 0);
-    const subtotal = Number(order.subtotalAmount || order.quotation?.subtotalAmount || 0);
-    const preTaxDisc = Number(order.discountAmount || order.quotation?.discountAmount || 0);
-    const taxableBase = Math.max(0, subtotal - preTaxDisc);
-
-    if (approvedTotal > 0 && taxableBase > 0 && Math.abs(approvedTotal - taxableBase) < 1.0) {
-      return false;
-    }
-
-    return true;
-  };
 
   const generateReturnReceiptPDF = (order, returnDetails, mode = "download") => {
     const doc = new jsPDF();
@@ -2653,41 +2624,72 @@ Note: ${meta.billNotes || "—"}`;
 
     // Totals calculation
     let grossReturnedVal = 0;
-    let totalCgstRefund = 0;
-    let totalSgstRefund = 0;
+    const orderSub = Number(order.subtotalAmount || order.quotation?.subtotalAmount || order.totalAmount || 0);
+    const baseRefund = Number(returnDetails.refundAmount || returnDetails.amount || 0); // Pre-tax base refund net of discount
 
-    const tableBody = items.map((it, index) => {
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(it.productId || "").trim());
+    const enrichedItems = items.map((it, index) => {
+      const pId = String(it.productId?._id || it.productId || "").trim();
+      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
       const taxInfo = getProductTaxInfo(prod || it);
       const rawHsn = it.hsnCode || taxInfo.hsnCode || "4819";
       const hsnCode = String(rawHsn).replace(/\s+/g, " ").trim();
       const gstRateVal = isGstEnabled ? (it.gstRate != null ? Number(it.gstRate) : (taxInfo.gstRate || 5)) : 0;
       const halfRate = gstRateVal / 2;
 
-      // Exact rate resolution for PDF
-      const pId = String(it.productId?._id || it.productId || "").trim();
       const matchLine = orderLines.find(ol => String(ol.productId?._id || ol.productId || "").trim() === pId) || orderLines[index] || it;
-      
-      let lineGrossBase = getLineGrossReturnAmount(matchLine, index);
-      if (lineGrossBase <= 0) {
-        const qMatch = order?.quotation?.items?.find(q => String(q.productId?._id || q.productId || "").trim() === pId);
-        let unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || it.sellingPrice || qMatch?.unitPrice || qMatch?.pricePerUnit || prod?.sellingPricePerUnit || prod?.sellingPrice || prod?.unitPrice || 0);
-        if (unitRate <= 0) {
-          const isRoll = prod?.category?.toLowerCase().includes("roll") || String(it.productName || "").toLowerCase().includes("roll");
-          unitRate = isRoll ? 60 : 10;
-        }
-        lineGrossBase = Number(it.quantity || 0) * unitRate;
-      }
-      grossReturnedVal += lineGrossBase;
+      const totalOrderedQty = Number(matchLine.quantity || 1);
+      const lineOrderSubtotal = getLineSubtotalShare(matchLine, orderSub, orderLines, productItems);
 
-      const lineCgst = isGstEnabled ? lineGrossBase * (halfRate / 100) : 0;
-      const lineSgst = isGstEnabled ? lineGrossBase * (halfRate / 100) : 0;
-      const lineTotalGst = lineCgst + lineSgst;
+      let returnedFraction = 0;
+      const returnedQty = Number(it.quantity || 0);
+      const returnedUnit = String(it.unit || matchLine.unit || "kg").toLowerCase();
+      const lineUnit = String(matchLine.unit || "kg").toLowerCase();
+
+      if (returnedUnit === "pcs" && lineUnit !== "pcs") {
+        const pcsPerUnit = getPcsPerUnit(matchLine);
+        const qtyInPrimary = returnedQty / pcsPerUnit;
+        returnedFraction = qtyInPrimary / totalOrderedQty;
+      } else {
+        returnedFraction = returnedQty / totalOrderedQty;
+      }
+
+      returnedFraction = Math.min(1, Math.max(0, returnedFraction));
+      let lineGrossBase = Number((returnedFraction * lineOrderSubtotal).toFixed(2));
+      if (lineGrossBase <= 0 && returnedQty > 0) {
+        let unitRate = Number(it.unitPrice || it.pricePerUnit || it.rate || it.sellingPrice || prod?.sellingPricePerUnit || prod?.unitPrice || 0);
+        if (unitRate <= 0) unitRate = 10;
+        lineGrossBase = Number((returnedQty * unitRate).toFixed(2));
+      }
+
+      grossReturnedVal += lineGrossBase;
+      return { it, index, hsnCode, gstRateVal, halfRate, lineGrossBase };
+    });
+
+    const hasOrderDiscount = getOrderDiscountAmount() > 0;
+    const allocatedDiscount = hasOrderDiscount ? Math.max(0, grossReturnedVal - baseRefund) : 0;
+    const discountRatio = grossReturnedVal > 0 ? Math.max(0, baseRefund / grossReturnedVal) : 1;
+
+    let totalCgstRefund = 0;
+    let totalSgstRefund = 0;
+
+    const savedGst = Number(returnDetails.gstRefundAmount || 0);
+
+    const tableBody = enrichedItems.map(({ it, index, hsnCode, halfRate, lineGrossBase }) => {
+      const lineNetBase = lineGrossBase * discountRatio;
+      let lineTotalGst = 0;
+      if (isGstEnabled) {
+        if (savedGst > 0 && grossReturnedVal > 0) {
+          lineTotalGst = lineGrossBase * (savedGst / grossReturnedVal);
+        } else {
+          lineTotalGst = lineNetBase * (halfRate / 50);
+        }
+      }
+      const lineCgst = lineTotalGst / 2;
+      const lineSgst = lineTotalGst / 2;
 
       totalCgstRefund += lineCgst;
       totalSgstRefund += lineSgst;
 
-      // Clean quantity display without unwanted (pcs) on kg items
       const unitStr = String(it.unit || "pcs").trim();
       const qtyStr = `${it.quantity || 0} ${unitStr}`;
 
@@ -2712,11 +2714,11 @@ Note: ${meta.billNotes || "—"}`;
       ];
     });
 
-    const totalGstRefund = isGstEnabled ? (totalCgstRefund + totalSgstRefund) : 0;
-    const baseRefund = Number(returnDetails.refundAmount || 0); // Pre-tax base refund net of discount
+    const savedGstRefund = Number(returnDetails.gstRefundAmount || 0);
+    const totalGstRefund = isGstEnabled ? (savedGstRefund > 0 ? savedGstRefund : (totalCgstRefund + totalSgstRefund)) : 0;
+    const finalCgstRefund = isGstEnabled ? totalGstRefund / 2 : 0;
+    const finalSgstRefund = isGstEnabled ? totalGstRefund / 2 : 0;
     const totalRefunded = Number((baseRefund + totalGstRefund).toFixed(2));
-    const hasOrderDiscount = getOrderDiscountAmount() > 0;
-    const allocatedDiscount = hasOrderDiscount ? Math.max(0, grossReturnedVal - baseRefund) : 0;
 
     autoTable(doc, {
       startY: 82,
@@ -2777,16 +2779,19 @@ Note: ${meta.billNotes || "—"}`;
 
     if (isGstEnabled) {
       currentY += 5;
-      doc.text(`CGST Refund (${(totalGstRefund / (baseRefund || 1) * 50).toFixed(1)}%):`, labelX, currentY);
-      doc.text(`Rs. ${totalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      const gstRatePercent = baseRefund > 0 ? (totalGstRefund / baseRefund) * 100 : 5;
+      const halfRatePercent = (gstRatePercent / 2).toFixed(1);
+
+      doc.text(`CGST Refund (${halfRatePercent}%):`, labelX, currentY);
+      doc.text(`Rs. ${finalCgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
       currentY += 5;
-      doc.text(`SGST Refund (${(totalGstRefund / (baseRefund || 1) * 50).toFixed(1)}%):`, labelX, currentY);
-      doc.text(`Rs. ${totalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
+      doc.text(`SGST Refund (${halfRatePercent}%):`, labelX, currentY);
+      doc.text(`Rs. ${finalSgstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
 
       currentY += 5;
       doc.setFont("helvetica", "bold");
-      doc.text(`Total GST Refund:`, labelX, currentY);
+      doc.text(`Total GST Refund (${gstRatePercent.toFixed(1)}%):`, labelX, currentY);
       doc.text(`Rs. ${totalGstRefund.toFixed(2)}`, rightAlignX, currentY, { align: "right" });
     }
 
@@ -3556,10 +3561,10 @@ ${productSummary}
       const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
       const isRoll = prod?.category?.toLowerCase().includes("roll");
       let qty = lineQtys[line.productId] !== undefined ? Number(lineQtys[line.productId] || 0) : Number(line.quantity || 0);
-      if (!isRoll && line.unit === "kg" && lineQtys[line.productId] === undefined) {
-        const weight = Number(prod?.weight || 0);
-        if (weight > 0) qty = Math.ceil(qty / weight);
-      }
+      // Preserving exact quantity without piece conversion
+      //
+      //
+      //
       const unitPrice = Number(lineUnitPrices?.[line.productId] || 0);
       subtotal += qty * unitPrice;
     });
@@ -3739,10 +3744,6 @@ ${productSummary}
             const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
             const isRoll = pObj?.category?.toLowerCase().includes("roll");
             let qty = Number(line.quantity || 1);
-            if (!isRoll && line.unit === "kg") {
-              const weight = Number(pObj?.weight || 0);
-              if (weight > 0) qty = Math.ceil(qty / weight);
-            }
             let suggestedUnitPrice = Number(
               pObj?.sellingPricePerUnit ||
               pObj?.sellingPrice ||
@@ -3780,10 +3781,6 @@ ${productSummary}
           const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line?.productId || "").trim());
           const isRoll = pObj?.category?.toLowerCase().includes("roll");
           let qty = Number(line.quantity || 0);
-          if (!isRoll && line.unit === "kg") {
-            const weight = Number(pObj?.weight || 0);
-            if (weight > 0) qty = Math.ceil(qty / weight);
-          }
           subtotal += qty * Number(initialLineUnitPrices[line.productId] || 0);
         });
         // Fall back to existing saved subtotal if no unit prices available
@@ -3975,11 +3972,7 @@ ${productSummary}
       let displayQty = `${lineQty} ${line.unit || "pcs"}`;
       let calcQty = lineQty;
 
-      if (!isRoll && line.unit === "kg" && Number(prod?.weight || 0) > 0) {
-        const pcsQty = Math.ceil(lineQty / Number(prod.weight));
-        displayQty = `${pcsQty} pcs`;
-        calcQty = pcsQty;
-      }
+
 
       // Use saved per-line unit price if available, otherwise derive from subtotal share
       const savedUnitPrice = meta?.lineUnitPrices?.[line.productId];
@@ -4281,24 +4274,51 @@ Valid Until: ${quotationValidUntil || "—"}
 
   const handleEditOrder = (order) => {
     setEditingOrder(order);
-    const dList = order.orderDetailsList && order.orderDetailsList.length > 0
-      ? order.orderDetailsList.map(item => ({
-          productId: item.productId || "",
-          productCategory: item.productCategory || order.productCategory || "",
-          bagSize: item.bagSize || "",
-          color: item.color || "",
-          quantity: item.quantity || "",
-          length: item.dimensions?.length || 0,
-          width: item.dimensions?.width || 0,
-          height: item.dimensions?.height || 0,
-          gsm: item.gsm || "",
-          dimensionUnit: item.dimensions?.unit || "inch",
-          unit: item.unit || "pcs",
-          calculationMode: item.calculationMode || "auto",
-          convertedQuantity: item.convertedQuantity || "",
-          bf: item.bf || "",
-        }))
+    let dList = order.orderDetailsList && order.orderDetailsList.length > 0
+      ? order.orderDetailsList.map(item => {
+          const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item?.productId || "").trim());
+          const isRollItem = pObj ? (pObj.category?.toLowerCase().includes("roll") || pObj.name?.toLowerCase().includes("roll")) : item.productCategory?.toLowerCase().includes("roll");
+          const itemCountingUnit = item.unit || pObj?.unit || (isRollItem ? "kg" : "pcs");
+          return {
+            productId: item.productId || "",
+            productCategory: item.productCategory || order.productCategory || "",
+            bagSize: item.bagSize || "",
+            color: item.color || "",
+            quantity: item.quantity || "",
+            length: item.dimensions?.length || 0,
+            width: item.dimensions?.width || 0,
+            height: item.dimensions?.height || 0,
+            gsm: item.gsm || "",
+            dimensionUnit: item.dimensions?.unit || "inch",
+            unit: itemCountingUnit,
+            calculationMode: item.calculationMode || "auto",
+            convertedQuantity: item.convertedQuantity || "",
+            bf: item.bf || "",
+          };
+        })
       : [];
+
+    if (dList.length === 0 && (order.orderDetails?.productId || order.productId)) {
+      const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(order.orderDetails?.productId || order.productId || "").trim());
+      const isRollItem = pObj ? (pObj.category?.toLowerCase().includes("roll") || pObj.name?.toLowerCase().includes("roll")) : order.productCategory?.toLowerCase().includes("roll");
+      const mainCountingUnit = order.orderDetails?.unit || pObj?.unit || (isRollItem ? "kg" : "pcs");
+      dList = [{
+        productId: order.orderDetails?.productId || order.productId || "",
+        productCategory: order.productCategory || "",
+        bagSize: order.orderDetails?.bagSize || order.bagSize || "",
+        color: order.orderDetails?.color || order.color || "",
+        quantity: order.orderDetails?.quantity || order.quantity || "",
+        length: order.orderDetails?.dimensions?.length || 0,
+        width: order.orderDetails?.dimensions?.width || 0,
+        height: order.orderDetails?.dimensions?.height || 0,
+        gsm: order.orderDetails?.gsm || order.gsm || "",
+        dimensionUnit: order.orderDetails?.dimensions?.unit || "inch",
+        unit: mainCountingUnit,
+        calculationMode: order.orderDetails?.calculationMode || "auto",
+        convertedQuantity: order.orderDetails?.convertedQuantity || "",
+        bf: order.orderDetails?.bf || "",
+      }];
+    }
 
     setEditOrderForm({
       customerName: order.customerName || "",
@@ -4309,16 +4329,16 @@ Valid Until: ${quotationValidUntil || "—"}
       stateName: order.stateName || "",
       stateCode: order.stateCode || "",
       address: order.address || order.deliveryAddress || order.delivery?.deliveryAddress || "",
-      productId: order.orderDetails?.productId || "",
+      productId: order.orderDetails?.productId || order.productId || "",
       productCategory: order.productCategory || "",
       source: order.source || "Manual Order",
-      bagSize: order.orderDetails?.bagSize || "",
-      color: order.orderDetails?.color || "",
-      quantity: order.orderDetails?.quantity || "",
+      bagSize: order.orderDetails?.bagSize || order.bagSize || "",
+      color: order.orderDetails?.color || order.color || "",
+      quantity: order.orderDetails?.quantity || order.quantity || "",
       length: order.orderDetails?.dimensions?.length || "",
       width: order.orderDetails?.dimensions?.width || "",
       height: order.orderDetails?.dimensions?.height || "",
-      gsm: order.orderDetails?.gsm || "",
+      gsm: order.orderDetails?.gsm || order.gsm || "",
       bf: order.orderDetails?.bf || order.orderDetails?.burstingFactor || "",
       dimensionUnit: order.orderDetails?.dimensions?.unit || "inch",
       notes: order.notes || "",
@@ -4350,7 +4370,7 @@ Valid Until: ${quotationValidUntil || "—"}
       return;
     }
 
-    const isMultiProduct = editOrderForm.orderDetailsList && editOrderForm.orderDetailsList.length > 1;
+    const isMultiProduct = editOrderForm.orderDetailsList && editOrderForm.orderDetailsList.length > 0;
 
     if (isMultiProduct) {
       for (let i = 0; i < editOrderForm.orderDetailsList.length; i++) {
@@ -5346,6 +5366,8 @@ Valid Until: ${quotationValidUntil || "—"}
                                       • {det.quantity} {det.unit || "pcs"}{det.bagSize ? ` (${det.bagSize})` : ""}
                                     </p>
                                   ))}
+                                  {(() => {
+                                  })()}
                                   {order.orderDetailsList.length > 3 && (
                                     <p className="text-[10px] text-emerald-600 font-bold">+{order.orderDetailsList.length - 3} more products</p>
                                   )}
@@ -5376,6 +5398,9 @@ Valid Until: ${quotationValidUntil || "—"}
                                     <span className="text-gray-500 font-medium truncate max-w-[80px]">
                                       {det.bagSize || `Item ${i + 1}`}
                                     </span>
+                                    {(() => {
+                                      // ...
+                                    })()}
                                     <span className="font-bold text-blue-600 ml-1">
                                       {det.quantity || 0} {det.unit || "pcs"}
                                     </span>
@@ -5812,8 +5837,9 @@ Valid Until: ${quotationValidUntil || "—"}
           size="xl"
         >
           {(() => {
-            const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === manualOrderForm.productId);
-            const isManualRoll = !!(selProd?.category?.toLowerCase().includes("roll") || manualOrderForm.productCategory?.toLowerCase().includes("roll"));
+            const selProd = productItems.find(p => String(p?._id || p?.id || "").trim() === String(manualOrderForm.productId || "").trim());
+            const isManualRoll = selProd ? (selProd.category?.toLowerCase().includes("roll") || selProd.name?.toLowerCase().includes("roll")) : Boolean(manualOrderForm.productCategory?.toLowerCase().includes("roll"));
+            const selProdCountingUnit = selProd?.unit || (isManualRoll ? "kg" : "pcs");
             const matchedInventory = selProd
               ? inventoryItems.find((inv) =>
                   String(inv.productId || inv.product?._id || inv.product?.id || "").trim() === String(selProd?._id || selProd?.id || "").trim()
@@ -6033,8 +6059,9 @@ Valid Until: ${quotationValidUntil || "—"}
                             value={manualOrderForm.productId}
                             onChange={(e) => {
                               const prodId = e.target.value;
-                              const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
-                              const isRollCategory = prod?.category?.toLowerCase().includes("roll");
+                              const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === String(prodId).trim());
+                              const isRollCategory = prod ? (prod.category?.toLowerCase().includes("roll") || prod.name?.toLowerCase().includes("roll")) : false;
+                              const countingUnit = prod?.unit || (isRollCategory ? "kg" : "pcs");
                               setManualOrderForm(prev => ({
                                 ...prev,
                                 productId: prodId,
@@ -6047,7 +6074,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                 bf: prod?.bf || prev.bf || "",
                                 color: prod?.bagColor || prod?.color || "",
                                 bagSize: prod?.bagSize || "",
-                                unit: isRollCategory ? "kg" : "pcs",
+                                unit: countingUnit,
                                 calculationMode: "auto",
                                 convertedQuantity: "",
                               }));
@@ -6076,23 +6103,9 @@ Valid Until: ${quotationValidUntil || "—"}
                               placeholder="Quantity"
                               className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                             />
-                            <select
-                              value={manualOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
-                              onChange={(e) => handleFormChange("unit", e.target.value)}
-                              className="w-[90px] rounded-xl border border-gray-200 bg-white px-2 py-2 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                            >
-                              {isManualRoll ? (
-                                <>
-                                  <option value="kg">kg</option>
-                                  <option value="m">meter</option>
-                                </>
-                              ) : (
-                                <>
-                                  <option value="pcs">pcs</option>
-                                  <option value="kg">kg</option>
-                                </>
-                              )}
-                            </select>
+                            <div className="w-[90px] flex items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-2 py-2 text-sm font-extrabold text-emerald-800 shadow-2xs select-none" title="Product Counting Unit locked to Master DB configuration">
+                              {selProdCountingUnit}
+                            </div>
                           </div>
                         </div>
 
@@ -6437,7 +6450,7 @@ Valid Until: ${quotationValidUntil || "—"}
                               <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider block">Available Stock</span>
                               <div>
                                 <span className="inline-block font-extrabold text-xs text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg">
-                                  {availableStock.toLocaleString()} {isManualRoll ? "kg" : "pcs"}
+                                  {availableStock.toLocaleString()} {selProd?.unit || (isManualRoll ? "kg" : "pcs")}
                                 </span>
                               </div>
                             </div>
@@ -6505,8 +6518,8 @@ Valid Until: ${quotationValidUntil || "—"}
                               const reqQty = Number(manualOrderForm.quantity || 0);
                               comparisonParams.push({
                                 name: "Quantity",
-                                requested: reqQty ? `${reqQty} ${manualOrderForm.unit || (isManualRoll ? "kg" : "pcs")}` : "—",
-                                actual: `${availableStock} ${isManualRoll ? "kg" : "pcs"}`,
+                                requested: reqQty ? `${reqQty} ${manualOrderForm.unit || selProd?.unit || (isManualRoll ? "kg" : "pcs")}` : "—",
+                                actual: `${availableStock} ${selProd?.unit || (isManualRoll ? "kg" : "pcs")}`,
                                 isMatch: reqQty <= availableStock,
                               });
                             }
@@ -6969,308 +6982,382 @@ Valid Until: ${quotationValidUntil || "—"}
                   </div>
                 </div>
 
-                {editOrderForm.orderDetailsList && editOrderForm.orderDetailsList.length > 1 ? (
-                  <div className="space-y-4">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">Product Specifications ({editOrderForm.orderDetailsList.length} Items)</p>
-                    {editOrderForm.orderDetailsList.map((item, index) => {
-                      const selProdItem = productItems.find(p => String(p?._id || p?.id || "").trim() === item.productId);
-                      const isItemRoll = !!(selProdItem?.category?.toLowerCase().includes("roll") || item.productCategory?.toLowerCase().includes("roll"));
-                      
-                      return (
-                        <div key={index} className="rounded-2xl border border-gray-200 bg-gray-50/50 p-4 space-y-4 shadow-3xs">
-                          <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                            <span className="text-xs font-extrabold text-emerald-800 uppercase">Item #{index + 1}: {selProdItem?.name || "Product"}</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+                    <div>
+                      <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Product Specifications ({editOrderForm.orderDetailsList?.length || 0} {(editOrderForm.orderDetailsList?.length || 0) === 1 ? 'Item' : 'Items'})
+                      </p>
+                      <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                        Modify existing products or add new items to this order
+                      </p>
+                    </div>
+
+                    {!isOrderPaid && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstProd = productItems[0];
+                          const isRollCategory = firstProd?.category?.toLowerCase().includes("roll");
+                          const newItem = {
+                            productId: firstProd?._id || firstProd?.id || "",
+                            productCategory: firstProd?.category || "",
+                            bagSize: firstProd?.bagSize || "Medium",
+                            color: firstProd?.bagColor || firstProd?.color || "Natural brown",
+                            quantity: "1000",
+                            length: firstProd?.dimensions?.length || 10,
+                            width: firstProd?.dimensions?.width || 12,
+                            height: firstProd?.dimensions?.height || 5,
+                            gsm: firstProd?.gsm || 100,
+                            dimensionUnit: firstProd?.dimensions?.unit || "inch",
+                            unit: isRollCategory ? "kg" : "pcs",
+                            calculationMode: "auto",
+                            convertedQuantity: "",
+                            bf: firstProd?.bf || "",
+                          };
+
+                          setEditOrderForm(prev => ({
+                            ...prev,
+                            orderDetailsList: [...(prev.orderDetailsList || []), newItem],
+                            productId: prev.productId || newItem.productId,
+                          }));
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Another Product</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {(editOrderForm.orderDetailsList || []).map((item, index) => {
+                    const selProdItem = productItems.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
+                    const isItemRoll = selProdItem ? (selProdItem.category?.toLowerCase().includes("roll") || selProdItem.name?.toLowerCase().includes("roll")) : Boolean(item.productCategory?.toLowerCase().includes("roll"));
+                    const itemCountingUnit = selProdItem?.unit || (isItemRoll ? "kg" : "pcs");
+
+                    return (
+                      <div key={index} className="rounded-2xl border border-gray-200 bg-gray-50/50 p-4 space-y-4 shadow-3xs">
+                        <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                          <span className="text-xs font-extrabold text-emerald-800 uppercase">
+                            Item #{index + 1}: {selProdItem?.name || "Product"}
+                          </span>
+
+                          {(editOrderForm.orderDetailsList?.length || 0) > 1 && !isOrderPaid && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditOrderForm(prev => {
+                                  const newList = prev.orderDetailsList.filter((_, i) => i !== index);
+                                  return {
+                                    ...prev,
+                                    orderDetailsList: newList,
+                                    productId: newList[0]?.productId || prev.productId,
+                                    quantity: newList[0]?.quantity || prev.quantity,
+                                  };
+                                });
+                              }}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-red-650 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                              title="Remove product item"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Remove</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                              Product <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={item.productId}
+                              disabled={isOrderPaid}
+                              onChange={(e) => {
+                                const prodId = e.target.value;
+                                const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === String(prodId).trim());
+                                const isRollCategory = prod ? (prod.category?.toLowerCase().includes("roll") || prod.name?.toLowerCase().includes("roll")) : false;
+                                const countingUnit = prod?.unit || (isRollCategory ? "kg" : "pcs");
+                                const newList = [...editOrderForm.orderDetailsList];
+                                newList[index] = {
+                                  ...newList[index],
+                                  productId: prodId,
+                                  productCategory: prod?.category || "",
+                                  length: prod?.dimensions?.length || "",
+                                  width: prod?.dimensions?.width || "",
+                                  height: prod?.dimensions?.height || "",
+                                  dimensionUnit: prod?.dimensions?.unit || "inch",
+                                  gsm: prod?.gsm || "",
+                                  color: prod?.bagColor || prod?.color || "",
+                                  bagSize: prod?.bagSize || "",
+                                  unit: countingUnit,
+                                  calculationMode: "auto",
+                                  convertedQuantity: "",
+                                  bf: prod?.bf || "",
+                                };
+                                setEditOrderForm(prev => ({
+                                  ...prev,
+                                  orderDetailsList: newList,
+                                  productId: newList[0]?.productId || prev.productId,
+                                }));
+                              }}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              required
+                            >
+                              <option value="">Select Product</option>
+                              {productItems.map((product) => (
+                                <option key={product._id || product.id} value={product._id || product.id}>
+                                  {product.name} {product.sku ? `(${product.sku})` : ""}
+                                </option>
+                              ))}
+                            </select>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="sm:col-span-2">
-                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-                                Product <span className="text-red-500">*</span>
-                              </label>
-                              <select
-                                value={item.productId}
+                          <div>
+                            <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                              Order Quantity <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
                                 disabled={isOrderPaid}
                                 onChange={(e) => {
-                                  const prodId = e.target.value;
-                                  const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
-                                  const isRollCategory = prod?.category?.toLowerCase().includes("roll");
                                   const newList = [...editOrderForm.orderDetailsList];
-                                  newList[index] = {
-                                    ...newList[index],
-                                    productId: prodId,
-                                    productCategory: prod?.category || "",
-                                    length: prod?.dimensions?.length || "",
-                                    width: prod?.dimensions?.width || "",
-                                    height: prod?.dimensions?.height || "",
-                                    dimensionUnit: prod?.dimensions?.unit || "inch",
-                                    gsm: prod?.gsm || "",
-                                    color: prod?.bagColor || prod?.color || "",
-                                    bagSize: prod?.bagSize || "",
-                                    unit: isRollCategory ? "kg" : "pcs",
-                                  };
+                                  newList[index].quantity = e.target.value;
                                   setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
                                 }}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-emerald-500"
+                                placeholder="Quantity"
+                                className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                 required
-                              >
-                                <option value="">Select Product</option>
-                                {productItems.map((product) => (
-                                  <option key={product._id || product.id} value={product._id || product.id}>
-                                    {product.name}
-                                  </option>
-                                ))}
-                              </select>
+                              />
+                              <div className="w-[80px] flex items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-1 py-2 text-xs font-extrabold text-emerald-800 shadow-2xs select-none" title="Product Counting Unit locked to Master DB configuration">
+                                {itemCountingUnit}
+                              </div>
                             </div>
+                          </div>
 
-                            <div>
-                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-                                Order Quantity <span className="text-red-500">*</span>
-                              </label>
-                              <div className="flex gap-2">
+                          <div>
+                            <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                              Dimension Unit
+                            </label>
+                            <select
+                              value={item.dimensionUnit || "inch"}
+                              disabled={isOrderPaid}
+                              onChange={(e) => {
+                                const newList = [...editOrderForm.orderDetailsList];
+                                newList[index].dimensionUnit = e.target.value;
+                                setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                              }}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            >
+                              <option value="inch">Inch</option>
+                              <option value="cm">CM</option>
+                              <option value="mm">MM</option>
+                              <option value="ft">Feet</option>
+                            </select>
+                          </div>
+
+                          {((!isItemRoll && item.unit === "kg") || (isItemRoll && item.unit === "m")) && (
+                            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 border-l-4 border-amber-500 bg-amber-50/50 p-3 rounded-xl">
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                  Unit Conversion Mode
+                                </label>
+                                <select
+                                  value={item.calculationMode || "auto"}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].calculationMode = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                >
+                                  <option value="auto">Auto via Formula</option>
+                                  <option value="manual">Enter Manually</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                  {isItemRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
+                                </label>
                                 <input
                                   type="number"
                                   min="1"
-                                  value={item.quantity}
-                                  disabled={isOrderPaid}
+                                  value={item.convertedQuantity || ""}
                                   onChange={(e) => {
                                     const newList = [...editOrderForm.orderDetailsList];
-                                    newList[index].quantity = e.target.value;
+                                    newList[index].convertedQuantity = e.target.value;
                                     setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
                                   }}
-                                  placeholder="Quantity"
-                                  className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                  required
+                                  placeholder={isItemRoll ? "Equivalent kg" : "Equivalent bags"}
+                                  disabled={item.calculationMode !== "manual" || isOrderPaid}
+                                  className={`w-full rounded-xl border px-2.5 py-2 text-xs outline-none ${
+                                    (item.calculationMode === "manual" && !isOrderPaid)
+                                      ? "border-emerald-300 bg-white focus:border-emerald-500"
+                                      : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
+                                  }`}
                                 />
-                                <select
-                                  value={item.unit}
-                                  disabled={isOrderPaid}
-                                  onChange={(e) => {
-                                    const newList = [...editOrderForm.orderDetailsList];
-                                    newList[index].unit = e.target.value;
-                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                  }}
-                                  className="w-[70px] rounded-xl border border-gray-200 bg-white px-1 py-2 text-xs outline-none focus:border-emerald-500"
-                                >
-                                  {isItemRoll ? (
-                                    <>
-                                      <option value="kg">kg</option>
-                                      <option value="m">m</option>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <option value="pcs">pcs</option>
-                                      <option value="kg">kg</option>
-                                    </>
-                                  )}
-                                </select>
                               </div>
                             </div>
+                          )}
 
-                            <div>
-                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-                                Dimension Unit
-                              </label>
-                              <select
-                                value={item.dimensionUnit || "inch"}
-                                disabled={isOrderPaid}
-                                onChange={(e) => {
-                                  const newList = [...editOrderForm.orderDetailsList];
-                                  newList[index].dimensionUnit = e.target.value;
-                                  setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                }}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                              >
-                                <option value="inch">Inch</option>
-                                <option value="cm">CM</option>
-                                <option value="mm">MM</option>
-                              </select>
-                            </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                              GSM <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.gsm}
+                              disabled={isOrderPaid}
+                              onChange={(e) => {
+                                const newList = [...editOrderForm.orderDetailsList];
+                                newList[index].gsm = e.target.value;
+                                setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                              }}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                              required
+                            />
+                          </div>
 
-                            <div>
-                              <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-                                GSM <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.gsm}
-                                disabled={isOrderPaid}
-                                onChange={(e) => {
-                                  const newList = [...editOrderForm.orderDetailsList];
-                                  newList[index].gsm = e.target.value;
-                                  setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                }}
-                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                required
-                              />
-                            </div>
+                          {!isItemRoll ? (
+                            <>
+                              {(() => {
+                                const currentSize = item.bagSize || "";
+                                const presetSizes = ["Small", "Medium", "Large", "8x10", "10x12", "12x16"];
+                                if (selProdItem?.bagSize && !presetSizes.includes(selProdItem.bagSize)) {
+                                  presetSizes.push(selProdItem.bagSize);
+                                }
+                                const isCustom = currentSize !== "" && !presetSizes.includes(currentSize);
+                                const selectValue = isCustom ? "Custom" : currentSize;
 
-                            {!isItemRoll ? (
-                              <>
-                                {(() => {
-                                  const currentSize = item.bagSize || "";
-                                  const presetSizes = ["Small", "Medium", "Large", "8x10", "10x12", "12x16"];
-                                  if (selProdItem?.bagSize && !presetSizes.includes(selProdItem.bagSize)) {
-                                    presetSizes.push(selProdItem.bagSize);
-                                  }
-                                  const isCustom = currentSize !== "" && !presetSizes.includes(currentSize);
-                                  const selectValue = isCustom ? "Custom" : currentSize;
-
-                                  return (
-                                    <div className="space-y-1">
-                                      <label className="block text-[11px] font-semibold text-gray-600">
-                                        Bag Size <span className="text-red-500">*</span>
-                                      </label>
-                                      <select
-                                        value={selectValue}
+                                return (
+                                  <div className="space-y-1">
+                                    <label className="block text-[11px] font-semibold text-gray-600">
+                                      Bag Size <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                      value={selectValue}
+                                      disabled={isOrderPaid}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const newList = [...editOrderForm.orderDetailsList];
+                                        if (val === "Custom") {
+                                          newList[index].bagSize = isCustom ? currentSize : "";
+                                        } else {
+                                          newList[index].bagSize = val;
+                                        }
+                                        setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                      }}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                    >
+                                      <option value="">Select Bag Size...</option>
+                                      <option value="Small">Small</option>
+                                      <option value="Medium">Medium</option>
+                                      <option value="Large">Large</option>
+                                      <option value="8x10">8×10</option>
+                                      <option value="10x12">10×12</option>
+                                      <option value="12x16">12×16</option>
+                                      {selProdItem?.bagSize && !["Small", "Medium", "Large", "8x10", "10x12", "12x16"].includes(selProdItem.bagSize) && (
+                                        <option value={selProdItem.bagSize}>{selProdItem.bagSize}</option>
+                                      )}
+                                      <option value="Custom">⚙️ Custom (Type Custom Size)</option>
+                                    </select>
+                                    {(selectValue === "Custom" || isCustom) && (
+                                      <input
+                                        type="text"
+                                        value={item.bagSize || ""}
                                         disabled={isOrderPaid}
                                         onChange={(e) => {
-                                          const val = e.target.value;
                                           const newList = [...editOrderForm.orderDetailsList];
-                                          if (val === "Custom") {
-                                            newList[index].bagSize = isCustom ? currentSize : "";
-                                          } else {
-                                            newList[index].bagSize = val;
-                                          }
+                                          newList[index].bagSize = e.target.value;
                                           setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
                                         }}
-                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                                      >
-                                        <option value="">Select Bag Size...</option>
-                                        <option value="Small">Small</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="Large">Large</option>
-                                        <option value="8x10">8×10</option>
-                                        <option value="10x12">10×12</option>
-                                        <option value="12x16">12×16</option>
-                                        {selProdItem?.bagSize && !["Small", "Medium", "Large", "8x10", "10x12", "12x16"].includes(selProdItem.bagSize) && (
-                                          <option value={selProdItem.bagSize}>{selProdItem.bagSize}</option>
-                                        )}
-                                        <option value="Custom">⚙️ Custom (Type Custom Size)</option>
-                                      </select>
-                                      {(selectValue === "Custom" || isCustom) && (
-                                        <input
-                                          type="text"
-                                          value={item.bagSize || ""}
-                                          disabled={isOrderPaid}
-                                          onChange={(e) => {
-                                            const newList = [...editOrderForm.orderDetailsList];
-                                            newList[index].bagSize = e.target.value;
-                                            setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                          }}
-                                          placeholder="Enter custom bag size..."
-                                          className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
-                                          required
-                                        />
+                                        placeholder="Enter custom bag size..."
+                                        className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                        required
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {(() => {
+                                const currentColor = item.color || "";
+                                const standardColors = ["Brown", "Natural brown", "White", "Pink"];
+                                const prodColor = selProdItem?.bagColor || selProdItem?.color;
+                                if (prodColor && !standardColors.includes(prodColor)) {
+                                  standardColors.push(prodColor);
+                                }
+                                const isCustomColor = currentColor !== "" && !standardColors.includes(currentColor);
+                                const selectColorValue = isCustomColor ? "Custom" : currentColor;
+
+                                return (
+                                  <div className="space-y-1">
+                                    <label className="block text-[11px] font-semibold text-gray-600">
+                                      Color
+                                    </label>
+                                    <select
+                                      value={selectColorValue}
+                                      disabled={isOrderPaid}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const newList = [...editOrderForm.orderDetailsList];
+                                        if (val === "Custom") {
+                                          newList[index].color = isCustomColor ? currentColor : "";
+                                        } else {
+                                          newList[index].color = val;
+                                        }
+                                        setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                      }}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                    >
+                                      <option value="">Select Color...</option>
+                                      <option value="Brown">Brown</option>
+                                      <option value="Natural brown">Natural brown</option>
+                                      <option value="White">White</option>
+                                      <option value="Pink">Pink</option>
+                                      {prodColor && !["Brown", "Natural brown", "White", "Pink"].includes(prodColor) && (
+                                        <option value={prodColor}>{prodColor}</option>
                                       )}
-                                    </div>
-                                  );
-                                })()}
-
-                                {(() => {
-                                  const currentColor = item.color || "";
-                                  const standardColors = ["Brown", "White", "Natural", "Kraft", "Black", "Red", "Green", "Blue"];
-                                  const prodColor = selProdItem?.bagColor || selProdItem?.color;
-                                  if (prodColor && !standardColors.includes(prodColor)) {
-                                    standardColors.push(prodColor);
-                                  }
-                                  const isCustomColor = currentColor !== "" && !standardColors.includes(currentColor);
-                                  const selectColorValue = isCustomColor ? "Custom" : currentColor;
-
-                                  return (
-                                    <div className="space-y-1">
-                                      <label className="block text-[11px] font-semibold text-gray-600">
-                                        Color
-                                      </label>
-                                      <select
-                                        value={selectColorValue}
+                                      <option value="Custom">⚙️ Custom (Type Custom Color)</option>
+                                    </select>
+                                    {(selectColorValue === "Custom" || isCustomColor) && (
+                                      <input
+                                        type="text"
+                                        value={item.color || ""}
                                         disabled={isOrderPaid}
                                         onChange={(e) => {
-                                          const val = e.target.value;
                                           const newList = [...editOrderForm.orderDetailsList];
-                                          if (val === "Custom") {
-                                            newList[index].color = isCustomColor ? currentColor : "";
-                                          } else {
-                                            newList[index].color = val;
-                                          }
+                                          newList[index].color = e.target.value;
                                           setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
                                         }}
-                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium"
-                                      >
-                                        <option value="">Select Color...</option>
-                                        <option value="Brown">Brown</option>
-                                        <option value="Natural brown">Natural brown</option>
-                                        <option value="White">White</option>
-                                        <option value="Pink">Pink</option>
-                                        {prodColor && !["Brown", "Natural brown", "White", "Pink"].includes(prodColor) && (
-                                          <option value={prodColor}>{prodColor}</option>
-                                        )}
-                                        <option value="Custom">⚙️ Custom (Type Custom Color)</option>
-                                      </select>
-                                      {(selectColorValue === "Custom" || isCustomColor) && (
-                                        <input
-                                          type="text"
-                                          value={item.color || ""}
-                                          disabled={isOrderPaid}
-                                          onChange={(e) => {
-                                            const newList = [...editOrderForm.orderDetailsList];
-                                            newList[index].color = e.target.value;
-                                            setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                          }}
-                                          placeholder="Enter custom color..."
-                                          className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1"
-                                        />
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Length <span className="text-red-500">*</span></label>
-                                  <input
-                                    type="number"
-                                    value={item.length}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].length = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                    required
-                                  />
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
-                                  <input
-                                    type="number"
-                                    value={item.width}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].width = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                    required
-                                  />
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-[11px] font-semibold text-gray-600">Height <span className="text-red-500">*</span></label>
-                                  <input
-                                    type="number"
-                                    value={item.height}
-                                    disabled={isOrderPaid}
-                                    onChange={(e) => {
-                                      const newList = [...editOrderForm.orderDetailsList];
-                                      newList[index].height = e.target.value;
-                                      setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
-                                    }}
-                                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
-                                    required
-                                  />
-                                </div>
-                              </>
-                            ) : (
+                                        placeholder="Enter custom color..."
+                                        className="w-full rounded-xl border border-emerald-300 bg-emerald-50/40 px-3 py-2 text-xs outline-none focus:border-emerald-500 text-gray-900 font-medium mt-1 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">Length <span className="text-red-500">*</span></label>
+                                <input
+                                  type="number"
+                                  value={item.length}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].length = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                  required
+                                />
+                              </div>
                               <div>
                                 <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
                                 <input
@@ -7282,309 +7369,68 @@ Valid Until: ${quotationValidUntil || "—"}
                                     newList[index].width = e.target.value;
                                     setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
                                   }}
-                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                   required
                                 />
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <div className="mb-4 flex items-center gap-2">
-                      <ShoppingBag className="h-4 w-4 text-emerald-600" />
-                      <p className="text-sm font-bold text-gray-800">Product Specifications</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">
-                          Product <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={editOrderForm.productId}
-                          disabled={isOrderPaid}
-                          onChange={(e) => {
-                            const prodId = e.target.value;
-                            const prod = productItems.find(p => String(p?._id || p?.id || "").trim() === prodId);
-                            const isRollCategory = prod?.category?.toLowerCase().includes("roll");
-                            setEditOrderForm(prev => ({
-                              ...prev,
-                              productId: prodId,
-                              productCategory: prod?.category || "",
-                              length: prod?.dimensions?.length || "",
-                              width: prod?.dimensions?.width || "",
-                              height: prod?.dimensions?.height || "",
-                              dimensionUnit: prod?.dimensions?.unit || "inch",
-                              gsm: prod?.gsm || "",
-                              color: prod?.color || prev.color || "",
-                              bagSize: prod?.bagSize || prev.bagSize || "",
-                              unit: isRollCategory ? "kg" : "pcs",
-                              calculationMode: "auto",
-                              convertedQuantity: "",
-                            }));
-                          }}
-                          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                          required
-                        >
-                          <option value="">Select Product</option>
-                          {productItems.map((product) => (
-                            <option key={product._id || product.id} value={product._id || product.id}>
-                              {product.name} {product.sku ? `(${product.sku})` : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">
-                          Order Quantity <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            min="1"
-                            value={editOrderForm.quantity}
-                            disabled={isOrderPaid}
-                            onChange={(e) => handleEditFormChange("quantity", e.target.value)}
-                            placeholder="Quantity"
-                            className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                            required
-                          />
-                          <select
-                            value={editOrderForm.unit || (isManualRoll ? "kg" : "pcs")}
-                            disabled={isOrderPaid}
-                            onChange={(e) => handleEditFormChange("unit", e.target.value)}
-                            className="w-[90px] rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                          >
-                            {isManualRoll ? (
-                              <>
-                                <option value="kg">kg</option>
-                                <option value="m">meter</option>
-                              </>
-                            ) : (
-                              <>
-                                <option value="pcs">pcs</option>
-                                <option value="kg">kg</option>
-                              </>
-                            )}
-                          </select>
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">Height <span className="text-red-500">*</span></label>
+                                <input
+                                  type="number"
+                                  value={item.height}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].height = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                  required
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+                                  BF (Bursting Factor)
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.bf || ""}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].bf = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  placeholder="BF (e.g. 20)"
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-gray-600">Width <span className="text-red-500">*</span></label>
+                                <input
+                                  type="number"
+                                  value={item.width}
+                                  disabled={isOrderPaid}
+                                  onChange={(e) => {
+                                    const newList = [...editOrderForm.orderDetailsList];
+                                    newList[index].width = e.target.value;
+                                    setEditOrderForm(prev => ({ ...prev, orderDetailsList: newList }));
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                  required
+                                />
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
-
-                      {((!isManualRoll && editOrderForm.unit === "kg") || (isManualRoll && editOrderForm.unit === "m")) && (
-                        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 rounded-xl">
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Unit Conversion Mode
-                            </label>
-                            <select
-                              value={editOrderForm.calculationMode || "auto"}
-                              disabled={isOrderPaid}
-                              onChange={(e) =>
-                                handleEditFormChange("calculationMode", e.target.value)
-                              }
-                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                            >
-                              <option value="auto">Auto via Formula</option>
-                              <option value="manual">Enter Manually</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              {isManualRoll ? "Equivalent Weight (kg)" : "Equivalent Quantity (pcs)"}
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={editOrderForm.convertedQuantity || ""}
-                              onChange={(e) =>
-                                handleEditFormChange("convertedQuantity", e.target.value)
-                              }
-                              placeholder={isManualRoll ? "Equivalent kg" : "Equivalent bags"}
-                              disabled={editOrderForm.calculationMode !== "manual" || isOrderPaid}
-                              className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${
-                                (editOrderForm.calculationMode === "manual" && !isOrderPaid)
-                                  ? "border-emerald-300 bg-white focus:border-emerald-500"
-                                  : "border-gray-200 bg-gray-100/80 text-gray-500 cursor-not-allowed"
-                              }`}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">
-                          {isManualRoll ? "Width Unit" : "Dimension Unit"}
-                        </label>
-                        <select
-                          value={editOrderForm.dimensionUnit}
-                          disabled={isOrderPaid}
-                          onChange={(e) => handleEditFormChange("dimensionUnit", e.target.value)}
-                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                        >
-                          <option value="inch">Inch</option>
-                          <option value="cm">CM</option>
-                          <option value="mm">MM</option>
-                          <option value="ft">Feet</option>
-                        </select>
-                      </div>
-
-                      {isManualRoll ? (
-                        <>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              GSM <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.gsm}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("gsm", e.target.value)}
-                              placeholder="GSM"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              BF (Bursting Factor)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.bf || ""}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("bf", e.target.value)}
-                              placeholder="BF (e.g. 20)"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Width <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.width}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("width", e.target.value)}
-                              placeholder="Width"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                              required
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              GSM <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.gsm}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("gsm", e.target.value)}
-                              placeholder="GSM"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Bag Size <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              value={editOrderForm.bagSize}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("bagSize", e.target.value)}
-                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed text-gray-900 font-medium"
-                              required
-                            >
-                              <option value="">Select Size</option>
-                              <option value="Small">Small</option>
-                              <option value="Medium">Medium</option>
-                              <option value="Large">Large</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Color
-                            </label>
-                            <select
-                              value={editOrderForm.color}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("color", e.target.value)}
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                            >
-                              <option value="">Select color</option>
-                              <option value="Brown">Brown</option>
-                              <option value="Natural brown">Natural brown</option>
-                              <option value="White">White</option>
-                              <option value="Pink">Pink</option>
-                              {editOrderForm.color && !["Brown", "Natural brown", "White", "Pink"].includes(editOrderForm.color) && (
-                                <option value={editOrderForm.color}>{editOrderForm.color}</option>
-                              )}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Length <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.length}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("length", e.target.value)}
-                              placeholder="Length"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Width <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.width}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("width", e.target.value)}
-                              placeholder="Width"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">
-                              Height <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editOrderForm.height}
-                              disabled={isOrderPaid}
-                              onChange={(e) => handleEditFormChange("height", e.target.value)}
-                              placeholder="Height"
-                              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                              required
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
 
                 <div className="rounded-2xl border border-gray-100 p-4">
                   <label className="mb-2 block text-xs font-semibold text-gray-600">
@@ -7824,57 +7670,60 @@ Valid Until: ${quotationValidUntil || "—"}
                   {(() => {
                     let suggestedTotal = 0;
                     const itemsBreakdown = [];
+                    const qLines = getQuotationLines(quotationOrder);
+                    const perProductResults = quotationPricing?.perProductResults || [];
 
-                    if (quotationPricing?.perProductResults && quotationPricing.perProductResults.length > 0) {
-                      for (const pr of quotationPricing.perProductResults) {
-                        const itemQty = Number(pr.quantity || 0);
-                        const itemStockQty = Number(pr.canFulfillFromStock || 0);
-                        const itemRequiredProd = Number(pr.requiredFromProduction || 0);
-                        const itemNormalizedQty = itemStockQty + itemRequiredProd;
-                        const itemProdCost = itemNormalizedQty > 0
-                          ? (Number(pr.totalOrderMaterialCost || 0) / itemNormalizedQty) * itemRequiredProd
-                          : 0;
-                        const pObj = productItems.find(p => String(p?._id || p?.id || "").trim() === String(pr.productId || "").trim());
-                        const itemStockUnitPrice = pr.stockItem?.sellingPricePerUnit || pr.stockItem?.basePrice || pObj?.basePrice || 8;
-                        const itemStockVal = itemStockQty * itemStockUnitPrice;
-                        suggestedTotal += itemStockVal + itemProdCost;
+                    qLines.forEach((line, lineIdx) => {
+                      const linePId = String(line.productId?._id || line.productId?.id || line.productId || "").trim();
+                      const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === linePId);
+                      const isRoll = pObj ? (pObj.category?.toLowerCase().includes("roll") || pObj.name?.toLowerCase().includes("roll")) : String(line.productName || "").toLowerCase().includes("roll");
+                      const lineUnit = line.unit || pObj?.unit || (isRoll ? "kg" : "pcs");
 
-                        itemsBreakdown.push({
-                          productName: pr.productName || pObj?.name || "Product",
-                          hsnCode: pObj?.hsnCode || "—",
-                          stockQty: itemStockQty,
-                          unitPrice: itemStockUnitPrice,
-                          prodCost: Number(pr.totalOrderMaterialCost || 0),
-                          requiredFromProduction: itemRequiredProd,
-                          fullQty: itemNormalizedQty,
-                          materialRequirements: pr.materialRequirements || [],
-                        });
-                      }
-                    } else {
-                      const stockCovered = Number(quotationPricing?.canFulfillFromStock || 0);
-                      const stockUnitPrice = Number(getStockUnitQuotePrice(quotationPricing, quotationOrder) || 0);
-                      const requiredFromProduction = Number(quotationPricing?.requiredFromProduction || 0);
-                      const itemNormalizedQty = stockCovered + requiredFromProduction;
-                      const prodCost = itemNormalizedQty > 0
-                        ? (Number(quotationPricing?.totalOrderMaterialCost || 0) / itemNormalizedQty) * requiredFromProduction
+                      const prMatch = perProductResults.find(p => {
+                        const pPId = String(p.productId?._id || p.productId?.id || p.productId || "").trim();
+                        return (pPId && linePId && pPId === linePId) || (p.productName && line.productName && p.productName.toLowerCase().trim() === line.productName.toLowerCase().trim());
+                      });
+
+                      const itemQty = Number(line.quantity || 0);
+                      const itemStockQty = prMatch ? Number(prMatch.canFulfillFromStock || 0) : (qLines.length === 1 ? Number(quotationPricing?.canFulfillFromStock || 0) : itemQty);
+                      const rawMakeQ = prMatch ? Number(prMatch.requiredFromProduction || 0) : 0;
+                      const itemRequiredProd = (rawMakeQ > 0 && rawMakeQ <= itemQty) ? rawMakeQ : Math.max(0, itemQty - itemStockQty);
+                      const itemNormalizedQty = itemStockQty + itemRequiredProd;
+                      const itemProdCost = itemNormalizedQty > 0
+                        ? (Number(prMatch?.totalOrderMaterialCost || quotationPricing?.totalOrderMaterialCost || 0) / (itemNormalizedQty || 1)) * itemRequiredProd
                         : 0;
-                      suggestedTotal = (stockCovered * stockUnitPrice) + prodCost;
-                      const pObj = productItems.find(p => 
-                        String(p?._id || p?.id || "").trim() === String(quotationOrder.productId || quotationOrder.orderDetails?.productId || "").trim()
+
+                      const itemStockUnitPrice = Number(
+                        line.unitPrice ||
+                        line.pricePerUnit ||
+                        line.rate ||
+                        line.sellingPrice ||
+                        (pObj ? getProductBaseSellingPrice(pObj) : 0) ||
+                        pObj?.basePrice ||
+                        pObj?.sellingPrice ||
+                        prMatch?.stockItem?.sellingPricePerUnit ||
+                        prMatch?.stockItem?.basePrice ||
+                        (isRoll ? quotationOrder.pricePerKg : 0) ||
+                        7.50
                       );
 
-                      itemsBreakdown.push({
-                        productName: quotationOrder.productCategory || pObj?.name || "Product",
-                        hsnCode: pObj?.hsnCode || "—",
-                        stockQty: stockCovered,
-                        unitPrice: stockUnitPrice,
-                        prodCost: Number(quotationPricing?.totalOrderMaterialCost || 0),
-                        requiredFromProduction: requiredFromProduction,
-                        fullQty: itemNormalizedQty,
-                        materialRequirements: quotationPricing?.materialRequirements || [],
-                      });
-                    }
+                      const itemStockVal = itemStockQty * itemStockUnitPrice;
+                      suggestedTotal += itemStockVal + itemProdCost;
 
+                      const productName = line.productName || line.name || line.productId?.name || line.productId?.productName || pObj?.name || pObj?.productName || (line.bagSize ? `${line.bagSize} Bag` : (isRoll ? `Kraft Paper Roll (${line.gsm || pObj?.gsm || ""} GSM)` : `Product ${lineIdx + 1}`));
+
+                      itemsBreakdown.push({
+                        productName,
+                        hsnCode: line.hsnCode || pObj?.hsnCode || "—",
+                        unit: lineUnit,
+                        stockQty: itemStockQty,
+                        unitPrice: itemStockUnitPrice,
+                        prodCost: Number(prMatch?.totalOrderMaterialCost || quotationPricing?.totalOrderMaterialCost || 0),
+                        requiredFromProduction: itemRequiredProd,
+                        fullQty: itemNormalizedQty,
+                        materialRequirements: prMatch?.materialRequirements || quotationPricing?.materialRequirements || [],
+                      });
+                    });
                     return quotationPricing && (
                       <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4 space-y-3">
                         <div>
@@ -7912,12 +7761,12 @@ Valid Until: ${quotationValidUntil || "—"}
                                   <ul className="list-inside list-disc pl-1 space-y-0.5 text-gray-650 mt-1">
                                     {item.stockQty > 0 && (
                                       <li>
-                                        From stock: <span className="font-semibold text-gray-800">{item.stockQty} units</span> × ₹{item.unitPrice}/unit = <span className="font-semibold text-emerald-700">₹{stockValue.toLocaleString()}</span>
+                                        From stock: <span className="font-semibold text-gray-800">{item.stockQty} {item.unit || "units"}</span> × ₹{item.unitPrice}/{item.unit || "unit"} = <span className="font-semibold text-emerald-700">₹{stockValue.toLocaleString()}</span>
                                       </li>
                                     )}
                                     {itemRequiredProd > 0 && (
                                       <li>
-                                        Raw material cost to produce <span className="font-semibold text-gray-800">{itemRequiredProd} units</span>: <span className="font-semibold text-violet-700">₹{prodCostForRequired.toLocaleString()}</span>
+                                        Raw material cost to produce <span className="font-semibold text-gray-800">{itemRequiredProd} {item.unit || "units"}</span>: <span className="font-semibold text-violet-700">₹{prodCostForRequired.toLocaleString()}</span>
                                         <span className="text-gray-500 ml-1">(total BOM for {fullQty} units = ₹{item.prodCost.toLocaleString()})</span>
                                       </li>
                                     )}
@@ -7985,15 +7834,8 @@ Valid Until: ${quotationValidUntil || "—"}
                                     );
                                     const pObj = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(row.productId || "").trim());
                                     const isRoll = pObj?.category?.toLowerCase().includes("roll");
-                                    let defaultQty = Number(orderLine?.quantity || 0);
-                                    let displayUnit = orderLine?.unit || "pcs";
-                                    if (!isRoll && orderLine?.unit === "kg") {
-                                      const weight = Number(pObj?.weight || 0);
-                                      if (weight > 0) {
-                                        defaultQty = Math.ceil(defaultQty / weight);
-                                        displayUnit = "pcs";
-                                      }
-                                    }
+                                     let defaultQty = Number(orderLine?.quantity || row?.quantity || 0);
+                                     let displayUnit = orderLine?.unit || row?.unit || pObj?.unit || (isRoll ? "kg" : "pcs");
                                     const activeQty = quotationLineQuantities?.[row.productId] !== undefined
                                       ? Number(quotationLineQuantities[row.productId] || 0)
                                       : defaultQty;
@@ -8303,7 +8145,7 @@ Valid Until: ${quotationValidUntil || "—"}
                           </p>
                         </>
                       );
-                    })()}
+                              })()}
                   </div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-emerald-100/65 text-[11px] text-emerald-800 grid grid-cols-2 gap-y-1 gap-x-4">
@@ -8515,7 +8357,8 @@ Valid Until: ${quotationValidUntil || "—"}
                     const approvedTotal = computedApprovedTotal > 0 ? computedApprovedTotal : Number(billOrder.totalAmount || billOrder.quotation?.totalQuoted || 0);
                     const prevDiscount = Number(lastReceipt?.billDetails?.discount || 0);
                     const paidVal = Number(billOrder.paidAmount || 0);
-                    const effectiveInvoiced = computedGrandTotal + preTaxDiscVal + postTaxDiscVal;
+                    const preTaxGstSavings = isGstActive && effectiveTaxRate > 0 ? (preTaxDiscVal * (effectiveTaxRate / 100)) : 0;
+                    const effectiveInvoiced = computedGrandTotal + preTaxDiscVal + preTaxGstSavings + postTaxDiscVal;
                     const remainingToInvoiceVal = Number((approvedTotal - paidVal - prevDiscount - effectiveInvoiced).toFixed(2));
                     return (
                       <div className="sm:col-span-2 space-y-3">
@@ -8710,45 +8553,58 @@ Valid Until: ${quotationValidUntil || "—"}
                       <div className="flex flex-col gap-1 sm:items-end">
                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{availabilityOrder.orderDetailsList.length} Products</span>
                         <div className="flex flex-wrap gap-1">
-                          {availabilityOrder.orderDetailsList.map((det, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                              {det.quantity} {det.unit || "pcs"}
-                              {det.bagSize ? ` · ${det.bagSize}` : ""}
-                            </span>
-                          ))}
+                          {availabilityOrder.orderDetailsList.map((det, idx) => {
+                            const detProd = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(det.productId || "").trim());
+                            const detIsRoll = detProd ? (detProd.category?.toLowerCase().includes("roll") || detProd.name?.toLowerCase().includes("roll")) : String(det.productCategory || "").toLowerCase().includes("roll");
+                            const detUnit = det.unit || detProd?.unit || (detIsRoll ? "kg" : "pcs");
+                            return (
+                              <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                {det.quantity} {detUnit}
+                                {det.bagSize ? ` · ${det.bagSize}` : ""}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-150/60 shadow-xs sm:self-center">
-                        <div>
-                          <span className="font-semibold text-gray-400">
-                            {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "GSM" : "Size"}:
-                          </span>{" "}
-                          <span className="font-bold text-gray-800">
-                            {availabilityOrder.productCategory?.toLowerCase().includes("roll")
-                              ? (availabilityOrder.orderDetails?.gsm || "—")
-                              : (availabilityOrder.orderDetails?.bagSize || "—")}
-                          </span>
-                        </div>
-                        <div className="hidden sm:block border-l border-gray-250 h-3" />
-                        <div>
-                          <span className="font-semibold text-gray-400">
-                            {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "Weight" : "Qty"}:
-                          </span>{" "}
-                          <span className="font-bold text-gray-800">
-                            {availabilityOrder.orderDetails?.quantity || "—"} {availabilityOrder.productCategory?.toLowerCase().includes("roll") ? "kg" : "pcs"}
-                          </span>
-                        </div>
-                        <div className="hidden sm:block border-l border-gray-250 h-3" />
-                        <div>
-                          <span className="font-semibold text-gray-400">Dims:</span>{" "}
-                          <span className="font-bold text-gray-800">
-                            {availabilityOrder.productCategory?.toLowerCase().includes("roll")
-                              ? `${availabilityOrder.orderDetails?.dimensions?.width || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`
-                              : `${availabilityOrder.orderDetails?.dimensions?.length || 0}×${availabilityOrder.orderDetails?.dimensions?.width || 0}×${availabilityOrder.orderDetails?.dimensions?.height || 0} ${availabilityOrder.orderDetails?.dimensions?.unit || "inch"}`}
-                          </span>
-                        </div>
-                      </div>
+                      (() => {
+                        const singleDet = availabilityOrder.orderDetails;
+                        const singleProd = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(singleDet?.productId || "").trim());
+                        const singleIsRoll = singleProd ? (singleProd.category?.toLowerCase().includes("roll") || singleProd.name?.toLowerCase().includes("roll")) : String(availabilityOrder.productCategory || "").toLowerCase().includes("roll");
+                        const singleUnit = singleDet?.unit || singleProd?.unit || (singleIsRoll ? "kg" : "pcs");
+                        return (
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-150/60 shadow-xs sm:self-center">
+                            <div>
+                              <span className="font-semibold text-gray-400">
+                                {singleIsRoll ? "GSM" : "Size"}:
+                              </span>{" "}
+                              <span className="font-bold text-gray-800">
+                                {singleIsRoll
+                                  ? (singleDet?.gsm || "—")
+                                  : (singleDet?.bagSize || "—")}
+                              </span>
+                            </div>
+                            <div className="hidden sm:block border-l border-gray-250 h-3" />
+                            <div>
+                              <span className="font-semibold text-gray-400">
+                                {singleIsRoll ? "Weight" : "Qty"}:
+                              </span>{" "}
+                              <span className="font-bold text-gray-800">
+                                {singleDet?.quantity || "—"} {singleUnit}
+                              </span>
+                            </div>
+                            <div className="hidden sm:block border-l border-gray-250 h-3" />
+                            <div>
+                              <span className="font-semibold text-gray-400">Dims:</span>{" "}
+                              <span className="font-bold text-gray-800">
+                                {singleIsRoll
+                                  ? `${singleDet?.dimensions?.width || 0} ${singleDet?.dimensions?.unit || "inch"}`
+                                  : `${singleDet?.dimensions?.length || 0}×${singleDet?.dimensions?.width || 0}×${singleDet?.dimensions?.height || 0} ${singleDet?.dimensions?.unit || "inch"}`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()
                     )}
                   </div>
                 </div>
@@ -8868,411 +8724,463 @@ Valid Until: ${quotationValidUntil || "—"}
                             </p>
                           </div>
                         ) : (
-                          <>
-                            {/* Simple Step 1: Traffic Light Status Alert */}
-                            {(() => {
-                              const canStock = Number(availabilityResult.canFulfillFromStock || 0);
-                              const reqQty = Number(availabilityResult.requiredQty || availabilityOrder.orderDetails?.quantity || availabilityOrder.orderDetailsList?.[0]?.quantity || 12);
-                              const reqProd = Number(availabilityResult.requiredFromProduction || 0) > 0 
-                                ? Number(availabilityResult.requiredFromProduction)
-                                : Math.max(0, reqQty - canStock);
+                          (() => {
+                          const itemBreakdown = availabilityOrder?.orderDetailsList?.length > 0
+                            ? availabilityOrder.orderDetailsList
+                            : [availabilityOrder?.orderDetails].filter(Boolean);
+                          const readyMap = {};
+                          const makeMap = {};
 
-                              const missingMats = availabilityResult.missingMaterials || [];
-                              const hasMissing = missingMats.length > 0 || Number(availabilityResult.onDemandCount || 0) > 0;
+                          itemBreakdown.forEach(item => {
+                            const itemPId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
+                            const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === itemPId);
+                            const isRoll = prod ? (prod.category?.toLowerCase().includes("roll") || prod.name?.toLowerCase().includes("roll")) : String(item.productName || item.name || "").toLowerCase().includes("roll");
+                            const itemUnit = item.unit || prod?.unit || (isRoll ? "kg" : "pcs");
 
-                              const isFullyReadyOnShelf = canStock >= reqQty && reqQty > 0;
-                              const isFactoryReady = reqProd > 0 && !hasMissing;
-                              const isPartialStock = canStock > 0 && canStock < reqQty;
+                            const prMatch = availabilityResult.perProductResults?.find(p => {
+                              const pPId = String(p.productId?._id || p.productId?.id || p.productId || "").trim();
+                              return (pPId && itemPId && pPId === itemPId) || (p.productName && item.productName && p.productName.toLowerCase().trim() === item.productName.toLowerCase().trim());
+                            });
 
-                              const isRoll = availabilityOrder.productCategory?.toLowerCase().includes("roll");
-                              const unitLabel = isRoll ? "kg" : (availabilityOrder.orderDetails?.unit || "units");
+                            const itemQty = Number(item.quantity || 0);
+                            const readyQ = prMatch ? Number(prMatch.canFulfillFromStock ?? 0) : (itemBreakdown.length === 1 ? Number(availabilityResult.canFulfillFromStock ?? 0) : 0);
+                            const rawMakeQ = prMatch ? Number(prMatch.requiredFromProduction ?? 0) : 0;
+                            const makeQ = (rawMakeQ > 0 && rawMakeQ <= itemQty) ? rawMakeQ : Math.max(0, itemQty - readyQ);
 
-                              let bgClass = "bg-emerald-50 border-emerald-200 text-emerald-950";
-                              let icon = "🟢";
-                              let title = "Step 1: All Items Ready on Shelf!";
-                              let subtitle = "All finished bags/rolls are ready in warehouse stock. Click 'Reserve & Process Stock' to reserve finished items.";
+                            if (readyQ > 0) readyMap[itemUnit] = (readyMap[itemUnit] || 0) + readyQ;
+                            if (makeQ > 0) makeMap[itemUnit] = (makeMap[itemUnit] || 0) + makeQ;
+                          });
 
-                              if (!isFullyReadyOnShelf) {
-                                if (isPartialStock) {
-                                  bgClass = "bg-amber-50 border-amber-300 text-amber-950";
-                                  icon = "⚡";
-                                  title = `Step 1: Partial Stock (${canStock} ${unitLabel} Ready / ${reqProd} ${unitLabel} Production Needed)`;
-                                  subtitle = `You have ${canStock} ${unitLabel} ready in warehouse stock, and ${reqProd} ${unitLabel} will be manufactured in factory. Raw materials are available for production.`;
-                                } else if (isFactoryReady) {
-                                  bgClass = "bg-blue-50 border-blue-200 text-blue-950";
-                                  icon = "🏭";
-                                  title = `Step 1: Ready to Manufacture in Factory (${reqProd} ${unitLabel} Needed)!`;
-                                  subtitle = "All raw materials are available in factory stock. Click 'Reserve & Process Stock' to reserve stock and raw materials for production.";
-                                } else {
-                                  bgClass = "bg-red-50 border-red-200 text-red-950";
-                                  icon = "🔴";
-                                  title = "Step 1: Raw Materials Missing (Must Buy First)";
-                                  subtitle = "Required raw materials are missing in factory. Check the buying list below to purchase missing items before processing.";
-                                }
-                              }
+                          const readyParts = Object.entries(readyMap).map(([unit, qty]) => `${qty} ${unit}`);
+                          const makeParts = Object.entries(makeMap).map(([unit, qty]) => `${qty} ${unit}`);
 
-                              return (
-                                <div className={`rounded-2xl p-4 flex items-center gap-3.5 shadow-xs border ${bgClass}`}>
-                                  <span className="text-3xl shrink-0">{icon}</span>
-                                  <div>
-                                    <h3 className="text-sm font-black uppercase tracking-wide">{title}</h3>
-                                    <p className="text-xs font-semibold mt-0.5 opacity-90 leading-relaxed">{subtitle}</p>
-                                  </div>
+                          const readySummaryStr = readyParts.length > 0 ? readyParts.join(" + ") : "0 units";
+                          const makeSummaryStr = makeParts.length > 0 ? makeParts.join(" + ") : "0 units";
+
+                          const missingMats = availabilityResult.missingMaterials || [];
+                          const hasMissing = missingMats.length > 0 || Number(availabilityResult.onDemandCount || 0) > 0;
+
+                          const isFullyReadyOnShelf = makeParts.length === 0 && readyParts.length > 0;
+                          const isPartialStock = readyParts.length > 0 && makeParts.length > 0;
+
+                          let bgClass = "bg-emerald-50 border-emerald-200 text-emerald-950";
+                          let icon = "🟢";
+                          let title = "Step 1: All Items Ready on Shelf!";
+                          let subtitle = "All finished stock is ready in warehouse. Click 'Reserve & Confirm Order' to reserve finished items.";
+
+                          if (availabilityOrder?.isConfirmed) {
+                            bgClass = "bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs";
+                            icon = "🔒";
+                            title = "Order Stock is Reserved & Allocated";
+                            subtitle = "Finished stock for this order is locked and reserved on the warehouse shelf. Click 'Unconfirm & Release Stock' below to release the reservation.";
+                          } else if (!isFullyReadyOnShelf) {
+                            if (isPartialStock) {
+                              bgClass = "bg-amber-50 border-amber-300 text-amber-950";
+                              icon = "⚡";
+                              title = `Step 1: Partial Stock (${readySummaryStr} Ready / ${makeSummaryStr} Production Needed)`;
+                              subtitle = `You have ${readySummaryStr} ready in warehouse stock, and ${makeSummaryStr} will be manufactured in factory. Raw materials are available for production.`;
+                            } else if (!hasMissing) {
+                              bgClass = "bg-blue-50 border-blue-200 text-blue-950";
+                              icon = "🏭";
+                              title = `Step 1: Ready to Manufacture in Factory (${makeSummaryStr} Needed)!`;
+                              subtitle = "All raw materials are available in factory stock. Click 'Reserve & Confirm Order' to reserve stock and raw materials for production.";
+                            } else {
+                              bgClass = "bg-red-50 border-red-200 text-red-950";
+                              icon = "🔴";
+                              title = "Step 1: Raw Materials Missing (Must Buy First)";
+                              subtitle = "Required raw materials are missing in factory. Check the buying list below to purchase missing items before processing.";
+                            }
+                          }
+
+                          const breakdownSub = itemBreakdown.reduce((sum, item) => {
+                            const pId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
+                            const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+                            const itemUnitPrice = Number(
+                              item.unitPrice ||
+                              item.pricePerUnit ||
+                              item.rate ||
+                              item.sellingPrice ||
+                              (prod ? getProductBaseSellingPrice(prod) : 0) ||
+                              prod?.basePrice ||
+                              prod?.sellingPrice ||
+                              7.50
+                            );
+                            return sum + (Number(item.quantity || 0) * itemUnitPrice);
+                          }, 0);
+
+                          const rawOrderSub = Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || availabilityOrder?.quotation?.subtotalAmount || 0);
+                          let displaySubtotal = (rawOrderSub > 0 && rawOrderSub >= breakdownSub * 0.8) ? rawOrderSub : breakdownSub;
+
+                          // Calculate true cost of stock / production
+                          const isAllReadyOnShelf = Boolean(availabilityResult.enoughStock || (availabilityResult.canFulfillFromStock >= availabilityResult.requiredQty && availabilityResult.requiredQty > 0));
+                          
+                          let displayMaterialCost = Number(availabilityResult.totalOrderMaterialCost || 0);
+
+                          // Calculate inventory landed cost value for ready stock items
+                          const readyStockCost = itemBreakdown.reduce((sum, item) => {
+                            const pId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
+                            const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+                            const itemQty = Number(item.quantity || 0);
+                            const itemCost = Number(prod?.costPrice || prod?.unitCost || prod?.baseCost || (prod?.unit === "pcs" ? 3.50 : 77.70));
+                            return sum + (itemQty * itemCost);
+                          }, 0);
+
+                          if (isAllReadyOnShelf) {
+                            displayMaterialCost = readyStockCost;
+                          } else if (displayMaterialCost === 0) {
+                            displayMaterialCost = readyStockCost > 0 ? readyStockCost : itemBreakdown.reduce((sum, item) => {
+                              const prMatch = availabilityResult.perProductResults?.find(p => String(p.productId || "").trim() === String(item.productId || "").trim());
+                              return sum + Number(prMatch?.totalOrderMaterialCost || 0);
+                            }, 0);
+                          }
+
+                          const grossMargin = Math.max(0, displaySubtotal - displayMaterialCost);
+                          const marginPct = displaySubtotal > 0 ? ((grossMargin / displaySubtotal) * 100).toFixed(1) : "0.0";
+                          
+                          const displayTotal = displaySubtotal;
+                          const gstDiff = Math.max(0, displayTotal - displaySubtotal);
+
+                          const lines = availabilityOrder?.orderDetailsList?.length > 0 ? availabilityOrder.orderDetailsList : [availabilityOrder?.orderDetails].filter(Boolean);
+                          const firstLineUnit = String(lines[0]?.unit || availabilityOrder?.unit || "pcs").toLowerCase();
+                          const isRollOrder = availabilityOrder?.productCategory?.toLowerCase().includes("roll") || firstLineUnit === "kg" || firstLineUnit === "m";
+                          const overallUnitLabel = isRollOrder ? (firstLineUnit === "m" ? "m" : "kg") : (firstLineUnit.includes("bag") ? "bag" : "pc");
+                          const unitBadgeText = `/${overallUnitLabel}`;
+
+                          const totalQty = lines.reduce((sum, l) => sum + Number(l?.quantity || 0), 0) || 1;
+                          const sellingPerUnit = displaySubtotal > 0 ? (displaySubtotal / totalQty) : 0;
+                          const materialPerUnit = displayMaterialCost > 0 ? (displayMaterialCost / totalQty) : 0;
+                          const marginPerUnit = grossMargin > 0 ? (grossMargin / totalQty) : 0;
+
+                          const missingMaterialsList = availabilityResult.materialRequirements?.filter(m => {
+                            const usable = m.availableStock != null ? Number(m.availableStock) : (m.availableStockAtCheck != null ? Number(m.availableStockAtCheck) : 0);
+                            const totalNeeded = Number(m.totalQuantity || 0);
+                            return (totalNeeded - usable) > 0.001;
+                          }) || [];
+
+                          return (
+                            <div className="space-y-3">
+                              {/* Simple Step 1: Traffic Light Status Alert */}
+                              <div className={`rounded-2xl p-4 flex items-center gap-3.5 shadow-xs border ${bgClass}`}>
+                                <span className="text-3xl shrink-0">{icon}</span>
+                                <div>
+                                  <h3 className="text-sm font-black uppercase tracking-wide">{title}</h3>
+                                  <p className="text-xs font-semibold mt-0.5 opacity-90 leading-relaxed">{subtitle}</p>
                                 </div>
-                              );
-                            })()}
+                              </div>
 
-                            {/* Simple Step 2: Stock & Production Metrics Cards */}
-                            {(() => {
-                              const orderQty = Number(availabilityOrder.orderDetails?.quantity || availabilityOrder.orderDetailsList?.[0]?.quantity || 12);
-                              const readyUnits = Number(availabilityResult.canFulfillFromStock || 0);
-                              const makeUnits = Number(availabilityResult.requiredFromProduction || 0) > 0
-                                ? Number(availabilityResult.requiredFromProduction)
-                                : Math.max(0, orderQty - readyUnits);
-
-                              return (
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="rounded-2xl bg-emerald-50/70 p-3.5 text-center border border-emerald-200 shadow-2xs">
-                                    <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">📦 Ready on Shelf</p>
-                                    <p className="mt-1 text-2xl font-black text-emerald-950">
-                                      {readyUnits} <span className="text-xs font-bold text-emerald-700">units</span>
-                                    </p>
-                                    <p className="mt-0.5 text-[11px] text-emerald-700 font-medium">Finished units ready in stock</p>
-                                  </div>
-                                  <div className="rounded-2xl bg-blue-50/70 p-3.5 text-center border border-blue-200 shadow-2xs">
-                                    <p className="text-xs font-extrabold text-blue-800 uppercase tracking-wider">🏭 Make in Factory</p>
-                                    <p className="mt-1 text-2xl font-black text-blue-950">
-                                      {makeUnits} <span className="text-xs font-bold text-blue-700">units</span>
-                                    </p>
-                                    <p className="mt-0.5 text-[11px] text-blue-700 font-medium">Units to manufacture in factory</p>
-                                  </div>
+                              {/* Simple Step 2: Stock & Production Metrics Cards */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-2xl bg-emerald-50/70 p-3.5 text-center border border-emerald-200 shadow-2xs">
+                                  <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">📦 Ready on Shelf</p>
+                                  <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-950">
+                                    {readySummaryStr}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-emerald-700 font-medium">Finished stock ready in warehouse</p>
                                 </div>
-                              );
-                            })()}
-
-                            {/* Simple Step 3: Product & Pricing Breakdown Table */}
-                            {(() => {
-                              const itemBreakdown = getQuotationItemsBreakdown(availabilityOrder, availabilityResult, Number(confirmOrderForm.subtotalAmount || availabilityOrder.subtotalAmount || 0), productItems);
-                              return (
-                                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3 shadow-xs">
-                                  <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                                    <h4 className="text-xs font-black uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
-                                      <span>📊</span> Product-wise Order & Pricing Breakdown
-                                    </h4>
-                                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                                      {itemBreakdown.length} {itemBreakdown.length === 1 ? "Product" : "Products"}
-                                    </span>
-                                  </div>
-
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-xs border-collapse">
-                                      <thead>
-                                        <tr className="bg-slate-800 text-white font-semibold">
-                                          <th className="px-3 py-2 text-left rounded-tl-lg">Product Name</th>
-                                          <th className="px-3 py-2 text-center">HSN</th>
-                                          <th className="px-3 py-2 text-center">Ordered Qty</th>
-                                          <th className="px-3 py-2 text-center">Stock Status</th>
-                                          <th className="px-3 py-2 text-right">Selling Rate (₹)</th>
-                                          <th className="px-3 py-2 text-right rounded-tr-lg">Selling Subtotal (₹)</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-100">
-                                        {itemBreakdown.map((item, idx) => {
-                                          const itemPId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
-                                          const prMatch = availabilityResult.perProductResults?.find(p => {
-                                            const pPId = String(p.productId?._id || p.productId?.id || p.productId || "").trim();
-                                            return (pPId && itemPId && pPId === itemPId) || (p.productName && item.productName && p.productName.toLowerCase().trim() === item.productName.toLowerCase().trim());
-                                          });
-
-                                          const availStockAll = Number(availabilityResult.canFulfillFromStock ?? 0);
-                                          const reqProdAll = Number(availabilityResult.requiredFromProduction ?? 0);
-
-                                          const readyQty = prMatch ? Number(prMatch.canFulfillFromStock ?? 0) : availStockAll;
-                                          const makeQty = prMatch ? Number(prMatch.requiredFromProduction ?? 0) : reqProdAll;
-
-                                          const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(item.productId || "").trim());
-                                          const isRoll = prod?.category?.toLowerCase().includes("roll") || String(item.productName || "").toLowerCase().includes("roll");
-                                          
-                                          let displayQty = `${item.quantity || 0} ${item.unit || "pcs"}`;
-                                          let pcsCount = Number(item.quantity || 0);
-
-                                          if (!isRoll && item.unit === "kg") {
-                                            if (item.convertedQuantity && Number(item.convertedQuantity) > 0) {
-                                              pcsCount = Number(item.convertedQuantity);
-                                              displayQty = `${item.quantity} kg (${pcsCount} pcs)`;
-                                            } else {
-                                              let weight = Number(prod?.weight || 0);
-                                              if (weight <= 0 && item?.length && item?.width && item?.gsm) {
-                                                const L = Number(item.length);
-                                                const W = Number(item.width);
-                                                const H = Number(item.height || 0);
-                                                const gsm = Number(item.gsm);
-                                                const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
-                                                weight = (bagAreaSqM * gsm) / 1000;
-                                              }
-                                              if (weight > 0) {
-                                                pcsCount = Math.ceil(Number(item.quantity || 0) / weight);
-                                                displayQty = `${item.quantity} kg (${pcsCount} pcs)`;
-                                              }
-                                            }
-                                          }
-
-                                          // Calculate order line selling rate and material cost
-                                          const itemUnitPrice = Number(
-                                            item.unitPrice ||
-                                            item.pricePerUnit ||
-                                            item.rate ||
-                                            item.sellingPrice ||
-                                            (prod ? getProductBaseSellingPrice(prod) : 0) ||
-                                            prod?.basePrice ||
-                                            prod?.sellingPrice ||
-                                            availabilityOrder?.pricePerKg ||
-                                            7.50
-                                          );
-
-                                          // Effective Billing Qty: If non-roll bag is ordered in kg, bill by pieces (pcsCount)!
-                                          const effectiveBillingQty = (!isRoll && item.unit === "kg" && pcsCount > 0) ? pcsCount : Number(item.quantity || 0);
-                                          const lineSellingSubtotal = effectiveBillingQty * itemUnitPrice;
-                                          const sellingRateUnit = itemUnitPrice;
-
-                                          const lineMatCost = prMatch && Number(prMatch.totalOrderMaterialCost || 0) > 0
-                                            ? Number(prMatch.totalOrderMaterialCost)
-                                            : (Number(item.quantity || 0) * 50);
-
-                                          const rawItemUnit = String(item.unit || prod?.unit || "").toLowerCase();
-                                          const unitSuffix = isRoll ? (rawItemUnit.includes("m") ? "/m" : "/kg") : "/pc";
-                                          const itemQty = Number(item.quantity || 0);
-                                          const isFullyReady = readyQty >= itemQty && itemQty > 0;
-                                          const isPartial = readyQty > 0 && readyQty < itemQty;
-
-                                          return (
-                                            <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                                              <td className="px-3 py-2.5 font-bold text-gray-900">{item.productName}</td>
-                                              <td className="px-3 py-2.5 text-center font-mono text-[11px] text-gray-500">{item.hsnCode || "—"}</td>
-                                              <td className="px-3 py-2.5 text-center font-bold text-gray-800">{displayQty}</td>
-                                              <td className="px-3 py-2.5 text-center">
-                                                {isFullyReady ? (
-                                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800">
-                                                    🟢 Ready ({readyQty})
-                                                  </span>
-                                                ) : isPartial ? (
-                                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
-                                                    ⚡ Partial ({readyQty} Ready / {makeQty || Math.max(0, itemQty - readyQty)} Factory)
-                                                  </span>
-                                                ) : makeQty > 0 ? (
-                                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-extrabold text-blue-900">
-                                                    🏭 Factory ({makeQty})
-                                                  </span>
-                                                ) : (
-                                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-extrabold text-red-800">
-                                                    ⚠️ Shortage
-                                                  </span>
-                                                )}
-                                              </td>
-                                              <td className="px-3 py-2.5 text-right font-semibold text-gray-700">₹{Number(sellingRateUnit).toFixed(2)} <span className="text-[10px] text-gray-400 font-normal">{unitSuffix}</span></td>
-                                              <td className="px-3 py-2.5 text-right font-bold text-emerald-700">₹{Number(lineSellingSubtotal).toFixed(2)}</td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
+                                <div className="rounded-2xl bg-blue-50/70 p-3.5 text-center border border-blue-200 shadow-2xs">
+                                  <p className="text-xs font-extrabold text-blue-800 uppercase tracking-wider">🏭 Make in Factory</p>
+                                  <p className="mt-1 text-xl sm:text-2xl font-black text-blue-950">
+                                    {makeSummaryStr}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-blue-700 font-medium">Stock to manufacture in factory</p>
                                 </div>
-                              );
-                            })()}
+                              </div>
 
-                            {/* Simple Step 4: Financial & Profit Margin Summary Cards */}
-                            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/40 p-4 space-y-3 shadow-xs">
-                              <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 border-b border-emerald-100 pb-2">
-                                <span>💰</span> Financial &amp; Profitability Summary
-                              </h4>
-
+                              {/* Color Mismatch Alert Banner */}
                               {(() => {
-                                const itemBreakdown = getQuotationItemsBreakdown(availabilityOrder, availabilityResult, Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || 0), productItems);
-                                
-                                const breakdownSub = itemBreakdown.reduce((sum, item) => {
-                                  const pId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
-                                  const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
-                                  const isRoll = prod?.category?.toLowerCase().includes("roll") || String(item.productName || "").toLowerCase().includes("roll");
-                                  let pcsCount = Number(item.quantity || 0);
-                                  if (!isRoll && item.unit === "kg") {
-                                    if (item.convertedQuantity && Number(item.convertedQuantity) > 0) {
-                                      pcsCount = Number(item.convertedQuantity);
-                                    } else {
-                                      let weight = Number(prod?.weight || 0);
-                                      if (weight <= 0 && item?.length && item?.width && item?.gsm) {
-                                        const L = Number(item.length);
-                                        const W = Number(item.width);
-                                        const H = Number(item.height || 0);
-                                        const gsm = Number(item.gsm);
-                                        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
-                                        weight = (bagAreaSqM * gsm) / 1000;
-                                      }
-                                      if (weight > 0) {
-                                        pcsCount = Math.ceil(Number(item.quantity || 0) / weight);
-                                      }
+                                const items = availabilityOrder?.orderDetailsList || [availabilityOrder?.orderDetails];
+                                const mismatchAlerts = [];
+
+                                (items || []).forEach(item => {
+                                  const itemPId = String(item?.productId?._id || item?.productId?.id || item?.productId || "").trim();
+                                  const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === itemPId);
+                                  const pName = item?.productName || item?.name || prod?.name || "Product";
+
+                                  const prMatch = availabilityResult?.perProductResults?.find(p => {
+                                    const pPId = String(p.productId?._id || p.productId?.id || p.productId || "").trim();
+                                    return (pPId && itemPId && pPId === itemPId) || (p.productName && pName && p.productName.toLowerCase().trim() === pName.toLowerCase().trim());
+                                  });
+
+                                  const itemAlts = prMatch?.finishedGoodsInsight?.alternatives || availabilityResult?.finishedGoodsInsight?.alternatives || [];
+                                  let altItem = itemAlts.find(alt => alt.availableBags > 0);
+
+                                  if (!altItem) {
+                                    const invMatch = inventoryItems?.find(inv => 
+                                      String(inv.productId || inv.product?._id || inv.product?.id || "").trim() === itemPId ||
+                                      (inv.productName && pName && inv.productName.toLowerCase().trim() === pName.toLowerCase().trim())
+                                    );
+                                    const invAvail = invMatch ? Math.max(0, Number(invMatch.stockLevel || 0) - Number(invMatch.reservedQuantity || 0)) : 0;
+                                    if (invAvail > 0) {
+                                      altItem = {
+                                        productName: pName,
+                                        availableBags: invAvail,
+                                        bagColor: invMatch?.bagColor || invMatch?.color || "White"
+                                      };
                                     }
                                   }
-                                  const itemUnitPrice = Number(
-                                    item.unitPrice ||
-                                    item.pricePerUnit ||
-                                    item.rate ||
-                                    item.sellingPrice ||
-                                    (prod ? getProductBaseSellingPrice(prod) : 0) ||
-                                    prod?.basePrice ||
-                                    prod?.sellingPrice ||
-                                    7.50
+
+                                  const isRollItem = prod ? (prod.category?.toLowerCase().includes("roll") || prod.name?.toLowerCase().includes("roll")) : String(pName).toLowerCase().includes("roll");
+                                  const reqColor = String(item?.color || prod?.bagColor || prod?.color || "").trim();
+                                  const availColor = String(altItem?.bagColor || "").trim();
+                                  const isDifferentColor = Boolean(
+                                    availColor.length > 0 && 
+                                    availColor !== "—" && 
+                                    reqColor.length > 0 && 
+                                    availColor.toLowerCase() !== reqColor.toLowerCase()
                                   );
-                                  const effectiveBillingQty = (!isRoll && item.unit === "kg" && pcsCount > 0) ? pcsCount : Number(item.quantity || 0);
-                                  return sum + (effectiveBillingQty * itemUnitPrice);
-                                }, 0);
 
-                                const billSub = Number(availabilityOrder?.bill?.billDetails?.subtotal || availabilityOrder?.billDetails?.subtotal || 0);
-                                const rawOrderSub = Number(confirmOrderForm.subtotalAmount || availabilityOrder?.subtotalAmount || availabilityOrder?.quotation?.subtotalAmount || 0);
+                                  if (!isRollItem && isDifferentColor && altItem && altItem.availableBags > 0) {
+                                    mismatchAlerts.push({
+                                      productName: pName,
+                                      availableStock: altItem.availableBags,
+                                      availableColor: availColor,
+                                      requestedColor: reqColor,
+                                      unit: item?.unit || prod?.unit || "pcs"
+                                    });
+                                  }
+                                });
 
-                                let displaySubtotal = (rawOrderSub > 0 && rawOrderSub >= breakdownSub * 0.8) ? rawOrderSub : breakdownSub;
-
-                                let displayMaterialCost = Number(availabilityResult.totalOrderMaterialCost || 0);
-                                if (displayMaterialCost === 0) {
-                                  displayMaterialCost = itemBreakdown.reduce((sum, item) => {
-                                    const prMatch = availabilityResult.perProductResults?.find(p => String(p.productId || "").trim() === String(item.productId || "").trim());
-                                    return sum + Number(prMatch?.totalOrderMaterialCost || (Number(item.quantity || 10) * 50));
-                                  }, 0);
-                                }
-
-                                const grossMargin = Math.max(0, displaySubtotal - displayMaterialCost);
-                                const marginPct = displaySubtotal > 0 ? ((grossMargin / displaySubtotal) * 100).toFixed(1) : "0.0";
-                                
-                                const displayTotal = displaySubtotal;
-                                const gstDiff = Math.max(0, displayTotal - displaySubtotal);
-
-                                const lines = availabilityOrder?.orderDetailsList?.length > 0 ? availabilityOrder.orderDetailsList : [availabilityOrder?.orderDetails].filter(Boolean);
-                                const firstLineUnit = String(lines[0]?.unit || availabilityOrder?.unit || "pcs").toLowerCase();
-                                const isRollOrder = availabilityOrder?.productCategory?.toLowerCase().includes("roll") || firstLineUnit === "kg" || firstLineUnit === "m";
-                                const overallUnitLabel = isRollOrder ? (firstLineUnit === "m" ? "m" : "kg") : (firstLineUnit.includes("bag") ? "bag" : "pc");
-                                const unitBadgeText = `/${overallUnitLabel}`;
-
-                                const totalQty = lines.reduce((sum, l) => sum + Number(l?.quantity || 0), 0) || 1;
-                                const sellingPerUnit = displaySubtotal > 0 ? (displaySubtotal / totalQty) : 0;
-                                const materialPerUnit = displayMaterialCost > 0 ? (displayMaterialCost / totalQty) : 0;
-                                const marginPerUnit = grossMargin > 0 ? (grossMargin / totalQty) : 0;
+                                if (mismatchAlerts.length === 0) return null;
 
                                 return (
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                                    <div className="rounded-xl bg-white p-3 border border-emerald-100 shadow-2xs">
-                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Selling Subtotal</p>
-                                      <p className="mt-1 text-base font-black text-gray-900">₹{displaySubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5">@ ₹{sellingPerUnit.toFixed(2)}{unitBadgeText}</span>
-                                    </div>
-
-                                    <div className="rounded-xl bg-white p-3 border border-amber-100 shadow-2xs">
-                                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Est. Material Cost</p>
-                                      <p className="mt-1 text-base font-black text-amber-900">₹{displayMaterialCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 rounded-full px-2 py-0.5">@ ₹{materialPerUnit.toFixed(2)}{unitBadgeText}</span>
-                                    </div>
-
-                                    <div className="rounded-xl bg-white p-3 border border-emerald-100 shadow-2xs">
-                                      <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Est. Gross Margin</p>
-                                      <p className="mt-1 text-base font-black text-emerald-700">
-                                        ₹{grossMargin.toLocaleString("en-IN", { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-emerald-600">({marginPct}%)</span>
-                                      </p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5">@ ₹{marginPerUnit.toFixed(2)}{unitBadgeText}</span>
-                                    </div>
-
-                                    <div className="rounded-xl bg-white p-3 border border-emerald-200 shadow-2xs">
-                                      <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Total Order Price</p>
-                                      <p className="mt-1 text-base font-black text-emerald-800">₹{displayTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-900 bg-emerald-100 rounded-full px-2 py-0.5">incl. GST (₹{gstDiff.toFixed(2)})</span>
-                                    </div>
+                                  <div className="space-y-2 mb-3">
+                                    {mismatchAlerts.map((alert, aIdx) => (
+                                      <div key={aIdx} className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 shadow-2xs flex items-start gap-2.5">
+                                        <AlertTriangle className="h-4.5 w-4.5 text-amber-600 shrink-0 mt-0.5" />
+                                        <div>
+                                          <p className="font-extrabold text-amber-955 text-xs uppercase tracking-wide">
+                                            🎨 Color Mismatch Alert: Stock Available in {alert.availableColor} Color
+                                          </p>
+                                          <p className="mt-1 font-medium text-amber-900 leading-relaxed">
+                                            Warehouse shelf has <strong>{alert.availableStock} {alert.unit}</strong> of <strong>{alert.productName}</strong> available in <strong>{alert.availableColor}</strong> color, but this order requested <strong>{alert.requestedColor}</strong> color. 
+                                            Because the colors do not match, the order is currently marked for <strong>Factory Production</strong>. 
+                                            If the customer accepts <strong>{alert.availableColor}</strong> color, edit the order to update the color to use shelf stock directly.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 );
                               })()}
-                            </div>
 
-                            {/* Simple Step 5: Net Shopping List (If Raw Materials Missing) */}
-                            {(() => {
-                              const missingMats = availabilityResult.materialRequirements?.filter(m => {
-                                const usable = m.availableStock != null ? Number(m.availableStock) : (m.availableStockAtCheck != null ? Number(m.availableStockAtCheck) : 0);
-                                const totalNeeded = Number(m.totalQuantity || 0);
-                                return (totalNeeded - usable) > 0.001;
-                              }) || [];
-                              if (missingMats.length > 0) {
-                                return (
-                                  <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 space-y-3 shadow-xs">
-                                    <div className="flex items-center justify-between border-b border-red-100 pb-2">
-                                      <h4 className="text-xs font-black text-red-955 flex items-center gap-1.5 uppercase tracking-wider">
-                                        🛒 Shopping List — Materials You Must Buy First
-                                      </h4>
-                                      <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                                        {missingMats.length} {missingMats.length === 1 ? "Item" : "Items"} Shortage
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-red-800 font-medium leading-relaxed">
-                                      Your factory has some paper stock, but you need to purchase these additional quantities before starting production:
-                                    </p>
+                              {/* Simple Step 3: Product & Pricing Breakdown Table */}
+                              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3 shadow-xs">
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
+                                    <span>📊</span> Product-wise Order &amp; Pricing Breakdown
+                                  </h4>
+                                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                    {itemBreakdown.length} {itemBreakdown.length === 1 ? "Product" : "Products"}
+                                  </span>
+                                </div>
 
-                                    <div className="space-y-2">
-                                      {missingMats.map((mat, i) => {
-                                        const usable = mat.availableStock != null ? Number(mat.availableStock) : (mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0);
-                                        const totalNeeded = Number(mat.totalQuantity || 0);
-                                        const shortfall = Math.max(0, totalNeeded - usable);
-                                        const matPrice = Number(mat.unitPrice || 0);
-                                        const buyCost = Number((shortfall * matPrice).toFixed(2));
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                      <tr className="bg-slate-800 text-white font-semibold">
+                                        <th className="px-3 py-2 text-left rounded-tl-lg">Product Name</th>
+                                        <th className="px-3 py-2 text-center">HSN</th>
+                                        <th className="px-3 py-2 text-center">Ordered Qty</th>
+                                        <th className="px-3 py-2 text-center">Stock Status</th>
+                                        <th className="px-3 py-2 text-right">Selling Rate (₹)</th>
+                                        <th className="px-3 py-2 text-right rounded-tr-lg">Selling Subtotal (₹)</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {itemBreakdown.map((item, idx) => {
+                                        const itemPId = String(item.productId?._id || item.productId?.id || item.productId || "").trim();
+                                        const prMatch = availabilityResult.perProductResults?.find(p => {
+                                          const pPId = String(p.productId?._id || p.productId?.id || p.productId || "").trim();
+                                          return (pPId && itemPId && pPId === itemPId) || (p.productName && item.productName && p.productName.toLowerCase().trim() === item.productName.toLowerCase().trim());
+                                        });
+
+                                        const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === itemPId);
+                                        const isRoll = prod ? (prod.category?.toLowerCase().includes("roll") || prod.name?.toLowerCase().includes("roll")) : String(item.productName || item.name || "").toLowerCase().includes("roll");
+                                        const itemUnit = item.unit || prod?.unit || (isRoll ? "kg" : "pcs");
+
+                                        const itemQty = Number(item.quantity || 0);
+                                        const readyQty = prMatch ? Number(prMatch.canFulfillFromStock ?? 0) : (itemBreakdown.length === 1 ? Number(availabilityResult.canFulfillFromStock ?? 0) : 0);
+                                        const rawMakeQty = prMatch ? Number(prMatch.requiredFromProduction ?? 0) : 0;
+                                        const makeQty = (rawMakeQty > 0 && rawMakeQty <= itemQty) ? rawMakeQty : Math.max(0, itemQty - readyQty);
+
+                                        const productName = item.productName || item.name || item.productId?.name || item.productId?.productName || prod?.name || prod?.productName || (item.bagSize ? `${item.bagSize} Bag` : (isRoll ? `Kraft Paper Roll (${item.gsm || prod?.gsm || ""} GSM)` : `Product ${idx + 1}`));
+                                        
+                                        const displayQty = `${itemQty} ${itemUnit}`;
+
+                                        const itemUnitPrice = Number(
+                                          item.unitPrice ||
+                                          item.pricePerUnit ||
+                                          item.rate ||
+                                          item.sellingPrice ||
+                                          (prod ? getProductBaseSellingPrice(prod) : 0) ||
+                                          prod?.basePrice ||
+                                          prod?.sellingPrice ||
+                                          availabilityOrder?.pricePerKg ||
+                                          7.50
+                                        );
+
+                                        const effectiveBillingQty = Number(item.quantity || 0);
+                                        const lineSellingSubtotal = effectiveBillingQty * itemUnitPrice;
+                                        const sellingRateUnit = itemUnitPrice;
+
+                                        const unitSuffix = itemUnit === "kg" ? "/kg" : (itemUnit.includes("m") ? "/m" : "/pc");
+                                        const isFullyReady = readyQty >= itemQty && itemQty > 0;
+                                        const isPartial = readyQty > 0 && readyQty < itemQty;
 
                                         return (
-                                          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl bg-white p-3 text-xs border border-red-150 gap-2 shadow-2xs">
-                                            <div>
-                                              <p className="font-extrabold text-red-950 text-xs">❌ {mat.name}</p>
-                                              <p className="text-[11px] text-gray-600 mt-0.5 font-medium">
-                                                Total Needed: <strong>{totalNeeded.toFixed(2)} {mat.unit || 'kg'}</strong> | In Stock: <span className="text-emerald-700 font-bold">{usable.toFixed(2)} {mat.unit || 'kg'}</span>
-                                              </p>
-                                            </div>
-                                            <div className="text-right flex flex-col sm:items-end">
-                                              <span className="bg-red-100 text-red-900 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-black">
-                                                Need to Buy: {shortfall.toFixed(2)} {mat.unit || 'kg'}
-                                              </span>
-                                              {matPrice > 0 && (
-                                                <span className="text-[10px] text-gray-500 font-semibold mt-1">
-                                                  Est. Purchase Cost: ₹{buyCost.toLocaleString()} (@ ₹{matPrice}/{mat.unit || 'kg'})
+                                          <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                                            <td className="px-3 py-2.5 font-bold text-gray-900">{productName}</td>
+                                            <td className="px-3 py-2.5 text-center font-mono text-[11px] text-gray-500">{item.hsnCode || "—"}</td>
+                                            <td className="px-3 py-2.5 text-center font-bold text-gray-800">{displayQty}</td>
+                                            <td className="px-3 py-2.5 text-center">
+                                              {isFullyReady ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800">
+                                                  🟢 Ready ({readyQty} {itemUnit})
+                                                </span>
+                                              ) : isPartial ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                                                  ⚡ Partial ({readyQty} {itemUnit} Ready / {makeQty} {itemUnit} Factory)
+                                                </span>
+                                              ) : makeQty > 0 ? (
+                                                (() => {
+                                                  // Find inventory item for this product directly from inventoryItems state or prMatch
+                                                  const invMatch = inventoryItems?.find(inv => 
+                                                    String(inv.productId || inv.product?._id || inv.product?.id || "").trim() === itemPId ||
+                                                    (inv.productName && productName && inv.productName.toLowerCase().trim() === productName.toLowerCase().trim())
+                                                  );
+                                                  const invAvail = invMatch ? Math.max(0, Number(invMatch.stockLevel || 0) - Number(invMatch.reservedQuantity || 0)) : 0;
+                                                  const invColor = invMatch?.bagColor || invMatch?.color || "White";
+                                                  const reqColor = item.color || prod?.bagColor || prod?.color || "Brown";
+
+                                                  const itemAlts = prMatch?.finishedGoodsInsight?.alternatives || availabilityResult?.finishedGoodsInsight?.alternatives || [];
+                                                  const colorAlt = itemAlts.find(alt => alt.availableBags > 0) || (invAvail > 0 ? { availableBags: invAvail, bagColor: invColor } : null);
+
+                                                  const isColorMismatch = Boolean(colorAlt && colorAlt.availableBags > 0 && colorAlt.bagColor && colorAlt.bagColor !== "—");
+
+                                                  if (isColorMismatch) {
+                                                    return (
+                                                      <div className="flex flex-col items-center gap-1">
+                                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                                                          ⚡ Factory ({makeQty} {itemUnit})
+                                                        </span>
+                                                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 shadow-2xs" title={`Color Mismatch: ${colorAlt.availableBags} ${itemUnit} ready in ${colorAlt.bagColor} (Order requested ${reqColor})`}>
+                                                          ⚠️ Color Mismatch: {colorAlt.availableBags} {itemUnit} ready in {colorAlt.bagColor}
+                                                        </span>
+                                                      </div>
+                                                    );
+                                                  }
+
+                                                  return (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-extrabold text-blue-900">
+                                                      🏭 Factory ({makeQty} {itemUnit})
+                                                    </span>
+                                                  );
+                                                })()
+                                              ) : (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-extrabold text-red-800">
+                                                  ⚠️ Shortage
                                                 </span>
                                               )}
-                                            </div>
-                                          </div>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-right font-semibold text-gray-700">₹{Number(sellingRateUnit).toFixed(2)} <span className="text-[10px] text-gray-400 font-normal">{unitSuffix}</span></td>
+                                            <td className="px-3 py-2.5 text-right font-bold text-emerald-700">₹{Number(lineSellingSubtotal).toFixed(2)}</td>
+                                          </tr>
                                         );
                                       })}
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-
-                            {((!availabilityResult.enoughStock && availabilityResult.canFulfillFromStock > 0) || useAvailableStock) && (
-                              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 shadow-2xs animate-fade-in">
-                                <label className="flex items-start gap-2.5 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={useAvailableStock}
-                                    onChange={(e) => {
-                                      handleCheckOrderAvailability(availabilityOrder, e.target.checked);
-                                    }}
-                                    className="mt-0.5 h-4 w-4 rounded border-amber-300 text-emerald-600 focus:ring-emerald-500"
-                                  />
-                                  <div>
-                                    <p className="text-xs font-extrabold text-amber-950 leading-none">
-                                      "Use Available Partial Stock" Override
-                                    </p>
-                                    <p className="mt-1 text-[11px] text-amber-800 leading-normal font-medium">
-                                      Reserve available <strong>{availabilityResult.canFulfillFromStock}</strong> finished units. Remaining shortage triggers manual alert.
-                                    </p>
-                                  </div>
-                                </label>
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
-                            )}
-                          </>
+
+                              {/* Simple Step 4: Financial & Profit Margin Summary Cards */}
+                              <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/40 p-4 space-y-3 shadow-xs">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 border-b border-emerald-100 pb-2">
+                                  <span>💰</span> Financial &amp; Profitability Summary
+                                </h4>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                  <div className="rounded-xl bg-white p-3 border border-emerald-100 shadow-2xs">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Selling Subtotal</p>
+                                    <p className="mt-1 text-base font-black text-gray-900">₹{displaySubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                                    <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5">@ ₹{sellingPerUnit.toFixed(2)}{unitBadgeText}</span>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white p-3 border border-amber-100 shadow-2xs">
+                                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Est. Material Cost</p>
+                                    <p className="mt-1 text-base font-black text-amber-900">₹{displayMaterialCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                                    <span className="inline-block mt-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 rounded-full px-2 py-0.5">@ ₹{materialPerUnit.toFixed(2)}{unitBadgeText}</span>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white p-3 border border-emerald-100 shadow-2xs">
+                                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Est. Gross Margin</p>
+                                    <p className="mt-1 text-base font-black text-emerald-700">
+                                      ₹{grossMargin.toLocaleString("en-IN", { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-emerald-600">({marginPct}%)</span>
+                                    </p>
+                                    <span className="inline-block mt-1 text-[10px] font-extrabold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5">@ ₹{marginPerUnit.toFixed(2)}{unitBadgeText}</span>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white p-3 border border-emerald-200 shadow-2xs">
+                                    <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Total Order Price</p>
+                                    <p className="mt-1 text-base font-black text-emerald-800">₹{displayTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                                    <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-900 bg-emerald-100 rounded-full px-2 py-0.5">incl. GST (₹{gstDiff.toFixed(2)})</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Simple Step 5: Net Shopping List (If Raw Materials Missing) */}
+                              {missingMaterialsList.length > 0 && (
+                                <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 space-y-3 shadow-xs">
+                                  <div className="flex items-center justify-between border-b border-red-100 pb-2">
+                                    <h4 className="text-xs font-black text-red-955 flex items-center gap-1.5 uppercase tracking-wider">
+                                      🛒 Shopping List — Materials You Must Buy First
+                                    </h4>
+                                    <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                                      {missingMaterialsList.length} {missingMaterialsList.length === 1 ? "Item" : "Items"} Shortage
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-red-800 font-medium leading-relaxed">
+                                    Your factory has some paper stock, but you need to purchase these additional quantities before starting production:
+                                  </p>
+
+                                  <div className="space-y-2">
+                                    {missingMaterialsList.map((mat, i) => {
+                                      const usable = mat.availableStock != null ? Number(mat.availableStock) : (mat.availableStockAtCheck != null ? Number(mat.availableStockAtCheck) : 0);
+                                      const totalNeeded = Number(mat.totalQuantity || 0);
+                                      const shortfall = Math.max(0, totalNeeded - usable);
+                                      const matPrice = Number(mat.unitPrice || 0);
+                                      const buyCost = Number((shortfall * matPrice).toFixed(2));
+
+                                      return (
+                                        <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl bg-white p-3 text-xs border border-red-150 gap-2 shadow-2xs">
+                                          <div>
+                                            <p className="font-extrabold text-red-955 text-xs">❌ {mat.name}</p>
+                                            <p className="text-[11px] text-gray-600 mt-0.5 font-medium">
+                                              Total Needed: <strong>{totalNeeded.toFixed(2)} {mat.unit || 'kg'}</strong> | In Stock: <span className="text-emerald-700 font-bold">{usable.toFixed(2)} {mat.unit || 'kg'}</span>
+                                            </p>
+                                          </div>
+                                          <div className="text-right flex flex-col sm:items-end">
+                                            <span className="bg-red-100 text-red-900 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-black">
+                                              Need to Buy: {shortfall.toFixed(2)} {mat.unit || 'kg'}
+                                            </span>
+                                            {matPrice > 0 && (
+                                              <span className="text-[10px] text-gray-500 font-semibold mt-1">
+                                                Est. Purchase Cost: ₹{buyCost.toLocaleString()} (@ ₹{matPrice}/{mat.unit || 'kg'})
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                          })()
                         )}
                       </div>
-                    ) : (
+                    )
+                    : (
                       <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -9374,7 +9282,7 @@ Valid Until: ${quotationValidUntil || "—"}
                               </ul>
                               <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] leading-snug text-slate-600">
                                 <span className="font-semibold text-slate-800">Deduction mode: {deductionMode}</span>
-                                {" — "}
+                                {"  "}
                                 {DEDUCTION_MODE_HELP[deductionMode] ?? ""}
                               </p>
                             </div>
@@ -9417,8 +9325,8 @@ Valid Until: ${quotationValidUntil || "—"}
                                 const stockUnitPrice = getStockUnitQuotePrice(availabilityResult, availabilityOrder);
                                 return (
                                   <p className="mt-1.5 text-xs font-semibold text-emerald-600">
-                                    Est. Price: ₹{(availabilityResult.canFulfillFromStock * stockUnitPrice).toLocaleString()}
-                                    <span className="text-[10px] text-gray-400 font-normal block mt-0.5">(₹{stockUnitPrice}/unit)</span>
+                                    Est. Price: {(availabilityResult.canFulfillFromStock * stockUnitPrice).toLocaleString()}
+                                    <span className="text-[10px] text-gray-400 font-normal block mt-0.5">({stockUnitPrice}/unit)</span>
                                   </p>
                                 );
                               })()}
@@ -9438,7 +9346,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                 Est. raw material cost
                               </p>
                               <p className="mt-2 text-2xl font-bold text-emerald-700">
-                                ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString() || 0}
+                                {availabilityResult.totalOrderMaterialCost?.toLocaleString() || 0}
                               </p>
                               <p className="mt-1 text-[10px] text-gray-500">For production portion only</p>
                             </div>
@@ -9467,7 +9375,7 @@ Valid Until: ${quotationValidUntil || "—"}
                           {deductionMode === "STOCK_ONLY" && availabilityResult.productResolved !== false && (
                             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-950">
                               <span className="font-semibold">STOCK_ONLY:</span> raw material BOM is not evaluated for
-                              availability — only finished-bag lines matter for pass/fail. Switch to AUTO to see raw
+                              availability  only finished-bag lines matter for pass/fail. Switch to AUTO to see raw
                               requirements for the uncovered quantity.
                             </div>
                           )}
@@ -9480,10 +9388,10 @@ Valid Until: ${quotationValidUntil || "—"}
                               <p className="mt-2 text-xs leading-relaxed text-violet-900/90">
                                 Catalog product base L+W+H ={" "}
                                 <strong>{availabilityResult.productionScalingMeta.productLinearSum}</strong>
-                                {" · "}
+                                {"  "}
                                 This order L+W+H ={" "}
                                 <strong>{availabilityResult.productionScalingMeta.orderLinearSum}</strong>
-                                {" · "}
+                                {"  "}
                                 Scale factor ={" "}
                                 <strong>{availabilityResult.productionScalingMeta.factor}</strong>
                               </p>
@@ -9499,22 +9407,22 @@ Valid Until: ${quotationValidUntil || "—"}
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
                                   <h4 className="text-sm font-bold text-slate-900">
-                                    Finished bags (by product · color · size)
+                                    Finished bags (by product  color  size)
                                   </h4>
                                   <p className="mt-1 text-xs text-slate-600">
                                     Matched using order{" "}
                                     <span className="font-semibold">
                                       {availabilityResult.finishedGoodsInsight.catalogProductName}
                                     </span>{" "}
-                                    · color{" "}
+                                     color{" "}
                                     <span className="font-semibold">
                                       {availabilityResult.finishedGoodsInsight.orderColor}
                                     </span>{" "}
-                                    · size{" "}
+                                     size{" "}
                                     <span className="font-semibold">
                                       {availabilityResult.finishedGoodsInsight.orderBagSize}
                                     </span>{" "}
-                                    · dims{" "}
+                                     dims{" "}
                                     {availabilityResult.finishedGoodsInsight.dimensionsLabel}
                                   </p>
                                 </div>
@@ -9550,7 +9458,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                   <p className="mt-0.5 font-medium">
                                     {availabilityResult.finishedGoodsInsight.matchedDescription}
                                     {availabilityResult.finishedGoodsInsight.matchedSku
-                                      ? ` · SKU ${availabilityResult.finishedGoodsInsight.matchedSku}`
+                                      ? `  SKU ${availabilityResult.finishedGoodsInsight.matchedSku}`
                                       : ""}
                                   </p>
                                   <p className="mt-1 text-xs text-slate-600">
@@ -9558,7 +9466,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                     <span className="font-bold text-slate-900">
                                       {availabilityResult.finishedGoodsInsight.availableOnMatchedLine}
                                     </span>{" "}
-                                    · Counted toward this order:{" "}
+                                     Counted toward this order:{" "}
                                     <span className="font-bold text-slate-900">
                                       {availabilityResult.finishedGoodsInsight.canFulfillFromFinishedLine}
                                     </span>
@@ -9603,7 +9511,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                               onClick={() => handleQuickMatchStock(alt)}
                                               className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-600 transition shadow-sm cursor-pointer"
                                             >
-                                              ⚡ Align & Use
+                                               Align & Use
                                             </button>
                                           </td>
                                         </tr>
@@ -9624,7 +9532,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                     <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50/80 px-4 py-3">
                                       <Layers className="h-4 w-4 text-indigo-700" />
                                       <h4 className="text-sm font-bold text-indigo-900">
-                                        Finished bags (reference — same keywords)
+                                        Finished bags (reference  same keywords)
                                       </h4>
                                     </div>
                                     <div className="overflow-x-auto">
@@ -9645,8 +9553,8 @@ Valid Until: ${quotationValidUntil || "—"}
                                               <td className="px-3 py-2 font-medium text-gray-900">
                                                 {row.productName}
                                               </td>
-                                              <td className="px-3 py-2 text-gray-600">{row.bagColor || "—"}</td>
-                                              <td className="px-3 py-2 text-gray-600">{row.bagSizeLabel || "—"}</td>
+                                              <td className="px-3 py-2 text-gray-600">{row.bagColor || ""}</td>
+                                              <td className="px-3 py-2 text-gray-600">{row.bagSizeLabel || ""}</td>
                                               <td className="px-3 py-2 text-right font-bold text-indigo-800">
                                                 {row.availableBags}
                                               </td>
@@ -9670,7 +9578,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                         <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
                                           <span className="font-semibold text-gray-900">{s.name}</span>
                                           <span className="text-xs text-gray-500">
-                                            {s.category} · SKU {s.sku || "—"} ·{" "}
+                                            {s.category}  SKU {s.sku || ""} {" "}
                                             <span className="font-mono text-violet-700">{s.id}</span>
                                           </span>
                                         </li>
@@ -9802,14 +9710,14 @@ Valid Until: ${quotationValidUntil || "—"}
                                                 Dim. scaled
                                                 {mat.lineScaleFactor != null && (
                                                   <span className="block font-mono text-[10px] text-gray-600">
-                                                    ×{Number(mat.lineScaleFactor).toFixed(4)}
+                                                    {Number(mat.lineScaleFactor).toFixed(4)}
                                                   </span>
                                                 )}
                                               </span>
                                             ) : mat.usageType === "fixed" ? (
                                               "Fixed / bag"
                                             ) : (
-                                              "—"
+                                              ""
                                             )}
                                           </td>
                                           <td className="px-3 py-3 whitespace-nowrap">
@@ -9819,14 +9727,14 @@ Valid Until: ${quotationValidUntil || "—"}
                                             {mat.totalQuantity} {mat.unit}
                                           </td>
                                           <td className="px-3 py-3 whitespace-nowrap">
-                                            {usable != null ? usable.toLocaleString() : "—"}
+                                            {usable != null ? usable.toLocaleString() : ""}
                                           </td>
                                           <td className="px-3 py-3 whitespace-nowrap">
-                                            {shortfall != null ? shortfall.toLocaleString() : "—"}
+                                            {shortfall != null ? shortfall.toLocaleString() : ""}
                                           </td>
-                                          <td className="px-3 py-3">₹{mat.unitPrice}</td>
+                                          <td className="px-3 py-3">{mat.unitPrice}</td>
                                           <td className="px-3 py-3 text-right font-bold">
-                                            ₹{mat.totalPrice?.toLocaleString()}
+                                            {mat.totalPrice?.toLocaleString()}
                                           </td>
                                         </tr>
                                       );
@@ -9836,7 +9744,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                         Total estimated raw cost:
                                       </td>
                                       <td className="px-3 py-3 text-right font-extrabold text-emerald-800 text-lg">
-                                        ₹{availabilityResult.totalOrderMaterialCost?.toLocaleString()}
+                                        {availabilityResult.totalOrderMaterialCost?.toLocaleString()}
                                       </td>
                                     </tr>
                                   </tbody>
@@ -9861,8 +9769,9 @@ Valid Until: ${quotationValidUntil || "—"}
                         </div>
                       </motion.div>
                     )}
-
-                    {availabilityOrder?.isConfirmed ? (
+                  </>
+                ) : (
+                  availabilityOrder?.isConfirmed ? (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -9986,81 +9895,18 @@ Valid Until: ${quotationValidUntil || "—"}
                           </div>
                         </div>
 
-                        {/* Record Payment Advance Inputs */}
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
-                              {confirmPath === "dispatch" ? "Payment Recorded Now (₹)" : "Advance Paid Now (₹)"}
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={confirmOrderForm.paidAmount}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("paidAmount", e.target.value)
-                              }
-                              placeholder="0"
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            />
+                        {/* Payment Collection Policy Notice */}
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-900 flex items-start gap-3 shadow-xs font-sans">
+                          <div className="rounded-full bg-blue-100 p-1.5 text-blue-700 flex-shrink-0 mt-0.5">
+                            <ShieldCheck className="h-4 w-4" />
                           </div>
-
                           <div>
-                            <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
-                              Payment Mode
-                            </label>
-                            <select
-                              value={confirmOrderForm.paymentMode}
-                              onChange={(e) =>
-                                handleConfirmOrderChange("paymentMode", e.target.value)
-                              }
-                              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
-                            >
-                              <option value="cash">Cash</option>
-                              <option value="upi">UPI</option>
-                              <option value="bank_transfer">Bank Transfer</option>
-                              <option value="card">Card</option>
-                              <option value="cheque">Cheque</option>
-                              <option value="online">Online / Payment Gateway</option>
-                              <option value="other">Other</option>
-                            </select>
+                            <p className="font-bold text-blue-950 text-sm mb-0.5">Payment Collection Notice</p>
+                            <p className="text-blue-800 leading-relaxed font-medium">
+                              Stock reservation & order confirmation do not collect payments directly. To record customer payments & issue official audit receipts, please use the <strong className="font-bold text-blue-950">"Record Payment"</strong> action on the order row.
+                            </p>
                           </div>
                         </div>
-
-                        {confirmOrderForm.paymentMode !== "cash" && Number(confirmOrderForm.paidAmount || 0) > 0 && (
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-3 pt-3 border-t border-gray-100">
-                            <div>
-                              <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                Reference Type <span className="text-red-500">*</span>
-                              </label>
-                              <select
-                                value={confirmOrderForm.paymentRefType || "UTR Number"}
-                                onChange={(e) => handleConfirmOrderChange("paymentRefType", e.target.value)}
-                                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 font-semibold text-gray-800"
-                              >
-                                <option value="UTR Number">UTR Number</option>
-                                <option value="Transaction ID">Transaction ID</option>
-                                <option value="Cheque Number">Cheque Number</option>
-                                <option value="Payment ID">Payment ID</option>
-                                <option value="UPI Ref / RRN">UPI Ref / RRN</option>
-                                <option value="Other Reference">Other Reference</option>
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="mb-2 block text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                Reference / Txn Number <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                required
-                                value={confirmOrderForm.paymentRefNumber || ""}
-                                onChange={(e) => handleConfirmOrderChange("paymentRefNumber", e.target.value)}
-                                placeholder="e.g. UTR9876543210"
-                                className="w-full rounded-2xl border border-emerald-300 bg-emerald-50/30 px-4 py-3 text-sm outline-none font-medium transition focus:border-emerald-500 focus:bg-white"
-                              />
-                            </div>
-                          </div>
-                        )}
 
                         {/* Delivery details path ONLY for Dispatch path */}
                         {confirmPath === "dispatch" && (
@@ -10189,7 +10035,7 @@ Valid Until: ${quotationValidUntil || "—"}
                               onClick={handleConfirmExistingOrder}
                             >
                               <ShieldCheck className="h-4 w-4" />
-                              <span>Reserve & Process Stock</span>
+                              <span>Reserve & Confirm Order</span>
                             </Button>
                           ) : (
                             <Button
@@ -10203,11 +10049,77 @@ Valid Until: ${quotationValidUntil || "—"}
                           )}
                         </div>
                       </motion.div>
-                    )}
-                  </>
-                ) : null}
+                    )
+                  )
+                }
               </>
             )}
+
+            {/* Sticky Action Footer Bar */}
+            <div className="sticky bottom-0 z-20 -mx-6 -mb-6 mt-6 flex items-center justify-between border-t border-gray-200 bg-white/95 backdrop-blur-xs px-6 py-4 shadow-lg rounded-b-3xl">
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-2xl border border-gray-300 px-5 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                onClick={resetAvailabilityModal}
+              >
+                Close
+              </Button>
+
+              <div className="flex items-center gap-3">
+                {(() => {
+                  if (availabilityOrder?.isConfirmed) {
+                    return (
+                      <Button
+                        type="button"
+                        className="rounded-2xl bg-red-700 hover:bg-red-800 px-6 py-2.5 text-white font-extrabold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all active:scale-95"
+                        onClick={handleUnconfirmExistingOrder}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        <span>Unconfirm & Release Stock</span>
+                      </Button>
+                    );
+                  }
+
+                  const readyQty = Number(availabilityResult?.canFulfillFromStock || 0);
+                  const reqQty = Number(availabilityResult?.requiredQty || 0);
+                  const is100Ready = readyQty >= reqQty && reqQty > 0;
+
+                  if (confirmPath === "dispatch") {
+                    return (
+                      <Button
+                        type="button"
+                        className="rounded-2xl bg-emerald-800 hover:bg-emerald-900 px-6 py-2.5 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95"
+                        onClick={handleConfirmExistingOrder}
+                      >
+                        <Truck className="h-4 w-4" />
+                        <span>Save & Dispatch Order</span>
+                      </Button>
+                    );
+                  }
+
+                  if (!is100Ready) {
+                    return (
+                      <div className="px-4 py-2.5 rounded-2xl bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center gap-2 shadow-xs select-none">
+                        <AlertTriangle className="h-4 w-4 text-amber-700" />
+                        <span>Stock Not Ready On Shelf ({readyQty.toLocaleString()} / {reqQty.toLocaleString()} Ready)</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-emerald-800 hover:bg-emerald-900 px-6 py-2.5 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95"
+                      onClick={handleConfirmExistingOrder}
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Reserve & Confirm Order</span>
+                    </Button>
+                  );
+                })()}
+              </div>
+            </div>
           </div>
         </Modal>
 
@@ -10295,8 +10207,9 @@ Valid Until: ${quotationValidUntil || "—"}
                           {gstRate != null && (
                             <p><span className="font-semibold text-emerald-700">GST Rate:</span> <span className="font-bold text-emerald-800">{gstRate}%</span></p>
                           )}
-                        </>);
-                      })()}
+                        </>
+                      );
+                    })()}
                     </div>
                   )}
                 </div>
@@ -10818,7 +10731,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                   <span>{retTag.label}</span>
                                 </span>
                               );
-                            })()}
+                              })()}
                           </div>
                         </div>
 
@@ -10901,7 +10814,7 @@ Valid Until: ${quotationValidUntil || "—"}
                                   </div>
                                 </div>
                               );
-                            })}
+                            })()}
                           </div>
                         </div>
                       ) : (
@@ -11962,9 +11875,35 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
 
   const getPcsPerUnit = (line) => {
     if (!line) return 1;
+    const pId = String(line.productId?._id || line.productId || "").trim();
+    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
+    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
+    if (isRoll) return 1;
+
+    let totalPcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
     const totalOrderedQty = Number(line.quantity || 1);
-    const convertedQtyInPcs = Number(line.convertedQuantity || line.quantityInPcs || totalOrderedQty);
-    return convertedQtyInPcs / Math.max(0.0001, totalOrderedQty);
+
+    if (totalPcs <= 0 && line.unit === "kg") {
+      let weight = Number(prod?.weight || 0);
+      if (weight <= 0 && line?.length && line?.width && line?.gsm) {
+        const L = Number(line.length);
+        const W = Number(line.width);
+        const H = Number(line.height || 0);
+        const gsm = Number(line.gsm);
+        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
+        weight = (bagAreaSqM * gsm) / 1000;
+      }
+      if (weight > 0) {
+        totalPcs = Math.ceil(totalOrderedQty / weight);
+      } else {
+        totalPcs = totalOrderedQty * 200; // 200 bags/kg fallback (0.005 kg per bag)
+      }
+    }
+
+    if (totalPcs > 0 && totalOrderedQty > 0) {
+      return totalPcs / totalOrderedQty;
+    }
+    return 1;
   };
 
   const getReturnQtyInPrimaryUnit = (line) => {
@@ -12049,46 +11988,20 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     const pId = String(line.productId?._id || line.productId || "").trim();
     if (returnType !== "complete" && !selectedItems[pId]) return 0;
 
-    const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === pId);
-    const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
-    
-    // Total Ordered Line Qty
     const totalOrderedQty = Number(line.quantity || 0);
     if (totalOrderedQty <= 0) return 0;
 
-    // Piece Count & Weights
-    let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
-    if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
-      let weight = Number(prod?.weight || 0);
-      if (weight <= 0 && line?.length && line?.width && line?.gsm) {
-        const L = Number(line.length);
-        const W = Number(line.width);
-        const H = Number(line.height || 0);
-        const gsm = Number(line.gsm);
-        const bagAreaSqM = (2 * (L + W / 2) * (H + W / 2)) / 1550;
-        weight = (bagAreaSqM * gsm) / 1000;
-      }
-      if (weight > 0) {
-        totalLinePcs = Math.ceil(totalOrderedQty / weight);
-      }
-    }
-
-    // Determine unit price per piece (for non-roll bags) or per primary unit
-    const unitPrice = getItemUnitPrice(line, idx);
-
-    // Total gross subtotal value of this order line
+    const allLines = getOrderLines();
+    const orderSub = Number(selectedOrder.subtotalAmount || selectedOrder.quotation?.subtotalAmount || selectedOrder.totalAmount || 0);
     let lineOrderSubtotal = 0;
     if (line.lineTotal && Number(line.lineTotal) > 0) {
       lineOrderSubtotal = Number(line.lineTotal);
     } else if (line.amount && Number(line.amount) > 0) {
       lineOrderSubtotal = Number(line.amount);
-    } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
-      lineOrderSubtotal = totalLinePcs * unitPrice;
     } else {
-      lineOrderSubtotal = totalOrderedQty * unitPrice;
+      lineOrderSubtotal = getLineSubtotalShare(line, orderSub, allLines, productItems);
     }
 
-    // Calculate returned fraction of this line
     let returnedFraction = 0;
     if (returnType === "complete") {
       const remainingQty = getRemainingQty(line);
@@ -12096,13 +12009,11 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     } else {
       const rawInput = Number(returnQuantities[pId] || 0);
       const selectedUnit = returnUnits[pId] || line.unit || "kg";
+      const pcsPerUnit = getPcsPerUnit(line);
 
       if (selectedUnit === "pcs") {
-        if (totalLinePcs > 0) {
-          returnedFraction = rawInput / totalLinePcs;
-        } else {
-          returnedFraction = rawInput / totalOrderedQty;
-        }
+        const qtyInPrimaryUnit = rawInput / pcsPerUnit;
+        returnedFraction = qtyInPrimaryUnit / totalOrderedQty;
       } else {
         returnedFraction = rawInput / totalOrderedQty;
       }
@@ -12122,24 +12033,15 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const getOrderGrossSubtotalAmount = () => {
     if (!selectedOrder) return 0;
     const lines = getOrderLines();
+    const orderSub = Number(selectedOrder.subtotalAmount || selectedOrder.quotation?.subtotalAmount || selectedOrder.totalAmount || 0);
     let totalGross = 0;
     lines.forEach((line, idx) => {
-      const prod = productItems?.find(p => String(p?._id || p?.id || "").trim() === String(line.productId?._id || line.productId || "").trim());
-      const isRoll = prod?.category?.toLowerCase().includes("roll") || String(line.productName || "").toLowerCase().includes("roll");
-      let totalLinePcs = Number(line.convertedQuantity || line.quantityInPcs || 0);
-      if (!isRoll && line.unit === "kg" && totalLinePcs === 0) {
-        const weight = Number(prod?.weight || 0);
-        if (weight > 0) totalLinePcs = Math.ceil(Number(line.quantity || 0) / weight);
-      }
-      const unitPrice = getItemUnitPrice(line, idx);
       if (line.lineTotal && Number(line.lineTotal) > 0) {
         totalGross += Number(line.lineTotal);
       } else if (line.amount && Number(line.amount) > 0) {
         totalGross += Number(line.amount);
-      } else if (!isRoll && line.unit === "kg" && totalLinePcs > 0) {
-        totalGross += totalLinePcs * unitPrice;
       } else {
-        totalGross += Number(line.quantity || 0) * unitPrice;
+        totalGross += getLineSubtotalShare(line, orderSub, lines, productItems);
       }
     });
     if (totalGross > 0) return totalGross;
@@ -12187,8 +12089,8 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
 
     if (gstType === "complete") {
       const grossReturn = getGrossReturnSubtotal();
-      const returnDiscount = getReturnAllocatedDiscount();
-      const discountRatio = grossReturn > 0 ? Math.max(0, (grossReturn - returnDiscount) / grossReturn) : 1;
+      const currentNetBase = getRefundSubtotal();
+      const discountRatio = grossReturn > 0 ? Math.max(0, currentNetBase / grossReturn) : 1;
 
       let totalGst = 0;
       lines.forEach((line, idx) => {
@@ -12220,8 +12122,8 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
     const breakdown = {};
 
     const grossReturn = getGrossReturnSubtotal();
-    const returnDiscount = getReturnAllocatedDiscount();
-    const discountRatio = grossReturn > 0 ? Math.max(0, (grossReturn - returnDiscount) / grossReturn) : 1;
+    const currentNetBase = getRefundSubtotal();
+    const discountRatio = grossReturn > 0 ? Math.max(0, currentNetBase / grossReturn) : 1;
 
     let calcTotalGst = 0;
     lines.forEach((line, idx) => {
@@ -12601,7 +12503,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
                           return line.gstRate || pObj?.gstRate || rate;
                         }, 5);
                         return `${selectedOrder.quotation?.taxRate || selectedOrder.taxRate || dominantGstRate || 5}%`;
-                      })()}
+                        })()}
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-gray-900">

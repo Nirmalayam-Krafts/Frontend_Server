@@ -47,11 +47,25 @@ const InventoryDetail = ({ item, products = [], onClose }) => {
   const reservedQuantity = Number(item.reservedQuantity || 0);
   const availableForSale = Math.max(0, stockLevel - reservedQuantity);
   const reorderPt = Number(item.reorderPt || 0);
-  const productionCost = Number(item.productionCostPerUnit || item.unitPrice || 0);
-  const unitPrice = productionCost > 0 ? productionCost : Number(item.unitPrice || 0);
-  const totalStockValue = Number(stockLevel * unitPrice);
-  const totalProducedBags = Number(item.totalProducedBags || 0);
-  const totalProductionCost = Number(item.totalProductionCost || stockLevel * productionCost);
+  const countingUnit = item.unit || linkedProd?.unit || (isRoll ? 'kg' : 'pcs');
+  let unitPrice = 0;
+  if (isRoll) {
+    unitPrice = Number(item.unitPrice || linkedProd?.costPrice || linkedProd?.unitPrice || 57.70);
+  } else if (countingUnit === 'kg') {
+    unitPrice = 77.70;
+  } else {
+    const weight = Number(item.weight || linkedProd?.weight || 0);
+    if (weight > 0) {
+      unitPrice = Number((77.70 * weight).toFixed(2));
+    } else {
+      const storedCost = Number(item.unitPrice || item.productionCostPerUnit || linkedProd?.costPrice || 0);
+      unitPrice = (storedCost > 0 && storedCost < sellingPrice) ? storedCost : 3.50;
+    }
+  }
+  const productionCost = unitPrice;
+  const totalStockValue = Number((stockLevel * unitPrice).toFixed(2));
+  const totalProducedBags = Number(item.totalProducedBags || item.totalProducedUnits || item.producedQuantity || 0);
+  const totalProductionCost = Number(item.totalProductionCost || (totalProducedBags * unitPrice) || 0);
 
   const profitMargin = sellingPrice > 0 ? ((sellingPrice - productionCost) / sellingPrice) * 100 : 0;
 

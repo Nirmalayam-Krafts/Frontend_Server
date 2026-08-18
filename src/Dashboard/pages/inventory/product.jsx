@@ -520,7 +520,12 @@ const Product = () => {
                       >
                         <td className="px-4 py-4">
                           <div>
-                            <p className="font-medium text-gray-900">{item.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-900">{item.name}</p>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100/80 text-emerald-900 border border-emerald-300">
+                                {item.unit || "pcs"}
+                              </span>
+                            </div>
                             <p className="text-xs text-gray-500">
                               {item.bagType}
                               {(item.bagColor || item.color) ? ` · Color: ${item.bagColor || item.color}` : ""}

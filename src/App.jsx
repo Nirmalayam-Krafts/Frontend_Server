@@ -40,6 +40,7 @@ import { Toast } from "./Dashboard/components/ui";
 import ProtectedRoute from "./ProtectedRoute";
 import RawMaterial from "./Dashboard/pages/inventory/RawMaterial";
 import Product from "./Dashboard/pages/inventory/product";
+import Recycling from "./Dashboard/pages/inventory/Recycling";
 
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -82,6 +83,7 @@ function AppLayout() {
     "/settings",
     "/rawmaterial",
     "/Product",
+    "/recycling",
     "/quotations",
     "/receipts",
     "/order-returns",
@@ -158,6 +160,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Product />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recycling"
+            element={
+              <ProtectedRoute>
+                <Recycling />
               </ProtectedRoute>
             }
           />

@@ -33,6 +33,10 @@ import {
   RotateCcw,
   Download,
   FileSpreadsheet,
+  Truck,
+  UserCheck,
+  ShieldCheck,
+  Building2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { exportToExcel, exportToCSV } from "../../utils";
@@ -369,6 +373,15 @@ const RawMaterial = () => {
   const [stockToAdd, setStockToAdd] = useState("");
   const [stockUnitPrice, setStockUnitPrice] = useState("");
   const [stockNote, setStockNote] = useState("");
+  const [stockBaseRate, setStockBaseRate] = useState("");
+  const [stockTransportCharges, setStockTransportCharges] = useState("");
+  const [stockLaborCharges, setStockLaborCharges] = useState("");
+  const [stockIsGstApplicable, setStockIsGstApplicable] = useState(false);
+  const [stockGstRate, setStockGstRate] = useState("18");
+  const [stockSupplierName, setStockSupplierName] = useState("");
+  const [stockSupplierGstin, setStockSupplierGstin] = useState("");
+  const [stockSupplierAddress, setStockSupplierAddress] = useState("");
+  const [stockSupplierPhone, setStockSupplierPhone] = useState("");
 
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [productionForm, setProductionForm] = useState<IProductionForm>(initialProductionForm);
@@ -794,6 +807,15 @@ const RawMaterial = () => {
     setSelectedStockItem(item);
     setStockToAdd("");
     setStockUnitPrice(String(item.unitPrice || ""));
+    setStockBaseRate(String(item.unitPrice || item.baseRate || ""));
+    setStockTransportCharges("");
+    setStockLaborCharges("");
+    setStockIsGstApplicable(Boolean(item.isGstApplicable));
+    setStockGstRate(String(item.gstRate || "18"));
+    setStockSupplierName(item.supplierName || "");
+    setStockSupplierGstin(item.supplierGstin || "");
+    setStockSupplierAddress(item.supplierAddress || "");
+    setStockSupplierPhone(item.supplierPhone || "");
     setStockNote("");
     setShowStockModal(true);
   };
@@ -817,12 +839,32 @@ const RawMaterial = () => {
     const loadingToast = toast.loading("Adding stock...");
 
     try {
+      const addedQty = Number(stockToAdd || 0);
+      const bRate = Number(stockBaseRate || 0);
+      const trCharges = Number(stockTransportCharges || 0);
+      const lbCharges = Number(stockLaborCharges || 0);
+      const isGst = stockIsGstApplicable;
+      const gRate = Number(stockGstRate || 18);
+      const bCost = Number((addedQty * bRate).toFixed(2));
+      const gAmt = isGst ? Number((bCost * (gRate / 100)).toFixed(2)) : 0;
+      const totLandedCost = Number((bCost + trCharges + lbCharges + gAmt).toFixed(2));
+      const effRate = addedQty > 0 ? Number((totLandedCost / addedQty).toFixed(2)) : bRate;
+
       const response = await axiosInstance.patch(
         `/raw-materials/${selectedStockItem._id || selectedStockItem.id}/add-stock`,
         {
-          quantity,
-          unitPrice,
-          note: stockNote || "Stock added manually",
+          quantity: addedQty,
+          baseRate: bRate,
+          transportCharges: trCharges,
+          laborCharges: lbCharges,
+          isGstApplicable: isGst,
+          gstRate: gRate,
+          supplierName: stockSupplierName,
+          supplierGstin: stockSupplierGstin,
+          supplierAddress: stockSupplierAddress,
+          supplierPhone: stockSupplierPhone,
+          unitPrice: effRate,
+          note: stockNote || "Stock added with itemized purchase costing breakdown",
         }
       );
 
@@ -2442,96 +2484,270 @@ const RawMaterial = () => {
                 </div>
               </div>
 
-              {/* Quantity, Rate and Note Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Input Fields block */}
-                <div className="space-y-3">
-                  <div className="flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                      Add Stock Quantity ({selectedStockItem.unit})
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={stockToAdd}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockToAdd(e.target.value)}
-                        placeholder={`e.g., 50`}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-gray-900"
+              {/* Itemized Purchase Costing & Expense Breakdown */}
+              {(() => {
+                const addedQty = Number(stockToAdd || 0);
+                const bRate = Number(stockBaseRate || 0);
+                const trCharges = Number(stockTransportCharges || 0);
+                const lbCharges = Number(stockLaborCharges || 0);
+                const isGst = stockIsGstApplicable;
+                const gRate = Number(stockGstRate || 18);
+                const bCost = Number((addedQty * bRate).toFixed(2));
+                const gAmt = isGst ? Number((bCost * (gRate / 100)).toFixed(2)) : 0;
+                const totLandedCost = Number((bCost + trCharges + lbCharges + gAmt).toFixed(2));
+                const effRate = addedQty > 0 ? Number((totLandedCost / addedQty).toFixed(2)) : bRate;
+
+                return (
+                  <div className="space-y-4">
+                    {/* Itemized Purchase Costing Box */}
+                    <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 rounded-xl p-5 border border-emerald-200">
+                      <div className="flex items-center gap-2 text-emerald-800 font-bold text-base mb-1">
+                        <Calculator className="w-5 h-5 text-emerald-600" />
+                        <span>Itemized Purchase Costing & Expense Breakdown</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mb-4">
+                        Enter individual purchase expenses (base rate, freight, labor, GST) to compute total stock price & landed unit rate.
+                      </p>
+
+                      {/* 3 Main Inputs */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                            Unit of Measurement *
+                          </label>
+                          <div className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-100 font-bold text-gray-700 select-none">
+                            {selectedStockItem.unit}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                            Quantity Purchased *
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={stockToAdd}
+                            onChange={(e) => setStockToAdd(e.target.value)}
+                            placeholder="0"
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-gray-900 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                            Base Unit Rate (₹ / {selectedStockItem.unit}) *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={stockBaseRate}
+                            onChange={(e) => setStockBaseRate(e.target.value)}
+                            placeholder="0"
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-gray-900 bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Freight & Labor Charges */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                            <Truck className="w-3.5 h-3.5 text-emerald-600" />
+                            Transport / Freight Charges (₹)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={stockTransportCharges}
+                            onChange={(e) => setStockTransportCharges(e.target.value)}
+                            placeholder="0"
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            Labor / Handling Charges (₹)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={stockLaborCharges}
+                            onChange={(e) => setStockLaborCharges(e.target.value)}
+                            placeholder="0"
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900 bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* GST Checkbox & Rate Selection */}
+                      <div className="mt-5 p-4 bg-white rounded-xl border border-emerald-200 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-3 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={stockIsGstApplicable}
+                              onChange={(e) => setStockIsGstApplicable(e.target.checked)}
+                              className="w-5 h-5 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                            />
+                            <div>
+                              <span className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                Include GST Charges?
+                              </span>
+                              <p className="text-xs text-gray-500">
+                                Enabling GST mandatorily requires supplier details & audit logging.
+                              </p>
+                            </div>
+                          </label>
+
+                          {stockIsGstApplicable && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-gray-700">GST Rate:</span>
+                              <select
+                                value={stockGstRate}
+                                onChange={(e) => setStockGstRate(e.target.value)}
+                                className="px-3 py-1.5 border border-emerald-300 rounded-lg bg-emerald-50 text-emerald-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              >
+                                <option value="5">5% GST</option>
+                                <option value="12">12% GST</option>
+                                <option value="18">18% GST (Standard)</option>
+                                <option value="28">28% GST</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Supplier Audit Details */}
+                        {stockIsGstApplicable && (
+                          <div className="mt-4 pt-4 border-t border-emerald-100 bg-amber-50/50 p-4 rounded-lg border-l-4 border-l-amber-500 space-y-4">
+                            <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
+                              <Building2 className="w-4 h-4 text-amber-600" />
+                              Mandatory Supplier Audit Records (Logged Immutably)
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                                  Supplier Business Name *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stockSupplierName}
+                                  onChange={(e) => setStockSupplierName(e.target.value)}
+                                  placeholder="e.g. XYZ Paper Mills Ltd"
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900 bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                                  Supplier GSTIN *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stockSupplierGstin}
+                                  onChange={(e) => setStockSupplierGstin(e.target.value)}
+                                  placeholder="e.g. 27AAAAA0000A1Z5"
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900 bg-white"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                                  Supplier Address
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stockSupplierAddress}
+                                  onChange={(e) => setStockSupplierAddress(e.target.value)}
+                                  placeholder="e.g. Plot 45, Industrial Zone"
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900 bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                                  Supplier Phone
+                                </label>
+                                <input
+                                  type="text"
+                                  value={stockSupplierPhone}
+                                  onChange={(e) => setStockSupplierPhone(e.target.value)}
+                                  placeholder="e.g. +91 9876543210"
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900 bg-white"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* LANDED PURCHASE COST SUMMARY Box */}
+                      <div className="mt-5 bg-gradient-to-br from-gray-900 to-emerald-950 text-white rounded-xl p-4 shadow-lg border border-emerald-800">
+                        <div className="flex items-center justify-between mb-3 border-b border-emerald-800/80 pb-2">
+                          <span className="text-xs uppercase tracking-widest text-emerald-400 font-bold flex items-center gap-1.5">
+                            <Calculator className="w-4 h-4" />
+                            LANDED PURCHASE COST SUMMARY
+                          </span>
+                          <span className="text-xs text-gray-300 font-medium">
+                            {addedQty} {selectedStockItem.unit} purchased
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3">
+                          <div>
+                            <p className="text-gray-400">Base Material Cost</p>
+                            <p className="font-semibold text-gray-200">₹{bCost.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Freight / Transport</p>
+                            <p className="font-semibold text-gray-200">+ ₹{trCharges.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Labor / Handling</p>
+                            <p className="font-semibold text-gray-200">+ ₹{lbCharges.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">GST ({isGst ? `${gRate}%` : "0%"})</p>
+                            <p className="font-semibold text-emerald-400">+ ₹{gAmt.toFixed(2)}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-emerald-800/80 gap-2">
+                          <div>
+                            <p className="text-xs text-emerald-300 font-medium">Total Landed Stock Price (Total Cost):</p>
+                            <p className="text-2xl font-extrabold text-white">
+                              ₹{totLandedCost.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="sm:text-right bg-emerald-900/60 px-3 py-2 rounded-lg border border-emerald-700/50">
+                            <p className="text-[11px] text-emerald-200 uppercase font-semibold">EFFECTIVE LANDED RATE:</p>
+                            <p className="text-lg font-bold text-emerald-300">
+                              ₹{effRate.toFixed(2)} / {selectedStockItem.unit}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Note input */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        Note / Comments
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={stockNote}
+                        onChange={(e) => setStockNote(e.target.value)}
+                        placeholder="e.g. Received new raw paper batch from supplier"
+                        className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900"
                       />
                     </div>
                   </div>
-
-                  <div className="flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                      New Unit Price / Rate (₹)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={stockUnitPrice}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStockUnitPrice(e.target.value)}
-                        placeholder={`Current: ₹${selectedStockItem.unitPrice}`}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-gray-900"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Calculation Details & Cost Summary */}
-                <div className="flex flex-col justify-between border border-gray-200 rounded-md p-4 bg-gray-50/50">
-                  <div className="space-y-3 text-xs">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-200 pb-1">
-                      Valuation Summary
-                    </p>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Adding stock amount:</span>
-                      <span className="font-bold text-gray-800">
-                        {stockToAddValue.toLocaleString()} {selectedStockItem.unit}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Rate / Unit Price:</span>
-                      <span className="font-bold text-gray-800">
-                        ₹{currentUnitPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-
-                    {/* Total cost of added stock — emphasized */}
-                    <div className="flex justify-between border-t border-dashed border-gray-200 pt-2 font-bold text-sm">
-                      <span className="text-gray-700">Total Value added:</span>
-                      <span className="text-emerald-700 font-extrabold text-base">
-                        ₹{(stockToAddValue * currentUnitPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-[9px] text-gray-450 italic mt-2">
-                    * Formula: Quantity × Rate
-                  </p>
-                </div>
-              </div>
-
-              {/* Note input */}
-              <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                  Note / Comments
-                </label>
-                <textarea
-                  rows={2}
-                  value={stockNote}
-                  onChange={(e) => setStockNote(e.target.value)}
-                  placeholder="e.g. Received new raw paper batch from supplier"
-                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-gray-900"
-                />
-              </div>
-
+                );
+              })()}
               {/* Final Stock Level metrics bar */}
               <div className="grid grid-cols-3 gap-3 text-center border-t border-gray-150 pt-4 text-xs font-semibold">
                 <div className="border border-gray-200 bg-gray-50 p-2.5 rounded-md">

@@ -26,6 +26,7 @@ import {
   Clock,
   RotateCcw,
   ShieldAlert,
+  Recycle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "../../../../hook/admin";
@@ -83,8 +84,10 @@ export const Sidebar = () => {
         { icon: Package, label: "Stock", path: "/inventory" },
         { icon: Box, label: "Raw Materials", path: "/rawmaterial" },
         { icon: Box, label: "Products", path: "/Product" },
+        { icon: Recycle, label: "Recycling", path: "/recycling" },
       ],
     },
+    { icon: Recycle, label: "Recycling", path: "/recycling" },
     {
       icon: ShoppingCart,
       label: "Orders",
@@ -105,7 +108,7 @@ export const Sidebar = () => {
   const isActive = (path) => location.pathname === path;
 
   const isInventoryActive =
-    location.pathname === "/inventory" || location.pathname === "/rawmaterial" || location.pathname === "/Product";
+    location.pathname === "/inventory" || location.pathname === "/rawmaterial" || location.pathname === "/Product" || location.pathname === "/recycling";
 
   const isOrdersActive =
     location.pathname === "/orders" || location.pathname === "/quotations" || location.pathname === "/receipts" || location.pathname === "/order-returns";

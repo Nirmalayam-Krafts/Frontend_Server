@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/common/Layout";
 import { Card, Badge, Button, Input, Select, Modal, Pagination } from "../../components/ui";
 import { RevenueChart } from "../../components/charts";
@@ -14,7 +15,9 @@ import {
   FileSpreadsheet,
   Wallet,
   Activity,
-  Layers3
+  Layers3,
+  Recycle,
+  ArrowUpRight
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
@@ -93,6 +96,7 @@ const parseExpenseNote = (note) => {
 };
 
 const Finance = () => {
+  const navigate = useNavigate();
   const { axiosInstance } = useAuthContext();
 
   const [startDate, setStartDate] = useState(() => {
@@ -121,8 +125,12 @@ const Finance = () => {
   const [reportData, setReportData] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
+  // Scrap Sales Revenue States
+  const [scrapSales, setScrapSales] = useState([]);
+  const [scrapSalesLoading, setScrapSalesLoading] = useState(false);
+
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [newExpense, setNewExpense] = useState({ category: "Electricity Bill", amount: "", note: "" });
+  const [newExpense, setNewExpense] = useState({ category: "Electricity Bill", customCategory: "", amount: "", note: "" });
   const [isRecording, setIsRecording] = useState(false);
 
   // Fetch expenses list & compute clean non-automatic expense metrics
@@ -199,6 +207,19 @@ const Finance = () => {
     }
   };
 
+  // Fetch scrap sales transactions
+  const fetchScrapSales = async () => {
+    setScrapSalesLoading(true);
+    try {
+      const res = await axiosInstance.get(`/finance/transactions?transactionType=SCRAP_SALE&limit=50&from=${startDate}&to=${endDate}`);
+      setScrapSales(res.data?.data || []);
+    } catch (err) {
+      console.error("Failed to fetch scrap sales", err);
+    } finally {
+      setScrapSalesLoading(false);
+    }
+  };
+
   // Refresh all finance data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -207,6 +228,7 @@ const Finance = () => {
         refetch(),
         fetchExpensesList(),
         fetchExpenseReport(),
+        fetchScrapSales(),
       ]);
       toast.success("Finance data refreshed");
     } catch {
@@ -216,6 +238,10 @@ const Finance = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refetch, expensePage, expenseRange, startDate, endDate]);
+
+  useEffect(() => {
+    fetchScrapSales();
+  }, [startDate, endDate]);
 
   useEffect(() => {
     if (activeTab === "expenses") {
@@ -232,7 +258,16 @@ const Finance = () => {
   const handleRecordExpense = async (e) => {
     e.preventDefault();
     if (!newExpense.amount || Number(newExpense.amount) <= 0) {
-      alert("Please enter a valid amount");
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    const finalCategory = newExpense.category === "Other"
+      ? (newExpense.customCategory?.trim() || "Other")
+      : newExpense.category;
+
+    if (newExpense.category === "Other" && !newExpense.customCategory?.trim()) {
+      toast.error("Please specify a custom category name");
       return;
     }
 
@@ -241,17 +276,18 @@ const Finance = () => {
       await axiosInstance.post("/finance/transaction", {
         transactionType: "EXPENSE",
         amount: Number(newExpense.amount),
-        category: newExpense.category,
+        category: finalCategory,
         note: newExpense.note || "Recorded manually",
       });
       setShowExpenseModal(false);
-      setNewExpense({ category: "Electricity Bill", amount: "", note: "" });
+      setNewExpense({ category: "Electricity Bill", customCategory: "", amount: "", note: "" });
+      toast.success(`Recorded ₹${Number(newExpense.amount).toLocaleString("en-IN")} expense under '${finalCategory}'!`);
       fetchExpensesList();
       fetchExpenseReport();
       refetch();
     } catch (err) {
       console.error("Failed to record expense", err);
-      alert(err.response?.data?.message || "Failed to record expense");
+      toast.error(err.response?.data?.message || "Failed to record expense");
     } finally {
       setIsRecording(false);
     }
@@ -424,9 +460,11 @@ const Finance = () => {
       }
     });
 
-    const income = totalCappedPaid > 0 ? totalCappedPaid : Number(data.income || 0);
+    const scrapRev = Number(data?.scrapRevenue || 0);
+    const orderIncome = totalCappedPaid > 0 ? totalCappedPaid : Math.max(0, Number(data.income || 0) - scrapRev);
+    const income = orderIncome + scrapRev;
     const pendingDues = Math.max(0, totalOrderAmount - totalCappedPaid);
-    const monthlyRev = Math.min(income, Number(data.monthlyRevenue || income));
+    const monthlyRev = Math.max(income, Number(data.monthlyRevenue || income));
     const exp = reportData?.totalExpenses != null ? reportData.totalExpenses : Number(data.expense || 0);
     const profit = income - exp;
     const rate = totalOrderAmount > 0 ? Math.round((totalCappedPaid / totalOrderAmount) * 100) : (data.paymentRate || 100);
@@ -437,6 +475,7 @@ const Finance = () => {
     return {
       ...data,
       income,
+      scrapRevenue: scrapRev,
       pendingDues,
       monthlyRevenue: monthlyRev,
       expense: exp,
@@ -723,114 +762,132 @@ const Finance = () => {
             {/* KPI Cards */}
             {!isLoading && !isError && (data || sanitizedFinanceData) && (
               <motion.div
-                className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ staggerChildren: 0.1 }}
               >
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase mb-1">
                           Monthly Revenue
                         </p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-xl font-bold text-gray-900">
                           {formatCurrency(sanitizedFinanceData?.monthlyRevenue ?? data?.monthlyRevenue)}
                         </p>
                       </div>
-                      <div className="bg-green-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                        <TrendingUp className="w-6 h-6" />
+                      <div className="bg-green-400 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                        <TrendingUp className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase mb-1">
+                          Total Revenue
+                        </p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {formatCurrency(sanitizedFinanceData?.income ?? data?.income)}
+                        </p>
+                      </div>
+                      <div className="bg-emerald-500 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                        <DollarSign className="w-5 h-5" />
                       </div>
                     </div>
                   </Card>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5 border border-emerald-200 bg-emerald-50/40">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
-                          Total Revenue
+                        <p className="text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1">
+                          Scrap Revenue
                         </p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(sanitizedFinanceData?.income ?? data?.income)}
+                        <p className="text-xl font-extrabold text-emerald-700">
+                          {formatCurrency(sanitizedFinanceData?.scrapRevenue ?? data?.scrapRevenue)}
                         </p>
                       </div>
-                      <div className="bg-emerald-500 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                        <DollarSign className="w-6 h-6" />
+                      <div className="bg-teal-600 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                        <Recycle className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase mb-1">
+                          Pending Dues
+                        </p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {formatCurrency(sanitizedFinanceData?.pendingDues ?? data?.pendingDues)}
+                        </p>
+                      </div>
+                      <div className="bg-red-400 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                        <AlertCircle className="w-5 h-5" />
                       </div>
                     </div>
                   </Card>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
-                          Pending Dues
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase mb-1">
+                          Dispatched
                         </p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(sanitizedFinanceData?.pendingDues ?? data?.pendingDues)}
+                        <p className="text-xl font-bold text-gray-900">
+                          {(sanitizedFinanceData?.totalDispatched ?? data?.totalDispatched)?.toLocaleString?.() ?? 0}
                         </p>
                       </div>
-                      <div className="bg-red-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                        <AlertCircle className="w-6 h-6" />
+                      <div className="bg-blue-400 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                        <ShoppingBag className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase mb-1">
+                          Payment Rate
+                        </p>
+                        <p className="text-xl font-bold text-emerald-600">
+                          {sanitizedFinanceData?.paymentRate ?? data?.paymentRate ?? 0}%
+                        </p>
+                      </div>
+                      <div className="bg-emerald-400 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                        <CreditCard className="w-5 h-5" />
                       </div>
                     </div>
                   </Card>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
+                  <Card className="hover:shadow-md hover:scale-105 transition-transform p-3.5">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
-                          Total Dispatched
-                        </p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {(sanitizedFinanceData?.totalDispatched ?? data?.totalDispatched)?.toLocaleString?.() ?? 0}
-                        </p>
-                      </div>
-                      <div className="bg-blue-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                        <ShoppingBag className="w-6 h-6" />
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
-                          Payment Rate
-                        </p>
-                        <p className="text-2xl font-bold text-primary-600">
-                          {sanitizedFinanceData?.paymentRate ?? data?.paymentRate ?? 0}%
-                        </p>
-                      </div>
-                      <div className="bg-primary-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                        <CreditCard className="w-6 h-6" />
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-                  <Card className="hover:shadow-md hover:scale-105 transition-transform">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase mb-1">
                           GST Collected
                         </p>
-                        <p className="text-2xl font-bold text-amber-600">
+                        <p className="text-xl font-bold text-amber-600">
                           {formatCurrency((sanitizedFinanceData?.totalGstCollected ?? data?.totalGstCollected) || 0)}
                         </p>
                       </div>
-                      <div className="bg-amber-400 w-12 h-12 rounded-lg flex items-center justify-center text-white">
-                        <Layers3 className="w-6 h-6" />
+                      <div className="bg-amber-400 w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                        <Layers3 className="w-5 h-5" />
                       </div>
                     </div>
                   </Card>
@@ -982,6 +1039,92 @@ const Finance = () => {
                 </Card>
               </motion.div>
             )}
+
+            {/* Scrap & Wastage Sales Revenue Section */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <Card className="p-5 border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/20 to-teal-50/30 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
+                      <Recycle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+                        Scrap & Wastage Sales Revenue
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
+                          Recycling Integration
+                        </span>
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Real-time revenue earned from selling scrap paper and manufacturing wastage.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-gray-500 uppercase">Period Scrap Sales</p>
+                      <p className="text-xl font-extrabold text-emerald-700">
+                        {formatCurrency(sanitizedFinanceData?.scrapRevenue ?? data?.scrapRevenue)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/recycling")}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition-colors shadow-sm"
+                    >
+                      Recycling Dashboard
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {scrapSalesLoading ? (
+                  <div className="py-6 text-center text-xs text-gray-400">Loading scrap sale transactions...</div>
+                ) : scrapSales.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-gray-500">
+                    No scrap sales logged in this period. Sell scrap in the <button type="button" onClick={() => navigate("/recycling")} className="font-semibold text-emerald-700 underline">Recycling module</button> to record scrap revenue here.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-emerald-50/80 text-emerald-900 font-semibold border-b border-emerald-100 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-3 py-2.5">Date & Time</th>
+                          <th className="px-3 py-2.5">Description / Note</th>
+                          <th className="px-3 py-2.5">Payment Method</th>
+                          <th className="px-3 py-2.5">Recorded By</th>
+                          <th className="px-3 py-2.5 text-right">Revenue (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white/60">
+                        {scrapSales.map((sale) => (
+                          <tr key={sale._id} className="hover:bg-emerald-50/40 transition-colors">
+                            <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">
+                              {new Date(sale.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-700 font-medium">
+                              {sale.note || "Scrap & Wastage Sale"}
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-600">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700">
+                                {sale.paymentRefType || "CASH"} {sale.paymentRefNumber ? `: ${sale.paymentRefNumber}` : ""}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-600">
+                              {sale.adminId?.name || "Admin"}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-bold text-emerald-600 whitespace-nowrap">
+                              + {formatCurrency(sale.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </motion.div>
           </>
         ) : (
           /* Expenses tab contents */
@@ -1324,7 +1467,7 @@ const Finance = () => {
           title="Record Manual Expense"
           onClose={() => {
             setShowExpenseModal(false);
-            setNewExpense({ category: "Electricity Bill", amount: "", note: "" });
+            setNewExpense({ category: "Electricity Bill", customCategory: "", amount: "", note: "" });
           }}
           size="md"
         >
@@ -1334,15 +1477,37 @@ const Finance = () => {
               <select
                 value={newExpense.category}
                 onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 bg-white font-medium text-gray-800"
                 required
               >
-                <option value="Electricity Bill">Electricity Bill</option>
-                <option value="Logistics">Logistics</option>
-                <option value="WhatsApp API Bill">WhatsApp API Bill</option>
-                <option value="Other">Other</option>
+                <option value="Electricity Bill">Electricity Bill / Utilities</option>
+                <option value="Rent">Factory / Office Rent</option>
+                <option value="Labor">Labor & Wages</option>
+                <option value="Maintenance">Maintenance & Cleaning</option>
+                <option value="Machine Repairs">Machine Repairs & Servicing</option>
+                <option value="Travel & Logistics">Travel & Transportation / Freight</option>
+                <option value="Raw Materials">Raw Materials Procurement</option>
+                <option value="Packaging & Consumables">Packaging & Consumables</option>
+                <option value="Marketing">Marketing & Advertising</option>
+                <option value="Office Supplies">Office Supplies & Stationery</option>
+                <option value="Software & Communication">Software & Communication (WhatsApp API / Cloud)</option>
+                <option value="Customer Refund">Customer Refund</option>
+                <option value="Other">Other (Custom Category Write-in)</option>
               </select>
             </div>
+
+            {newExpense.category === "Other" && (
+              <div className="animate-fadeIn">
+                <Input
+                  label="Custom Category Name"
+                  type="text"
+                  placeholder="e.g. Water Supply, Equipment Hire, Insurance..."
+                  value={newExpense.customCategory}
+                  onChange={(e) => setNewExpense({ ...newExpense, customCategory: e.target.value })}
+                  required
+                />
+              </div>
+            )}
 
             <div>
               <Input
@@ -1374,7 +1539,7 @@ const Finance = () => {
                 variant="secondary"
                 onClick={() => {
                   setShowExpenseModal(false);
-                  setNewExpense({ category: "Electricity Bill", amount: "", note: "" });
+                  setNewExpense({ category: "Electricity Bill", customCategory: "", amount: "", note: "" });
                 }}
               >
                 Cancel

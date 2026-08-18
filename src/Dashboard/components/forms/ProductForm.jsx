@@ -55,6 +55,7 @@ const getInitialState = (initialData = null) => {
         unit: "inch",
       },
       basePrice: "",
+      unit: "pcs",
       estimationConfig: {
         pricingMode: "calculated",
         basePrice: "",
@@ -116,6 +117,7 @@ const getInitialState = (initialData = null) => {
         : [{ ...defaultMaterial }],
     isActive: initialData?.isActive ?? true,
     customPrinting: initialData?.customPrinting || false,
+    unit: initialData?.unit || "pcs",
     gsm: initialData?.gsm || "",
     weight: initialData?.weight || "",
     lengthInMeters: initialData?.lengthInMeters || "",
@@ -490,7 +492,7 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
       weight: formData.weight ? Number(formData.weight) : undefined,
       lengthInMeters: isRoll && formData.lengthInMeters ? Number(formData.lengthInMeters) : undefined,
       bf: isRoll && formData.bf ? Number(formData.bf) : undefined,
-      unit: isRoll ? "kg" : undefined,
+      unit: isRoll ? "kg" : (formData.unit || "pcs"),
       hsn_source: formData.hsn_source || "master",
       hsn_master_id: formData.hsn_source === "master" ? (formData.hsn_master_id || null) : null,
       custom_hsn_code: formData.hsn_source === "custom" ? String(formData.custom_hsn_code || formData.hsnCode || "").trim() : null,
@@ -735,6 +737,24 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
 
           <div>
             <label className="mb-1.5 block text-sm font-bold text-gray-800">
+              Counting Unit (Unit of Measure) <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.unit || "pcs"}
+              onChange={(e) => updateField("unit", e.target.value)}
+              className="w-full rounded-xl border border-emerald-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-emerald-950 font-extrabold bg-emerald-50/50"
+              required
+            >
+              <option value="pcs">Pieces (pcs)</option>
+              <option value="kg">Kilograms (kg)</option>
+            </select>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Mandatory unit of measure used for counting finished stock, production batches, and sales orders.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-gray-800">
               GSM <span className="text-red-500">*</span>
             </label>
             <input
@@ -798,18 +818,26 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
             </>
           ) : (
             <div>
-              <label className="mb-1.5 block text-sm font-bold text-gray-800">
-                Weight per Bag (kg)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-bold text-gray-800">
+                  Weight per Bag (kg)
+                </label>
+                <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Benchmark Estimate
+                </span>
+              </div>
               <input
                 type="number"
                 min="0"
                 step="any"
                 value={formData.weight}
                 onChange={(e) => updateField("weight", e.target.value)}
-                placeholder="e.g. 0.02"
+                placeholder="e.g. 0.007 (Benchmark target estimate)"
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
               />
+              <p className="text-[11px] text-gray-500 mt-1">
+                ℹ️ Benchmark target estimate per bag. Used for auto-calculating production batch net weights & unit conversions.
+              </p>
             </div>
           )}
         </div>
@@ -1253,9 +1281,14 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-bold text-gray-800">
-                      {isRoll ? "Required Quantity / kg" : "Required Quantity / Bag"}
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-bold text-gray-800">
+                        {isRoll ? "Required Quantity / kg" : "Required Quantity / Bag"}
+                      </label>
+                      <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        Benchmark Estimate
+                      </span>
+                    </div>
                     <input
                       type="number"
                       min="0"
@@ -1264,10 +1297,13 @@ const ProductForm = ({ initialData = null, onSubmit }) => {
                       onChange={(e) =>
                         updateMaterial(index, "requiredQuantityPerBag", e.target.value)
                       }
-                      placeholder={isRoll ? "1.0" : "2.4"}
+                      placeholder={isRoll ? "1.0 (Benchmark target estimate)" : "0.010 (Benchmark target estimate)"}
                       className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 text-gray-900 font-medium"
                       required
                     />
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      ℹ️ Benchmark estimate per bag. Used for pre-filling production batch consumption suggestions.
+                    </p>
                   </div>
 
                   <div>
