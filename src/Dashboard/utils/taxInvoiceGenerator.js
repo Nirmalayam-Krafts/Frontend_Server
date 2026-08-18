@@ -98,17 +98,12 @@ export const generateTaxInvoicePDF = ({
   const ordObj = order || {};
   const rc = billReceipt || {};
   const sysConfig = getSystemGstConfigFromStorage();
+  const globalGstSetting = businessConfig.gstEnabled ?? businessConfig.isGstEnabled ?? sysConfig.gstEnabled ?? true;
 
-  // Resolve GST mode strictly from document snapshot first to preserve historical record
-  const snapshottedGstMode = rc.billDetails?.gstEnabled ?? rc.gstEnabled ?? ordObj.billDetails?.gstEnabled ?? ordObj.quotation?.gstEnabled ?? ordObj.gstEnabled;
-
-  const isGstEnabled = snapshottedGstMode !== undefined && snapshottedGstMode !== null
-    ? Boolean(snapshottedGstMode)
-    : (businessConfig.gstEnabled !== undefined
-        ? Boolean(businessConfig.gstEnabled)
-        : (businessConfig.isGstEnabled !== undefined
-            ? Boolean(businessConfig.isGstEnabled)
-            : Boolean(sysConfig.gstEnabled)));
+  // Resolve GST mode: If GST is disabled in system settings, GST is strictly false (0%)
+  const isGstEnabled = !globalGstSetting
+    ? false
+    : (rc.billDetails?.gstEnabled ?? rc.gstEnabled ?? ordObj.billDetails?.gstEnabled ?? ordObj.quotation?.gstEnabled ?? ordObj.gstEnabled ?? true);
 
   const busGst = businessConfig.businessGstNumber || "27AAACN1234F1Z1";
   const busName = businessConfig.companyName || "Nirmalyam Krafts";
@@ -253,7 +248,7 @@ export const generateTaxInvoicePDF = ({
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.text("TAX INVOICE", pageWidth - 10, 13, { align: "right" });
+  doc.text(isGstEnabled ? "TAX INVOICE" : "INVOICE / BILL OF SUPPLY", pageWidth - 10, 13, { align: "right" });
 
   const invoiceNo = rc.receiptNumber || ordObj.invoiceNumber || `INV-${String(ordObj._id || ordObj.id || Date.now()).slice(-6).toUpperCase()}`;
   const issueDate = rc.paidAt ? new Date(rc.paidAt).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN");
@@ -630,11 +625,11 @@ export const generateTaxInvoicePDF = ({
 
     currentY += 5;
     doc.setFont("helvetica", "bold");
-    doc.text("Taxable Base:", rightLabelX, currentY);
+    doc.text(isGstEnabled ? "Taxable Base:" : "Subtotal:", rightLabelX, currentY);
     doc.text(`Rs. ${cumulativeTaxableBase.toFixed(2)}`, rightValX, currentY, { align: "right" });
     doc.setFont("helvetica", "normal");
   } else {
-    doc.text("Subtotal (Taxable Value):", rightLabelX, currentY);
+    doc.text(isGstEnabled ? "Subtotal (Taxable Value):" : "Subtotal:", rightLabelX, currentY);
     doc.text(`Rs. ${cumulativeTaxableBase.toFixed(2)}`, rightValX, currentY, { align: "right" });
   }
 

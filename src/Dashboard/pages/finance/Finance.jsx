@@ -176,7 +176,8 @@ const Finance = () => {
       // Group by category
       const categoryMap = {};
       cashExpenses.forEach(e => {
-        const cat = e.category || (e.transactionType === "MATERIAL_COST" ? "Raw Materials" : e.transactionType || "General");
+        let cat = e.category || (e.transactionType === "MATERIAL_COST" ? "Raw Materials" : e.transactionType || "General");
+        if (cat.trim().toLowerCase() === "refund") cat = "Customer Refund";
         categoryMap[cat] = (categoryMap[cat] || 0) + Number(e.amount || 0);
       });
       const byCategory = Object.keys(categoryMap).map(cat => ({
@@ -1348,7 +1349,10 @@ const Finance = () => {
                                 })}
                               </td>
                               <td className="py-3 px-4 font-bold text-gray-900">
-                                {expense.category || (expense.transactionType === "MATERIAL_COST" ? "Raw Materials" : expense.transactionType)}
+                                {(() => {
+                                  const rawCat = expense.category || (expense.transactionType === "MATERIAL_COST" ? "Raw Materials" : expense.transactionType);
+                                  return rawCat?.trim().toLowerCase() === "refund" ? "Customer Refund" : rawCat;
+                                })()}
                               </td>
                               <td className="py-3 px-4 text-right font-extrabold text-red-650">
                                 {formatCurrency(expense.amount)}

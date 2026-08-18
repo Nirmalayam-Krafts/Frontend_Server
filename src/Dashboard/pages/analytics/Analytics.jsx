@@ -155,18 +155,15 @@ const Analytics = () => {
           totalCappedIncome += cappedPaid;
         });
 
-        // Compute non-automatic cash expenses (or fallback to financeRes minus auto entries if any)
-        const rawExpense = Number(financeRes.data?.expense || 0);
-        // Deduct duplicate automatic production costs if present (e.g. 895.5)
-        const sanitizedExpense = rawExpense > 2500 ? 2500 : rawExpense;
-
+        // Compute actual expenses from finance stats (material purchases, refunds, discounts, operating expenses, cancellation losses)
+        const finalExpense = Number(financeRes.data?.expense || 0);
         const finalIncome = totalCappedIncome > 0 ? totalCappedIncome : Number(financeRes.data?.income || 0);
-        const finalNetProfit = finalIncome - sanitizedExpense;
+        const finalNetProfit = finalIncome - finalExpense;
 
         if (financeRes.success) {
           setFinanceData({
             income: finalIncome,
-            expense: sanitizedExpense,
+            expense: finalExpense,
             netProfit: finalNetProfit,
           });
         }

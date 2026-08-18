@@ -1812,12 +1812,13 @@ Note: ${meta.billNotes || "—"}`;
 
   const getActiveBillReceiptObject = () => {
     if (!billOrder) return lastReceipt || {};
+    const sysConfig = getSystemGstConfigFromStorage();
     const subtotalVal = Number(billSubtotal || 0);
     const preTaxVal = Number(billPreTaxDiscount || 0);
     const postTaxVal = Number(billPostTaxDiscount || 0);
     const taxableBase = Math.max(0, subtotalVal - preTaxVal);
-    const itemBreakdown = getQuotationItemsBreakdown(billOrder, null, taxableBase, productItems);
-    const perProductGst = itemBreakdown.reduce((s, r) => s + r.gstAmount, 0);
+    const itemBreakdown = sysConfig.gstEnabled ? getQuotationItemsBreakdown(billOrder, null, taxableBase, productItems) : [];
+    const perProductGst = sysConfig.gstEnabled ? itemBreakdown.reduce((s, r) => s + r.gstAmount, 0) : 0;
     const grossTotal = Number((taxableBase + perProductGst + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2));
     const computedGrandTotal = Number(Math.max(0, grossTotal - postTaxVal).toFixed(2));
 
@@ -1836,16 +1837,18 @@ Note: ${meta.billNotes || "—"}`;
       remainingAmount: Math.max(0, computedGrandTotal - Number(billOrder?.paidAmount || 0)),
       isPaidInFull: Number(billOrder?.paidAmount || 0) >= computedGrandTotal,
       type: "bill",
+      gstEnabled: sysConfig.gstEnabled,
       billDetails: {
         dueDate: billDueDate ? new Date(billDueDate) : undefined,
         subtotal: subtotalVal,
-        taxRate: Number(billTaxRate || 0),
+        taxRate: sysConfig.gstEnabled ? Number(billTaxRate || 0) : 0,
         shipping: Number(billShipping || 0),
         other: Number(billOther || 0),
         discount: preTaxVal + postTaxVal,
         preTaxDiscount: preTaxVal,
         postTaxDiscount: postTaxVal,
         notes: billNotes,
+        gstEnabled: sysConfig.gstEnabled,
       },
       quotationNumber: billOrder?.quotation?.quotationNumber || "",
       orderRef: getOrderReference(billOrder.id || billOrder._id),
@@ -1860,13 +1863,14 @@ Note: ${meta.billNotes || "—"}`;
     if (!billOrder) return;
     const toastId = toast.loading("Saving bill/invoice...");
     try {
+      const sysConfig = getSystemGstConfigFromStorage();
       const subtotalVal = Number(billSubtotal || 0);
       const preTaxVal = Number(billPreTaxDiscount || 0);
       const postTaxVal = Number(billPostTaxDiscount || 0);
       const taxableBase = Math.max(0, subtotalVal - preTaxVal);
 
-      const itemBreakdown = getQuotationItemsBreakdown(billOrder, null, taxableBase, productItems);
-      const perProductGst = itemBreakdown.reduce((s, r) => s + r.gstAmount, 0);
+      const itemBreakdown = sysConfig.gstEnabled ? getQuotationItemsBreakdown(billOrder, null, taxableBase, productItems) : [];
+      const perProductGst = sysConfig.gstEnabled ? itemBreakdown.reduce((s, r) => s + r.gstAmount, 0) : 0;
       const grossTotal = Number((taxableBase + perProductGst + Number(billShipping || 0) + Number(billOther || 0)).toFixed(2));
       const computedGrandTotal = Number(Math.max(0, grossTotal - postTaxVal).toFixed(2));
 
@@ -1875,7 +1879,7 @@ Note: ${meta.billNotes || "—"}`;
         billNumber,
         billDate,
         billDueDate,
-        billTaxRate: Number(billTaxRate || 0),
+        billTaxRate: sysConfig.gstEnabled ? Number(billTaxRate || 0) : 0,
         billShipping: Number(billShipping || 0),
         billDiscount: preTaxVal + postTaxVal,
         billPreTaxDiscount: preTaxVal,
@@ -1886,6 +1890,7 @@ Note: ${meta.billNotes || "—"}`;
         billGrandTotal: computedGrandTotal,
         billItemGst: perProductGst,
         paymentMode: billPaymentMode,
+        gstEnabled: sysConfig.gstEnabled,
       });
 
       const savedBillData = savedResp?.data?.data;
@@ -3041,6 +3046,14 @@ ${productSummary}
   };
 
   const handleUpdateStatus = async (orderId, newStatus, opts = {}) => {
+    if (!opts.skipConfirm) {
+      const orderToUpdate = formattedOrders.find((o) => o.id === orderId || o._id === orderId);
+      const orderRef = orderToUpdate?.reference || (orderId ? `#${String(orderId).slice(-6).toUpperCase()}` : "#ORDER");
+      const custName = orderToUpdate?.customerName || "Customer";
+      const confirmed = window.confirm(`Are you sure you want to update Order ${orderRef} (${custName}) status to "${newStatus}"?`);
+      if (!confirmed) return;
+    }
+
     const loadingToast = toast.loading(`Updating order to ${newStatus}...`);
     try {
       const orderToUpdate = formattedOrders.find((o) => o.id === orderId);
@@ -3103,15 +3116,25 @@ ${productSummary}
   };
 
   const handleMoveToProcessing = async (order) => {
+    const orderRef = order.reference || (order.id ? `#${String(order.id).slice(-6).toUpperCase()}` : "#ORDER");
+    const custName = order.customerName || "Customer";
+    const confirmed = window.confirm(`Move Order ${orderRef} (${custName}) to "Processing" (Start Production)?\n\nThis will reserve raw materials and mark production in progress.`);
+    if (!confirmed) return;
+
     setProcessingActionId(order.id);
     try {
-      await handleUpdateStatus(order.id, "Processing", { deductionMode });
+      await handleUpdateStatus(order.id, "Processing", { deductionMode, skipConfirm: true });
     } finally {
       setProcessingActionId(null);
     }
   };
 
   const handleCompleteOrder = async (order) => {
+    const orderRef = order.reference || (order.id ? `#${String(order.id).slice(-6).toUpperCase()}` : "#ORDER");
+    const custName = order.customerName || "Customer";
+    const confirmed = window.confirm(`Mark Order ${orderRef} (${custName}) as "Completed"?\n\nThis confirms production is finished and stock is ready on warehouse shelf.`);
+    if (!confirmed) return;
+
     setCompleteActionId(order.id);
     const loadingToast = toast.loading("Completing order...");
     try {
@@ -3137,6 +3160,11 @@ ${productSummary}
   };
 
   const handleMarkAsDelivered = async (order) => {
+    const orderRef = order.reference || (order.id ? `#${String(order.id).slice(-6).toUpperCase()}` : "#ORDER");
+    const custName = order.customerName || "Customer";
+    const confirmed = window.confirm(`Mark Order ${orderRef} (${custName}) as "Delivered"?\n\nThis will physically dispatch the finished stock from inventory and finalize the delivery.`);
+    if (!confirmed) return;
+
     setDeliveredActionId(order.id);
     const loadingToast = toast.loading("Marking as delivered...");
     try {
@@ -3147,6 +3175,7 @@ ${productSummary}
         toast.success("Order marked as delivered ✓", { id: loadingToast });
         queryClient.invalidateQueries({ queryKey: ["getAllOrders"] });
         queryClient.invalidateQueries({ queryKey: ["getOrderStats"] });
+        queryClient.invalidateQueries({ queryKey: ["getInventoryData"] });
         await refetch();
       }
     } catch (error) {
