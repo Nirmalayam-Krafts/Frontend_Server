@@ -1,17 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "../src/context/Adminauth";
 
-export const useGetNotifications = () => {
+export const useGetNotifications = (category = "all", limit = 200) => {
   const { axiosInstance } = useAuthContext();
 
   return useQuery({
-    queryKey: ["getNotifications"],
+    queryKey: ["getNotifications", category, limit],
     queryFn: async () => {
-      const res = await axiosInstance.get("/notifications");
+      const res = await axiosInstance.get(`/notifications?category=${category}&limit=${limit}`);
       return res.data.data;
     },
-    refetchInterval: 30000, // Poll every 30 seconds for real-time updates
-    staleTime: 15000,
+    refetchInterval: 15000, // Poll every 15 seconds for real-time updates
+    staleTime: 10000,
   });
 };
 
