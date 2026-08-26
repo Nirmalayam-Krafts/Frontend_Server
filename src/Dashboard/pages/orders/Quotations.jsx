@@ -27,7 +27,7 @@ import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COMPANY_NAME = "Nirmalyam Krafts";
+const COMPANY_NAME = "Nirmalyam Krafts Pvt Ltd.";
 
 const getLineProductGstRate = (line, productItems) => {
   const pId = String(line?.productId?._id || line?.productId || "").trim();
@@ -129,7 +129,7 @@ export const Quotations = () => {
     localStorage.getItem("nirmalyam_show_payment_info") === "true"
   );
   const [bankHolder, setBankHolder] = useState(() => 
-    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts"
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts Pvt Ltd."
   );
   const [bankName, setBankName] = useState(() => 
     localStorage.getItem("nirmalyam_bank_name") || "State Bank of India"
@@ -419,7 +419,7 @@ export const Quotations = () => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 8530669369", 46, 27);
 
     // Title on right side
     doc.setFont("helvetica", "bold");
@@ -651,7 +651,7 @@ export const Quotations = () => {
     // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
     if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts Pvt Ltd.";
       const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
       const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
       const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";

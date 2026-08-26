@@ -329,7 +329,7 @@ export default function Home() {
 
             {/* Buttons */}
             <div className="hero-buttons-container" style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <a href="https://wa.me/919049001299?text=Hi%20" target="_blank" rel="noreferrer" style={{
+              <a href="https://wa.me/918530669369?text=Hi%20" target="_blank" rel="noreferrer" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 12,
@@ -1141,7 +1141,7 @@ export default function Home() {
 
                   {/* WhatsApp Floating Button */}
                   <a
-                    href={`https://wa.me/919049001299?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
+                    href={`https://wa.me/918530669369?text=${encodeURIComponent(`Hi Nirmalyam Krafts! I'm interested in ${name}. Could you provide more details?`)}`}
                     target="_blank"
                     rel="noreferrer"
                     style={{
@@ -1577,7 +1577,7 @@ export default function Home() {
             >
               Request a Free Quote <ArrowRight size={18} />
             </Link>
-            <a href="https://wa.me/919049001299?text=Hi%20" target="_blank" rel="noreferrer" style={{
+            <a href="https://wa.me/918530669369?text=Hi%20" target="_blank" rel="noreferrer" style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 10,

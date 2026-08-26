@@ -106,11 +106,11 @@ export const generateTaxInvoicePDF = ({
     : (rc.billDetails?.gstEnabled ?? rc.gstEnabled ?? ordObj.billDetails?.gstEnabled ?? ordObj.quotation?.gstEnabled ?? ordObj.gstEnabled ?? true);
 
   const busGst = businessConfig.businessGstNumber || "27AAACN1234F1Z1";
-  const busName = businessConfig.companyName || "Nirmalyam Krafts";
+  const busName = businessConfig.companyName || "Nirmalyam Krafts Pvt Ltd.";
   const busAddress = businessConfig.businessAddress || "Plot No. 12, Industrial Area, Nagpur, Maharashtra - 440001";
   const busStateName = businessConfig.businessStateName || "Maharashtra";
   const busStateCode = businessConfig.businessStateCode || "27";
-  const busPhone = businessConfig.businessPhone || "+91 90490 01299";
+  const busPhone = businessConfig.businessPhone || "+91 8530669369";
   const busEmail = businessConfig.businessEmail || "nirmalyamkrafts@gmail.com";
 
   const savedBankHolder = localStorage.getItem("nirmalyam_bank_holder");
@@ -122,7 +122,7 @@ export const generateTaxInvoicePDF = ({
   const savedInvoiceTerms = localStorage.getItem("nirmalyam_invoice_terms");
 
   const bankInfo = {
-    holder: savedBankHolder || businessConfig.bankDetails?.holder || "Nirmalyam Krafts",
+    holder: savedBankHolder || businessConfig.bankDetails?.holder || "Nirmalyam Krafts Pvt Ltd.",
     bankName: savedBankName || businessConfig.bankDetails?.bankName || "Bank Of Maharashtra",
     accountNo: savedBankAccount || businessConfig.bankDetails?.accountNo || "39824872901",
     ifscCode: savedBankIfsc || businessConfig.bankDetails?.ifscCode || "BOM0001299",

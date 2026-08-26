@@ -29,7 +29,7 @@ import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COMPANY_NAME = "Nirmalyam Krafts";
+const COMPANY_NAME = "Nirmalyam Krafts Pvt Ltd.";
 
 const getLineSubtotalShare = (line, subtotal, lines, productItems, pricing = null) => {
   if (!lines || lines.length === 0) return 0;
@@ -161,7 +161,7 @@ export const Receipts = () => {
     localStorage.getItem("nirmalyam_show_payment_info") === "true"
   );
   const [bankHolder, setBankHolder] = useState(() => 
-    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts"
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts Pvt Ltd."
   );
   const [bankName, setBankName] = useState(() => 
     localStorage.getItem("nirmalyam_bank_name") || "State Bank of India"
@@ -572,7 +572,7 @@ export const Receipts = () => {
     doc.setFontSize(8);
     doc.setTextColor(250, 230, 230);
     doc.text("Email: nirmalyamkrafts@gmail.com", 42, 22);
-    doc.text("Mob: +91 90490 01299", 42, 28);
+    doc.text("Mob: +91 8530669369", 42, 28);
 
     // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
@@ -806,9 +806,9 @@ export const Receipts = () => {
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
     if (sysConfig.gstEnabled) {
-      doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts.`, 15, footY);
+      doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts Pvt Ltd.`, 15, footY);
     } else {
-      doc.text(`Issued against original Invoice ${origInvoiceNo}. Stock restored. Nirmalyam Krafts.`, 15, footY);
+      doc.text(`Issued against original Invoice ${origInvoiceNo}. Stock restored. Nirmalyam Krafts Pvt Ltd.`, 15, footY);
     }
 
     if (mode === "view") {
@@ -853,7 +853,7 @@ export const Receipts = () => {
     doc.setFontSize(8);
     doc.setTextColor(230, 245, 238);
     doc.text("Email: nirmalyamkrafts@gmail.com", 42, 22);
-    doc.text("Mob: +91 90490 01299", 42, 28);
+    doc.text("Mob: +91 8530669369", 42, 28);
 
     // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
@@ -1044,7 +1044,7 @@ export const Receipts = () => {
 
     // Bank Details & Invoice Terms block
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") !== "false";
-    const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+    const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts Pvt Ltd.";
     const bName   = localStorage.getItem("nirmalyam_bank_name")   || "Bank Of Maharashtra";
     const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
     const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "BOM0001299";
@@ -1083,7 +1083,7 @@ export const Receipts = () => {
     doc.setFontSize(7.5);
     doc.setTextColor(140, 140, 140);
     doc.text(
-      "This is an electronically generated official receipt. Thank you for doing business with Nirmalyam Krafts!",
+      "This is an electronically generated official receipt. Thank you for doing business with Nirmalyam Krafts Pvt Ltd.!",
       pageWidth / 2,
       footY,
       { align: "center" }

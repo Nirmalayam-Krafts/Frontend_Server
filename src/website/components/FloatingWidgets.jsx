@@ -165,7 +165,7 @@ export default function FloatingWidgets() {
 
       {/* ── WhatsApp FAB ── */}
       <a
-        href="https://wa.me/919049001299?text=Hi%20"
+        href="https://wa.me/918530669369?text=Hi%20"
         target="_blank"
         rel="noreferrer"
         style={{

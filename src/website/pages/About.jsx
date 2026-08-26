@@ -16,7 +16,7 @@ const visionaries = [
     name: 'Mahesh Nair',
     role: 'Director',
     email: 'nirmalyamkrafts@gmail.com',
-    phone: '+91 90490 01299',
+    phone: '+91 8530669369',
     desc: 'With extensive experience in sustainable manufacturing, Mahesh leads the vision of making plastic-free packaging highly affordable and accessible to all brands.',
     image: '/images/generated/owner_1.webp'
   },

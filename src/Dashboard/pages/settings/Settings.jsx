@@ -68,7 +68,7 @@ const Settings = () => {
     email: "",
     phone: "",
     role: "",
-    businessName: "Nirmalyam Krafts",
+    businessName: "Nirmalyam Krafts Pvt Ltd.",
   });
   const [initialFormData, setInitialFormData] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -102,7 +102,7 @@ const Settings = () => {
     businessStateName: "Maharashtra",
     businessStateCode: "27",
     businessAddress: "Plot No. 12, Industrial Area, Nagpur, Maharashtra - 440001",
-    businessPhone: "+91 90490 01299",
+    businessPhone: "+91 8530669369",
     businessEmail: "nirmalyamkrafts@gmail.com",
     bankDetails: {
       bankName: "State Bank of India",
@@ -132,7 +132,7 @@ const Settings = () => {
     localStorage.getItem("nirmalyam_show_payment_info") !== "false"
   );
   const [bankHolder, setBankHolder] = useState(() => 
-    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts"
+    localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts Pvt Ltd."
   );
   const [bankName, setBankName] = useState(() => 
     localStorage.getItem("nirmalyam_bank_name") || "Bank Of Maharashtra"
@@ -279,7 +279,7 @@ const Settings = () => {
       email: profile?.email || "",
       phone: profile?.phone || "",
       role: profile?.role || "Admin",
-      businessName: "Nirmalyam Krafts",
+      businessName: "Nirmalyam Krafts Pvt Ltd.",
     };
 
     setFormData(nextForm);

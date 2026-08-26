@@ -138,7 +138,7 @@ const isGstChargedOnOrder = (order) => {
   return true;
 };
 
-const COMPANY_NAME = "Nirmalyam Krafts";
+const COMPANY_NAME = "Nirmalyam Krafts Pvt Ltd.";
 
 const DEDUCTION_MODE_HELP = {
   AUTO: "Uses finished bags first, then scales the product BOM for any remaining bags.",
@@ -1990,7 +1990,7 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFontSize(8);
     doc.setTextColor(230, 245, 238);
     doc.text("Email: nirmalyamkrafts@gmail.com", 42, 22);
-    doc.text("Mob: +91 90490 01299", 42, 28);
+    doc.text("Mob: +91 8530669369", 42, 28);
 
     // Title & Metadata (Right)
     doc.setFont("helvetica", "bold");
@@ -2251,7 +2251,7 @@ Note: ${meta.billNotes || "—"}`;
 
   const getOrderReportData = (order) => {
     return {
-      companyName: "Nirmalyam Krafts",
+      companyName: "Nirmalyam Krafts Pvt Ltd.",
       reportTitle: "Order Report",
       customerName: order?.customerName || "—",
       businessName: order?.businessName || "—",
@@ -2561,7 +2561,7 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFontSize(8);
     doc.setTextColor(250, 230, 230);
     doc.text("Email: nirmalyamkrafts@gmail.com", 42, 22);
-    doc.text("Mob: +91 90490 01299", 42, 28);
+    doc.text("Mob: +91 8530669369", 42, 28);
 
     // Title & Metadata (Right)
     const sysConfig = getSystemGstConfigFromStorage();
@@ -2835,9 +2835,9 @@ Note: ${meta.billNotes || "—"}`;
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
     if (sysConfig.gstEnabled) {
-      doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts.`, 15, footY);
+      doc.text(`Issued under Section 34 of CGST/SGST Act, 2017 against original Tax Invoice ${origInvoiceNo}. GST liability adjusted & stock restored. Nirmalyam Krafts Pvt Ltd.`, 15, footY);
     } else {
-      doc.text(`Issued against original Invoice ${origInvoiceNo}. Stock restored. Nirmalyam Krafts.`, 15, footY);
+      doc.text(`Issued against original Invoice ${origInvoiceNo}. Stock restored. Nirmalyam Krafts Pvt Ltd.`, 15, footY);
     }
 
     if (mode === "view") {
@@ -3938,7 +3938,7 @@ ${productSummary}
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(230, 245, 238);
-    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 90490 01299", 46, 27);
+    doc.text("Email: nirmalyamkrafts@gmail.com | Mob: +91 8530669369", 46, 27);
 
     // Title "QUOTATION" on the right side of header
     doc.setFont("helvetica", "bold");
@@ -4155,7 +4155,7 @@ ${productSummary}
     // Bank Account / Payment details (drawn if showPaymentInfo toggle is true)
     const isPaymentInfoEnabled = localStorage.getItem("nirmalyam_show_payment_info") === "true";
     if (isPaymentInfoEnabled) {
-      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts";
+      const bHolder = localStorage.getItem("nirmalyam_bank_holder") || "Nirmalyam Krafts Pvt Ltd.";
       const bName   = localStorage.getItem("nirmalyam_bank_name")   || "State Bank of India";
       const bAcc    = localStorage.getItem("nirmalyam_bank_account")|| "39824872901";
       const bIfsc   = localStorage.getItem("nirmalyam_bank_ifsc")   || "SBIN0001299";
@@ -11685,8 +11685,8 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const handleShareWhatsAppForReceipt = (rec) => {
     const isRefund = rec.paymentMode === "refund";
     const text = isRefund 
-      ? `*Nirmalyam Krafts - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
-      : `*Nirmalyam Krafts - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
+      ? `*Nirmalyam Krafts Pvt Ltd. - Return Receipt*\n\n*Return Ref:* ${rec.receiptNumber || rec.returnNumber || "—"}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`
+      : `*Nirmalyam Krafts Pvt Ltd. - Payment Receipt*\n\n*Receipt Ref:* ${rec.receiptNumber}\n*Amount:* ₹${(rec.amount || 0).toLocaleString()}\n*Customer:* ${rec.customerName || selectedOrder?.customerName}`;
     const targetPhone = rec.phone || selectedOrder?.phone || "";
     const url = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
@@ -12331,7 +12331,7 @@ const OrderReturnsWorkspace = ({ axiosInstance, onBack, refetchStats, generateRe
   const handleShareWhatsApp = () => {
     if (!successDetails) return;
     const message = `
-*Nirmalyam Krafts - Return Receipt*
+*Nirmalyam Krafts Pvt Ltd. - Return Receipt*
 
 *Return Ref:* ${successDetails.returnNumber}
 *Date:* ${new Date(successDetails.returnedAt).toLocaleDateString("en-IN")}

@@ -96,7 +96,7 @@ export default function PagePopup({ pageType = 'home' }) {
 
   if (!isOpen) return null;
 
-  const whatsappUrl = "https://wa.me/919049001299?text=Hi%20Nirmalyam%20Krafts!";
+  const whatsappUrl = "https://wa.me/918530669369?text=Hi%20Nirmalyam%20Krafts!";
 
   // 1. Home Page: corner_bubble layout (Bottom-Left Corner Card with Expandable Pulse)
   if (config.layout === 'corner_bubble') {

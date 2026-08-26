@@ -532,7 +532,7 @@ const Finance = () => {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("Nirmalayam Krafts", 15, 18);
+    doc.text("Nirmalyam Krafts Pvt Ltd.", 15, 18);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Finance Summary — ${dateStr}`, 15, 28);
