@@ -1,7 +1,15 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Heart, Globe, Users, Award, ArrowRight, Mail, Phone, Check } from 'lucide-react';
+import { Leaf, Heart, Globe, Users, Award, ArrowRight, Mail, Phone, Check, Info, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import PagePopup from '../components/PagePopup';
+
+const Linkedin = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+    <rect x="2" y="9" width="4" height="12"></rect>
+    <circle cx="4" cy="4" r="2"></circle>
+  </svg>
+);
 
 /* ── Values ── */
 const values = [
@@ -14,19 +22,28 @@ const values = [
 const visionaries = [
   {
     name: 'Mahesh Nair',
-    role: 'Director',
-    email: 'nirmalyamkrafts@gmail.com',
-    phone: '+91 8530669369',
-    desc: 'With extensive experience in sustainable manufacturing, Mahesh leads the vision of making plastic-free packaging highly affordable and accessible to all brands.',
-    image: '/images/generated/owner_1.webp'
+    role: 'Co-Founder & Director',
+    image: '/images/founders/mahesh_nair.jpg',
+    linkedin: 'https://www.linkedin.com',
+    paragraphs: [
+      'Mahesh Nair is the Co Founder and Director at Nirmalyam Krafts Pvt Ltd.',
+      'Before starting Nirmalyam Krafts, Mahesh Nair worked as a distinguished HR leader with over two decades of expertise in steering transformative business initiatives, talent management, and enterprise integration. He has a rare blend of visionary strategy and empathetic leadership.',
+      'Throughout his illustrious career spanning leadership roles at Cleareye.ai, Atos & Mphasis he has successfully spearheaded large-scale location consolidations, engineered company-wide competency frameworks, and championed employee-first cultures. At Nirmalyam Krafts, Mahesh champions operational excellence, bridging human potential with business objectives to cultivate a resilient, high-performing workforce poised for sustainable success.',
+      'Mahesh deeply aligns his vision with eco-conscious stewardship, championing environmental sustainability and green manufacturing practices to protect our planet while driving enduring, responsible business success.',
+      'Mahesh is a Post Graduate in Business Management from SIBM and also an alumnus of Cambridge University Global Talent program.',
+      'He is settled in Pune, Maharashtra where he lives with his wife and daughter.'
+    ]
   },
   {
     name: 'Satish Nair',
-    role: 'Director',
-    email: 'nirmalyamkrafts@gmail.com',
-    phone: '+91 84465 54743',
-    desc: 'Satish drives our product engineering and operational excellence, ensuring that sustainability never comes at the cost of durability and brand elegance.',
-    image: '/images/generated/owner_1.webp'
+    role: 'Co-Founder & Director',
+    image: '/images/founders/satish_nair.jpg',
+    linkedin: 'https://www.linkedin.com',
+    paragraphs: [
+      'Satish Nair is the Co-Founder and Director of Nirmalyam Krafts Pvt. Ltd., driven by an entrepreneurial vision and a strong foundation in business operations and management.',
+      'His experience with Kapstone Cybersecurity, Mphasis, and NECC Logistics has given him valuable expertise in logistics, administration, and project management, shaping his practical and results-oriented approach to business. He now brings this experience to building and growing Nirmalyam Krafts, with a focus on sustainable business development, innovation, and long-term value creation.',
+      'Born and raised in Pune, Satish comes from a small, close-knit family and holds a B.Com degree. He is married and settled in Pune with his wife and daughter. He values family, continuous learning, and personal growth, and believes in embracing new opportunities and challenges.'
+    ]
   }
 ];
 
@@ -40,6 +57,7 @@ const qualityPillars = [
 
 export default function About() {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [selectedLeader, setSelectedLeader] = useState(null);
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
@@ -48,6 +66,24 @@ export default function About() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedLeader(null);
+      }
+    };
+    if (selectedLeader) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedLeader]);
 
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
@@ -228,62 +264,154 @@ export default function About() {
       {/* ── SECTION: THE VISIONARIES ── */}
       <section className="section-padding" style={{
         background: 'var(--kraft-50)',
-        padding: isMobile ? '100px 0' : '160px 0',
+        padding: isMobile ? '80px 0' : '140px 0',
         marginBottom: isMobile ? 40 : 60
       }}>
         <div style={{ padding: isMobile ? '0 var(--container-gutter)' : '0 40px' }}>
-          <div style={{ textAlign: 'center', marginBottom: isMobile ? 64 : 100 }}>
+          <div style={{ textAlign: 'center', marginBottom: isMobile ? 48 : 80 }}>
             <div className="section-label" style={{ margin: '0 auto 12px' }}>Leadership</div>
-            <h2 className="section-title" style={{ fontSize: isMobile ? '40px' : '64px' }}>The Visionaries</h2>
-            <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '18px' : '20px', maxWidth: 800 }}>
-              The architects driving Bharat's transition to circular packaging economies.
+            <h2 className="section-title" style={{ fontSize: isMobile ? '38px' : '60px' }}>The Visionaries</h2>
+            <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '16px' : '19px', maxWidth: 800 }}>
+              The architects driving Bharat's transition to circular packaging economies and sustainable enterprise leadership.
             </p>
           </div>
 
           <div style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
-            gap: isMobile ? 32 : 40,
-            maxWidth: '1600px',
+            gap: isMobile ? 32 : 36,
+            maxWidth: '860px',
             margin: '0 auto'
           }}>
             {visionaries.map((owner, idx) => (
               <div key={idx} className="anim-fade-up" style={{
-                animationDelay: `${idx * 0.25}s`,
+                animationDelay: `${idx * 0.2}s`,
                 display: 'flex',
                 flexDirection: 'column',
                 background: 'white',
                 borderRadius: 'var(--radius-3xl)',
                 overflow: 'hidden',
                 boxShadow: 'var(--shadow-xl)',
-                border: '1px solid var(--kraft-100)',
-              }}>
+                border: '1px solid var(--kraft-200)',
+                transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-8px)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-2xl)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = 'var(--shadow-xl)';
+              }}
+              >
+                {/* Crisp Portrait Photo: 4/5 Aspect Ratio so Full Blazer and Shoulders Are Visible */}
                 <div style={{
                   width: '100%',
-                  height: isMobile ? 300 : 500,
+                  aspectRatio: '4 / 5',
                   overflow: 'hidden',
+                  background: 'var(--kraft-100)',
                 }}>
-                  <img src={owner.image} alt={owner.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                  <img
+                    src={owner.image}
+                    alt={owner.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: 'top center',
+                      transition: 'transform 0.5s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                   />
                 </div>
-                <div style={{
-                  padding: isMobile ? '32px 24px' : '48px'
-                }}>
-                  <div className="eco-badge" style={{ marginBottom: 16, background: 'var(--eco-50)', color: 'var(--eco-600)', border: 'none' }}>Founder & Visionary</div>
-                  <h3 style={{ fontSize: isMobile ? 32 : 40, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 12, fontFamily: "'Playfair Display', serif" }}>{owner.name}</h3>
-                  <div style={{ color: 'var(--kraft-500)', fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 24 }}>{owner.role}</div>
-                  <p style={{ fontSize: isMobile ? 16 : 18, color: 'var(--kraft-600)', lineHeight: 1.8, marginBottom: 32 }}>{owner.desc}</p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <a href={`mailto:${owner.email}`} style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--kraft-900)', textDecoration: 'none', fontSize: 14, fontWeight: 700, background: 'var(--kraft-50)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--kraft-100)', justifyContent: 'center' }}>
-                      <Mail size={16} color="var(--eco-600)" />
-                      Email
-                    </a>
-                    <a href={`tel:${owner.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--kraft-900)', textDecoration: 'none', fontSize: 14, fontWeight: 700, background: 'var(--kraft-50)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--kraft-100)', justifyContent: 'center' }}>
-                      <Phone size={16} color="var(--eco-600)" />
-                      Phone
+                <div style={{
+                  padding: isMobile ? '28px 20px' : '36px 32px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  flex: 1,
+                  justifyContent: 'space-between',
+                  background: 'white'
+                }}>
+                  <div>
+                    <div className="eco-badge" style={{ marginBottom: 12, background: 'var(--eco-50)', color: 'var(--eco-700)', border: 'none', fontSize: 11 }}>
+                      Founder & Director
+                    </div>
+                    <h3 style={{ fontSize: isMobile ? 26 : 32, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 6, fontFamily: "'Playfair Display', serif" }}>
+                      {owner.name}
+                    </h3>
+                    <div style={{ color: 'var(--kraft-600)', fontWeight: 600, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 24 }}>
+                      {owner.role}
+                    </div>
+                  </div>
+
+                  {/* Dual Action: Read Bio pill + LinkedIn circle button */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, width: '100%', paddingTop: 6 }}>
+                    <button
+                      onClick={() => setSelectedLeader(owner)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                        color: 'white',
+                        padding: isMobile ? '11px 22px' : '13px 28px',
+                        borderRadius: '100px',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'scale(1.03)';
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #15803d 0%, #166534 100%)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                      }}
+                    >
+                      <span>Read Bio</span>
+                      <Info size={16} color="#4ade80" />
+                    </button>
+
+                    <a
+                      href={owner.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Connect with ${owner.name} on LinkedIn`}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: 'var(--eco-600)',
+                        color: 'white',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textDecoration: 'none',
+                        transition: 'all 0.3s ease',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'scale(1.08)';
+                        e.currentTarget.style.background = 'var(--eco-700)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.background = 'var(--eco-600)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                      }}
+                    >
+                      <Linkedin size={18} />
                     </a>
                   </div>
                 </div>
@@ -486,6 +614,214 @@ export default function About() {
           </div>
         </div>
       </section>
+
+      {/* ── BIO MODAL (Cleareye Pattern + Nirmalyam Krafts Theme) ── */}
+      {selectedLeader && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(14, 9, 4, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: isMobile ? '16px' : '24px',
+            animation: 'fadeIn 0.25s ease'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedLeader(null);
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: isMobile ? '24px' : '36px',
+              maxWidth: '780px',
+              width: '100%',
+              overflow: 'hidden',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
+              border: '1px solid var(--kraft-200)',
+              position: 'relative',
+              animation: 'fadeInUp 0.3s ease',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Top Banner (Dark ink luxury gradient + eco green accents) */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #1a1208 0%, #2d2617 50%, #1a1208 100%)',
+                padding: isMobile ? '24px 20px' : '32px 40px',
+                color: 'white',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? 16 : 24,
+                borderTopLeftRadius: isMobile ? '24px' : '36px',
+                borderTopRightRadius: isMobile ? '24px' : '36px',
+              }}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedLeader(null)}
+                aria-label="Close bio"
+                style={{
+                  position: 'absolute',
+                  top: isMobile ? 16 : 24,
+                  right: isMobile ? 16 : 24,
+                  width: 38,
+                  height: 38,
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#4ade80',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.color = '#4ade80';
+                  e.currentTarget.style.transform = 'none';
+                }}
+              >
+                <X size={20} />
+              </button>
+
+              {/* Founder Thumbnail */}
+              <div
+                style={{
+                  width: isMobile ? 72 : 96,
+                  height: isMobile ? 72 : 96,
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  border: '2px solid rgba(255, 255, 255, 0.25)',
+                  boxShadow: '0 8px 20px rgba(0,0,0,0.3)',
+                  background: '#2d2617'
+                }}
+              >
+                <img
+                  src={selectedLeader.image}
+                  alt={selectedLeader.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+                />
+              </div>
+
+              {/* Name & Title */}
+              <div style={{ paddingRight: 40 }}>
+                <h3
+                  style={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontSize: isMobile ? 22 : 28,
+                    fontWeight: 700,
+                    color: 'white',
+                    marginBottom: 4,
+                    lineHeight: 1.2
+                  }}
+                >
+                  {selectedLeader.name}
+                </h3>
+                <p
+                  style={{
+                    color: 'var(--eco-400)',
+                    fontSize: isMobile ? 13 : 15,
+                    fontWeight: 600,
+                    letterSpacing: '0.05em'
+                  }}
+                >
+                  {selectedLeader.role}
+                </p>
+              </div>
+            </div>
+
+            {/* Scrollable Body Content */}
+            <div
+              style={{
+                padding: isMobile ? '24px 20px' : '36px 40px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                background: 'white'
+              }}
+            >
+              {selectedLeader.paragraphs.map((p, pIdx) => (
+                <p
+                  key={pIdx}
+                  style={{
+                    color: 'var(--kraft-800)',
+                    fontSize: isMobile ? 15 : 16,
+                    lineHeight: 1.8,
+                    margin: 0
+                  }}
+                >
+                  {p}
+                </p>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: isMobile ? '16px 20px' : '20px 40px',
+                background: 'var(--kraft-50)',
+                borderTop: '1px solid var(--kraft-200)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                borderBottomLeftRadius: isMobile ? '24px' : '36px',
+                borderBottomRightRadius: isMobile ? '24px' : '36px'
+              }}
+            >
+              <a
+                href={selectedLeader.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'var(--eco-700)',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--eco-800)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--eco-700)'}
+              >
+                <span>Connect on LinkedIn</span>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    background: 'var(--eco-600)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Linkedin size={14} />
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════ PAGE POPUP ══════════════════ */}
       <PagePopup pageType="about" />
