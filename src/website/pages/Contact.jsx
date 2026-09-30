@@ -251,10 +251,11 @@ export default function Contact() {
       }));
     }
 
-    // Handle scroll to form if hash is present
-    if (location.hash === '#contact-form') {
+    // Handle scroll to form or contact channels if hash is present
+    if (location.hash) {
       setTimeout(() => {
-        const element = document.getElementById('contact-form');
+        const id = location.hash.replace('#', '');
+        const element = document.getElementById(id);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' });
         }
@@ -431,13 +432,14 @@ export default function Contact() {
       </div>
 
       {/* ── Contact Channels: Floating Experience ── */}
-      <section style={{
+      <section id="contact-channels" style={{
         background: 'white',
         marginTop: 0,
         paddingTop: 40,
         position: 'relative',
         zIndex: 10,
-        paddingBottom: 60
+        paddingBottom: 60,
+        scrollMarginTop: '90px'
       }}>
         <div className="container">
           <div style={{

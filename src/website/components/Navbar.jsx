@@ -261,7 +261,7 @@ export default function Navbar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
             {!isMobile && (
-              <Link to="/contact#contact-form" style={{
+              <Link to="/contact#contact-channels" style={{
                 padding: '12px 28px',
                 fontSize: '15px',
                 borderRadius: '100px',
@@ -448,7 +448,7 @@ export default function Navbar() {
 
             {/* Mobile CTA */}
             <Link
-              to="/contact#contact-form"
+              to="/contact#contact-channels"
               onClick={() => setMobileOpen(false)}
               style={{
                 display: 'flex',

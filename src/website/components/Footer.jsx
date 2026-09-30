@@ -251,17 +251,17 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Middle Level: Socials & Contact Info */}
+        {/* Middle Level: Contact Info (Socials currently hidden) */}
         <div style={{
           display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          gap: 40,
-          paddingBottom: 60,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingBottom: 40,
           borderBottom: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          {/* Social media links hidden per request
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20 }}>
             <span style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Follow Us:</span>
             <div style={{ display: 'flex', gap: 12 }}>
               {[
@@ -287,8 +287,9 @@ export default function Footer() {
               ))}
             </div>
           </div>
+          */}
 
-          <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+          <div style={{ textAlign: 'center' }}>
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 8 }}>Questions? Contact us:</div>
             <a href="mailto:Nirmalyamkrafts@gmail.com" style={{
               fontSize: 20,

@@ -550,7 +550,7 @@ export default function Sustainability() {
               Ready to Upgrade to <br />
               <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), #fbbf24)' }}>Sustainable Packaging?</span>
             </h2>
-            <Link to="/contact#contact-form" style={{
+            <Link to="/contact#contact-channels" style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 10,

@@ -286,7 +286,7 @@ export default function ProductCategory() {
           </div>
         </div>
         <Link 
-          to="/contact#contact-form"
+          to="/contact#contact-channels"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -386,7 +386,7 @@ export default function ProductCategory() {
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', flexWrap: isMobile ? 'wrap' : 'nowrap', gap: 16, marginBottom: 48 }}>
-                <Link to="/contact#contact-form" style={{ 
+                <Link to="/contact#contact-channels" style={{ 
                   flex: 1.5, 
                   minWidth: isMobile ? '100%' : 'auto',
                   padding: isMobile ? '18px 24px' : '22px 32px', 
@@ -599,7 +599,7 @@ export default function ProductCategory() {
                     transition: 'opacity 0.3s ease',
                     backdropFilter: 'blur(4px)'
                   }}>
-                    <Link to="/contact#contact-form" style={{
+                    <Link to="/contact#contact-channels" style={{
                       padding: '12px 24px',
                       background: 'white',
                       color: 'var(--kraft-950)',
@@ -691,7 +691,7 @@ export default function ProductCategory() {
               >
                 <Phone size={20} fill="white" /> Wholesale Inquiry
               </a>
-              <Link to="/contact#contact-form" style={{
+              <Link to="/contact#contact-channels" style={{
                 padding: '18px 32px',
                 borderRadius: '20px',
                 background: 'rgba(255,255,255,0.08)',

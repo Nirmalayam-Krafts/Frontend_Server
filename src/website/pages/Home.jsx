@@ -361,7 +361,7 @@ export default function Home() {
                 Chat on WhatsApp
               </a>
 
-              <Link to="/contact#contact-form" style={{
+              <Link to="/contact#contact-channels" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 12,
@@ -1555,7 +1555,7 @@ export default function Home() {
             flexDirection: isMobile ? 'column' : 'row',
             alignItems: 'center'
           }}>
-            <Link to="/contact#contact-form" style={{
+            <Link to="/contact#contact-channels" style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 10,

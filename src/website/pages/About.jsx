@@ -24,7 +24,7 @@ const visionaries = [
     name: 'Mahesh Nair',
     role: 'Co-Founder & Director',
     image: '/images/founders/mahesh_nair.jpg',
-    linkedin: 'https://www.linkedin.com',
+    linkedin: 'https://www.linkedin.com/in/mahesh-nair-8334aa107?utm_source=share_via&utm_content=profile&utm_medium=member_android',
     paragraphs: [
       'Mahesh Nair is the Co Founder and Director at Nirmalyam Krafts Pvt Ltd.',
       'Before starting Nirmalyam Krafts, Mahesh Nair worked as a distinguished HR leader with over two decades of expertise in steering transformative business initiatives, talent management, and enterprise integration. He has a rare blend of visionary strategy and empathetic leadership.',
@@ -38,7 +38,7 @@ const visionaries = [
     name: 'Satish Nair',
     role: 'Co-Founder & Director',
     image: '/images/founders/satish_nair.jpg',
-    linkedin: 'https://www.linkedin.com',
+    linkedin: null,
     paragraphs: [
       'Satish Nair is the Co-Founder and Director of Nirmalyam Krafts Pvt. Ltd., driven by an entrepreneurial vision and a strong foundation in business operations and management.',
       'His experience with Kapstone Cybersecurity, Mphasis, and NECC Logistics has given him valuable expertise in logistics, administration, and project management, shaping his practical and results-oriented approach to business. He now brings this experience to building and growing Nirmalyam Krafts, with a focus on sustainable business development, innovation, and long-term value creation.',
@@ -337,9 +337,6 @@ export default function About() {
                   background: 'white'
                 }}>
                   <div>
-                    <div className="eco-badge" style={{ marginBottom: 12, background: 'var(--eco-50)', color: 'var(--eco-700)', border: 'none', fontSize: 11 }}>
-                      Founder & Director
-                    </div>
                     <h3 style={{ fontSize: isMobile ? 26 : 32, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 6, fontFamily: "'Playfair Display', serif" }}>
                       {owner.name}
                     </h3>
@@ -348,7 +345,7 @@ export default function About() {
                     </div>
                   </div>
 
-                  {/* Dual Action: Read Bio pill + LinkedIn circle button */}
+                  {/* Dual Action: Read Bio pill + LinkedIn circle button (if available) */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, width: '100%', paddingTop: 6 }}>
                     <button
                       onClick={() => setSelectedLeader(owner)}
@@ -382,37 +379,39 @@ export default function About() {
                       <Info size={16} color="#4ade80" />
                     </button>
 
-                    <a
-                      href={owner.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`Connect with ${owner.name} on LinkedIn`}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: 'var(--eco-600)',
-                        color: 'white',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        textDecoration: 'none',
-                        transition: 'all 0.3s ease',
-                        boxShadow: 'var(--shadow-sm)'
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'scale(1.08)';
-                        e.currentTarget.style.background = 'var(--eco-700)';
-                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'none';
-                        e.currentTarget.style.background = 'var(--eco-600)';
-                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                      }}
-                    >
-                      <Linkedin size={18} />
-                    </a>
+                    {owner.linkedin && (
+                      <a
+                        href={owner.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Connect with ${owner.name} on LinkedIn`}
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: '50%',
+                          background: 'var(--eco-600)',
+                          color: 'white',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textDecoration: 'none',
+                          transition: 'all 0.3s ease',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.transform = 'scale(1.08)';
+                          e.currentTarget.style.background = 'var(--eco-700)';
+                          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = 'none';
+                          e.currentTarget.style.background = 'var(--eco-600)';
+                          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        }}
+                      >
+                        <Linkedin size={18} />
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -583,7 +582,7 @@ export default function About() {
             }}>
               Join the Nirmalyam <br /><span className="text-gradient">Eco-Legacy</span>
             </h2>
-            <Link to="/contact" style={{
+            <Link to="/contact#contact-channels" style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 10,
@@ -772,53 +771,55 @@ export default function About() {
               ))}
             </div>
 
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: isMobile ? '16px 20px' : '20px 40px',
-                background: 'var(--kraft-50)',
-                borderTop: '1px solid var(--kraft-200)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                borderBottomLeftRadius: isMobile ? '24px' : '36px',
-                borderBottomRightRadius: isMobile ? '24px' : '36px'
-              }}
-            >
-              <a
-                href={selectedLeader.linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
+            {/* Modal Footer (only if leader has LinkedIn) */}
+            {selectedLeader.linkedin && (
+              <div
                 style={{
-                  display: 'inline-flex',
+                  padding: isMobile ? '16px 20px' : '20px 40px',
+                  background: 'var(--kraft-50)',
+                  borderTop: '1px solid var(--kraft-200)',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: 10,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: 'var(--eco-700)',
-                  textDecoration: 'none',
-                  transition: 'color 0.2s ease'
+                  justifyContent: 'flex-end',
+                  borderBottomLeftRadius: isMobile ? '24px' : '36px',
+                  borderBottomRightRadius: isMobile ? '24px' : '36px'
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = 'var(--eco-800)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'var(--eco-700)'}
               >
-                <span>Connect on LinkedIn</span>
-                <div
+                <a
+                  href={selectedLeader.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: 'var(--eco-600)',
-                    color: 'white',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    gap: 10,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: 'var(--eco-700)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s ease'
                   }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--eco-800)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--eco-700)'}
                 >
-                  <Linkedin size={14} />
-                </div>
-              </a>
-            </div>
+                  <span>Connect on LinkedIn</span>
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: 'var(--eco-600)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <Linkedin size={14} />
+                  </div>
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

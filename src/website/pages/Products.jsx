@@ -212,7 +212,7 @@ export default function Products() {
                   </div>
 
                   {/* "Get a Quote" Overlay */}
-                  <Link to="/contact#contact-form" className="gallery-quote-btn" style={{ textDecoration: 'none', color: 'white' }}>
+                  <Link to="/contact#contact-channels" className="gallery-quote-btn" style={{ textDecoration: 'none', color: 'white' }}>
                     <MessageSquare size={isMobile ? 24 : 32} style={{ marginBottom: 4 }} />
                     <span style={{
                       fontSize: isMobile ? 18 : 22,
