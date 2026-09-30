@@ -145,7 +145,7 @@ export default function About() {
                 lineHeight: 1.8,
                 margin: isMobile || isTablet ? '0 auto' : '0'
               }}>
-                {isMobile ? "India's most affordable premium packaging — luxury that honors our earth at wholesale factory rates." :
+                {isMobile ? "India's most affordable premium packaging — quality that honors our earth at wholesale factory rates." :
                   "Pioneers in premium, zero-waste bags. We believe exceptional packaging should reflect both your brand values and your commitment to sustainability, delivering quality that customers can see and trust."}
               </p>
             </div>

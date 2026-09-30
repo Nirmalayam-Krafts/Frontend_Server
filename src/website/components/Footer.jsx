@@ -42,7 +42,7 @@ const Youtube = ({ size = 24 }) => (
 const shopLinks = [
   { label: 'Kraft Bags', to: '/products/ecokraft' },
   { label: 'F&B Gourmet', to: '/products/fnb' },
-  { label: 'Luxury Kraft', to: '/products/luxury' },
+  // { label: 'Luxury Kraft', to: '/products/luxury' }, // Temporarily hidden
   { label: 'Eco-Pouches', to: '/products' },
   { label: 'Kraft Rolls', to: '/products/industrial' },
 ];
@@ -225,6 +225,28 @@ export default function Footer() {
                   </Link>
                 </li>
               ))}
+              <li style={{ marginTop: 8 }}>
+                <a
+                  href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    fontSize: 14,
+                    color: 'rgba(255,255,255,0.65)',
+                    textDecoration: 'none',
+                    lineHeight: 1.5,
+                    transition: 'color 0.3s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--eco-400)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
+                >
+                  <MapPin size={18} color="var(--eco-400)" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>Ghatha Mandir Rd, Dehu, Pune, Maharashtra 412109</span>
+                </a>
+              </li>
             </ul>
           </div>
         </div>

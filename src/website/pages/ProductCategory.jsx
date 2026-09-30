@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
@@ -234,13 +234,10 @@ export default function ProductCategory() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-  const data = categoryData[categoryId];
-
-  if (!data) return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      Category Not Found
-    </div>
-  );
+  // Temporarily hide luxury category from direct access
+  if (categoryId === 'luxury' || !data) {
+    return <Navigate to="/products" replace />;
+  }
 
   const whatsappMessage = `Hi Nirmalyam Krafts, I'm interested in the ${data.title} collection. Could you please share the price list and sample details?`;
   const whatsappUrl = `https://wa.me/918530669369?text=${encodeURIComponent(whatsappMessage)}`;
@@ -655,7 +652,7 @@ export default function ProductCategory() {
               Elevate Your Packaging<br/>Experience Today
             </h2>
             <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.6)', maxWidth: 700, margin: '0 auto 48px', position: 'relative', lineHeight: 1.6 }}>
-              Join hundreds of high-end brands that trust Nirmalyam Krafts for their premium, eco-luxury sustainable packaging soulutions.
+              Join hundreds of high-end brands that trust Nirmalyam Krafts for their premium, eco-friendly sustainable packaging solutions.
             </p>
             <div style={{ 
               display: 'flex', 

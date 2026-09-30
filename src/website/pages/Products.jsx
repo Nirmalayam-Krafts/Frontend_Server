@@ -24,6 +24,7 @@ const categories = [
     color: '#f59e0b',
     features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Certified Food Safe']
   },
+  /* Temporarily hidden: Luxury Bags
   {
     id: 'luxury',
     title: 'Luxury Kraft Bags',
@@ -34,6 +35,7 @@ const categories = [
     color: '#c09457',
     features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Exquisite Textured Finish']
   },
+  */
   {
     id: 'industrial',
     title: 'Kraft Rolls',

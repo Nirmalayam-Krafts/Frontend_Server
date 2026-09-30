@@ -38,8 +38,8 @@ const contacts = [
     icon: MapPin,
     title: 'Visit Us',
     value: 'Regional Distribution Hub',
-    sub: 'Pune, Maharashtra, India',
-    href: 'https://maps.google.com/?q=Nirmalyam+Krafts',
+    sub: 'Ghatha Mandir Rd, Dehu, Pune 412109',
+    href: '#facility-map',
     color: '#ef4444',
     bg: 'rgba(239,68,68,0.08)',
   },
@@ -49,7 +49,7 @@ const contacts = [
 const faqs = [
   {
     q: 'What is the minimum order quantity (MOQ)?',
-    a: 'Our MOQ starts at just 50–100 units — making us accessible for small businesses and first-time buyers. For luxury bags, MOQ starts at 100 units depending on the variant.',
+    a: 'Our MOQ starts at just 50–100 units — making us accessible for small businesses and first-time buyers.',
   },
   {
     q: 'How long does production take?',
@@ -73,7 +73,8 @@ const PRODUCT_OPTIONS = [
   { value: '', label: 'Select a product...' },
   { value: 'Ecokraft Bags', label: 'Ecokraft Bags' },
   { value: 'F&B Gourmet Bags', label: 'F&B Gourmet Bags' },
-  { value: 'Luxury Bags', label: 'Luxury Kraft Bags' },
+  // Temporarily hidden: Luxury Bags
+  // { value: 'Luxury Bags', label: 'Luxury Kraft Bags' },
   { value: 'Kraft Paper Rolls', label: 'Kraft Paper Rolls' },
 ];
 
@@ -670,7 +671,7 @@ export default function Contact() {
                         <label className="input-label">Details</label>
                         <textarea className={getFieldClassName('requirement')} name="requirement" placeholder="Share specific dimensions, colors, or timeline needs..." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 140, resize: 'none', padding: '16px' }} aria-invalid={Boolean(errors.requirement)} />
                         {touched.requirement && errors.requirement && <span className="input-error">{errors.requirement}</span>}
-                        {!errors.requirement && <span className="input-helper">Example: need 2,000 luxury kraft bags with gold foil logo for a July launch.</span>}
+                        {!errors.requirement && <span className="input-helper">Example: need 2,000 custom printed kraft bags with company logo for a July launch.</span>}
                       </div>
 
                       <button type="submit" disabled={loading} style={{
@@ -711,15 +712,14 @@ export default function Contact() {
               </div>
             </div>
 
-            {/* --- Information Column: Cinematic Info --- */}
-            <div className="anim-fade-up-slow" style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* --- Information Column: Cinematic Info & Map Card --- */}
+            <div className="anim-fade-up-slow" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               <div style={{
                 position: 'relative',
                 borderRadius: 'var(--radius-2xl)',
                 overflow: 'hidden',
-                height: isMobile ? '400px' : '500px',
-                marginBottom: 48,
-                boxShadow: 'var(--shadow-xl)'
+                height: isMobile ? '220px' : '260px',
+                boxShadow: 'var(--shadow-lg)'
               }}>
                 <img
                   src="/images/generated/contact_consulting.webp"
@@ -733,56 +733,229 @@ export default function Contact() {
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-end',
-                  padding: 40
+                  padding: isMobile ? 20 : 28
                 }}>
-                  <div style={{ color: 'var(--kraft-300)', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 12, marginBottom: 12 }}>Manufacturing Excellence</div>
-                  <h3 style={{ color: 'white', fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>"We don't just supply bags; we architect unboxing experiences that drive customer loyalty."</h3>
+                  <div style={{ color: 'var(--kraft-300)', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 11, marginBottom: 6 }}>Manufacturing Excellence</div>
+                  <h3 style={{ color: 'white', fontSize: isMobile ? 16 : 19, fontWeight: 700, lineHeight: 1.3 }}>"We architect unboxing experiences that drive customer loyalty."</h3>
                 </div>
               </div>
 
-              {/* <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 48 }}>
-                 {[
-                   { label: 'Response Time', value: '1 Business Hour', icon: Clock },
-                   { label: 'Global Standard', value: 'ISO 9001:2015', icon: ShieldCheck },
-                   { label: 'Logistics', value: 'PAN India Fleet', icon: Send },
-                 ].map(({ label, value, icon: Icon }) => (
-                   <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                     <div style={{ width: 48, height: 48, borderRadius: 12, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                       <Icon size={22} color="var(--kraft-600)" />
-                     </div>
-                     <div>
-                       <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--kraft-400)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
-                       <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--kraft-950)' }}>{value}</div>
-                     </div>
-                   </div>
-                 ))}
-               </div> */}
+              {/* Embedded Map Card */}
+              <div style={{
+                borderRadius: 'var(--radius-2xl)',
+                overflow: 'hidden',
+                background: 'white',
+                border: '1px solid var(--kraft-100)',
+                boxShadow: 'var(--shadow-xl)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  padding: '16px 20px',
+                  background: 'var(--kraft-950)',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <MapPin size={18} color="var(--eco-400)" />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>Facility & Distribution Hub</div>
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Ghatha Mandir Rd, Dehu, Pune 412109</div>
+                    </div>
+                  </div>
+                  <a
+                    href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      background: 'var(--eco-600)',
+                      color: 'white',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      whiteSpace: 'nowrap',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--eco-500)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--eco-600)'}
+                  >
+                    Directions &rarr;
+                  </a>
+                </div>
+                <div style={{ width: '100%', height: isMobile ? '280px' : '320px', position: 'relative' }}>
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d2384.620552004479!2d73.7683555425187!3d18.722439635148277!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b6c1ba2f1203%3A0x4924b69b289fce89!2sGhatha%20Mandir%20Rd%2C%20Dehu%2C%20Maharashtra%20412109%2C%20India!5e0!3m2!1sen!2sca!4v1790746649876!5m2!1sen!2sca"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, display: 'block' }}
+                    allowFullScreen=""
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    title="Nirmalyam Krafts Facility Map Column"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              {/* <div style={{ 
-                 background: 'var(--kraft-950)', 
-                 padding: '40px', 
-                 borderRadius: 'var(--radius-2xl)', 
-                 color: 'white',
-                 position: 'relative',
-                 overflow: 'hidden'
-               }}>
-                 <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, background: 'var(--kraft-500)', opacity: 0.1, borderRadius: '50%', filter: 'blur(60px)' }} />
-                 <h3 style={{ fontSize: 22, fontWeight: 600, marginBottom: 24, fontFamily: "'Playfair Display', serif" }}>Regional Support Hours</h3>
-                 <div style={{ display: 'grid', gap: 16 }}>
-                    {[
-                      { d: 'Mon - Fri', t: '9:00 AM - 7:00 PM (IST)', status: 'Active' },
-                      { d: 'Sat', t: '10:00 AM - 4:00 PM (IST)', status: 'Limited' },
-                    ].map(item => (
-                      <div key={item.d} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
-                        <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)' }}>{item.d}</span>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 15, fontWeight: 600 }}>{item.t}</div>
-                          <div style={{ fontSize: 10, color: item.status === 'Active' ? 'var(--eco-400)' : 'var(--kraft-400)', fontWeight: 800, textTransform: 'uppercase' }}>● {item.status}</div>
-                        </div>
-                      </div>
-                    ))}
-                 </div>
-               </div> */}
+      {/* ── Facility & Location Map Section ── */}
+      <section id="facility-map" className="section-padding nature-section" style={{ background: 'white', borderTop: '1px solid var(--kraft-100)' }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: 48 }} className="anim-fade-up">
+            <div className="section-label" style={{ marginBottom: 12 }}>Our Manufacturing & Logistics Hub</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 32 : 44, color: 'var(--kraft-950)', marginBottom: 16 }}>
+              Visit Nirmalyam Krafts
+            </h2>
+            <p style={{ color: 'var(--kraft-600)', fontSize: isMobile ? 15 : 18, maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
+              Strategically based on Ghatha Mandir Road, Dehu, Pune. Come visit our production line, experience material samples, or coordinate bulk dispatches.
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile || isTablet ? '1fr' : '380px 1fr',
+            gap: 32,
+            background: 'var(--kraft-50)',
+            borderRadius: 'var(--radius-3xl)',
+            padding: isMobile ? 20 : 36,
+            border: '1px solid var(--kraft-100)',
+            boxShadow: 'var(--shadow-xl)',
+            alignItems: 'stretch'
+          }}>
+            {/* Location Details Card */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: 24,
+              background: 'white',
+              padding: isMobile ? 24 : 32,
+              borderRadius: 'var(--radius-2xl)',
+              border: '1px solid var(--kraft-100)',
+              boxShadow: 'var(--shadow-sm)'
+            }}>
+              <div>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 14px',
+                  borderRadius: '100px',
+                  background: 'rgba(239,68,68,0.08)',
+                  color: '#ef4444',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  marginBottom: 16
+                }}>
+                  <MapPin size={14} /> Registered Facility
+                </div>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--kraft-950)', marginBottom: 8 }}>
+                  Nirmalyam Krafts Pvt. Ltd.
+                </h3>
+                <p style={{ color: 'var(--kraft-600)', fontSize: 15, lineHeight: 1.6, marginBottom: 20 }}>
+                  Ghatha Mandir Rd, Dehu, Pune, Maharashtra 412109, India
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--kraft-100)', paddingTop: 18 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Operating Hours</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-900)' }}>Mon – Sat: 9:00 AM – 7:00 PM (IST)</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Phone Support</div>
+                    <a href="tel:+918530669369" style={{ fontSize: 14, fontWeight: 600, color: 'var(--eco-700)', textDecoration: 'none' }}>+91 8530669369</a>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Direct Inquiries</div>
+                    <a href="mailto:hello@nirmalyamkrafts.com" style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-800)', textDecoration: 'none' }}>hello@nirmalyamkrafts.com</a>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <a
+                  href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '14px 20px',
+                    borderRadius: '100px',
+                    background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    textDecoration: 'none',
+                    boxShadow: 'var(--shadow-md)',
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                >
+                  <MapPin size={16} color="var(--eco-400)" /> Open in Google Maps
+                </a>
+                <a
+                  href="https://wa.me/918530669369?text=Hi%20Nirmalyam%20Krafts%2C%20I%20would%20like%20to%20visit%20your%20facility"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '12px 20px',
+                    borderRadius: '100px',
+                    background: 'rgba(37,211,102,0.1)',
+                    color: '#15803d',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    textDecoration: 'none',
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,211,102,0.18)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(37,211,102,0.1)'}
+                >
+                  <MessageCircle size={16} /> Schedule a Facility Visit
+                </a>
+              </div>
+            </div>
+
+            {/* Embedded Interactive Map */}
+            <div style={{
+              borderRadius: 'var(--radius-2xl)',
+              overflow: 'hidden',
+              minHeight: isMobile ? '360px' : '450px',
+              border: '1px solid var(--kraft-200)',
+              boxShadow: 'var(--shadow-md)'
+            }}>
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d2384.620552004479!2d73.7683555425187!3d18.722439635148277!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b6c1ba2f1203%3A0x4924b69b289fce89!2sGhatha%20Mandir%20Rd%2C%20Dehu%2C%20Maharashtra%20412109%2C%20India!5e0!3m2!1sen!2sca!4v1790746649876!5m2!1sen!2sca"
+                width="100%"
+                height="100%"
+                style={{ border: 0, minHeight: isMobile ? '360px' : '450px', display: 'block' }}
+                allowFullScreen=""
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+                title="Nirmalyam Krafts Facility Location"
+              />
             </div>
           </div>
         </div>

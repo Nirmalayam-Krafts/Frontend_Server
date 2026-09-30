@@ -6,7 +6,8 @@ import PagePopup from '../components/PagePopup';
 const bagTypes = [
   { id: 'ecokraft', label: 'Ecokraft Standard', desc: 'Tall, robust bags perfect for retail and daily carry.', color: 'var(--eco-600)' },
   { id: 'fnb', label: 'F&B Takeaway', desc: 'Wider base designs for food boxes and secure transport.', color: '#f59e0b' },
-  { id: 'luxury', label: 'Luxury Boutique', desc: 'Premium horizontal orientation for high-end gifting.', color: 'var(--gold-500)' },
+  // Temporarily hidden: Luxury Bags
+  // { id: 'luxury', label: 'Luxury Boutique', desc: 'Premium horizontal orientation for high-end gifting.', color: 'var(--gold-500)' },
 ];
 
 const colorOptions = [

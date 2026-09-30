@@ -97,6 +97,7 @@ const categories = [
     to: '/products/fnb',
     // priceBadge: 'Bulk Factory Discount'
   },
+  /* Temporarily hidden: Luxury Bags
   {
     title: 'Luxury Bags',
     desc: 'High-finish, elegant packaging for premium retail, jewelry, and exclusive gifting.',
@@ -107,6 +108,7 @@ const categories = [
     to: '/products/luxury',
     // priceBadge: 'Low Wholesale Rates'
   },
+  */
   {
     title: 'Kraft Rolls',
     desc: 'Premium brown and white rolls designed for high-strength wrapping, packaging, and industrial shipping.',
@@ -569,51 +571,56 @@ export default function Home() {
             </motion.div>
 
             {/* Location Card */}
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
-              }}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                cursor: 'default'
-              }}
+            <Link
+              to="/contact#facility-map"
+              style={{ textDecoration: 'none', color: 'inherit' }}
             >
               <motion.div
-                style={{
-                  width: isMobile ? 56 : 90, 
-                  height: isMobile ? 56 : 90,
-                  borderRadius: '24px',
-                  background: 'rgba(139, 94, 52, 0.08)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  marginBottom: 20
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
                 }}
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                whileHover={{ backgroundColor: 'rgba(139, 94, 52, 0.15)', scale: 1.1 }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
               >
-                <MapPin size={isMobile ? 28 : 44} color="#8b5e34" />
+                <motion.div
+                  style={{
+                    width: isMobile ? 56 : 90, 
+                    height: isMobile ? 56 : 90,
+                    borderRadius: '24px',
+                    background: 'rgba(139, 94, 52, 0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 20
+                  }}
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                  whileHover={{ backgroundColor: 'rgba(139, 94, 52, 0.15)', scale: 1.1 }}
+                >
+                  <MapPin size={isMobile ? 28 : 44} color="#8b5e34" />
+                </motion.div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{
+                    fontSize: isMobile ? '10px' : '12px',
+                    fontWeight: 800,
+                    color: '#8b5e34',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    opacity: 0.8
+                  }}>REGION PRIDE</span>
+                  <span style={{
+                    fontSize: isMobile ? '16px' : '18px',
+                    fontWeight: 900,
+                    color: '#1a1208',
+                    fontFamily: "'Playfair Display', serif"
+                  }}>BEST IN PUNE</span>
+                </div>
               </motion.div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{
-                  fontSize: isMobile ? '10px' : '12px',
-                  fontWeight: 800,
-                  color: '#8b5e34',
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
-                  opacity: 0.8
-                }}>REGION PRIDE</span>
-                <span style={{
-                  fontSize: isMobile ? '16px' : '18px',
-                  fontWeight: 900,
-                  color: '#1a1208',
-                  fontFamily: "'Playfair Display', serif"
-                }}>BEST IN PUNE</span>
-              </div>
-            </motion.div>
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -1082,7 +1089,7 @@ export default function Home() {
             <div className="section-label" style={{ marginBottom: 12, fontSize: 12 }}>Behind the Scenes</div>
             <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 28 : 36, color: 'var(--kraft-950)', marginBottom: 16, lineHeight: 1.2 }}>Craftsmanship at Scale</h3>
             <p style={{ fontSize: isMobile ? 15 : 18, color: 'var(--kraft-600)', lineHeight: 1.7 }}>
-              Discover the precision and passion that goes into every Nirmalyam product at our state-of-the-art facility. From raw fiber to finished luxury.
+              Discover the precision and passion that goes into every Nirmalyam product at our state-of-the-art facility. From raw fiber to finished perfection.
             </p>
           </div>
           <Link to="/about" className="btn-secondary" style={{ padding: '16px 40px', minWidth: 220, justifyContent: 'center', fontSize: 15, background: 'white', border: '1px solid var(--kraft-200)', boxShadow: 'var(--shadow-sm)' }}>
@@ -1111,7 +1118,9 @@ export default function Home() {
             gap: isMobile ? 16 : 32
           }} className="product-grid-3x3">
             {[
+              /* Temporarily hidden: Luxury Bags
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.webp', badge: 'Affordable Rates' },
+              */
               { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/HERO2.webp', badge: 'Wholesale Deal' },
               { name: 'Eco-Pouches', cat: 'Ecokraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget Option' },
               { name: 'Handle Bags', cat: 'Ecokraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/collection_ecocraft_new.webp', badge: 'From ₹2.50/pc' },

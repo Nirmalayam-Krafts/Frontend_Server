@@ -17,11 +17,13 @@ const carouselImages = [
     title: 'Ecokraft Collection',
     desc: 'Sustainable Everyday Packaging'
   },
+  /* Temporarily hidden: Luxury Bags
   {
     src: '/images/generated/luxury_vibrant_branded.webp',
     title: 'Luxury Kraft',
     desc: 'Premium Unboxing Experience'
   },
+  */
   {
     src: '/images/generated/popup_bags_branded_new.webp',
     title: 'F&B Gourmet',
@@ -31,6 +33,7 @@ const carouselImages = [
 
 export default function FloatingWidgets() {
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
@@ -125,10 +128,10 @@ export default function FloatingWidgets() {
       )}
 
       {/* ── Google Maps FAB ── */}
-      <a
-        href="https://maps.google.com/?q=Nirmalyam+Krafts+Bengaluru"
-        target="_blank"
-        rel="noreferrer"
+      <button
+        onClick={() => setShowMapModal(!showMapModal)}
+        aria-label="View Location Map"
+        title="View Location on Google Maps"
         style={{
           position: 'fixed',
           bottom: isMobile ? '120px' : '116px',
@@ -145,7 +148,7 @@ export default function FloatingWidgets() {
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           cursor: 'pointer',
           padding: '12px',
-          border: '2px solid rgba(192, 148, 87, 0.3)',
+          border: showMapModal ? '2px solid var(--eco-500)' : '2px solid rgba(192, 148, 87, 0.3)',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
@@ -161,7 +164,104 @@ export default function FloatingWidgets() {
           alt="Google Maps" 
           style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
         />
-      </a>
+      </button>
+
+      {/* ── Floating Google Maps Modal ── */}
+      {showMapModal && (
+        <div style={{
+          position: 'fixed',
+          bottom: isMobile ? '70px' : '90px',
+          right: isMobile ? 'auto' : '24px',
+          left: isMobile ? '50%' : 'auto',
+          transform: isMobile ? 'translateX(-50%)' : 'none',
+          width: isMobile ? 'calc(100vw - 32px)' : '420px',
+          maxWidth: '94vw',
+          height: isMobile ? '400px' : '480px',
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          zIndex: 1000,
+          overflow: 'hidden',
+          border: '1px solid var(--kraft-200)',
+          display: 'flex',
+          flexDirection: 'column',
+          animation: 'fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: '14px 18px',
+            background: 'var(--kraft-950)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '8px',
+                background: 'rgba(255,255,255,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <MapPin size={18} color="var(--eco-400)" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>Nirmalyam Krafts Facility</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.2 }}>Ghatha Mandir Rd, Dehu, Pune 412109</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <a
+                href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  color: 'var(--eco-400)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  background: 'rgba(255,255,255,0.1)',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Directions &rarr;
+              </a>
+              <button
+                onClick={() => setShowMapModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                aria-label="Close Map"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Embedded Google Map */}
+          <div style={{ flex: 1, position: 'relative' }}>
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d2384.620552004479!2d73.7683555425187!3d18.722439635148277!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b6c1ba2f1203%3A0x4924b69b289fce89!2sGhatha%20Mandir%20Rd%2C%20Dehu%2C%20Maharashtra%20412109%2C%20India!5e0!3m2!1sen!2sca!4v1790746649876!5m2!1sen!2sca"
+              width="100%"
+              height="100%"
+              style={{ border: 0, display: 'block' }}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              title="Floating Google Maps Embed"
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── WhatsApp FAB ── */}
       <a
@@ -302,10 +402,10 @@ export default function FloatingWidgets() {
 
             <div style={{ padding: isMobile ? '16px' : '20px' }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 18 : 21, color: '#1a1208', marginBottom: isMobile ? 6 : 8 }}>
-                Eco-Luxury Packaging
+                Eco-Friendly Packaging
               </h3>
               <p style={{ fontSize: isMobile ? 12 : 13, color: '#6f5b46', lineHeight: 1.5, marginBottom: isMobile ? 12 : 16 }}>
-                Specializing in <strong>Ecokraft</strong>, <strong>Luxury Kraft</strong>, and <strong>F&B Gourmet</strong> collections. 
+                Specializing in <strong>Ecokraft</strong> and <strong>F&B Gourmet</strong> collections. 
                 {isMobile ? '' : ' Custom branding available.'}
               </p>
 

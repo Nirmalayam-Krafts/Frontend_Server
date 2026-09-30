@@ -31,7 +31,7 @@ const caseStudies = [
     client: 'Boutique Bloom',
     transformation: '100% Plastic to Paper Transition',
     result: '15% increase in premium brand perception and 2 tons of plastic eliminated annually.',
-    features: ['Enhanced Customer Unboxing', 'Sustainable Luxury Branding', 'Zero-Plastic Packaging'],
+    features: ['Enhanced Customer Unboxing', 'Sustainable Premium Branding', 'Zero-Plastic Packaging'],
     image: '/images/generated/colorful_bags_branded_v2.webp'
   },
   {
@@ -548,7 +548,7 @@ export default function Sustainability() {
               lineHeight: 1.1
             }}>
               Ready to Upgrade to <br />
-              <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), #fbbf24)' }}>Sustainable Luxury?</span>
+              <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), #fbbf24)' }}>Sustainable Packaging?</span>
             </h2>
             <Link to="/contact#contact-form" style={{
               display: 'inline-flex',
