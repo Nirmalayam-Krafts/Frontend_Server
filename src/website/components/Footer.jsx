@@ -290,13 +290,13 @@ export default function Footer() {
 
           <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 8 }}>Questions? Contact us:</div>
-            <a href="mailto:hello@nirmalyamkrafts.com" style={{
+            <a href="mailto:Nirmalyamkrafts@gmail.com" style={{
               fontSize: 20,
               fontWeight: 700,
               color: 'var(--eco-400)',
               textDecoration: 'none'
             }}>
-              hello@nirmalyamkrafts.com
+              Nirmalyamkrafts@gmail.com
             </a>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
               Quick & Reliable Support
@@ -315,7 +315,7 @@ export default function Footer() {
         }}>
           <div style={{ display: 'flex', gap: isMobile ? 12 : 32, flexWrap: 'wrap', justifyContent: 'center' }}>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-              © {new Date().getFullYear()} Nirmalyam Krafts. All rights reserved.
+              © 2026 Nirmalyam Krafts Pvt Ltd. All rights reserved.
             </p>
             {policyLinks.map(link => (
               <Link key={link.label} to={link.to} style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>

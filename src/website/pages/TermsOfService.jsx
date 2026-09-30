@@ -177,7 +177,7 @@ export default function TermsOfService() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(22,163,74,0.4)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(22,163,74,0.3)'; }}
               >Contact Us <ArrowRight size={18} /></Link>
-              <a href="mailto:legal@nirmalyamkrafts.com" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: isMobile ? '12px 28px' : '16px 36px', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, background: 'transparent', color: 'white', border: '2px solid rgba(255,255,255,0.3)', borderRadius: '100px', textDecoration: 'none', transition: 'all 0.3s ease' }}
+              <a href="mailto:Nirmalyamkrafts@gmail.com" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: isMobile ? '12px 28px' : '16px 36px', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, background: 'transparent', color: 'white', border: '2px solid rgba(255,255,255,0.3)', borderRadius: '100px', textDecoration: 'none', transition: 'all 0.3s ease' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent'; }}
               ><Mail size={18} /> Email Legal Team</a>

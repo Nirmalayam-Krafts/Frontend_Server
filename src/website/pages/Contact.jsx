@@ -10,9 +10,9 @@ const contacts = [
   {
     icon: Mail,
     title: 'Email Us',
-    value: 'hello@nirmalyamkrafts.com',
+    value: 'Nirmalyamkrafts@gmail.com',
     sub: 'Our team will get back to you as soon as possible.',
-    href: 'mailto:hello@nirmalyamkrafts.com',
+    href: 'mailto:Nirmalyamkrafts@gmail.com',
     color: 'var(--eco-600)',
     bg: 'rgba(22,163,74,0.08)',
   },
@@ -882,7 +882,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Direct Inquiries</div>
-                    <a href="mailto:hello@nirmalyamkrafts.com" style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-800)', textDecoration: 'none' }}>hello@nirmalyamkrafts.com</a>
+                    <a href="mailto:Nirmalyamkrafts@gmail.com" style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-800)', textDecoration: 'none' }}>Nirmalyamkrafts@gmail.com</a>
                   </div>
                 </div>
               </div>

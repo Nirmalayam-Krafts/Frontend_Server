@@ -121,7 +121,7 @@ export default function PromotionalPopup() {
       }
     } catch (err) {
       console.error('Lead submission failed:', err);
-      setError('Unable to reach the server. Please try again or email Hello@nirmalyamkrafts.com.');
+      setError('Unable to reach the server. Please try again or email Nirmalyamkrafts@gmail.com.');
     } finally {
       setLoading(false);
     }

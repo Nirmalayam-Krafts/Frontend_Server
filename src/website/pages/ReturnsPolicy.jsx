@@ -14,7 +14,7 @@ const returnsSections = [
   {
     id: 'process', icon: RotateCcw, title: 'Return Process',
     content: [
-      { subtitle: 'Initiating a Return', text: 'To start a return, contact our customer service team at returns@nirmalyamkrafts.com or call us during business hours. Provide your order number, photos of the product, and reason for return. Our team will respond within 24 hours with a Return Merchandise Authorization (RMA) number.' },
+      { subtitle: 'Initiating a Return', text: 'To start a return, contact our customer service team at Nirmalyamkrafts@gmail.com or call us during business hours. Provide your order number, photos of the product, and reason for return. Our team will respond within 24 hours with a Return Merchandise Authorization (RMA) number.' },
       { subtitle: 'Packaging & Shipping', text: 'Once your return is approved, securely package the items in their original packaging. Include the RMA number on the outside of the package. Ship the items to the address provided by our team. We recommend using a trackable shipping method for your protection.' },
       { subtitle: 'Inspection & Processing', text: 'Upon receiving your return, our quality team will inspect the items within 3-5 business days. You will be notified via email once the inspection is complete and your return has been accepted or if any issues are identified.' }
     ]
@@ -193,7 +193,7 @@ export default function ReturnsPolicy() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(22,163,74,0.4)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(22,163,74,0.3)'; }}
               >Contact Us <ArrowRight size={18} /></Link>
-              <a href="mailto:returns@nirmalyamkrafts.com" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: isMobile ? '12px 28px' : '16px 36px', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, background: 'transparent', color: 'white', border: '2px solid rgba(255,255,255,0.3)', borderRadius: '100px', textDecoration: 'none', transition: 'all 0.3s ease' }}
+              <a href="mailto:Nirmalyamkrafts@gmail.com" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: isMobile ? '12px 28px' : '16px 36px', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, background: 'transparent', color: 'white', border: '2px solid rgba(255,255,255,0.3)', borderRadius: '100px', textDecoration: 'none', transition: 'all 0.3s ease' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent'; }}
               ><Mail size={18} /> Email Returns Team</a>

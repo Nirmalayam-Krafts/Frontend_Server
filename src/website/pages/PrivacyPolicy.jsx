@@ -581,7 +581,7 @@ export default function PrivacyPolicy() {
               >
                 Contact Us <ArrowRight size={18} />
               </Link>
-              <a href="mailto:privacy@nirmalyamkrafts.com" style={{
+              <a href="mailto:Nirmalyamkrafts@gmail.com" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 10,
