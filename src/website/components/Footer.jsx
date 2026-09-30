@@ -227,7 +227,7 @@ export default function Footer() {
               ))}
               <li style={{ marginTop: 8 }}>
                 <a
-                  href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                  href="https://www.google.com/maps/place/Nirmalyam+Krafts+Private+Ltd/@18.7269478,73.7622654,17z"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -244,7 +244,7 @@ export default function Footer() {
                   onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
                 >
                   <MapPin size={18} color="var(--eco-400)" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <span>Ghatha Mandir Rd, Dehu, Pune, Maharashtra 412109</span>
+                  <span>Survey No 53, Gatha Mandir Bypass Rd, near Sairaj Chowk, Yelwadi, Pune 412109</span>
                 </a>
               </li>
             </ul>

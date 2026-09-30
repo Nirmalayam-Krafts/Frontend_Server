@@ -38,7 +38,7 @@ const contacts = [
     icon: MapPin,
     title: 'Visit Us',
     value: 'Regional Distribution Hub',
-    sub: 'Ghatha Mandir Rd, Dehu, Pune 412109',
+    sub: 'Survey No 53, Gatha Mandir Bypass Rd, Yelwadi, Pune 412109',
     href: '#facility-map',
     color: '#ef4444',
     bg: 'rgba(239,68,68,0.08)',
@@ -768,12 +768,12 @@ export default function Contact() {
                       <MapPin size={18} color="var(--eco-400)" />
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>Facility & Distribution Hub</div>
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Ghatha Mandir Rd, Dehu, Pune 412109</div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>Nirmalyam Krafts Private Ltd</div>
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Survey No 53, Gatha Mandir Bypass Rd, Yelwadi, Pune 412109</div>
                     </div>
                   </div>
                   <a
-                    href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                    href="https://www.google.com/maps/place/Nirmalyam+Krafts+Private+Ltd/@18.7269478,73.7622654,17z"
                     target="_blank"
                     rel="noreferrer"
                     style={{
@@ -795,7 +795,7 @@ export default function Contact() {
                 </div>
                 <div style={{ width: '100%', height: isMobile ? '280px' : '320px', position: 'relative' }}>
                   <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d2384.620552004479!2d73.7683555425187!3d18.722439635148277!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b6c1ba2f1203%3A0x4924b69b289fce89!2sGhatha%20Mandir%20Rd%2C%20Dehu%2C%20Maharashtra%20412109%2C%20India!5e0!3m2!1sen!2sca!4v1790746649876!5m2!1sen!2sca"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d6032.8743448823325!2d73.76226539601706!3d18.72694778819395!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b7bbd6cc0235%3A0x67ae94071a116c4f!2sNirmalyam%20Krafts%20Private%20Ltd!5e0!3m2!1sen!2sca!4v1790751296003!5m2!1sen!2sca"
                     width="100%"
                     height="100%"
                     style={{ border: 0, display: 'block' }}
@@ -820,7 +820,7 @@ export default function Contact() {
               Visit Nirmalyam Krafts
             </h2>
             <p style={{ color: 'var(--kraft-600)', fontSize: isMobile ? 15 : 18, maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
-              Strategically based on Ghatha Mandir Road, Dehu, Pune. Come visit our production line, experience material samples, or coordinate bulk dispatches.
+              Strategically located at Survey No 53, Gatha Mandir Bypass Road, near Sairaj Chowk, Yelwadi, Pune. Come visit our production line, experience material samples, or coordinate bulk dispatches.
             </p>
           </div>
 
@@ -868,7 +868,7 @@ export default function Contact() {
                   Nirmalyam Krafts Pvt. Ltd.
                 </h3>
                 <p style={{ color: 'var(--kraft-600)', fontSize: 15, lineHeight: 1.6, marginBottom: 20 }}>
-                  Ghatha Mandir Rd, Dehu, Pune, Maharashtra 412109, India
+                  Survey No 53, Gatha Mandir Bypass Rd, near Sairaj Chowk, Yelwadi, Maharashtra 412109, India
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--kraft-100)', paddingTop: 18 }}>
@@ -889,7 +889,7 @@ export default function Contact() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <a
-                  href="https://www.google.com/maps/place/Ghatha+Mandir+Rd,+Dehu,+Maharashtra+412109,+India/@18.7224396,73.7683555,17z"
+                  href="https://www.google.com/maps/place/Nirmalyam+Krafts+Private+Ltd/@18.7269478,73.7622654,17z"
                   target="_blank"
                   rel="noreferrer"
                   style={{
@@ -947,7 +947,7 @@ export default function Contact() {
               boxShadow: 'var(--shadow-md)'
             }}>
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d2384.620552004479!2d73.7683555425187!3d18.722439635148277!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b6c1ba2f1203%3A0x4924b69b289fce89!2sGhatha%20Mandir%20Rd%2C%20Dehu%2C%20Maharashtra%20412109%2C%20India!5e0!3m2!1sen!2sca!4v1790746649876!5m2!1sen!2sca"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d6032.8743448823325!2d73.76226539601706!3d18.72694778819395!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b7bbd6cc0235%3A0x67ae94071a116c4f!2sNirmalyam%20Krafts%20Private%20Ltd!5e0!3m2!1sen!2sca!4v1790751296003!5m2!1sen!2sca"
                 width="100%"
                 height="100%"
                 style={{ border: 0, minHeight: isMobile ? '360px' : '450px', display: 'block' }}
