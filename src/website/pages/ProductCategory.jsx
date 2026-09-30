@@ -234,7 +234,9 @@ export default function ProductCategory() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-  // Temporarily hide luxury category from direct access
+  const data = categoryData[categoryId];
+
+  // Temporarily hide luxury category from direct access or unknown categories
   if (categoryId === 'luxury' || !data) {
     return <Navigate to="/products" replace />;
   }
