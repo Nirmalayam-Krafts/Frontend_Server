@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { RotateCcw, PackageCheck, Clock, AlertCircle, CheckCircle, Truck, Mail, ArrowRight, ChevronRight } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 const returnsSections = [
   {
@@ -65,6 +66,7 @@ export default function ReturnsPolicy() {
 
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
+      <SEOHead routeKey="/returns" />
       {/* Hero */}
       <div className="page-hero" style={{
         position: 'relative', minHeight: isMobile ? '400px' : isTablet ? '420px' : '480px',

@@ -1,12 +1,9 @@
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, 
   ArrowRight, 
   ShieldCheck, 
   Leaf, 
-  Coffee, 
-  Crown, 
   Droplets,
   Zap,
   Phone,
@@ -16,189 +13,277 @@ import {
   Heart,
   Scale,
   Layers,
-  Printer,
   Package,
   Settings,
-  FileText,
-  Weight
+  Weight,
+  HelpCircle
 } from 'lucide-react';
 import PagePopup from '../components/PagePopup';
+import SEOHead from '../components/SEOHead';
+import { SITE_URL, BUSINESS_INFO } from '../config/seoConfig';
+
+const CANONICAL_MAP = {
+  ecokraft: 'ecocraft',
+  fnb: 'food-bakery-bags',
+  industrial: 'kraft-paper-rolls',
+  'flat-handle': 'handle-bags',
+};
 
 const categoryData = {
-  ecokraft: {
-    id: 'ecokraft',
-    title: 'Ecokraft Collection',
-    image: '/images/newGen/BOTTOMV.jpeg',
-    minOrder: '100 UNITS',
-    color: '#4ade80',
-    description: 'Our signature high-strength kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
-    longDescription: 'Crafted from sustainably sourced FSC-certified fibers, these bags are designed to elevate your brand\'s presence while honoring the planet. Featuring premium twisted paper handles and reinforced bottoms.',
-    bullets: [
-      { label: 'FSC Certified', icon: CheckCircle2 },
-      { label: 'Biodegradable', icon: Leaf },
-      { label: 'Holds up to 12kg', icon: Zap },
-      { label: 'Soy-based Inks', icon: Droplets }
-    ],
-    specs: [
-      { label: 'Material', value: 'High-Tensile Kraft', icon: Layers },
-      { label: 'Weight Range', icon: Weight, value: '60 - 120 GSM' },
-      { label: 'Handle Types', icon: Settings, value: 'Twisted / Flat' },
-      // { label: 'Printing', value: 'Brown & White Colors', icon: Printer },
-      { label: 'Capacity', value: '3kg - 12kg', icon: Scale }
-    ],
-    gallery: [
-      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/collection_ecocraft_new.webp' },
-      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/newGen/BOTTOMvF.jpeg' },
-      { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/newGen/bottomVSlider.png' }
-    ]
-  },
   ecocraft: {
-    id: 'ecokraft',
-    title: 'Ecokraft Collection',
+    id: 'ecocraft',
+    title: 'EcoCraft Paper Bags',
+    seoTitle: 'Eco-Friendly Paper Bags | EcoCraft Collection | Nirmalyam Krafts',
+    seoDesc: 'Wholesale eco-friendly paper bags crafted with high-tensile kraft paper and durable handles. Sustainable, biodegradable everyday packaging for retail and boutiques in Pune, India.',
+    keywords: 'eco friendly paper bags, sustainable paper bags, recyclable paper bags, kraft paper bags, eco craft paper bags Pune, paper carry bags wholesale',
     image: '/images/newGen/BOTTOMV.jpeg',
     minOrder: '100 UNITS',
     color: '#4ade80',
     description: 'Our signature high-strength kraft bags combine industrial-grade durability with a refined, tactile aesthetic.',
-    longDescription: 'Crafted from sustainably sourced FSC-certified fibers, these bags are designed to elevate your brand\'s presence while honoring the planet. Featuring premium twisted paper handles and reinforced bottoms.',
+    longDescription: 'Crafted from sustainably sourced fibers, these bags are designed to elevate your brand\'s presence while honoring the planet. Featuring premium twisted paper handles and reinforced bottoms for effortless retail carry.',
     bullets: [
-      { label: 'FSC Certified', icon: CheckCircle2 },
-      { label: 'Biodegradable', icon: Leaf },
+      { label: 'Sustainably Sourced', icon: CheckCircle2 },
+      { label: '100% Recyclable', icon: Leaf },
       { label: 'Holds up to 12kg', icon: Zap },
       { label: 'Soy-based Inks', icon: Droplets }
     ],
     specs: [
-      { label: 'Material', value: 'High-Tensile Kraft', icon: Layers },
-      { label: 'Weight Range', icon: Weight, value: '60 - 120 GSM' },
-      { label: 'Handle Types', icon: Settings, value: 'Twisted / Flat' },
-      // { label: 'Printing', value: 'Brown & White Colors', icon: Printer },
-      { label: 'Capacity', value: '3kg - 12kg', icon: Scale }
+      { label: 'Material', value: 'High-Tensile Virgin & Recycled Kraft', icon: Layers },
+      { label: 'Weight Range', value: '60 - 120 GSM', icon: Weight },
+      { label: 'Handle Types', value: 'Twisted Paper / Flat Handle', icon: Settings },
+      { label: 'Capacity', value: '3kg - 12kg', icon: Scale },
+      { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/collection_ecocraft_new.webp' },
       { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/newGen/BOTTOMvF.jpeg' },
       { title: 'Sustainable Craft', desc: 'Eco-conscious perfection', image: '/images/newGen/bottomVSlider.png' }
+    ],
+    faqs: [
+      { q: 'What GSM options are available for EcoCraft bags?', a: 'We manufacture EcoCraft bags from 60 GSM up to 120 GSM depending on your required carrying capacity and aesthetic preference.' },
+      { q: 'Can I print my brand logo on EcoCraft paper bags?', a: 'Yes, we offer custom flexo and offset printing using eco-safe soy and water-based inks with precise Pantone matching.' },
+      { q: 'What is the minimum order quantity (MOQ)?', a: 'Our factory MOQ starts at just 100 units, making it accessible for retail brands of all sizes.' }
     ]
   },
-  fnb: {
-    id: 'fnb',
-    title: 'F&B Gourmet Bags',
+
+  'food-bakery-bags': {
+    id: 'food-bakery-bags',
+    title: 'Food & Bakery Paper Bags',
+    seoTitle: 'Food & Bakery Paper Bags Manufacturer | Nirmalyam Krafts',
+    seoDesc: 'Food-grade, grease-resistant paper bags for bakeries, cafes, restaurants, and cloud kitchens. Odor-free, sustainable takeaway packaging manufactured in Pune, India.',
+    keywords: 'food paper bags, bakery paper bags, food packaging paper bags, takeaway paper bags, restaurant paper bags, cafe paper bags, food grade paper bags Pune',
     image: '/images/newGen/bottomVFB.jpeg',
     minOrder: '100 UNITS',
     color: '#f59e0b',
     description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry.',
-    longDescription: 'Developed for restaurateurs, our F&B line features food-grade barriers that resist oil and moisture without plastic laminates. Perfect for cloud kitchens and bakeries.',
+    longDescription: 'Developed for restaurateurs and bakers, our F&B line features food-grade barrier paper that resists oil and moisture without plastic laminates. Perfect for hot breads, pastries, burger takeaways, and cloud kitchens.',
     bullets: [
-      { label: 'FDA Approved', icon: CheckCircle2 },
+      { label: 'Food-Contact Safe', icon: CheckCircle2 },
       { label: 'Grease Resistant', icon: Droplets },
       { label: 'Moisture Barrier', icon: Zap },
       { label: 'Eco-Ink Safe', icon: Leaf }
     ],
     specs: [
-      { label: 'Material', value: 'Greaseproof Paper', icon: Layers },
+      { label: 'Material', value: 'Food-Grade Greaseproof Kraft Paper', icon: Layers },
       { label: 'Weight Range', value: '70 - 110 GSM', icon: Weight },
-      { label: 'Features', value: 'Oil-Resistant', icon: Settings },
-      { label: 'Certification', value: 'FDA Approved', icon: ShieldCheck },
-      { label: 'Food Safe', value: 'PFAS-Free', icon: CheckCircle2 },
+      { label: 'Features', value: 'Oil & Steam Resistant', icon: Settings },
+      { label: 'Certification', value: 'Food-Contact Compliant', icon: ShieldCheck },
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
       { title: 'Gourmet Carry', desc: 'Premium restaurant solutions', image: '/collection-fnb.webp' },
       { title: 'Classic Brown Collection', desc: 'Natural brown finish', image: '/images/new/V_Bottom_Bag7.webp' },
       { title: 'Bakery Special', desc: 'Vibrant artisanal branding', image: '/images/new/fnb_bakery.webp' }
+    ],
+    faqs: [
+      { q: 'Are these paper bags safe for direct food contact?', a: 'Yes, our bakery and food bags use certified food-grade barrier paper free from harmful bleaching agents and plastics.' },
+      { q: 'Do you manufacture bags for hot and oily foods?', a: 'Yes, our greaseproof kraft paper effectively resists oil seepage from fried items, burgers, croissants, and baked goods.' }
     ]
   },
-  luxury: {
-    id: 'luxury',
-    title: 'Luxury Kraft Bags',
-    image: '/images/prod_luxury_premium.webp',
+
+  'custom-printed-paper-bags': {
+    id: 'custom-printed-paper-bags',
+    title: 'Custom Printed Paper Bags',
+    seoTitle: 'Custom Printed Paper Bags Manufacturer in Pune | Nirmalyam Krafts',
+    seoDesc: 'Bespoke custom printed paper bags for brands and businesses. Precision Pantone matching, high-definition logo printing, custom sizes, and multiple handle options at direct factory rates in Pune.',
+    keywords: 'custom printed paper bags, printed paper bags, branded paper bags, logo printed paper bags, custom paper bags Pune, printed kraft paper bags India',
+    image: '/images/why_printing.webp',
     minOrder: '100 UNITS',
-    color: '#c09457',
-    description: 'High-thickness boards and exquisite finishes that redefine paper packaging.',
-    longDescription: 'Our Luxury collection represents the pinnacle of sustainable packaging. Heavyweight boards provide a rigid silhouette, hand-finished with cotton ribbon handles and custom foiling.',
+    color: '#16a34a',
+    description: 'Bespoke branded packaging engineered to turn every customer purchase into a walking brand endorsement.',
+    longDescription: 'Nirmalyam Krafts specializes in custom printed paper bags tailored to your exact brand specifications. From high-definition multi-color graphics to precise Pantone color matching, we provide custom sizes, paper weights, and handle finishes at direct manufacturer pricing.',
     bullets: [
-      { label: 'Extra Thick Board', icon: Crown },
-      { label: 'Ribbon Handles', icon: Heart },
-      { label: 'Foil Stamping', icon: Award },
-      { label: 'Premium Finish', icon: CheckCircle2 }
+      { label: 'Pantone Accurate', icon: Award },
+      { label: 'Multi-Color Print', icon: Droplets },
+      { label: 'Custom Sizing', icon: Settings },
+      { label: 'Direct Factory Rate', icon: Zap }
     ],
     specs: [
-      { label: 'Material', value: 'Premium Art Board', icon: Layers },
-      { label: 'Weight Range', value: '200 - 350 GSM', icon: Weight },
-      { label: 'Handles', value: 'Satin / Cotton', icon: Heart },
-      { label: 'Finishing', value: 'UV / Gold Foil', icon: Award },
-      { label: 'Refinement', value: 'Hand-Finished', icon: Settings },
+      { label: 'Material', value: 'Virgin & Recycled Brown / White Kraft', icon: Layers },
+      { label: 'Print Types', value: 'High-Precision Flexo / Offset', icon: Settings },
+      { label: 'Weight Range', value: '70 - 150 GSM', icon: Weight },
+      { label: 'Handles', value: 'Twisted Cord, Flat Fold, Ribbon', icon: Heart },
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Luxury Retail', desc: 'High-fashion unboxing', image: '/images/new/lux1.webp' },
-      { title: 'Artisanal Finish', desc: 'Hand-crafted excellence', image: '/images/new/lux2.webp' },
-      { title: 'Colorful Premium', desc: 'Signature luxury palette', image: '/images/new/lux3.webp' }
+      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/collection_ecocraft_new.webp' },
+      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/newGen/BOTTOMvF.jpeg' },
+      { title: 'Artisanal Finish', desc: 'Natural brown kraft print', image: '/images/new/V_BottomBag6.webp' }
+    ],
+    faqs: [
+      { q: 'What is the lead time for custom printed paper bags?', a: 'Standard custom printed orders are manufactured and dispatched within 7–10 business days after digital artwork approval.' },
+      { q: 'Can you match exact brand Pantone colors?', a: 'Yes, our automated printing systems replicate Pantone color standards with minimal variance.' }
     ]
   },
-  pouches: {
-    id: 'pouches',
-    title: 'Eco-Pouches',
-    image: '/images/prod_pouches_paper.webp',
+
+  'shopping-bags': {
+    id: 'shopping-bags',
+    title: 'Custom Paper Shopping Bags',
+    seoTitle: 'Custom Paper Shopping Bags Manufacturer | Nirmalyam Krafts',
+    seoDesc: 'High-strength paper shopping bags and branded carry bags for retail stores, supermarkets, fashion boutiques, and exhibitions. Reinforced handles with heavy load-bearing capacity in Pune.',
+    keywords: 'paper shopping bags, kraft shopping bags, paper carry bags, custom shopping paper bags, printed shopping paper bags, retail paper bags Pune',
+    image: '/images/new/V_BottomBag6.webp',
     minOrder: '100 UNITS',
-    color: '#1a4a2e',
-    description: 'Modern stand-up pouches with a premium matte paper texture for dry goods.',
-    longDescription: 'Our Eco-Pouches use a specialized paper-based laminate that provides a high-moisture barrier while maintaining a beautiful biological feel. Perfect for coffee, snacks, and nuts.',
+    color: '#0284c7',
+    description: 'High-strength retail paper carry bags designed to deliver a premium unboxing and in-store shopping experience.',
+    longDescription: 'Our shopping bags are built for high-end retail, boutiques, lifestyle outlets, and department stores. Featuring reinforced side gussets and sturdy bottoms, they combine ergonomic handling with robust weight capacity.',
     bullets: [
-      { label: 'Resealable Zip', icon: Zap },
-      { label: 'Stand-up Base', icon: CheckCircle2 },
-      { label: 'High Barrier', icon: ShieldCheck },
-      { label: 'Matte Texture', icon: Layers }
+      { label: 'Heavy Load Test', icon: Scale },
+      { label: 'Reinforced Base', icon: Package },
+      { label: 'Ergonomic Handles', icon: Heart },
+      { label: 'Retail Standard', icon: Award }
     ],
     specs: [
-      { label: 'Material', value: 'Paper + Bio-Film', icon: Layers },
-      { label: 'Closure', value: 'Press-to-Close', icon: Settings },
-      { label: 'Barrier', value: 'Aroma-Proof', icon: ShieldCheck },
-      { label: 'Capacity', value: '100g - 2kg', icon: Scale },
-      { label: 'Certification', value: 'Sustainably Sourced', icon: Leaf },
+      { label: 'Material', value: 'Premium Natural & Bleached Kraft', icon: Layers },
+      { label: 'Weight Range', value: '80 - 140 GSM', icon: Weight },
+      { label: 'Handles', value: 'Twisted Paper Cord & Flat Fold', icon: Settings },
+      { label: 'Load Capacity', value: 'Up to 12kg', icon: Scale },
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Stand-up Pouch', desc: 'Retail-ready design', image: '/images/prod_pouches_paper.webp' },
-      { title: 'Organic Feel', desc: 'Natural matte finish', image: '/images/eco_pouches_paper_grid.png' },
-      { title: 'Window Option', desc: 'Product visibility', image: '/images/prod_pouches_paper.webp' }
+      { title: 'Retail Carry', desc: 'Everyday high-volume shopping', image: '/images/newGen/BOTTOMV.jpeg' },
+      { title: 'Artisanal Kraft', desc: 'Textured natural brown carry', image: '/images/new/V_BottomBag6.webp' },
+      { title: 'Boutique Collection', desc: 'Custom printed retail solutions', image: '/images/newGen/BOTTOMvF.jpeg' }
+    ],
+    faqs: [
+      { q: 'How much weight can your shopping bags hold?', a: 'Depending on the selected GSM and base dimensions, our paper shopping bags are load-tested to hold between 5kg and 12kg comfortably.' },
+      { q: 'Are these bags suitable for clothing and footwear stores?', a: 'Yes, our shopping bags are widely used by apparel brands, footwear retailers, and lifestyle boutiques.' }
     ]
   },
-  'flat-handle': {
-    id: 'flat-handle',
-    title: 'Flat Handle Bags',
+
+  'grocery-bags': {
+    id: 'grocery-bags',
+    title: 'Kraft Grocery Paper Bags',
+    seoTitle: 'Kraft Grocery Paper Bags Manufacturer | Nirmalyam Krafts',
+    seoDesc: 'Sturdy square-bottom kraft grocery paper bags for supermarkets, grocery stores, and departmental retail. High load capacity, tear resistance, and eco-friendly paper construction.',
+    keywords: 'grocery paper bags, kraft grocery bags, paper grocery bags, grocery carry bags, paper bags for supermarkets, sustainable grocery bags Pune',
+    image: '/images/product_sos.webp',
+    minOrder: '100 UNITS',
+    color: '#15803d',
+    description: 'Heavy-duty grocery bags engineered with wide flat bottoms for fast packing and heavy volume capacity.',
+    longDescription: 'Specially constructed for supermarkets, organic grocery stores, and farm-to-table markets. The self-standing flat bottom allows effortless upright packing at checkout counters, reducing bagging time while eliminating single-use plastic sacks.',
+    bullets: [
+      { label: 'Self-Standing Base', icon: Package },
+      { label: 'Tear-Resistant Paper', icon: ShieldCheck },
+      { label: 'High Bulk Volume', icon: Layers },
+      { label: '100% Biodegradable', icon: Leaf }
+    ],
+    specs: [
+      { label: 'Material', value: 'Heavy Virgin & Recycled Kraft Paper', icon: Layers },
+      { label: 'Weight Range', value: '70 - 130 GSM', icon: Weight },
+      { label: 'Bottom Style', value: 'Square / Block Bottom', icon: Settings },
+      { label: 'Capacity', value: 'Up to 10kg', icon: Scale },
+      { label: 'Min Order', value: '100 units', icon: Package }
+    ],
+    gallery: [
+      { title: 'Supermarket SOS', desc: 'Fast-packing self-opening bags', image: '/images/product_sos.webp' },
+      { title: 'Natural Grocery Sacks', desc: 'High-tensile brown kraft', image: '/images/new/V_Bottom_Bag7.webp' },
+      { title: 'Bulk Packaged', desc: 'Palletized wholesale supply', image: '/images/newGen/BOTTOMV.jpeg' }
+    ],
+    faqs: [
+      { q: 'Can your grocery paper bags stand upright on their own?', a: 'Yes, our grocery bags feature square block bottoms that remain self-standing on checkout counters for swift packing.' }
+    ]
+  },
+
+  'handle-bags': {
+    id: 'handle-bags',
+    title: 'Paper Bags with Handles',
+    seoTitle: 'Paper Bags with Handles | Custom Handle Bags | Nirmalyam Krafts',
+    seoDesc: 'Versatile paper bags with comfortable, durable handles including twisted paper handles and flat fold handles. Engineered for retail, takeaway, and gifting applications.',
+    keywords: 'paper bags with handles, handle paper bags, kraft paper bags with handles, twisted handle paper bags, flat handle paper bags, custom handle paper bags Pune',
     image: '/images/prod_flat_paper.webp',
     minOrder: '100 UNITS',
     color: '#145c38',
-    description: 'Sturdy, economical retail solutions with a visible natural paper fiber texture.',
-    longDescription: 'The Flat Handle range is engineered for high-volume retail environments where strength and cost-efficiency are paramount. Features reinforced flat handles for maximum comfort.',
+    description: 'Ergonomic paper carry bags with strong bonded handles engineered for maximum customer comfort.',
+    longDescription: 'Our handle bags range includes twisted kraft cords and reinforced flat fold paper handles. Produced on automated German-engineered lines, handle patches are chemically and structurally bonded to ensure zero handle detachment even under peak loads.',
     bullets: [
-      { label: 'Load Optimized', icon: Weight },
-      { label: 'Natural Kraft', icon: Leaf },
-      { label: 'Internal Reinforcement', icon: ShieldCheck },
-      { label: 'Recyclable Handle', icon: CheckCircle2 }
+      { label: 'Reinforced Bond', icon: ShieldCheck },
+      { label: 'Comfort Grip', icon: Heart },
+      { label: 'Zero Detachment', icon: Zap },
+      { label: 'Recyclable Handle', icon: Leaf }
     ],
     specs: [
-      { label: 'Material', value: 'Heavy Virgin Kraft', icon: Layers },
-      { label: 'Handle', value: 'Recycled Flat Paper', icon: Settings },
-      { label: 'Load Test', value: 'Up to 10kg', icon: Scale },
-      { label: 'Base', value: 'Block-Bottomed', icon: Package },
-      { label: 'Finish', value: 'Natural Matte', icon: Zap },
+      { label: 'Material', value: 'Heavy Virgin Kraft Paper', icon: Layers },
+      { label: 'Handle Types', value: 'Twisted Paper Cord / Flat Fold Paper', icon: Settings },
+      { label: 'Load Test', value: 'Up to 12kg', icon: Scale },
+      { label: 'Base', value: 'Block-Bottomed Reinforcement', icon: Package },
       { label: 'Min Order', value: '100 units', icon: Package }
     ],
     gallery: [
-      { title: 'Supermarket Carry', desc: 'High-volume solution', image: '/images/prod_flat_paper.webp' },
-      { title: 'Retail Primary', desc: 'Cost-effective packaging', image: '/images/flat_handle_bags_paper_grid.png' },
-      { title: 'Bulk Capacity', desc: 'Engineered for strength', image: '/images/prod_flat_paper.webp' }
+      { title: 'Twisted Handle Bags', desc: 'Classic comfortable twisted cord', image: '/images/newGen/BOTTOMV.jpeg' },
+      { title: 'Flat Handle Bags', desc: 'Economical high-volume carry', image: '/images/prod_flat_paper.webp' },
+      { title: 'Printed Handle Bags', desc: 'Branded retail packaging', image: '/images/newGen/BOTTOMvF.jpeg' }
+    ],
+    faqs: [
+      { q: 'What is the difference between twisted handles and flat handles?', a: 'Twisted handles use coiled kraft paper cords for a classic upscale look, while flat handles use folded kraft strips that provide wide weight distribution at economical production cost.' }
     ]
   },
-  industrial: {
-    id: 'industrial',
-    title: 'Kraft Rolls',
+
+  'square-bottom-bags': {
+    id: 'square-bottom-bags',
+    title: 'Square Bottom Paper Bags',
+    seoTitle: 'Square Bottom Paper Bags Manufacturer | Nirmalyam Krafts',
+    seoDesc: 'Self-standing square bottom and block bottom kraft paper bags for retail, food takeout, and grocery packaging. Easy-fill wide base design with superior structural stability.',
+    keywords: 'square bottom paper bags, square bottom kraft bags, flat bottom paper bags, self standing paper bags, block bottom paper bags Pune, SOS paper bags',
+    image: '/images/newGen/BOTTOMvF.jpeg',
+    minOrder: '100 UNITS',
+    color: '#c09457',
+    description: 'Self-standing block bottom bags engineered for effortless filling, packing, and stable shelf placement.',
+    longDescription: 'Square bottom bags (also known as SOS or flat bottom bags) provide a rectangular base that stands upright without support. Ideal for bakeries, food deliveries, meal kits, and retail merchandising, they maximize packing efficiency while presenting a neat, professional silhouette.',
+    bullets: [
+      { label: 'Self-Standing Base', icon: Package },
+      { label: 'High Capacity', icon: Scale },
+      { label: 'Fast Packing', icon: Zap },
+      { label: 'Recycled Paper', icon: Leaf }
+    ],
+    specs: [
+      { label: 'Material', value: 'High-Tensile Brown & White Kraft', icon: Layers },
+      { label: 'Base Style', value: 'Self-Opening Square / Block Bottom', icon: Settings },
+      { label: 'Weight Range', value: '70 - 130 GSM', icon: Weight },
+      { label: 'Capacity', value: '2kg - 10kg', icon: Scale },
+      { label: 'Min Order', value: '100 units', icon: Package }
+    ],
+    gallery: [
+      { title: 'Square Base Takeaway', desc: 'Perfect for meal containers', image: '/images/newGen/BOTTOMvF.jpeg' },
+      { title: 'Self-Standing Grocery', desc: 'Stable upright display', image: '/images/product_sos.webp' },
+      { title: 'Artisanal Craft', desc: 'Natural brown finish', image: '/images/newGen/bottomVSlider.png' }
+    ],
+    faqs: [
+      { q: 'Can square bottom bags hold takeaway food containers flat?', a: 'Yes! The wide rectangular base allows food boxes and meal trays to sit completely flat without tipping over during transit.' }
+    ]
+  },
+
+  'kraft-paper-rolls': {
+    id: 'kraft-paper-rolls',
+    title: 'Industrial Kraft Paper Rolls',
+    seoTitle: 'Kraft Paper Rolls Manufacturer & Supplier | Nirmalyam Krafts',
+    seoDesc: 'High-strength industrial kraft paper rolls in brown and bleached white variations (120 to 240 GSM). Ideal for protective wrapping, void filling, parcel cushioning, and corrugated packaging in Pune.',
+    keywords: 'kraft paper rolls, kraft paper roll manufacturer, kraft paper rolls supplier, kraft paper roll Pune, kraft paper rolls India, packaging kraft paper rolls, wrapping kraft paper',
     image: '/images/new/KraftRoll_New.webp',
     minOrder: '100 UNITS',
     color: '#8b5e34',
-    description: 'Premium brown and white kraft paper rolls designed for high-strength wrapping, packaging, and industrial shipping.',
-    longDescription: 'Our kraft paper rolls are manufactured with high tensile strength and tear resistance. Ideal for protective wrapping, void filling, parcel cushioning, and bulk packaging. Available in natural brown and bleached white variations.',
+    description: 'Premium brown and white industrial rolls designed for superior protection, wrapping, and shipping.',
+    longDescription: 'Our industrial kraft paper rolls are manufactured with high tensile strength and tear resistance. Ideal for protective wrapping, void filling, parcel cushioning, and bulk packaging. Available in natural brown and bleached white variations with consistent GSM tolerance across the entire roll width.',
     bullets: [
       { label: 'Tear Resistant', icon: ShieldCheck },
       { label: 'Puncture Proof', icon: Zap },
@@ -209,14 +294,50 @@ const categoryData = {
       { label: 'GSM Range', value: '120 - 240 GSM', icon: Weight },
       { label: 'Width', value: 'Up to 2 meters', icon: Scale },
       { label: 'Tensile Strength', value: 'Industrial Grade', icon: Zap },
-      { label: 'Composition', value: 'Recycled Kraft', icon: Layers },
-      { label: 'Application', value: 'Bulk Shipping', icon: Settings },
-      { label: 'Min Order', value: '100 units', icon: Package }
+      { label: 'Composition', value: 'Recycled & Virgin Kraft', icon: Layers },
+      { label: 'Application', value: 'Protective Wrapping & Cushioning', icon: Settings },
+      { label: 'Min Order', value: '100 units / rolls', icon: Package }
     ],
     gallery: [
       { title: 'Factory Warehouse', desc: 'High-volume storage of brown and white rolls', image: '/images/newGen/rolls.jpeg' },
       { title: 'Quality Certification', desc: 'Nirmalyam certified industrial rolls', image: '/images/prod_rolls_paper.webp' },
       { title: 'Industrial Solutions', desc: 'Tailored for bulk wrapping and packaging', image: '/images/prod_rolls_paper_new.webp' }
+    ],
+    faqs: [
+      { q: 'What widths and GSMs are available for kraft rolls?', a: 'We supply rolls from 120 GSM up to 240 GSM, with customizable roll widths up to 2 meters for industrial packaging machines.' },
+      { q: 'Are these rolls suitable for e-commerce parcel wrapping and void fill?', a: 'Yes, our kraft rolls are widely used for e-commerce packing, void fill cushioning, and furniture surface protection.' }
+    ]
+  },
+
+  pouches: {
+    id: 'pouches',
+    title: 'Eco-Pouches',
+    seoTitle: 'Eco-Pouches & Paper Packaging | Nirmalyam Krafts',
+    seoDesc: 'Modern stand-up pouches with a tactile matte paper texture for dry goods, organic snacks, tea, and coffee packaging.',
+    keywords: 'eco pouches, paper stand up pouches, kraft pouches, sustainable pouches Pune',
+    image: '/images/prod_pouches_paper.webp',
+    minOrder: '100 UNITS',
+    color: '#1a4a2e',
+    description: 'Modern stand-up pouches with a premium matte paper texture for dry goods.',
+    longDescription: 'Our Eco-Pouches use specialized paper-based construction providing moisture resistance while maintaining a biological, natural feel. Perfect for coffee, artisanal snacks, nuts, and dry foods.',
+    bullets: [
+      { label: 'Resealable Zip', icon: Zap },
+      { label: 'Stand-up Base', icon: CheckCircle2 },
+      { label: 'High Barrier', icon: ShieldCheck },
+      { label: 'Matte Texture', icon: Layers }
+    ],
+    specs: [
+      { label: 'Material', value: 'Paper Barrier Film', icon: Layers },
+      { label: 'Closure', value: 'Press-to-Close Zip', icon: Settings },
+      { label: 'Capacity', value: '100g - 2kg', icon: Scale },
+      { label: 'Min Order', value: '100 units', icon: Package }
+    ],
+    gallery: [
+      { title: 'Stand-up Pouch', desc: 'Retail-ready design', image: '/images/prod_pouches_paper.webp' },
+      { title: 'Organic Feel', desc: 'Natural matte finish', image: '/images/eco_pouches_paper_grid.png' }
+    ],
+    faqs: [
+      { q: 'Can eco-pouches be heat-sealed?', a: 'Yes, our pouches are compatible with standard impulse heat sealers above the zip closure for tamper-evident security.' }
     ]
   }
 };
@@ -234,18 +355,101 @@ export default function ProductCategory() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-  const data = categoryData[categoryId];
+  // 1. Alias handling: seamless redirect to canonical SEO slug
+  if (CANONICAL_MAP[categoryId]) {
+    return <Navigate to={`/products/${CANONICAL_MAP[categoryId]}`} replace />;
+  }
 
-  // Temporarily hide luxury category from direct access or unknown categories
-  if (categoryId === 'luxury' || !data) {
+  // 2. Luxury collection hidden per explicit business instruction
+  if (categoryId === 'luxury') {
     return <Navigate to="/products" replace />;
   }
 
-  const whatsappMessage = `Hi Nirmalyam Krafts, I'm interested in the ${data.title} collection. Could you please share the price list and sample details?`;
+  const data = categoryData[categoryId];
+
+  // 3. Fallback for unknown categories
+  if (!data) {
+    return <Navigate to="/products" replace />;
+  }
+
+  const canonicalUrl = `${SITE_URL}/products/${categoryId}`;
+  const whatsappMessage = `Hi Nirmalyam Krafts, I am interested in the ${data.title} collection. Could you please share the wholesale price list and sample details?`;
   const whatsappUrl = `https://wa.me/918530669369?text=${encodeURIComponent(whatsappMessage)}`;
+
+  // Product + Breadcrumbs + FAQ Schemas
+  const schemas = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: data.title,
+      description: data.description,
+      image: `${SITE_URL}${data.image}`,
+      brand: {
+        '@type': 'Brand',
+        name: BUSINESS_INFO.name,
+      },
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'INR',
+        priceRange: '₹₹ - Factory Wholesale Rates',
+        availability: 'https://schema.org/InStock',
+        seller: {
+          '@type': 'Organization',
+          name: BUSINESS_INFO.name,
+        },
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: `${SITE_URL}/`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Products',
+          item: `${SITE_URL}/products`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: data.title,
+          item: canonicalUrl,
+        },
+      ],
+    },
+    ...(data.faqs && data.faqs.length > 0 ? [{
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: data.faqs.map(faq => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.a,
+        },
+      })),
+    }] : []),
+  ];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
+      {/* ── Dynamic SEO Head ── */}
+      <SEOHead
+        title={data.seoTitle}
+        description={data.seoDesc}
+        keywords={data.keywords}
+        canonical={canonicalUrl}
+        ogType="product"
+        ogImage={`${SITE_URL}${data.image}`}
+        schemas={schemas}
+      />
+
       {/* ── Fixed Quote Bar ── */}
       <div style={{
         position: 'fixed',
@@ -255,7 +459,7 @@ export default function ProductCategory() {
         zIndex: 1000,
         width: isMobile ? '94%' : '90%',
         maxWidth: 720,
-        background: 'rgba(255, 255, 255, 0.9)',
+        background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderRadius: isMobile ? '20px' : '32px',
@@ -280,7 +484,7 @@ export default function ProductCategory() {
             flexShrink: 0,
             boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
           }}>
-            <img src={data.image} alt="" style={{ width: '85%', height: '85%', objectFit: 'contain' }} />
+            <img src={data.image} alt={data.title} style={{ width: '85%', height: '85%', objectFit: 'contain' }} />
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, color: data.color, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Min Order: {data.minOrder}</div>
@@ -348,33 +552,36 @@ export default function ProductCategory() {
                 aspectRatio: isMobile ? '5/4' : '1',
                 boxShadow: '0 40px 80px -20px rgba(58, 36, 16, 0.15)',
                 background: 'white',
-                border: '1px solid var(--kraft-100)',
-                padding: isMobile ? 16 : 60,
+                border: '1px solid var(--kraft-200)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                padding: isMobile ? '24px' : '40px',
                 position: 'relative'
               }}>
-                {/* Decorative Pattern behind bag */}
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundImage: 'radial-gradient(var(--kraft-100) 1px, transparent 1px)',
-                  backgroundSize: '24px 24px',
-                  opacity: 0.3
-                }} />
-                <img src={data.image} alt={data.title} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                <img 
+                  src={data.image} 
+                  alt={`${data.title} by Nirmalyam Krafts`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                />
               </div>
             </div>
 
-            {/* Product Details Section */}
+            {/* Info Section */}
             <div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
-                <div style={{ background: '#CC9966', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' }}>
-                  PREMIUM QUALITY
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{ background: `${data.color}20`, color: data.color, padding: '6px 14px', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
+                  MIN ORDER: {data.minOrder}
                 </div>
                 <div style={{ background: '#1F4013', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' }}>
-                  SUSTAINABLE CHOICE
+                  SUSTAINABLE PACKAGING
                 </div>
               </div>
               
@@ -418,7 +625,7 @@ export default function ProductCategory() {
                   color: 'var(--kraft-950)', 
                   borderRadius: '20px', 
                   textDecoration: 'none', 
-                  fontWeight: 800,
+                  fontWeight: 800, 
                   fontSize: isMobile ? 16 : 18,
                   display: 'flex',
                   alignItems: 'center',
@@ -430,121 +637,32 @@ export default function ProductCategory() {
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--kraft-50)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'white'}
                 >
-                   <Phone size={18} fill="currentColor" /> WhatsApp
+                  <Phone size={20} /> Inquire WhatsApp
                 </a>
               </div>
 
-              {/* Bullet Grid */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
-                gap: isMobile ? 12 : '20px 24px', 
-                marginBottom: isMobile ? 40 : 64 
-              }}>
+              {/* Key Highlights */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 16, marginBottom: 48 }}>
                 {data.bullets.map((bullet, i) => (
-                  <div key={i} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: isMobile ? 8 : 14,
-                    background: 'rgba(255,255,255,0.5)',
-                    padding: isMobile ? '10px 10px' : '12px 16px',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(0,0,0,0.03)'
-                  }}>
-                    <div style={{ 
-                      width: 36, 
-                      height: 36, 
-                      borderRadius: '12px', 
-                      background: 'rgba(45,90,39,0.08)', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <bullet.icon size={18} color="#2D5A27" />
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px', background: 'white', borderRadius: '16px', border: '1px solid var(--kraft-100)' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '10px', background: `${data.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: data.color }}>
+                      <bullet.icon size={20} />
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--kraft-800)', lineHeight: 1.2 }}>{bullet.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--kraft-900)' }}>{bullet.label}</span>
                   </div>
                 ))}
               </div>
 
-               {/* Premium 3x2 Technical Specifications Grid */}
-               <div className="anim-fade-up" style={{ marginTop: 32 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                  <span style={{ 
-                    fontSize: 12, 
-                    fontWeight: 800, 
-                    color: '#CC9966', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '0.24em' 
-                  }}>
-                    Technical Specifications
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, var(--kraft-200), transparent)' }} />
-                </div>
-                
-                <div className="specs-grid" style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', 
-                  gap: isMobile ? 12 : 16
-                }}>
+              {/* Specifications Table */}
+              <div style={{ background: 'white', borderRadius: '24px', padding: isMobile ? '24px' : '36px', border: '1px solid var(--kraft-200)' }}>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--kraft-950)', marginBottom: 20 }}>Technical Specifications</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 16 }} className="specs-grid">
                   {data.specs.map((spec, i) => (
-                    <div 
-                      key={spec.label} 
-                      style={{ 
-                        background: 'white', 
-                        padding: '16px 14px', 
-                        borderRadius: 'var(--radius-xl)', 
-                        border: '1px solid var(--kraft-100)',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.01)',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                        animationDelay: `${i * 0.1}s`
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.06)';
-                        e.currentTarget.style.borderColor = 'var(--kraft-200)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.01)';
-                        e.currentTarget.style.borderColor = 'var(--kraft-100)';
-                      }}
-                    >
-                      <div style={{ 
-                        width: 28, 
-                        height: 28, 
-                        borderRadius: '6px', 
-                        background: 'rgba(45,90,39,0.04)', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        color: 'var(--eco-600)'
-                      }}>
-                        <spec.icon size={14} strokeWidth={2.5} />
-                      </div>
-                      
-                      <div style={{ 
-                        fontSize: 14, 
-                        fontWeight: 700, 
-                        color: 'var(--kraft-900)',
-                        lineHeight: 1.2,
-                        letterSpacing: '-0.01em'
-                      }}>
-                        {spec.value}
-                      </div>
-                      
-                      <div style={{ 
-                        fontSize: 9, 
-                        fontWeight: 800, 
-                        color: 'var(--kraft-400)', 
-                        textTransform: 'uppercase', 
-                        letterSpacing: '0.08em' 
-                      }}>
-                        {spec.label}
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--kraft-100)' }}>
+                      <spec.icon size={18} color="var(--kraft-400)" />
+                      <div>
+                        <div style={{ fontSize: 12, color: 'var(--kraft-500)', fontWeight: 600 }}>{spec.label}</div>
+                        <div style={{ fontSize: 15, color: 'var(--kraft-900)', fontWeight: 700 }}>{spec.value}</div>
                       </div>
                     </div>
                   ))}
@@ -555,41 +673,31 @@ export default function ProductCategory() {
         </div>
       </div>
 
-      {/* ── Experience Section ── */}
-      <section className="section-padding" style={{ background: 'white' }}>
+      {/* ── Gallery Section ── */}
+      <section className="section-padding" style={{ background: 'white', borderTop: '1px solid var(--kraft-200)', borderBottom: '1px solid var(--kraft-200)' }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div className="section-label">Gallery</div>
-            <h2 className="section-title">The {data.title} Experience</h2>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div className="section-label" style={{ fontSize: 12, letterSpacing: '0.2em' }}>Visual Showcase</div>
+            <h2 className="section-title" style={{ fontSize: isMobile ? 28 : 40 }}>{data.title} Applications</h2>
           </div>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(3, 1fr)', 
-            gap: isMobile ? 12 : 32 
-          }} className="gallery-grid">
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 32 }} className="gallery-grid">
             {data.gallery.map((item, i) => (
-              <div key={i}>
-                <div style={{ 
-                  borderRadius: 'var(--radius-2xl)', 
-                  overflow: 'hidden', 
-                  aspectRatio: '1', 
+              <div key={i} style={{ position: 'relative' }}>
+                <div style={{
+                  borderRadius: '24px',
+                  overflow: 'hidden',
+                  aspectRatio: '1',
                   background: 'var(--kraft-50)',
-                  marginBottom: 20,
+                  marginBottom: 16,
                   border: '1px solid var(--kraft-100)',
                   position: 'relative'
                 }}>
-                  <img 
-                    src={item.image} 
-                    alt={item.title}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      transition: 'transform 0.63s var(--transition-main)'
-                    }}
+                  <img
+                    src={item.image}
+                    alt={`${item.title} - ${data.title} manufacturer Pune`}
                     className="gallery-img"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }}
                   />
-                  {/* Hover Overlay */}
                   <div className="gallery-overlay" style={{
                     position: 'absolute',
                     inset: 0,
@@ -616,45 +724,60 @@ export default function ProductCategory() {
                     </Link>
                   </div>
                 </div>
-                {data.id !== 'ecocraft' && (
-                  <>
-                    <h4 style={{ fontSize: isMobile ? 12 : 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4, textAlign: 'center' }}>{item.title}</h4>
-                    <p style={{ fontSize: isMobile ? 10 : 15, color: 'var(--kraft-500)', lineHeight: 1.5, textAlign: 'center', display: isMobile ? 'none' : 'block' }}>{item.desc}</p>
-                  </>
-                )}
+                <h4 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4, textAlign: 'center' }}>{item.title}</h4>
+                <p style={{ fontSize: isMobile ? 13 : 15, color: 'var(--kraft-500)', lineHeight: 1.5, textAlign: 'center' }}>{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* ── FAQ Section for Search Intent & Helpful Content ── */}
+      {data.faqs && data.faqs.length > 0 && (
+        <section className="section-padding" style={{ background: 'var(--kraft-50)', borderBottom: '1px solid var(--kraft-200)' }}>
+          <div className="container" style={{ maxWidth: 840 }}>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <div className="section-label" style={{ fontSize: 12, letterSpacing: '0.2em' }}>Frequently Asked Questions</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? 26 : 36 }}>Common Questions about {data.title}</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {data.faqs.map((faq, idx) => (
+                <div key={idx} style={{
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: isMobile ? '20px' : '24px 28px',
+                  border: '1px solid var(--kraft-200)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: 'var(--kraft-950)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <HelpCircle size={20} color="var(--eco-600)" style={{ flexShrink: 0 }} />
+                    {faq.q}
+                  </h3>
+                  <p style={{ fontSize: 15, color: 'var(--kraft-700)', lineHeight: 1.6, paddingLeft: 30 }}>
+                    {faq.a}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── CTA Bottom ── */}
-      <section className="section-padding" style={{ background: 'var(--kraft-50)', paddingTop: 0 }}>
+      <section className="section-padding" style={{
+        background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
         <div className="container">
-          <div style={{
-            background: 'var(--kraft-950)',
-            borderRadius: isMobile ? '32px' : '48px',
-            padding: isMobile ? '64px 24px' : '100px 48px',
-            textAlign: 'center',
-            color: 'white',
-            position: 'relative',
-            overflow: 'hidden',
-            boxShadow: '0 30px 60px rgba(0,0,0,0.2)'
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: 0, left: 0, right: 0, bottom: 0,
-              background: 'radial-gradient(circle at center, rgba(34,197,94,0.15) 0%, transparent 70%)',
-              pointerEvents: 'none'
-            }} />
-            
+          <div style={{ textAlign: 'center', color: 'white', position: 'relative', zIndex: 1 }}>
             <Leaf size={isMobile ? 48 : 64} color="var(--eco-500)" style={{ marginBottom: 32, opacity: 0.8 }} />
 
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 56px)', marginBottom: 24, position: 'relative', lineHeight: 1.1 }}>
               Elevate Your Packaging<br/>Experience Today
             </h2>
-            <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.6)', maxWidth: 700, margin: '0 auto 48px', position: 'relative', lineHeight: 1.6 }}>
-              Join hundreds of high-end brands that trust Nirmalyam Krafts for their premium, eco-friendly sustainable packaging solutions.
+            <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.7)', maxWidth: 700, margin: '0 auto 48px', position: 'relative', lineHeight: 1.6 }}>
+              Join hundreds of retail, food, and e-commerce brands that trust Nirmalyam Krafts for premium, eco-friendly sustainable packaging solutions in Pune, India.
             </p>
             <div style={{ 
               display: 'flex', 
@@ -666,7 +789,7 @@ export default function ProductCategory() {
               margin: '0 auto'
             }} className="cta-buttons">
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
-                background: 'linear-gradient(135deg, #1a1208 0%, #3d2e1a 100%)',
+                background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
                 color: 'white',
                 padding: '18px 32px',
                 borderRadius: '20px',
@@ -679,26 +802,15 @@ export default function ProductCategory() {
                 justifyContent: 'center',
                 gap: 10,
                 border: '2px solid rgba(255,255,255,0.4)',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.borderColor = 'white';
-                e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.3)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-              >
+              }}>
                 <Phone size={20} fill="white" /> Wholesale Inquiry
               </a>
-              <Link to="/contact#contact-channels" style={{
+              <Link to="/quote" style={{
                 padding: '18px 32px',
                 borderRadius: '20px',
                 background: 'rgba(255,255,255,0.08)',
                 backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.2)',
                 color: 'white',
                 textDecoration: 'none',
                 fontWeight: 800,
@@ -708,16 +820,7 @@ export default function ProductCategory() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 10
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-                e.currentTarget.style.transform = 'translateY(-4px)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-              >
+              }}>
                 <Zap size={20} /> Request Custom Quote
               </Link>
             </div>
@@ -753,7 +856,7 @@ export default function ProductCategory() {
           transform: translateY(0) !important;
         }
         .gallery-grid div:hover .gallery-img {
-          transform: scale(1.1) !important;
+          transform: scale(1.05) !important;
         }
       `}</style>
 

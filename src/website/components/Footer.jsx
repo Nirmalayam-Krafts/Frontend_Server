@@ -40,11 +40,11 @@ const Youtube = ({ size = 24 }) => (
 );
 
 const shopLinks = [
-  { label: 'Kraft Bags', to: '/products/ecokraft' },
-  { label: 'F&B Gourmet', to: '/products/fnb' },
-  // { label: 'Luxury Kraft', to: '/products/luxury' }, // Temporarily hidden
-  { label: 'Eco-Pouches', to: '/products' },
-  { label: 'Kraft Rolls', to: '/products/industrial' },
+  { label: 'Custom Printed Bags', to: '/products/custom-printed-paper-bags' },
+  { label: 'Food & Bakery Bags', to: '/products/food-bakery-bags' },
+  { label: 'EcoCraft Paper Bags', to: '/products/ecocraft' },
+  { label: 'Handle Paper Bags', to: '/products/handle-bags' },
+  { label: 'Kraft Paper Rolls', to: '/products/kraft-paper-rolls' },
 ];
 
 const policyLinks = [
@@ -209,6 +209,7 @@ export default function Footer() {
                 { label: 'About Us', to: '/about' },
                 { label: 'Sustainability', to: '/sustainability' },
                 ...(CONFIG.SHOW_TESTIMONIALS ? [{ label: 'Testimonials', to: '/#testimonials' }] : []),
+                { label: 'Request a Quote', to: '/quote' },
                 { label: 'Contact Us', to: '/contact#contact-form' }
               ].map(link => (
                 <li key={link.label}>

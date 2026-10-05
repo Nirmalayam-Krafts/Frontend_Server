@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Leaf, TreePine, Droplets, Truck, Recycle, Check, ArrowRight, Cog, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import PagePopup from '../components/PagePopup';
+import SEOHead from '../components/SEOHead';
+import { SITE_URL } from '../config/seoConfig';
 
 /* ── Green Print steps ── */
 const greenPrint = [
@@ -48,6 +50,14 @@ export default function Sustainability() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
+  const sustainabilitySchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'Eco-Friendly Paper Bags & Sustainable Packaging | Nirmalyam Krafts',
+    url: `${SITE_URL}/sustainability`,
+    description: 'Learn about our 100% biodegradable, plastic-free paper bag manufacturing process in Pune, reducing environmental footprints through circular economy packaging.',
+  };
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -56,6 +66,7 @@ export default function Sustainability() {
 
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
+      <SEOHead routeKey="/sustainability" schema={[sustainabilitySchema]} />
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{
         backgroundImage: 'url(/images/kraft_paper_hero_bg.png)',
@@ -91,14 +102,16 @@ export default function Sustainability() {
             </div>
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: 'clamp(42px, 8vw, 84px)',
+              fontSize: 'clamp(36px, 6vw, 76px)',
               color: 'white',
               fontWeight: 600,
               marginBottom: 32,
-              lineHeight: 1.05
+              lineHeight: 1.1
             }}>
-              Sustainability in <br />
-              <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), var(--eco-600))' }}>Every Fiber</span>
+              Sustainable Paper Bags & Eco Packaging<br />
+              <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), var(--eco-600))', fontSize: '0.7em', display: 'block', marginTop: '10px' }}>
+                Zero-Plastic Manufacturing in Pune
+              </span>
             </h1>
             <p style={{
               fontSize: isMobile ? '18px' : '22px',

@@ -1,0 +1,36 @@
+# Production robots.txt for Nirmalyam Krafts
+# Canonical Domain: https://nirmalyamkrafts.com
+
+User-agent: *
+Allow: /
+Allow: /products
+Allow: /products/*
+Allow: /about
+Allow: /sustainability
+Allow: /contact
+Allow: /quote
+Allow: /privacy
+Allow: /terms
+Allow: /returns
+Allow: /shipping
+
+# Disallow administrative and private internal app endpoints
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /leads
+Disallow: /inventory
+Disallow: /orders
+Disallow: /quotations
+Disallow: /receipts
+Disallow: /finance
+Disallow: /analytics
+Disallow: /settings
+Disallow: /activity-logs
+Disallow: /rawmaterial
+Disallow: /Product
+Disallow: /recycling
+Disallow: /order-returns
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://nirmalyamkrafts.com/sitemap.xml

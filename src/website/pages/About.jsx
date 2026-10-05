@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Leaf, Heart, Globe, Users, Award, ArrowRight, Mail, Phone, Check, Info, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import PagePopup from '../components/PagePopup';
+import SEOHead from '../components/SEOHead';
+import { SITE_URL } from '../config/seoConfig';
 
 const Linkedin = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -61,6 +63,39 @@ export default function About() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
+  const aboutSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name: 'About Nirmalyam Krafts | Paper Bag Manufacturer in Pune',
+    url: `${SITE_URL}/about`,
+    description: 'Learn about Nirmalyam Krafts, a premier eco-friendly paper bag manufacturer and kraft packaging supplier based in Pune, Maharashtra.',
+    mainEntity: {
+      '@type': 'Organization',
+      name: 'Nirmalyam Krafts Private Ltd',
+      url: SITE_URL,
+      founder: [
+        {
+          '@type': 'Person',
+          name: 'Mahesh Nair',
+          jobTitle: 'Co-Founder & Director',
+        },
+        {
+          '@type': 'Person',
+          name: 'Satish Nair',
+          jobTitle: 'Co-Founder & Director',
+        },
+      ],
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: 'Survey No 53, Gatha Mandir Bypass Rd, Yelwadi',
+        addressLocality: 'Pune',
+        addressRegion: 'Maharashtra',
+        postalCode: '412109',
+        addressCountry: 'India',
+      },
+    },
+  };
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -87,6 +122,7 @@ export default function About() {
 
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
+      <SEOHead routeKey="/about" schema={[aboutSchema]} />
 
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{
@@ -129,14 +165,16 @@ export default function About() {
               </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: 'clamp(42px, 7vw, 84px)',
+                fontSize: 'clamp(38px, 6vw, 76px)',
                 color: 'white',
                 fontWeight: 600,
                 marginBottom: 28,
-                lineHeight: 1.05
+                lineHeight: 1.1
               }}>
-                Factory Rates,<br />
-                <span style={{ color: '#4ade80' }}>Unbeatable Value</span>
+                About Nirmalyam Krafts<br />
+                <span style={{ color: '#4ade80', fontSize: '0.65em', display: 'block', marginTop: '12px' }}>
+                  Paper Bag Manufacturer in Pune, India
+                </span>
               </h1>
               <p style={{
                 fontSize: isMobile ? '18px' : '22px',
@@ -145,8 +183,8 @@ export default function About() {
                 lineHeight: 1.8,
                 margin: isMobile || isTablet ? '0 auto' : '0'
               }}>
-                {isMobile ? "India's most affordable premium packaging — quality that honors our earth at wholesale factory rates." :
-                  "Pioneers in premium, zero-waste bags. We believe exceptional packaging should reflect both your brand values and your commitment to sustainability, delivering quality that customers can see and trust."}
+                {isMobile ? "India's premier eco-friendly paper bag manufacturer — exceptional durability, wholesale factory rates, and zero plastic." :
+                  "Pioneers in high-strength, eco-friendly paper bags. We partner with retail and food brands across Maharashtra and India to provide commercial-grade sustainable packaging at direct factory pricing."}
               </p>
             </div>
 
@@ -158,7 +196,7 @@ export default function About() {
             }}>
               <img
                 src="/images/new/VibrantCOlers.webp"
-                alt="Nirmalyam Kraft Artisan Collection"
+                alt="Nirmalyam Krafts Paper Bag Manufacturing Factory & Products Pune"
                 style={{
                   width: '100%',
                   borderRadius: 'var(--radius-2xl)',
@@ -313,7 +351,7 @@ export default function About() {
                 }}>
                   <img
                     src={owner.image}
-                    alt={owner.name}
+                    alt={`${owner.name} - ${owner.role} at Nirmalyam Krafts Paper Bags Pune`}
                     style={{
                       width: '100%',
                       height: '100%',

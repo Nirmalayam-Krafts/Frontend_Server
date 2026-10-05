@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ShieldCheck, Scale, AlertTriangle, Handshake, Ban, Mail, ArrowRight, ChevronRight } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 const termsSections = [
   {
@@ -73,6 +74,7 @@ export default function TermsOfService() {
 
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
+      <SEOHead routeKey="/terms" />
       {/* Hero */}
       <div className="page-hero" style={{
         position: 'relative', minHeight: isMobile ? '400px' : isTablet ? '420px' : '480px',

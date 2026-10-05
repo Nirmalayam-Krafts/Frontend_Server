@@ -9,6 +9,7 @@ import Products from "./website/pages/Products";
 import About from "./website/pages/About";
 import Sustainability from "./website/pages/Sustainability";
 import Contact from "./website/pages/Contact";
+import Quote from "./website/pages/Quote";
 import ProductCategory from "./website/pages/ProductCategory";
 import FloatingWidgets from "./website/components/FloatingWidgets";
 import NotFound from "./website/pages/NotFound";
@@ -110,6 +111,7 @@ function AppLayout() {
           <Route path="/about" element={<About />} />
           <Route path="/sustainability" element={<Sustainability />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/quote" element={<Quote />} />
           {/* <Route path="/design" element={<DesignYourProduct />} /> */}
 
           {/* Auth Routes */}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Eye, Lock, Database, UserCheck, Globe, Mail, ArrowRight, ChevronRight } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 /* ── Policy Sections ── */
 const policySections = [
@@ -122,6 +123,7 @@ export default function PrivacyPolicy() {
 
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'var(--kraft-50)' }}>
+      <SEOHead routeKey="/privacy" />
 
       {/* ── Page Hero ── */}
       <div className="page-hero" style={{

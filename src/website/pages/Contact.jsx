@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Mail, Phone, MapPin, MessageCircle, Clock, Send, Check, AlertCircle, Plus, Minus, ShieldCheck } from 'lucide-react';
 import { useAuthContext } from '../../context/Adminauth';
-import { useQueryClient } from '@tanstack/react-query';
 import PagePopup from '../components/PagePopup';
+import SEOHead from '../components/SEOHead';
+import { SITE_URL, BUSINESS_INFO } from '../config/seoConfig';
 
 /* ── Quick info cards ── */
 const contacts = [
@@ -375,8 +377,55 @@ export default function Contact() {
     setTouched({});
   };
 
+  const isQuotePage = location.pathname === '/quote';
+
+  const contactSchemas = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: `${SITE_URL}/`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: isQuotePage ? 'Request a Quote' : 'Contact Us',
+          item: isQuotePage ? `${SITE_URL}/quote` : `${SITE_URL}/contact`,
+        },
+      ],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map(faq => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.a,
+        },
+      })),
+    },
+  ];
+
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'white' }}>
+      <SEOHead
+        title={isQuotePage ? 'Get a Quote for Custom Paper Bags | Nirmalyam Krafts' : 'Contact Nirmalyam Krafts | Paper Bag Manufacturer Pune'}
+        description={isQuotePage
+          ? 'Request a free wholesale price quote for custom printed paper bags, bakery packaging, or kraft paper rolls in Pune, India. Low MOQ and rapid turnaround.'
+          : 'Contact Nirmalyam Krafts at our Yelwadi Pune manufacturing facility. Call +91 8530669369, email Nirmalyamkrafts@gmail.com, or visit our facility for paper bag inquiries.'}
+        keywords={isQuotePage
+          ? 'custom paper bag quote, bulk paper bag enquiry, paper bag price list Pune, wholesale paper bags quote, RFQ paper bags India'
+          : 'contact Nirmalyam Krafts, paper bag manufacturer Pune address, paper bag supplier phone number, Yelwadi Pune factory, paper bags contact'}
+        canonical={isQuotePage ? `${SITE_URL}/quote` : `${SITE_URL}/contact`}
+        schemas={contactSchemas}
+      />
+
       {/* ── Page Hero: Cinematic Atmosphere ── */}
       <div className="page-hero" style={{
         backgroundImage: 'url(/images/generated/contact_hero_bg.webp)',
@@ -404,28 +453,35 @@ export default function Contact() {
               marginBottom: 16,
               letterSpacing: '0.3em',
               textShadow: '0 2px 4px rgba(0,0,0,0.3)'
-            }}>Get In Touch</div>
+            }}>
+              {isQuotePage ? 'Request For Quote (RFQ)' : 'Factory Direct Contact'}
+            </div>
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: 'clamp(40px, 9vw, 84px)',
+              fontSize: 'clamp(36px, 7vw, 76px)',
               color: 'white',
               fontWeight: 600,
               marginBottom: 24,
-              lineHeight: 1.05,
+              lineHeight: 1.1,
               textShadow: '0 10px 30px rgba(0,0,0,0.5)'
             }}>
-              Factory Pricing,<br />
-              <span style={{ color: '#4ade80' }}>Unbeatable Rates</span>
+              {isQuotePage ? (
+                <>Request a Custom <br /><span style={{ color: '#4ade80' }}>Paper Bag Quote</span></>
+              ) : (
+                <>Contact Nirmalyam Krafts <br /><span style={{ color: '#4ade80' }}>Manufacturing Facility</span></>
+              )}
             </h1>
             <p style={{
               fontSize: 'clamp(17px, 2.5vw, 22px)',
               color: 'rgba(255,255,255,0.9)',
-              maxWidth: 620,
+              maxWidth: 640,
               lineHeight: 1.7,
               margin: isMobile || isTablet ? '0 auto' : '0',
               fontWeight: 400
             }}>
-              Connect with India's most affordable sustainable packaging team. Get direct factory-wholesale pricing on custom designs and bulk orders.
+              {isQuotePage
+                ? 'Submit your custom paper bag or packaging requirements below. Direct manufacturer wholesale pricing with rapid pan-India turnaround.'
+                : 'Connect with India\'s most affordable sustainable packaging team in Pune. Get direct factory-wholesale pricing on custom designs and bulk orders.'}
             </p>
           </div>
         </div>

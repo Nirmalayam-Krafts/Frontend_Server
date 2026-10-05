@@ -2,49 +2,59 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Leaf, Coffee, Crown, ShieldCheck, Zap, Globe, MessageSquare, Play, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import PagePopup from '../components/PagePopup';
+import SEOHead from '../components/SEOHead';
+import { SITE_URL } from '../config/seoConfig';
 
 const categories = [
   {
-    id: 'ecokraft',
-    title: 'Ecokraft Collection',
-    subtitle: 'Sustainable Everyday Packaging',
-    description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, boutiques, and eco-conscious brands looking for durability and natural aesthetics.',
-    image: '/images/newGen/BOTTOMV.jpeg',
-    videoStill: '/images/generated/video_ecocraft.webp',
-    color: '#4ade80',
-    features: ['60 - 120 GSM Kraft', 'Twisted Paper Handles', 'Premium Strength & Build']
+    id: 'custom-printed-paper-bags',
+    title: 'Custom Printed Paper Bags',
+    subtitle: 'Branded Retail & Promotional Bags',
+    description: 'Precision flexographic and offset printed paper bags with high-resolution custom logos, brand colors, and premium finishes. Perfect for retail fashion, corporate events, and brand identity.',
+    image: '/images/collection_printed_new.webp',
+    videoStill: '/images/collection_printed_new.webp',
+    color: '#0284c7',
+    features: ['High-Definition Logo Printing', 'Custom Sizes & Side Gussets', 'Eco-Friendly Water-Based Inks']
   },
   {
-    id: 'fnb',
-    title: 'F&B Gourmet Bags',
+    id: 'food-bakery-bags',
+    title: 'Food & Bakery Paper Bags',
     subtitle: 'Safe for Food, Kind to Earth',
-    description: 'Specialized grease-resistant and moisture-controlled packaging for the food and beverage industry. Designed to keep freshness in and plastics out.',
+    description: 'Specialized grease-resistant, oil-proof and moisture-controlled packaging for cafes, bakeries, cloud kitchens, and takeaway food brands. Certified food-grade kraft paper.',
     image: '/images/newGen/bottomVFB.jpeg',
     videoStill: '/images/generated/video_fnb.webp',
     color: '#f59e0b',
-    features: ['FDA Approved Paper', 'Moisture Barrier Coating', 'Certified Food Safe']
+    features: ['100% Food-Grade Paper', 'Oil & Grease Resistant', 'Certified Food Safe']
   },
-  /* Temporarily hidden: Luxury Bags
   {
-    id: 'luxury',
-    title: 'Luxury Kraft Bags',
-    subtitle: 'Premium Unboxing experience',
-    description: 'Elevate your brand with our luxury collection. High-thickness boards, premium textures, and exquisite finishes that redefine paper packaging.',
-    image: '/images/collection_luxury_vibrant.webp',
-    videoStill: '/images/generated/video_luxury.webp',
-    color: '#c09457',
-    features: ['200+ GSM Premium Board', 'Custom Foiling Options', 'Exquisite Textured Finish']
+    id: 'ecocraft',
+    title: 'EcoCraft Paper Bags',
+    subtitle: 'Sustainable Everyday Packaging',
+    description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, pharmacies, supermarkets, and eco-conscious brands looking for durability and zero plastic.',
+    image: '/images/newGen/BOTTOMV.jpeg',
+    videoStill: '/images/generated/video_ecocraft.webp',
+    color: '#16a34a',
+    features: ['60 - 140 GSM Kraft', 'Square & V-Bottom Options', '100% Recyclable & Biodegradable']
   },
-  */
   {
-    id: 'industrial',
-    title: 'Kraft Rolls',
-    subtitle: 'High-Strength wrapping & packaging',
-    description: 'Premium brown and white industrial rolls designed for superior protection and shipping. Ideal for secure wrapping, parcel protection, and bulk industrial packaging.',
+    id: 'handle-bags',
+    title: 'Handle Paper Bags',
+    subtitle: 'Twisted, Rope & Flat Handle Bags',
+    description: 'Sturdy shopping carry bags with ergonomically reinforced paper handles. Engineered for superior load-bearing capacity up to 15 kg for retail shopping and gifting.',
+    image: '/images/collection_ecocraft_new.webp',
+    videoStill: '/images/collection_ecocraft_new.webp',
+    color: '#145c38',
+    features: ['Twisted & Rope Handles', 'Reinforced Bottom Patch', 'Heavy Duty Load Bearing']
+  },
+  {
+    id: 'kraft-paper-rolls',
+    title: 'Kraft Paper Rolls',
+    subtitle: 'Industrial Packaging & Corrugation',
+    description: 'Premium brown and white industrial kraft rolls designed for superior surface protection, void filling, and corrugation conversion. Available in custom GSM and BF factors.',
     image: '/images/new/KraftRoll_New.webp',
     videoStill: '/images/new/KraftRoll_New.webp',
     color: '#8b5e34',
-    features: ['High-GSM Paper', 'Eco-friendly Brown & White', 'Tear & Puncture Resistant']
+    features: ['High-GSM Virgin & Semi-Virgin', 'Custom Reel Diameters', 'Tear & Puncture Resistant']
   }
 ];
 
@@ -74,8 +84,22 @@ export default function Products() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
+  const itemListSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Nirmalyam Krafts Paper Bag Collections',
+    description: 'Wholesale eco-friendly paper bags, custom printed bags, food bags, and kraft rolls manufactured in Pune.',
+    itemListElement: categories.map((cat, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: cat.title,
+      url: `${SITE_URL}/products/${cat.id}`,
+    })),
+  };
+
   return (
     <div className="site-page-container" style={{ minHeight: '100vh', background: 'white' }}>
+      <SEOHead routeKey="/products" schema={[itemListSchema]} />
       {/* ── Page Hero ── */}
       {/* ... keep hero as is ... */}
       <div className="page-hero" style={{
@@ -122,8 +146,8 @@ export default function Products() {
                 textShadow: '0 4px 12px rgba(0,0,0,0.4)',
                 textAlign: isMobile || isTablet ? 'center' : 'left'
               }}>
-                Exceptional Packaging,<br />
-                <span style={{ color: '#4ade80' }}>Factory Wholesale Pricing</span>
+                Paper Bags & Packaging Collections<br />
+                <span style={{ color: '#4ade80' }}>Factory Wholesale Rates in Pune</span>
               </h1>
               <p style={{
                 fontSize: 'clamp(16px, 2vw, 19px)',
@@ -134,7 +158,7 @@ export default function Products() {
                 textAlign: isMobile || isTablet ? 'center' : 'left',
                 margin: isMobile || isTablet ? '0 auto' : '0'
               }}>
-                Explore our curated collections designed to meet the rigorous demands of modern commerce while staying true to our earth-first philosophy.
+                Explore our curated paper bag collections engineered to meet high-volume commercial demands with durable materials and zero-plastic sustainability.
               </p>
             </div>
           </div>
@@ -199,7 +223,7 @@ export default function Products() {
                     <img
                       className="story-img"
                       src={cat.videoStill}
-                      alt={`${cat.title} Cinematic Story`}
+                      alt={`${cat.title} - Nirmalyam Krafts Paper Bag Manufacturer Pune`}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -208,11 +232,10 @@ export default function Products() {
                       }}
                     />
 
-
                   </div>
 
                   {/* "Get a Quote" Overlay */}
-                  <Link to="/contact#contact-channels" className="gallery-quote-btn" style={{ textDecoration: 'none', color: 'white' }}>
+                  <Link to="/quote" className="gallery-quote-btn" style={{ textDecoration: 'none', color: 'white' }}>
                     <MessageSquare size={isMobile ? 24 : 32} style={{ marginBottom: 4 }} />
                     <span style={{
                       fontSize: isMobile ? 18 : 22,

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { KraftBagSVG } from '../components/KraftsBags';
 import PagePopup from '../components/PagePopup';
+import SEOHead from '../components/SEOHead';
+import { SITE_URL, BUSINESS_INFO } from '../config/seoConfig';
 import { CONFIG } from '../config';
 
 /* ── WhatsApp SVG icon ── */
@@ -78,45 +80,49 @@ const testimonials = [
 /* ── Category cards ── */
 const categories = [
   {
-    title: 'Ecokraft Bags',
-    desc: 'Durable, eco-friendly everyday packaging perfect for retail and grocery needs.',
-    icon: Package,
-    image: '/images/new/V_BottomBag6.webp',
-    color: '#4ade80',
-    bg: '#f0fdf4',
-    to: '/products/ecokraft',
-    // priceBadge: 'From ₹2/Bag'
+    title: 'Custom Printed Bags',
+    desc: 'Bespoke branded bags with high-precision flexographic logo printing for retail and promotional events.',
+    icon: Palette,
+    image: '/images/collection_printed_new.webp',
+    color: '#0284c7',
+    bg: '#f0f9ff',
+    to: '/products/custom-printed-paper-bags',
   },
   {
-    title: 'F&B Gourmet Bags',
-    desc: 'Premium carry bags specifically designed for cafes, restaurants, and gourmet food brands.',
+    title: 'Food & Bakery Bags',
+    desc: 'Food-grade, grease-resistant kraft bags for cafes, cloud kitchens, bakeries, and takeaway packaging.',
     icon: Zap,
     image: '/images/new/F&B.webp',
     color: '#f59e0b',
     bg: '#fffbeb',
-    to: '/products/fnb',
-    // priceBadge: 'Bulk Factory Discount'
+    to: '/products/food-bakery-bags',
   },
-  /* Temporarily hidden: Luxury Bags
   {
-    title: 'Luxury Bags',
-    desc: 'High-finish, elegant packaging for premium retail, jewelry, and exclusive gifting.',
-    icon: Award,
-    image: '/images/new/LUXHEADFIXED.webp',
-    color: '#c09457',
-    bg: '#fdf9f3',
-    to: '/products/luxury',
-    // priceBadge: 'Low Wholesale Rates'
+    title: 'EcoCraft Paper Bags',
+    desc: 'Durable, 100% biodegradable everyday packaging perfect for retail, pharmacies, and groceries.',
+    icon: Package,
+    image: '/images/new/V_BottomBag6.webp',
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    to: '/products/ecocraft',
   },
-  */
   {
-    title: 'Kraft Rolls',
-    desc: 'Premium brown and white rolls designed for high-strength wrapping, packaging, and industrial shipping.',
+    title: 'Handle Paper Bags',
+    desc: 'High-strength rope, twisted, and flat handle kraft shopping bags with reinforced bottoms.',
+    icon: Package,
+    image: '/images/collection_ecocraft_new.webp',
+    color: '#145c38',
+    bg: '#f0fdf4',
+    to: '/products/handle-bags',
+  },
+  {
+    title: 'Kraft Paper Rolls',
+    desc: 'High-BF, customizable GSM packaging paper rolls for box making, wrapping, and corrugation.',
     icon: Package,
     image: '/images/new/KraftRoll_New.webp',
     color: '#8b5e34',
     bg: '#fdf8f4',
-    to: '/products/industrial',
+    to: '/products/kraft-paper-rolls',
   },
 ];
 
@@ -211,8 +217,64 @@ export default function Home() {
   const prev = () => setActiveTestimonial(p => (p - 1 + testimonials.length) % testimonials.length);
   const next = () => setActiveTestimonial(p => (p + 1) % testimonials.length);
 
+  const homeSchemas = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      '@id': `${SITE_URL}#localbusiness`,
+      name: BUSINESS_INFO.name,
+      legalName: BUSINESS_INFO.legalName,
+      alternateName: BUSINESS_INFO.alternateNames,
+      url: SITE_URL,
+      logo: `${SITE_URL}/logo/logo_icon.png`,
+      image: `${SITE_URL}/images/prod_kraft_flat.webp`,
+      description: 'B2B Manufacturer and wholesale supplier of custom printed paper bags, kraft shopping bags, food & bakery bags, and industrial kraft paper rolls in Pune, Maharashtra, India.',
+      telephone: BUSINESS_INFO.telephone,
+      email: BUSINESS_INFO.email,
+      priceRange: '₹₹',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: BUSINESS_INFO.address.streetAddress,
+        addressLocality: BUSINESS_INFO.address.addressLocality,
+        addressRegion: BUSINESS_INFO.address.addressRegion,
+        postalCode: BUSINESS_INFO.address.postalCode,
+        addressCountry: BUSINESS_INFO.address.addressCountry,
+      },
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: BUSINESS_INFO.geo.latitude,
+        longitude: BUSINESS_INFO.geo.longitude,
+      },
+      openingHoursSpecification: [
+        {
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+          opens: '09:00',
+          closes: '19:00',
+        },
+      ],
+      areaServed: [
+        { '@type': 'City', name: 'Pune' },
+        { '@type': 'State', name: 'Maharashtra' },
+        { '@type': 'Country', name: 'India' },
+      ],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}#website`,
+      url: SITE_URL,
+      name: BUSINESS_INFO.name,
+      description: 'Custom Paper Bags & Eco-Friendly Packaging Manufacturer in Pune, India',
+      publisher: {
+        '@id': `${SITE_URL}#organization`,
+      },
+    },
+  ];
+
   return (
     <div style={{ minHeight: '100vh' }}>
+      <SEOHead routeKey="/" schema={homeSchemas} />
 
       {/* ══════════════════ HERO ══════════════════ */}
       <section style={{
@@ -287,25 +349,25 @@ export default function Home() {
               <Leaf size={14} /> Wholesale Factory Rates
             </div>
 
-            <h2 className="hero-h2" style={{
+            <p className="hero-h2" style={{
               fontFamily: "'Playfair Display', serif",
               fontWeight: 600,
-              color: 'var(--kraft-950)',
+              color: 'var(--kraft-900)',
               marginBottom: 8,
               lineHeight: 1.2
             }}>
-              India's Most Affordable Eco Packaging
-            </h2>
+              Direct Paper Bag Manufacturer & Supplier in Pune
+            </p>
 
             <h1 className="hero-h1" style={{
               fontFamily: "'Playfair Display', serif",
               fontWeight: 900,
               color: 'var(--kraft-950)',
               marginBottom: 20,
-              lineHeight: 0.95,
+              lineHeight: 1.05,
               letterSpacing: '-1px'
             }}>
-              Nirmalyam Krafts
+              Custom & Eco-Friendly Paper Bags — Nirmalyam Krafts
             </h1>
 
             <p className="hero-subtitle" style={{
@@ -652,10 +714,9 @@ export default function Home() {
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
             <div className="section-label" style={{ fontSize: 13, letterSpacing: '0.2em' }}>Our Collections</div>
-            <h2 className="section-title" style={{ fontSize: 'clamp(40px, 7vw, 72px)', marginBottom: 24 }}>Packaging That Speaks</h2>
+            <h2 className="section-title" style={{ fontSize: 'clamp(40px, 7vw, 72px)', marginBottom: 24 }}>Custom Paper Bags & Packaging Collections</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', fontSize: 22, maxWidth: 750 }}>
-              Discover our range of sustainable packaging solutions, meticulously crafted
-              to elevate your brand while protecting the planet.
+              Discover our range of sustainable packaging solutions, meticulously manufactured in Pune to elevate your brand.
             </p>
           </div>
 
@@ -674,19 +735,19 @@ export default function Home() {
                     height: 280,
                     overflow: 'hidden',
                     position: 'relative',
-                    background: title === 'F&B Gourmet Bags' ? '#ffffff' : 'transparent',
+                    background: title === 'Food & Bakery Bags' || title === 'F&B Gourmet Bags' ? '#ffffff' : 'transparent',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
                     <img
                       src={image}
-                      alt={title}
+                      alt={`${title} - Nirmalyam Krafts Paper Bag Manufacturer Pune`}
                       style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: title === 'F&B Gourmet Bags' ? 'contain' : 'cover',
-                        transform: title === 'F&B Gourmet Bags' ? 'scale(1.5)' : 'none',
+                        objectFit: title === 'Food & Bakery Bags' || title === 'F&B Gourmet Bags' ? 'contain' : 'cover',
+                        transform: title === 'Food & Bakery Bags' || title === 'F&B Gourmet Bags' ? 'scale(1.5)' : 'none',
                         transition: 'transform 0.4s ease'
                       }}
                     />
@@ -787,7 +848,7 @@ export default function Home() {
               fontWeight: 700,
               lineHeight: 1.1
             }}>
-              Why Nirmalyam?
+              Why Choose Nirmalyam Krafts Paper Bags?
             </h2>
 
             <p style={{
@@ -847,7 +908,7 @@ export default function Home() {
                     ) : (
                       <img
                         src={card.image}
-                        alt={card.label}
+                        alt={`${card.title} - ${card.label} | Nirmalyam Krafts Pune`}
                         className="why-card-img"
                         style={{
                           width: '100%',
@@ -1106,7 +1167,7 @@ export default function Home() {
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }} className="anim-fade-up">
             <div className="section-label" style={{ letterSpacing: '0.2em' }}>Our Products</div>
-            <h2 className="section-title">Wholesale Kraft Packaging</h2>
+            <h2 className="section-title">Wholesale Kraft Paper Bags & Packaging</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', opacity: 0.85 }}>
               India's most budget-friendly, high-quality packaging options. Premium look, factory rates.
             </p>
@@ -1146,7 +1207,7 @@ export default function Home() {
                   borderBottom: `1px solid ${color}15`,
                   position: 'relative'
                 }}>
-                  <img src={image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }} className="prod-img" />
+                  <img src={image} alt={`${name} - Nirmalyam Krafts wholesale paper bags`} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }} className="prod-img" />
 
                   {/* WhatsApp Floating Button */}
                   <a
