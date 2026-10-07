@@ -121,8 +121,8 @@ export default function Sustainability() {
         <div className="nature-layer-leaf" style={{ opacity: 0.05 }} />
         <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '1440px' }}>
           <div style={{ textAlign: 'center', marginBottom: isMobile ? 64 : 100 }}>
-            <div className="section-label">Proven Impact</div>
-            <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>The Paper Advantage</h2>
+            <div className="section-label">Proven impact</div>
+            <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>The paper advantage</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '18px' : '20px', maxWidth: 800 }}>
               Why shifting to high-grade kraft paper is the single most effective brand move for the planet.
             </p>
@@ -198,14 +198,13 @@ export default function Sustainability() {
               color: '#dc2626',
               fontSize: 12,
               fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em',
+              letterSpacing: '0.05em',
               marginBottom: 16
             }}>
-              Switch to Paper Bags Today
+              Switch to paper bags today
             </div>
             <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>
-              Why We Are Shifting to Paper
+              Why we are shifting to paper
             </h2>
             <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '18px' : '20px', maxWidth: 800, color: 'var(--kraft-600)' }}>
               Single-use plastic bags are devasting our planet. Switching to recycled paper bags is a direct and simple way to end the plastic waste crisis.
@@ -236,7 +235,7 @@ export default function Sustainability() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <AlertCircle size={24} color="#ef4444" />
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>The Plastic Crisis</h3>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>The plastic crisis</h3>
               </div>
               <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.7, margin: 0 }}>
                 Globally, companies produce an estimated <strong>5 trillion plastic bags a year</strong>. Less than 9% are recycled. A single bag takes more than 1,000 years to decompose, breaking into toxic microplastics that contaminate soil and drinking water.
@@ -262,7 +261,7 @@ export default function Sustainability() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <ShieldCheck size={24} color="#3b82f6" />
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>Save Marine Life</h3>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>Save marine life</h3>
               </div>
               <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.7, margin: 0 }}>
                 Every year, about <strong>8 million metric tons of plastic litter</strong> ends up in our oceans. Marine animals, especially sea turtles, mistake plastic bags for food, resulting in ingestion, entanglement, suffocation, and systemic biodiversity damage.
@@ -298,15 +297,15 @@ export default function Sustainability() {
                   textAlign: 'center',
                   border: '1px dashed var(--eco-200)'
                 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--eco-700)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>Consumer Survey Fact</div>
-                  <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--eco-800)', lineHeight: 1.1 }}>No. 1 Choice</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--eco-700)', letterSpacing: '0.05em', marginBottom: 8 }}>Consumer survey fact</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--eco-800)', lineHeight: 1.1 }}>No. 1 choice</div>
                   <div style={{ fontSize: 13, color: 'var(--eco-600)', marginTop: 8, lineHeight: 1.4 }}>
                     Consumers ranked paper packaging as one of the most environmentally friendly choices.
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <Leaf size={24} color="#22c55e" />
-                  <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>Recycling Champion</h3>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--kraft-950)', margin: 0 }}>Recycling champion</h3>
                 </div>
                 <p style={{ fontSize: 15, color: 'var(--kraft-600)', lineHeight: 1.7, margin: 0 }}>
                   Paper boasts a recovery and recycling rate of over 68% in major global economies. Since paper bags are composed of bio-based circular fibers, they degrade naturally within 90 days, closing the zero-waste loop.

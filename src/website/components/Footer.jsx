@@ -123,7 +123,7 @@ export default function Footer() {
 
             {/* Newsletter */}
             <div>
-              <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: 'white' }}>Stay Updated</h4>
+              <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: 'white' }}>Stay updated</h4>
               <form onSubmit={handleSubscribe} style={{ position: 'relative', maxWidth: '100%' }}>
                 <div style={{
                   display: 'flex',
@@ -204,11 +204,11 @@ export default function Footer() {
             <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 30, color: 'white' }}>Company</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {[
-                { label: 'About Us', to: '/about' },
+                { label: 'About us', to: '/about' },
                 { label: 'Sustainability', to: '/sustainability' },
                 ...(CONFIG.SHOW_TESTIMONIALS ? [{ label: 'Testimonials', to: '/#testimonials' }] : []),
-                { label: 'Request a Quote', to: '/quote' },
-                { label: 'Contact Us', to: '/contact#contact-form' }
+                { label: 'Request a quote', to: '/quote' },
+                { label: 'Contact us', to: '/contact#contact-form' }
               ].map(link => (
                 <li key={link.label}>
                   <Link to={link.to} style={{

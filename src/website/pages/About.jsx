@@ -161,7 +161,7 @@ export default function About() {
                 borderColor: 'rgba(255,255,255,0.2)',
                 margin: isMobile || isTablet ? '0 auto 24px' : '0 0 24px'
               }}>
-                Established Excellence
+                Established excellence
               </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', serif",
@@ -173,7 +173,7 @@ export default function About() {
               }}>
                 About Nirmalyam Krafts<br />
                 <span style={{ color: '#4ade80', fontSize: '0.65em', display: 'block', marginTop: '12px' }}>
-                  Paper Bag Manufacturer in Pune, India
+                  Paper bag manufacturer in Pune, India
                 </span>
               </h1>
               <p style={{
@@ -268,16 +268,16 @@ export default function About() {
                   }}>
                     "Purity is not an objective, it is our origin."
                   </p>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--eco-400)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                    — The Nirmalyam Vow
+                  <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--eco-400)', letterSpacing: '0.08em' }}>
+                    — The Nirmalyam vow
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="anim-fade-up" style={{ order: isMobile || isTablet ? 0 : 1 }}>
-              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Our Philosophy</div>
-              <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 32 }}>Luxury through a <br /><span className="text-gradient">Green lens</span></h2>
+              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Our philosophy</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 32 }}>Luxury through a <br /><span className="text-gradient">green lens</span></h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 24 : 32 }}>
                 <p style={{ fontSize: isMobile ? 18 : 20, color: 'var(--kraft-900)', lineHeight: 1.8, fontWeight: 500 }}>
                   Founded on the Sanskrit principle of 'Nirmalyam'—the sacred purity of offerings—we began with a single mission: to infuse corporate gifting and retail with environmental integrity.
@@ -289,7 +289,7 @@ export default function About() {
                   <div style={{ width: 44, height: 44, background: 'var(--eco-50)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Check size={24} color="var(--eco-600)" />
                   </div>
-                  <span style={{ fontWeight: 700, color: 'var(--kraft-950)', fontSize: 18 }}>100% Plastic-Free Lifecycle</span>
+                  <span style={{ fontWeight: 700, color: 'var(--kraft-950)', fontSize: 18 }}>100% Plastic-free lifecycle</span>
                 </div>
               </div>
             </div>
@@ -308,7 +308,7 @@ export default function About() {
         <div style={{ padding: isMobile ? '0 var(--container-gutter)' : '0 40px' }}>
           <div style={{ textAlign: 'center', marginBottom: isMobile ? 48 : 80 }}>
             <div className="section-label" style={{ margin: '0 auto 12px' }}>Leadership</div>
-            <h2 className="section-title" style={{ fontSize: isMobile ? '38px' : '60px' }}>The Visionaries</h2>
+            <h2 className="section-title" style={{ fontSize: isMobile ? '38px' : '60px' }}>The visionaries</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '16px' : '19px', maxWidth: 800 }}>
               The architects driving Bharat's transition to circular packaging economies and sustainable enterprise leadership.
             </p>

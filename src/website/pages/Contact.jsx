@@ -451,10 +451,10 @@ export default function Contact() {
             <div className="section-label" style={{
               color: 'var(--eco-400)',
               marginBottom: 16,
-              letterSpacing: '0.3em',
+              letterSpacing: '0.1em',
               textShadow: '0 2px 4px rgba(0,0,0,0.3)'
             }}>
-              {isQuotePage ? 'Request For Quote (RFQ)' : 'Factory Direct Contact'}
+              {isQuotePage ? 'Request for quote (RFQ)' : 'Factory direct contact'}
             </div>
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
@@ -466,9 +466,9 @@ export default function Contact() {
               textShadow: '0 10px 30px rgba(0,0,0,0.5)'
             }}>
               {isQuotePage ? (
-                <>Request a Custom <br /><span style={{ color: '#4ade80' }}>Paper Bag Quote</span></>
+                <>Request a custom <br /><span style={{ color: '#4ade80' }}>paper bag quote</span></>
               ) : (
-                <>Contact Nirmalyam Krafts <br /><span style={{ color: '#4ade80' }}>Manufacturing Facility</span></>
+                <>Contact Nirmalyam Krafts <br /><span style={{ color: '#4ade80' }}>manufacturing facility</span></>
               )}
             </h1>
             <p style={{
@@ -793,7 +793,7 @@ export default function Contact() {
                   justifyContent: 'flex-end',
                   padding: isMobile ? 20 : 28
                 }}>
-                  <div style={{ color: 'var(--kraft-300)', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 11, marginBottom: 6 }}>Manufacturing Excellence</div>
+                  <div style={{ color: 'var(--kraft-300)', fontWeight: 700, letterSpacing: '0.1em', fontSize: 11, marginBottom: 6 }}>Manufacturing excellence</div>
                   <h3 style={{ color: 'white', fontSize: isMobile ? 16 : 19, fontWeight: 700, lineHeight: 1.3 }}>"We architect unboxing experiences that drive customer loyalty."</h3>
                 </div>
               </div>
@@ -916,11 +916,10 @@ export default function Contact() {
                   color: '#ef4444',
                   fontSize: 12,
                   fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.05em',
                   marginBottom: 16
                 }}>
-                  <MapPin size={14} /> Registered Facility
+                  <MapPin size={14} /> Registered facility
                 </div>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--kraft-950)', marginBottom: 8 }}>
                   Nirmalyam Krafts Pvt. Ltd.
@@ -931,15 +930,15 @@ export default function Contact() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--kraft-100)', paddingTop: 18 }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Operating Hours</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.05em', color: 'var(--kraft-400)', marginBottom: 4 }}>Operating hours</div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-900)' }}>Mon – Sat: 9:00 AM – 7:00 PM (IST)</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Phone Support</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.05em', color: 'var(--kraft-400)', marginBottom: 4 }}>Phone support</div>
                     <a href="tel:+918530669369" style={{ fontSize: 14, fontWeight: 600, color: 'var(--eco-700)', textDecoration: 'none' }}>+91 8530669369</a>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-400)', marginBottom: 4 }}>Direct Inquiries</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.05em', color: 'var(--kraft-400)', marginBottom: 4 }}>Direct inquiries</div>
                     <a href="mailto:Nirmalyamkrafts@gmail.com" style={{ fontSize: 14, fontWeight: 600, color: 'var(--kraft-800)', textDecoration: 'none' }}>Nirmalyamkrafts@gmail.com</a>
                   </div>
                 </div>

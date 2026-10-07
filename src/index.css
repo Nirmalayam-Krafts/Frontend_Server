@@ -317,7 +317,6 @@ h6 {
 .stat-label {
   font-size: 14px;
   color: var(--kraft-500);
-  text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 600;
 }
@@ -434,7 +433,6 @@ h6 {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 /* Primary button */
@@ -549,7 +547,6 @@ h6 {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.15em;
-  text-transform: uppercase;
   color: var(--eco-600);
   margin-bottom: 12px;
 }

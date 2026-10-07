@@ -323,12 +323,11 @@ export default function Home() {
                color: '#15803d',
                fontSize: 12,
                fontWeight: 700,
-               letterSpacing: '0.15em',
-               textTransform: 'uppercase',
+               letterSpacing: '0.05em',
                background: 'rgba(22, 163, 74, 0.08)',
                marginBottom: 24,
             }}>
-              <Leaf size={14} /> Wholesale Factory Rates
+              <Leaf size={14} /> Wholesale factory rates
             </div>
 
             <p className="hero-h2" style={{
@@ -338,7 +337,7 @@ export default function Home() {
               marginBottom: 8,
               lineHeight: 1.2
             }}>
-              Direct Paper Bag Manufacturer & Supplier in Pune
+              Direct paper bag manufacturer & supplier in Pune
             </p>
 
             <h1 className="hero-h1" style={{
@@ -349,7 +348,7 @@ export default function Home() {
               lineHeight: 1.05,
               letterSpacing: '-1px'
             }}>
-              Custom & Eco-Friendly Paper Bags — Nirmalyam Krafts
+              Custom & eco-friendly paper bags — Nirmalyam Krafts
             </h1>
 
             <p className="hero-subtitle" style={{
@@ -360,7 +359,7 @@ export default function Home() {
               maxWidth: 580
             }}>
               Elevating brands through sustainable craftsmanship. <br />
-              <span style={{ color: 'var(--eco-700)' }}>Factory Pricing. Unbeatable Savings. Zero-waste.</span>
+              <span style={{ color: 'var(--eco-700)' }}>Factory pricing, unbeatable savings, zero-waste.</span>
             </p>
 
             <p className="hero-description" style={{
@@ -422,7 +421,7 @@ export default function Home() {
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--kraft-400)'; e.currentTarget.style.background = 'var(--kraft-50)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--kraft-200)'; e.currentTarget.style.background = 'white'; }}
               >
-                Get a Quote
+                Get a quote
               </Link>
             </div>
           </div>
@@ -510,16 +509,15 @@ export default function Home() {
                   fontSize: isMobile ? '10px' : '12px',
                   fontWeight: 800,
                   color: '#7a4a1e',
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
                   opacity: 0.8
-                }}>AUTHENTIC</span>
+                }}>Authentic</span>
                 <span style={{
                   fontSize: isMobile ? '16px' : '22px',
                   fontWeight: 900,
                   color: '#1a1208',
                   fontFamily: "'Playfair Display', serif"
-                }}>MAKE IN INDIA</span>
+                }}>Make in India</span>
               </div>
             </motion.div>
 
@@ -554,16 +552,15 @@ export default function Home() {
                   fontSize: isMobile ? '10px' : '12px',
                   fontWeight: 800,
                   color: '#166534',
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
                   opacity: 0.8
-                }}>CIRCULAR</span>
+                }}>Circular</span>
                 <span style={{
                   fontSize: isMobile ? '16px' : '20px',
                   fontWeight: 900,
                   color: '#1a1208',
                   fontFamily: "'Playfair Display', serif"
-                }}>RECYCLE INDIA</span>
+                }}>Recycle India</span>
               </div>
             </motion.div>
 
@@ -601,16 +598,15 @@ export default function Home() {
                   fontSize: isMobile ? '10px' : '12px',
                   fontWeight: 800,
                   color: '#166534',
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
                   opacity: 0.8
-                }}>ECO-FRIENDLY</span>
+                }}>Eco-friendly</span>
                 <span style={{
                   fontSize: isMobile ? '16px' : '20px',
                   fontWeight: 900,
                   color: '#1a1208',
                   fontFamily: "'Playfair Display', serif"
-                }}>100% PLASTIC-FREE</span>
+                }}>100% Plastic-free</span>
               </div>
             </motion.div>
 
@@ -652,16 +648,15 @@ export default function Home() {
                     fontSize: isMobile ? '10px' : '12px',
                     fontWeight: 800,
                     color: '#8b5e34',
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
                     opacity: 0.8
-                  }}>REGION PRIDE</span>
+                  }}>Region pride</span>
                   <span style={{
                     fontSize: isMobile ? '16px' : '18px',
                     fontWeight: 900,
                     color: '#1a1208',
                     fontFamily: "'Playfair Display', serif"
-                  }}>BEST IN PUNE</span>
+                  }}>Best in Pune</span>
                 </div>
               </motion.div>
             </Link>
@@ -695,8 +690,8 @@ export default function Home() {
         <div className="nature-layer-leaf" style={{ zIndex: 1 }} />
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
-            <div className="section-label" style={{ fontSize: 13, letterSpacing: '0.2em' }}>Our Collections</div>
-            <h2 className="section-title" style={{ fontSize: 'clamp(40px, 7vw, 72px)', marginBottom: 24 }}>Custom Paper Bags & Packaging Collections</h2>
+            <div className="section-label" style={{ fontSize: 13, letterSpacing: '0.1em' }}>Our collections</div>
+            <h2 className="section-title" style={{ fontSize: 'clamp(40px, 7vw, 72px)', marginBottom: 24 }}>Custom paper bags & packaging collections</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', fontSize: 22, maxWidth: 750 }}>
               Discover our range of sustainable packaging solutions, meticulously manufactured in Pune to elevate your brand.
             </p>
@@ -817,8 +812,8 @@ export default function Home() {
               backdropFilter: 'blur(8px)'
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--eco-500)' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--eco-400)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                Why Choose Nirmalyam
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--eco-400)', letterSpacing: '0.06em' }}>
+                Why choose Nirmalyam
               </span>
             </div>
 
@@ -830,7 +825,7 @@ export default function Home() {
               fontWeight: 700,
               lineHeight: 1.1
             }}>
-              Why Choose Nirmalyam Krafts Paper Bags?
+              Why choose Nirmalyam Krafts paper bags?
             </h2>
 
             <p style={{
@@ -943,7 +938,6 @@ export default function Home() {
                       color: 'rgba(255,255,255,0.7)',
                       fontWeight: 600,
                       letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
                       lineHeight: 1.3
                     }}>
                       {card.label}
@@ -1129,8 +1123,8 @@ export default function Home() {
         {/* Subtle noise texture or pattern could go here */}
         <div className="container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 32 : 80, textAlign: isMobile ? 'center' : 'left' }}>
           <div style={{ maxWidth: 640 }}>
-            <div className="section-label" style={{ marginBottom: 12, fontSize: 12 }}>Behind the Scenes</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 28 : 36, color: 'var(--kraft-950)', marginBottom: 16, lineHeight: 1.2 }}>Craftsmanship at Scale</h3>
+            <div className="section-label" style={{ marginBottom: 12, fontSize: 12 }}>Behind the scenes</div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 28 : 36, color: 'var(--kraft-950)', marginBottom: 16, lineHeight: 1.2 }}>Craftsmanship at scale</h3>
             <p style={{ fontSize: isMobile ? 15 : 18, color: 'var(--kraft-600)', lineHeight: 1.7 }}>
               Discover the precision and passion that goes into every Nirmalyam product at our state-of-the-art facility. From raw fiber to finished perfection.
             </p>
@@ -1148,8 +1142,8 @@ export default function Home() {
         <div className="nature-layer-leaf" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }} className="anim-fade-up">
-            <div className="section-label" style={{ letterSpacing: '0.2em' }}>Our Products</div>
-            <h2 className="section-title">Wholesale Kraft Paper Bags & Packaging</h2>
+            <div className="section-label" style={{ letterSpacing: '0.1em' }}>Our products</div>
+            <h2 className="section-title">Wholesale kraft paper bags & packaging</h2>
             <p className="section-subtitle" style={{ margin: '0 auto', opacity: 0.85 }}>
               India's most budget-friendly, high-quality packaging options. Premium look, factory rates.
             </p>
@@ -1265,8 +1259,8 @@ export default function Home() {
         <div className="nature-layer-leaf" style={{ opacity: 0.1, zIndex: 2 }} />
         <div className="container" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 32 : 80, textAlign: isMobile ? 'center' : 'left', position: 'relative', zIndex: 3 }}>
           <div style={{ maxWidth: 700 }}>
-            <div className="section-label" style={{ marginBottom: 16, fontSize: 13, color: 'var(--eco-400)', letterSpacing: '0.2em' }}>Environmental Impact</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 32 : 48, color: 'white', marginBottom: 20, lineHeight: 1.1 }}>Pioneering a Circular Economy</h3>
+            <div className="section-label" style={{ marginBottom: 16, fontSize: 13, color: 'var(--eco-400)', letterSpacing: '0.1em' }}>Environmental impact</div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 32 : 48, color: 'white', marginBottom: 20, lineHeight: 1.1 }}>Pioneering a circular economy</h3>
             <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7, maxWidth: 600 }}>
               Our commitment to the planet goes beyond products. Explore how we're leading the waste-free transformation across India.
             </p>
@@ -1299,7 +1293,7 @@ export default function Home() {
             e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
           }}
           >
-            Our Sustainability <Leaf size={20} />
+            Our sustainability <Leaf size={20} />
           </Link>
         </div>
       </section>
@@ -1327,8 +1321,7 @@ export default function Home() {
             <div style={{ textAlign: 'center', marginBottom: 64 }}>
               <div className="section-label" style={{
                 color: 'var(--kraft-600)',
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
+                letterSpacing: '2px',
                 fontSize: '14px',
                 fontWeight: 800
               }}>
@@ -1341,7 +1334,7 @@ export default function Home() {
                 letterSpacing: '-1px',
                 marginBottom: 16
               }}>
-                The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>Legacy</span>
+                The Nirmalyam <span style={{ color: 'var(--eco-600)' }}>legacy</span>
               </h2>
               <div style={{
                 width: 80,
@@ -1566,7 +1559,7 @@ export default function Home() {
             padding: '8px 20px',
             fontSize: 14
           }}>
-            <Leaf size={14} /> Start Your Eco Journey
+            <Leaf size={14} /> Start your eco journey
           </div>
           <h2 style={{
             fontFamily: "'Playfair Display', serif",

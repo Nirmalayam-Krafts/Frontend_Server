@@ -115,7 +115,7 @@ export default function Products() {
                 textAlign: isMobile || isTablet ? 'center' : 'left',
                 width: '100%',
                 marginBottom: 16
-              }}>Our Collections</div>
+              }}>Our collections</div>
               <h1 style={{
                 fontFamily: "'Playfair Display', serif",
                 fontSize: 'clamp(32px, 8vw, 64px)',
@@ -126,8 +126,8 @@ export default function Products() {
                 textShadow: '0 4px 12px rgba(0,0,0,0.4)',
                 textAlign: isMobile || isTablet ? 'center' : 'left'
               }}>
-                Paper Bags & Packaging Collections<br />
-                <span style={{ color: '#4ade80' }}>Factory Wholesale Rates in Pune</span>
+                Paper bags & packaging collections<br />
+                <span style={{ color: '#4ade80' }}>Factory wholesale rates in Pune</span>
               </h1>
               <p style={{
                 fontSize: 'clamp(16px, 2vw, 19px)',
@@ -220,10 +220,9 @@ export default function Products() {
                     <span style={{
                       fontSize: isMobile ? 18 : 22,
                       fontWeight: 700,
-                      letterSpacing: '0.05em',
-                      textTransform: 'uppercase',
+                      letterSpacing: '0.02em',
                       color: 'white'
-                    }}>Get a Quote</span>
+                    }}>Get a quote</span>
                     <p style={{
                       fontSize: isMobile ? 12 : 14,
                       opacity: 0.8,
@@ -275,8 +274,7 @@ export default function Products() {
                       fontFamily: "'Inter', sans-serif",
                       fontSize: isMobile ? 11 : 14,
                       fontWeight: 700,
-                      letterSpacing: '0.25em',
-                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
                       color: cat.color,
                     }}>
                       {cat.subtitle}
@@ -288,9 +286,8 @@ export default function Products() {
                         fontSize: '10px',
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        fontWeight: 900,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
+                        fontWeight: 700,
+                        letterSpacing: '0.02em'
                       }}>
                         {cat.priceBadge}
                       </span>

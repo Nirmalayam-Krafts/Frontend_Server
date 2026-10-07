@@ -13,10 +13,10 @@ const navLinks = [
       { label: 'Kraft Paper Rolls', to: '/products/kraft-paper-rolls' },
     ],
   },
-  // { label: 'Design Your Product', to: '/design' },
+  // { label: 'Design your product', to: '/design' },
   { label: 'About', to: '/about' },
-  { label: 'Sustainable Solutions', to: '/sustainability' },
-  { label: 'Get Quote', to: '/quote' },
+  { label: 'Sustainable solutions', to: '/sustainability' },
+  { label: 'Get quote', to: '/quote' },
   { label: 'Contact', to: '/contact' },
 ];
 
@@ -276,7 +276,7 @@ export default function Navbar() {
                 transition: 'all 0.3s ease',
                 border: '2px solid rgba(255, 255, 255, 0.6)',
               }}>
-                Get a Quote
+                Get a quote
                 <ArrowRight size={16} />
               </Link>
             )}
@@ -466,7 +466,7 @@ export default function Navbar() {
                 border: '1px solid rgba(192, 148, 87, 0.3)',
               }}
             >
-              Get a Quote <ArrowRight size={18} />
+              Get a quote <ArrowRight size={18} />
             </Link>
           </div>
         </div>
