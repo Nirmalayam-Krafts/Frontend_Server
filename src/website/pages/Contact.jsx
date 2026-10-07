@@ -543,7 +543,7 @@ export default function Contact() {
                   <Icon size={28} color={color} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color, marginBottom: 8 }}>{title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color, marginBottom: 8 }}>{title}</div>
                   <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--kraft-900)', marginBottom: 4 }}>{value}</div>
                   <div style={{ fontSize: 13, color: 'var(--kraft-500)', lineHeight: 1.5 }}>{sub}</div>
                 </div>
@@ -592,11 +592,11 @@ export default function Contact() {
                     }}>
                       <Check size={40} color="white" />
                     </div>
-                    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--kraft-950)', marginBottom: 16 }}>Message Sent</h2>
+                    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--kraft-950)', marginBottom: 16 }}>Message sent</h2>
                     <p style={{ color: 'var(--kraft-600)', fontSize: 18, marginBottom: 40, lineHeight: 1.6 }}>
                       Thank you for choosing Nirmalyam. We will review your specifications and reach out as soon as possible.
                     </p>
-                    <button onClick={handleReset} className="btn-primary" style={{ margin: '0 auto' }}>Send Another Inquiry</button>
+                    <button onClick={handleReset} className="btn-primary" style={{ margin: '0 auto' }}>Send another inquiry</button>
                   </div>
                 ) : (
                   <>
@@ -608,7 +608,7 @@ export default function Contact() {
                         marginBottom: 12,
                         letterSpacing: '-0.02em'
                       }}>
-                        Get Custom Pricing
+                        Get custom pricing
                       </h2>
                       <p style={{ fontSize: 16, color: 'var(--kraft-500)', maxWidth: 450, lineHeight: 1.6 }}>
                         Tell us your brand requirements and we will provide a custom direct factory quotation.
@@ -729,7 +729,7 @@ export default function Contact() {
                         <label className="input-label">Details</label>
                         <textarea className={getFieldClassName('requirement')} name="requirement" placeholder="Share specific dimensions, colors, or timeline needs..." value={form.requirement} onChange={handleChange} rows={4} style={{ minHeight: 140, resize: 'none', padding: '16px' }} aria-invalid={Boolean(errors.requirement)} />
                         {touched.requirement && errors.requirement && <span className="input-error">{errors.requirement}</span>}
-                        {!errors.requirement && <span className="input-helper">Example: need 2,000 custom printed kraft bags with company logo for a July launch.</span>}
+                        {!errors.requirement && <span className="input-helper">Example: Need 2,000 custom printed kraft bags with company logo for a July launch.</span>}
                       </div>
 
                       <button type="submit" disabled={loading} style={{
@@ -762,7 +762,7 @@ export default function Contact() {
                           e.currentTarget.style.boxShadow = '0 15px 30px rgba(26, 18, 8, 0.15)';
                         }}
                       >
-                        {loading ? 'Processing Your Request...' : 'Submit Inquiry'} <Send size={20} />
+                        {loading ? 'Processing your request...' : 'Submit inquiry'} <Send size={20} />
                       </button>
                     </form>
                   </>
@@ -873,7 +873,7 @@ export default function Contact() {
       <section id="facility-map" className="section-padding nature-section" style={{ background: 'white', borderTop: '1px solid var(--kraft-100)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: 48 }} className="anim-fade-up">
-            <div className="section-label" style={{ marginBottom: 12 }}>Our Manufacturing & Logistics Hub</div>
+            <div className="section-label" style={{ marginBottom: 12 }}>Our manufacturing & logistics hub</div>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 32 : 44, color: 'var(--kraft-950)', marginBottom: 16 }}>
               Visit Nirmalyam Krafts
             </h2>
@@ -990,7 +990,7 @@ export default function Contact() {
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,211,102,0.18)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'rgba(37,211,102,0.1)'}
                 >
-                  <MessageCircle size={16} /> Schedule a Facility Visit
+                  <MessageCircle size={16} /> Schedule a facility visit
                 </a>
               </div>
             </div>
@@ -1023,7 +1023,7 @@ export default function Contact() {
         <div className="container" style={{ maxWidth: 900 }}>
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
             <div className="section-label" style={{ marginBottom: 16 }}>Concierge</div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 36 : 48, color: 'var(--kraft-950)', marginBottom: 20 }}>Tailored Solutions FAQ</h2>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 36 : 48, color: 'var(--kraft-950)', marginBottom: 20 }}>Tailored solutions FAQ</h2>
             <p style={{ color: 'var(--kraft-500)', fontSize: 18 }}>Everything you need to know about starting your sustainable journey.</p>
           </div>
 

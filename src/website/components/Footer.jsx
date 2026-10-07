@@ -299,7 +299,7 @@ export default function Footer() {
               Nirmalyamkrafts@gmail.com
             </a>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
-              Quick & Reliable Support
+              Quick & reliable support
             </div>
           </div>
         </div>

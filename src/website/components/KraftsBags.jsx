@@ -5,19 +5,19 @@ const bags = [
   {
     id: 1,
     image: '/images/new/ECO.webp',
-    title: 'Sustainable Packaging',
+    title: 'Sustainable packaging',
     color: '#eab308'
   },
   {
     id: 2,
     image: 'images/new/HERO1.webp',
-    title: 'Premium Quality',
+    title: 'Premium quality',
     color: '#c09457'
   },
   {
     id: 3,
     image: 'images/newGen/BOTTOMvF.jpeg',
-    title: 'Eco Friendly',
+    title: 'Eco-friendly',
     color: '#16a34a'
   }
 ];

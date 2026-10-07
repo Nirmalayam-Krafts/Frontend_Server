@@ -41,7 +41,7 @@ export default function DesignYourProduct() {
       {/* Hero */}
       <div className="page-hero">
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="section-label" style={{ color: 'var(--eco-400)' }}>3D Configurator</div>
+          <div className="section-label" style={{ color: 'var(--eco-400)' }}>3D configurator</div>
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: 'clamp(36px, 6vw, 68px)',
@@ -49,7 +49,7 @@ export default function DesignYourProduct() {
             fontWeight: 600,
             marginBottom: 18,
           }}>
-            Design Your Product
+            Design your product
           </h1>
           <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.72)', maxWidth: 560, lineHeight: 1.65 }}>
             Fully interactive configurator. Customize your bag design and view in real-time before placing your order.
@@ -73,16 +73,16 @@ export default function DesignYourProduct() {
           }}>
             <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--kraft-100)', background: 'var(--kraft-50)' }}>
               <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--eco-600)', fontWeight: 700, marginBottom: 4 }}>
-                Bag Design
+                Bag design
               </div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--kraft-900)' }}>Real-time 3D Rendering</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--kraft-900)' }}>Real-time 3D rendering</div>
             </div>
 
             <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
               {/* Bag Type */}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 12 }}>Bag Type</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 12 }}>Bag type</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {bagTypes.map(b => (
                     <button key={b.id}
@@ -112,7 +112,7 @@ export default function DesignYourProduct() {
 
               {/* Size Scale */}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 8 }}>Size Scale</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 8 }}>Size scale</div>
                 <input type="range" min={70} max={130} defaultValue={100}
                   style={{ width: '100%', accentColor: 'var(--eco-600)' }}
                 />
@@ -123,7 +123,7 @@ export default function DesignYourProduct() {
 
               {/* Material Color */}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 10 }}>Material Color</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 10 }}>Material color</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {colorOptions.map(c => (
                     <button key={c.hex}
@@ -151,7 +151,7 @@ export default function DesignYourProduct() {
 
               {/* Handle Type */}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 8 }}>Handle Type</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 8 }}>Handle type</div>
                 <select
                   value={handle}
                   onChange={e => setHandle(e.target.value)}
@@ -165,7 +165,7 @@ export default function DesignYourProduct() {
               {/* Branding */}
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--kraft-600)', marginBottom: 8 }}>
-                  Branding Text
+                  Branding text
                 </div>
                 <input
                   type="text"
@@ -254,7 +254,7 @@ export default function DesignYourProduct() {
                 color: 'var(--kraft-700)',
                 backdropFilter: 'blur(8px)',
               }}>
-                <Eye size={13} /> Live Preview
+                <Eye size={13} /> Live preview
               </div>
             </div>
 
@@ -278,7 +278,7 @@ export default function DesignYourProduct() {
                 <Leaf size={20} color="var(--eco-600)" />
               </div>
               <div>
-                <h4 style={{ fontWeight: 600, fontSize: 15, color: 'var(--kraft-900)', marginBottom: 4 }}>View in Real Environment</h4>
+                <h4 style={{ fontWeight: 600, fontSize: 15, color: 'var(--kraft-900)', marginBottom: 4 }}>View in real environment</h4>
                 <p style={{ fontSize: 13, color: 'var(--kraft-500)', lineHeight: 1.6 }}>
                   Our full 3D configurator with realistic lighting is coming soon. For now, design your bag above and submit a quote request — our team will send you physical sample renders within 48 hours.
                 </p>
@@ -288,10 +288,10 @@ export default function DesignYourProduct() {
             {/* CTA */}
             <div className="configurator-actions" style={{ display: 'flex', gap: 14 }}>
               <Link to="/contact#contact-channels" className="btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '15px' }}>
-                <span>Request Sample with This Design</span>
+                <span>Request sample with this design</span>
               </Link>
               <Link to="/contact#contact-channels" className="btn-secondary" style={{ padding: '15px 24px' }}>
-                <Palette size={16} /> Custom Colors
+                <Palette size={16} /> Custom colors
               </Link>
             </div>
           </div>

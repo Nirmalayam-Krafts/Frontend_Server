@@ -89,7 +89,7 @@ export default function ShippingTerms() {
         <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '1440px' }}>
           <div className="anim-fade-up" style={{ textAlign: 'center', maxWidth: 800, margin: '0 auto' }}>
             <div className="eco-badge" style={{ marginBottom: 24, background: 'rgba(192,148,87,0.2)', color: 'var(--kraft-100)', borderColor: 'rgba(255,255,255,0.2)', margin: '0 auto 24px' }}>
-              <Truck size={14} /> Reliable Delivery
+              <Truck size={14} /> Reliable delivery
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(36px, 6vw, 72px)', color: 'white', fontWeight: 600, marginBottom: 24, lineHeight: 1.1 }}>
               Shipping <span style={{ color: 'var(--kraft-300)' }}>Terms</span>
@@ -128,7 +128,7 @@ export default function ShippingTerms() {
       <section>
         <div className="container" style={{ maxWidth: '1440px' }}>
           <div className="glass-card anim-fade-up" style={{ padding: isMobile ? '28px 24px' : '40px 48px', borderRadius: 'var(--radius-xl)', maxWidth: 900, margin: '0 auto', background: 'rgba(255,255,255,0.85)', border: '1px solid var(--kraft-200)' }}>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 20 : 24, color: 'var(--kraft-950)', marginBottom: 20, fontWeight: 700 }}>Quick Navigation</h3>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 20 : 24, color: 'var(--kraft-950)', marginBottom: 20, fontWeight: 700 }}>Quick navigation</h3>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 12 }}>
               {tocItems.map((item, idx) => (
                 <button key={item.id} onClick={() => scrollToSection(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: 'var(--kraft-50)', border: '1px solid var(--kraft-100)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.3s ease', textAlign: 'left', fontFamily: "'Inter', sans-serif", fontSize: 15, color: 'var(--kraft-800)', fontWeight: 600 }}

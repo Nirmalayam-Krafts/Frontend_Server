@@ -424,7 +424,7 @@ export default function ProductCategory() {
             <img src={data.image} alt={data.title} style={{ width: '85%', height: '85%', objectFit: 'contain' }} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, color: data.color, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Min Order: {data.minOrder}</div>
+            <div style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, color: data.color, letterSpacing: '0.05em' }}>Min order: {data.minOrder}</div>
             <div style={{ fontSize: isMobile ? 15 : 20, fontWeight: 800, color: 'var(--kraft-950)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.title}</div>
           </div>
         </div>
@@ -448,7 +448,7 @@ export default function ProductCategory() {
           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
         >
-          {isMobile ? 'Request Quote' : 'Request Wholesale Quote'} <ArrowRight size={18} />
+          {isMobile ? 'Request quote' : 'Request wholesale quote'} <ArrowRight size={18} />
         </Link>
       </div>
 
@@ -514,11 +514,11 @@ export default function ProductCategory() {
             {/* Info Section */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ background: `${data.color}20`, color: data.color, padding: '6px 14px', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
-                  MIN ORDER: {data.minOrder}
+                <div style={{ background: `${data.color}20`, color: data.color, padding: '6px 14px', borderRadius: 'var(--radius-full)', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+                  Min order: {data.minOrder}
                 </div>
-                <div style={{ background: '#1F4013', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em' }}>
-                  SUSTAINABLE PACKAGING
+                <div style={{ background: '#1F4013', padding: '6px 14px', borderRadius: 'var(--radius-full)', color: 'white', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+                  Sustainable packaging
                 </div>
               </div>
               
@@ -552,7 +552,7 @@ export default function ProductCategory() {
                 onMouseEnter={e => e.currentTarget.style.background = '#000'}
                 onMouseLeave={e => e.currentTarget.style.background = 'var(--kraft-950)'}
                 >
-                   Get Wholesale Price <ArrowRight size={20} />
+                    Get wholesale price <ArrowRight size={20} />
                 </Link>
                 <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ 
                   flex: 1, 
@@ -574,7 +574,7 @@ export default function ProductCategory() {
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--kraft-50)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'white'}
                 >
-                  <Phone size={20} /> Inquire WhatsApp
+                  <Phone size={20} /> Inquire on WhatsApp
                 </a>
               </div>
 
@@ -592,7 +592,7 @@ export default function ProductCategory() {
 
               {/* Specifications Table */}
               <div style={{ background: 'white', borderRadius: '24px', padding: isMobile ? '24px' : '36px', border: '1px solid var(--kraft-200)' }}>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--kraft-950)', marginBottom: 20 }}>Technical Specifications</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--kraft-950)', marginBottom: 20 }}>Technical specifications</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 16 }} className="specs-grid">
                   {data.specs.map((spec, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--kraft-100)' }}>
@@ -657,7 +657,7 @@ export default function ProductCategory() {
                       transform: 'translateY(20px)',
                       transition: 'transform 0.3s ease'
                     }}>
-                      Get a Quote
+                      Get a quote
                     </Link>
                   </div>
                 </div>
@@ -674,8 +674,8 @@ export default function ProductCategory() {
         <section className="section-padding" style={{ background: 'var(--kraft-50)', borderBottom: '1px solid var(--kraft-200)' }}>
           <div className="container" style={{ maxWidth: 840 }}>
             <div style={{ textAlign: 'center', marginBottom: 40 }}>
-              <div className="section-label" style={{ fontSize: 12, letterSpacing: '0.2em' }}>Frequently Asked Questions</div>
-              <h2 className="section-title" style={{ fontSize: isMobile ? 26 : 36 }}>Common Questions about {data.title}</h2>
+              <div className="section-label" style={{ fontSize: 12, letterSpacing: '0.1em' }}>Frequently asked questions</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? 26 : 36 }}>Common questions about {data.title}</h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {data.faqs.map((faq, idx) => (
@@ -711,7 +711,7 @@ export default function ProductCategory() {
             <Leaf size={isMobile ? 48 : 64} color="var(--eco-500)" style={{ marginBottom: 32, opacity: 0.8 }} />
 
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 56px)', marginBottom: 24, position: 'relative', lineHeight: 1.1 }}>
-              Elevate Your Packaging<br/>Experience Today
+              Elevate your packaging<br/>experience today
             </h2>
             <p style={{ fontSize: isMobile ? 16 : 20, color: 'rgba(255,255,255,0.7)', maxWidth: 700, margin: '0 auto 48px', position: 'relative', lineHeight: 1.6 }}>
               Join hundreds of retail, food, and e-commerce brands that trust Nirmalyam Krafts for premium, eco-friendly sustainable packaging solutions in Pune, India.
@@ -740,7 +740,7 @@ export default function ProductCategory() {
                 gap: 10,
                 border: '2px solid rgba(255,255,255,0.4)',
               }}>
-                <Phone size={20} fill="white" /> Wholesale Inquiry
+                <Phone size={20} fill="white" /> Wholesale inquiry
               </a>
               <Link to="/quote" style={{
                 padding: '18px 32px',
@@ -758,7 +758,7 @@ export default function ProductCategory() {
                 justifyContent: 'center',
                 gap: 10
               }}>
-                <Zap size={20} /> Request Custom Quote
+                <Zap size={20} /> Request custom quote
               </Link>
             </div>
           </div>

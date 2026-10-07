@@ -34,7 +34,7 @@ export default function NotFound() {
           color: 'var(--kraft-900)',
           marginBottom: 14,
         }}>
-          Lost in the Woods?
+          Lost in the woods?
         </h1>
         <p style={{ fontSize: 16, color: 'var(--kraft-500)', maxWidth: 400, margin: '0 auto 36px', lineHeight: 1.65 }}>
           The page you're looking for seems to have biodegraded or moved.
@@ -42,7 +42,7 @@ export default function NotFound() {
         </p>
         <Link to="/" className="btn-primary" style={{ padding: '14px 36px', fontSize: 15 }}>
           <ArrowLeft size={16} />
-          <span>Back to Home</span>
+          <span>Back to home</span>
         </Link>
       </div>
     </div>

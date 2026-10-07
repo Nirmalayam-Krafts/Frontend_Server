@@ -31,7 +31,7 @@ export default function PagePopup({ pageType = 'home' }) {
   // Define popup content based on page type with layout type
   const popupConfigs = {
     home: {
-      title: 'Get Your Custom Quote',
+      title: 'Get your custom quote',
       message: "Let's discuss your sustainable packaging needs. Chat with us on WhatsApp!",
       image: '/images/generated/popup_bags_branded_new.webp',
       accentColor: '#c09457',
@@ -39,7 +39,7 @@ export default function PagePopup({ pageType = 'home' }) {
       layout: 'corner_bubble',
     },
     products: {
-      title: 'Explore Our Collections',
+      title: 'Explore our collections',
       message: 'Discover the perfect eco-friendly packaging for your brand. Chat with our team!',
       image: '/images/newGen/BOTTOMV.jpeg',
       accentColor: '#4ade80',
@@ -47,7 +47,7 @@ export default function PagePopup({ pageType = 'home' }) {
       layout: 'bottom_floating_bar',
     },
     about: {
-      title: 'Learn Our Story',
+      title: 'Learn our story',
       message: "Passionate about sustainable manufacturing? Let's connect and share our journey.",
       image: '/images/generated/about_hero_wood.webp',
       accentColor: '#22c55e',
@@ -55,7 +55,7 @@ export default function PagePopup({ pageType = 'home' }) {
       layout: 'left_slide_panel',
     },
     contact: {
-      title: 'Reach Out Today',
+      title: 'Reach out today',
       message: 'Questions about our services? Chat directly with our team on WhatsApp!',
       image: '/images/generated/contact_bg.png',
       accentColor: '#c09457',
@@ -63,7 +63,7 @@ export default function PagePopup({ pageType = 'home' }) {
       layout: 'system_notification',
     },
     sustainability: {
-      title: 'Go Green Together',
+      title: 'Go green together',
       message: "Ready to eliminate plastic waste? Let's create a sustainable solution for you.",
       image: '/images/eco_cta_bg.webp',
       accentColor: '#22c55e',
@@ -71,7 +71,7 @@ export default function PagePopup({ pageType = 'home' }) {
       layout: 'organic_corner_card',
     },
     designyourproduct: {
-      title: 'Design Your Perfect Pack',
+      title: 'Design your perfect pack',
       message: "Our designers are ready to bring your vision to life. Let's chat!",
       image: '/images/generated/design_bg.png',
       accentColor: '#c09457',
@@ -423,7 +423,7 @@ export default function PagePopup({ pageType = 'home' }) {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <WhatsAppIcon size={isMobile ? 12 : 14} /> Chat Now
+              <WhatsAppIcon size={isMobile ? 12 : 14} /> Chat now
             </a>
             <button
               onClick={handleClose}
@@ -595,7 +595,7 @@ export default function PagePopup({ pageType = 'home' }) {
               e.currentTarget.style.boxShadow = '0 4px 10px rgba(37, 211, 102, 0.15)';
             }}
           >
-            <WhatsAppIcon size={16} /> Contact Our Team
+            <WhatsAppIcon size={16} /> Contact our team
           </a>
         </div>
 
@@ -884,7 +884,7 @@ export default function PagePopup({ pageType = 'home' }) {
               e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 255, 255, 0.15)';
             }}
           >
-            <WhatsAppIcon size={16} /> Go Green Now
+            <WhatsAppIcon size={16} /> Go green now
           </a>
         </div>
 
@@ -1042,7 +1042,7 @@ export default function PagePopup({ pageType = 'home' }) {
                 e.currentTarget.style.boxShadow = '0 4px 12px rgba(192, 148, 87, 0.2)';
               }}
             >
-              <WhatsAppIcon size={16} /> Start Designing
+              <WhatsAppIcon size={16} /> Start designing
             </a>
           </div>
         </div>

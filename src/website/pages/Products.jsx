@@ -9,32 +9,32 @@ const categories = [
   {
     id: 'food-bakery-bags',
     title: 'Food & Bakery Paper Bags',
-    subtitle: 'Safe for Food, Kind to Earth',
+    subtitle: 'Safe for food, kind to Earth',
     description: 'Specialized grease-resistant, oil-proof and moisture-controlled packaging for cafes, bakeries, cloud kitchens, and takeaway food brands. Certified food-grade kraft paper.',
     image: '/images/newGen/bottomVFB.jpeg',
     videoStill: '/images/generated/video_fnb.webp',
     color: '#f59e0b',
-    features: ['100% Food-Grade Paper', 'Oil & Grease Resistant', 'Certified Food Safe']
+    features: ['100% food-grade paper', 'Oil & grease resistant', 'Certified food-safe']
   },
   {
     id: 'ecocraft',
     title: 'EcoCraft Paper Bags',
-    subtitle: 'Sustainable Everyday Packaging',
+    subtitle: 'Sustainable everyday packaging',
     description: 'Our flagship line of high-strength kraft paper bags. Perfect for retail, pharmacies, supermarkets, and eco-conscious brands looking for durability and zero plastic.',
     image: '/images/newGen/BOTTOMV.jpeg',
     videoStill: '/images/generated/video_ecocraft.webp',
     color: '#16a34a',
-    features: ['60 - 140 GSM Kraft', 'Square & V-Bottom Options', '100% Recyclable & Biodegradable']
+    features: ['60 – 140 GSM kraft', 'Square & V-bottom options', '100% recyclable & biodegradable']
   },
   {
     id: 'kraft-paper-rolls',
     title: 'Kraft Paper Rolls',
-    subtitle: 'Industrial Packaging & Corrugation',
+    subtitle: 'Industrial packaging & corrugation',
     description: 'Premium brown and white industrial kraft rolls designed for superior surface protection, void filling, and corrugation conversion. Available in custom GSM and BF factors.',
     image: '/images/new/KraftRoll_New.webp',
     videoStill: '/images/new/KraftRoll_New.webp',
     color: '#8b5e34',
-    features: ['High-GSM Virgin & Semi-Virgin', 'Custom Reel Diameters', 'Tear & Puncture Resistant']
+    features: ['High-GSM virgin & semi-virgin', 'Custom reel diameters', 'Tear & puncture resistant']
   }
 ];
 
@@ -352,7 +352,7 @@ export default function Products() {
                         boxShadow: '0 15px 30px rgba(0,0,0,0.1)'
                       }}
                     >
-                      <span>Explore Collection</span>
+                      <span>Explore collection</span>
                       <ArrowRight size={isMobile ? 16 : 22} />
                     </Link>
                   </div>
@@ -388,22 +388,22 @@ export default function Products() {
               <div style={{ width: isMobile ? 40 : 64, height: isMobile ? 40 : 64, background: 'rgba(255,255,255,0.05)', borderRadius: isMobile ? 12 : 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                 <Zap size={isMobile ? 18 : 28} color="var(--eco-400)" />
               </div>
-              <h3 style={{ fontSize: isMobile ? 12 : 20, fontWeight: 600, marginBottom: isMobile ? 4 : 12 }}>Bulk Manufacturing</h3>
+              <h3 style={{ fontSize: isMobile ? 12 : 20, fontWeight: 600, marginBottom: isMobile ? 4 : 12 }}>Bulk manufacturing</h3>
               <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 14 }}>Capacity to produce 100k+ bags per month.</p>
             </div>
             <div style={{ textAlign: 'center', padding: isMobile ? '0 4px' : '0' }}>
               <div style={{ width: isMobile ? 40 : 64, height: isMobile ? 40 : 64, background: 'rgba(255,255,255,0.05)', borderRadius: isMobile ? 12 : 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                 <Globe size={isMobile ? 18 : 28} color="var(--eco-400)" />
               </div>
-              <h3 style={{ fontSize: isMobile ? 12 : 20, fontWeight: 600, marginBottom: isMobile ? 4 : 12 }}>PAN India Delivery</h3>
+              <h3 style={{ fontSize: isMobile ? 12 : 20, fontWeight: 600, marginBottom: isMobile ? 4 : 12 }}>Pan-India delivery</h3>
               <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 14 }}>Zero-plastic packaging anywhere in India.</p>
             </div>
             <div style={{ textAlign: 'center', padding: isMobile ? '0 4px' : '0', gridColumn: 'auto' }}>
               <div style={{ width: isMobile ? 40 : 64, height: isMobile ? 40 : 64, background: 'rgba(255,255,255,0.05)', borderRadius: isMobile ? 12 : 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                 <ShieldCheck size={isMobile ? 18 : 28} color="var(--eco-400)" />
               </div>
-              <h3 style={{ fontSize: isMobile ? 12 : 20, fontWeight: 600, marginBottom: isMobile ? 4 : 12 }}>Quality Assured</h3>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 14 }}>FSC certified papers and soy-based inks.</p>
+              <h3 style={{ fontSize: isMobile ? 12 : 20, fontWeight: 600, marginBottom: isMobile ? 4 : 12 }}>Quality assured</h3>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 14 }}>FSC-certified papers and soy-based inks.</p>
             </div>
           </div>
         </div>

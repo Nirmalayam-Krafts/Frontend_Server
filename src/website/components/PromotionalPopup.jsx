@@ -228,7 +228,7 @@ export default function PromotionalPopup() {
               color: 'var(--kraft-950, #1a1208)',
               marginBottom: '12px'
             }}>
-              Inquiry Received!
+              Inquiry received!
             </h3>
             <p style={{
               fontSize: '15px',
@@ -255,7 +255,7 @@ export default function PromotionalPopup() {
               onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
               onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
             >
-              Continue Browsing
+              Continue browsing
             </button>
           </div>
         ) : (
@@ -271,7 +271,7 @@ export default function PromotionalPopup() {
             }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--eco-600, #16a34a)' }} />
               <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--eco-700, #15803d)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Exclusive Offer
+                Exclusive offer
               </span>
             </div>
 
@@ -283,7 +283,7 @@ export default function PromotionalPopup() {
               lineHeight: 1.2,
               marginBottom: '10px'
             }}>
-              Unlock Premium Eco-Packaging
+              Unlock premium eco-packaging
             </h3>
             
             <p style={{
@@ -322,7 +322,7 @@ export default function PromotionalPopup() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Full Name"
+                  placeholder="Full name"
                   required
                   style={{
                     width: '100%',
@@ -354,7 +354,7 @@ export default function PromotionalPopup() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Corporate Email"
+                  placeholder="Corporate email"
                   required
                   style={{
                     width: '100%',
@@ -386,7 +386,7 @@ export default function PromotionalPopup() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="Contact Number (digits only)"
+                  placeholder="Contact number (digits only)"
                   required
                   maxLength={15}
                   inputMode="numeric"
@@ -445,7 +445,7 @@ export default function PromotionalPopup() {
                   e.currentTarget.style.boxShadow = '0 8px 16px rgba(26, 18, 8, 0.15)';
                 }}
               >
-                {loading ? 'Securing Offer...' : 'Get My 10% Discount'}
+                {loading ? 'Securing offer...' : 'Get my 10% discount'}
                 <Send size={16} />
               </button>
             </form>

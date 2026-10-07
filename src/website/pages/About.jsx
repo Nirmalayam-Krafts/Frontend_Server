@@ -15,9 +15,9 @@ const Linkedin = ({ size = 20 }) => (
 
 /* ── Values ── */
 const values = [
-  { icon: Leaf, title: 'Artisanal Craft', desc: 'Each fold and crease is meticulously inspected by our artisans, ensuring a flawless finish for high-end retail.' },
-  { icon: Globe, title: 'Earth-First Ethos', desc: 'Sourcing FSC-certified papers, soy-based inks, and organic adhesives to maintain a zero-toxicity production loop.' },
-  { icon: Users, title: 'Partner Centric', desc: 'We don\'t just supply bags; we partner with your brand to conceptualize structural packaging that elevates your unboxing experience.' },
+  { icon: Leaf, title: 'Artisanal craft', desc: 'Each fold and crease is meticulously inspected by our artisans, ensuring a flawless finish for high-end retail.' },
+  { icon: Globe, title: 'Earth-first ethos', desc: 'Sourcing FSC-certified papers, soy-based inks, and organic adhesives to maintain a zero-toxicity production loop.' },
+  { icon: Users, title: 'Partner centric', desc: 'We don\'t just supply bags; we partner with your brand to conceptualize structural packaging that elevates your unboxing experience.' },
 ];
 
 /* ── Visionaries ── */
@@ -28,12 +28,12 @@ const visionaries = [
     image: '/images/founders/mahesh_nair.jpg',
     linkedin: 'https://www.linkedin.com/in/mahesh-nair-8334aa107?utm_source=share_via&utm_content=profile&utm_medium=member_android',
     paragraphs: [
-      'Mahesh Nair is the Co Founder and Director at Nirmalyam Krafts Pvt Ltd.',
-      'Before starting Nirmalyam Krafts, Mahesh Nair worked as a distinguished HR leader with over two decades of expertise in steering transformative business initiatives, talent management, and enterprise integration. He has a rare blend of visionary strategy and empathetic leadership.',
-      'Throughout his illustrious career spanning leadership roles at Cleareye.ai, Atos & Mphasis he has successfully spearheaded large-scale location consolidations, engineered company-wide competency frameworks, and championed employee-first cultures. At Nirmalyam Krafts, Mahesh champions operational excellence, bridging human potential with business objectives to cultivate a resilient, high-performing workforce poised for sustainable success.',
+      'Mahesh Nair is the Co-Founder and Director at Nirmalyam Krafts Pvt. Ltd.',
+      'Before starting Nirmalyam Krafts, Mahesh Nair worked as a distinguished HR leader with over two decades of expertise in steering transformative business initiatives, talent management, and enterprise integration. He brings a rare blend of visionary strategy and empathetic leadership.',
+      'Throughout his illustrious career spanning leadership roles at Cleareye.ai, Atos, and Mphasis, he has successfully spearheaded large-scale location consolidations, engineered company-wide competency frameworks, and championed employee-first cultures. At Nirmalyam Krafts, Mahesh champions operational excellence, bridging human potential with business objectives to cultivate a resilient, high-performing workforce poised for sustainable success.',
       'Mahesh deeply aligns his vision with eco-conscious stewardship, championing environmental sustainability and green manufacturing practices to protect our planet while driving enduring, responsible business success.',
-      'Mahesh is a Post Graduate in Business Management from SIBM and also an alumnus of Cambridge University Global Talent program.',
-      'He is settled in Pune, Maharashtra where he lives with his wife and daughter.'
+      'Mahesh holds a Postgraduate Degree in Business Management from SIBM and is also an alumnus of the Cambridge University Global Talent program.',
+      'He is settled in Pune, Maharashtra, where he lives with his wife and daughter.'
     ]
   },
   {
@@ -44,17 +44,17 @@ const visionaries = [
     paragraphs: [
       'Satish Nair is the Co-Founder and Director of Nirmalyam Krafts Pvt. Ltd., driven by an entrepreneurial vision and a strong foundation in business operations and management.',
       'His experience with Kapstone Cybersecurity, Mphasis, and NECC Logistics has given him valuable expertise in logistics, administration, and project management, shaping his practical and results-oriented approach to business. He now brings this experience to building and growing Nirmalyam Krafts, with a focus on sustainable business development, innovation, and long-term value creation.',
-      'Born and raised in Pune, Satish comes from a small, close-knit family and holds a B.Com degree. He is married and settled in Pune with his wife and daughter. He values family, continuous learning, and personal growth, and believes in embracing new opportunities and challenges.'
+      'Born and raised in Pune, Satish comes from a close-knit family and holds a B.Com degree. He is married and settled in Pune with his wife and daughter. He values family, continuous learning, and personal growth, and believes in embracing new opportunities and challenges.'
     ]
   }
 ];
 
 /* ── Quality pillars ── */
 const qualityPillars = [
-  { icon: Award, title: 'Consistent Quality', desc: 'ISO-grade quality checks from paper thickness tolerance to handle tensile strength.' },
-  { icon: Heart, title: 'Precision Branding', desc: 'Your Pantone colors are replicated with minimal variance across our automated die-cut offset machines.' },
-  { icon: Leaf, title: 'Reliable Timelines', desc: 'Our robust production pipeline ensures you receive your packaging exactly when promised.' },
-  { icon: Globe, title: 'Wholesale Economics', desc: 'Direct manufacturer pricing means you bypass middleman margins and enjoy volume discounts immediately.' },
+  { icon: Award, title: 'Consistent quality', desc: 'ISO-grade quality checks from paper thickness tolerance to handle tensile strength.' },
+  { icon: Heart, title: 'Precision branding', desc: 'Your Pantone colors are replicated with minimal variance across our automated die-cut offset machines.' },
+  { icon: Leaf, title: 'Reliable timelines', desc: 'Our robust production pipeline ensures you receive your packaging exactly when promised.' },
+  { icon: Globe, title: 'Wholesale economics', desc: 'Direct manufacturer pricing means you bypass middleman margins and enjoy volume discounts immediately.' },
 ];
 
 export default function About() {
@@ -413,7 +413,7 @@ export default function About() {
                         e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                       }}
                     >
-                      <span>Read Bio</span>
+                      <span>Read bio</span>
                       <Info size={16} color="#4ade80" />
                     </button>
 
@@ -513,8 +513,8 @@ export default function About() {
             </div>
 
             <div className="anim-fade-up" style={{ order: isMobile || isTablet ? 0 : 1 }}>
-              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Standard of Excellence</div>
-              <h2 className="section-title" style={{ fontSize: isMobile ? '40px' : '64px', marginBottom: 28, lineHeight: 1.1 }}>Consistent <br /><span className="text-gradient">Perfection</span></h2>
+              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Standard of excellence</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? '40px' : '64px', marginBottom: 28, lineHeight: 1.1 }}>Consistent <br /><span className="text-gradient">perfection</span></h2>
               <p className="section-subtitle" style={{
                 marginBottom: isMobile ? 40 : 60,
                 fontSize: '20px',
@@ -609,7 +609,7 @@ export default function About() {
 
         <div className="container" style={{ position: 'relative', zIndex: 2, maxWidth: '1440px' }}>
           <div className="anim-fade-up">
-            <div className="eco-badge" style={{ marginBottom: 24, background: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'rgba(255,255,255,0.2)' }}>Sustainable Future</div>
+            <div className="eco-badge" style={{ marginBottom: 24, background: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'rgba(255,255,255,0.2)' }}>Sustainable future</div>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
               fontSize: 'clamp(36px, 6vw, 72px)',
@@ -618,7 +618,7 @@ export default function About() {
               lineHeight: 1.1,
               fontWeight: 600,
             }}>
-              Join the Nirmalyam <br /><span className="text-gradient">Eco-Legacy</span>
+              Join the Nirmalyam <br /><span className="text-gradient">eco-legacy</span>
             </h2>
             <Link to="/contact#contact-channels" style={{
               display: 'inline-flex',
@@ -646,7 +646,7 @@ export default function About() {
               e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
             }}
             >
-              Get a Quote <ArrowRight size={isMobile ? 18 : 22} />
+              Get a quote <ArrowRight size={isMobile ? 18 : 22} />
             </Link>
           </div>
         </div>

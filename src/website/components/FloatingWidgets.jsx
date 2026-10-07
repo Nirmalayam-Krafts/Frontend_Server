@@ -14,8 +14,8 @@ import { Link } from 'react-router-dom';
 const carouselImages = [
   {
     src: '/images/generated/ecocraft_vibrant_branded.webp',
-    title: 'Ecokraft Collection',
-    desc: 'Sustainable Everyday Packaging'
+    title: 'Ecokraft collection',
+    desc: 'Sustainable everyday packaging'
   },
   /* Temporarily hidden: Luxury Bags
   {
@@ -27,7 +27,7 @@ const carouselImages = [
   {
     src: '/images/generated/popup_bags_branded_new.webp',
     title: 'F&B Gourmet',
-    desc: 'Safe for Food, Kind to Earth'
+    desc: 'Safe for food, kind to Earth'
   }
 ];
 
@@ -402,7 +402,7 @@ export default function FloatingWidgets() {
 
             <div style={{ padding: isMobile ? '16px' : '20px' }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 18 : 21, color: '#1a1208', marginBottom: isMobile ? 6 : 8 }}>
-                Eco-Friendly Packaging
+                Eco-friendly packaging
               </h3>
               <p style={{ fontSize: isMobile ? 12 : 13, color: '#6f5b46', lineHeight: 1.5, marginBottom: isMobile ? 12 : 16 }}>
                 Specializing in <strong>Ecokraft</strong> and <strong>F&B Gourmet</strong> collections. 
@@ -421,8 +421,8 @@ export default function FloatingWidgets() {
               }}>
                 <ShoppingBag size={isMobile ? 16 : 18} color="#8b5e34" />
                 <div>
-                  <div style={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, color: '#8b5e34', textTransform: 'uppercase' }}>Minimum Order</div>
-                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 700, color: '#1a1208' }}>Starting from just 100 Units</div>
+                  <div style={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, color: '#8b5e34', textTransform: 'uppercase' }}>Minimum order</div>
+                  <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 700, color: '#1a1208' }}>Starting from just 100 units</div>
                 </div>
               </div>
 
@@ -445,7 +445,7 @@ export default function FloatingWidgets() {
                   boxShadow: '0 8px 20px rgba(22, 163, 74, 0.2)'
                 }}
               >
-                Explore Collections <ChevronRight size={16} />
+                Explore collections <ChevronRight size={16} />
               </Link>
             </div>
           </div>

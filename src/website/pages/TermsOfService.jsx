@@ -47,7 +47,7 @@ const termsSections = [
   {
     id: 'governing-law', icon: Scale, title: 'Governing Law & Disputes',
     content: [
-      { subtitle: 'Applicable Law', text: 'These Terms of Service shall be governed by and construed in accordance with the laws of India. Any disputes arising from these terms shall be subject to the exclusive jurisdiction of the courts in Kerala, India.' },
+      { subtitle: 'Applicable Law', text: 'These Terms of Service shall be governed by and construed in accordance with the laws of India. Any disputes arising from these terms shall be subject to the exclusive jurisdiction of the courts in Pune, Maharashtra, India.' },
       { subtitle: 'Dispute Resolution', text: 'In the event of any dispute, we encourage you to first contact us directly for an amicable resolution. If unresolved, both parties agree to submit to binding arbitration in accordance with the Arbitration and Conciliation Act, 1996.' },
       { subtitle: 'Severability', text: 'If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary, and the remaining provisions shall continue in full force and effect.' }
     ]
@@ -89,7 +89,7 @@ export default function TermsOfService() {
         <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '1440px' }}>
           <div className="anim-fade-up" style={{ textAlign: 'center', maxWidth: 800, margin: '0 auto' }}>
             <div className="eco-badge" style={{ marginBottom: 24, background: 'rgba(192,148,87,0.2)', color: 'var(--kraft-100)', borderColor: 'rgba(255,255,255,0.2)', margin: '0 auto 24px' }}>
-              <Scale size={14} /> Fair & Transparent
+              <Scale size={14} /> Fair & transparent
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(36px, 6vw, 72px)', color: 'white', fontWeight: 600, marginBottom: 24, lineHeight: 1.1 }}>
               Terms of <span style={{ color: 'var(--kraft-300)' }}>Service</span>
@@ -106,7 +106,7 @@ export default function TermsOfService() {
       <section style={{ padding: isMobile ? '48px 0 0' : '64px 0 0' }}>
         <div className="container" style={{ maxWidth: '1440px' }}>
           <div className="glass-card anim-fade-up" style={{ padding: isMobile ? '28px 24px' : '40px 48px', borderRadius: 'var(--radius-xl)', maxWidth: 900, margin: '0 auto', background: 'rgba(255,255,255,0.85)', border: '1px solid var(--kraft-200)' }}>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 20 : 24, color: 'var(--kraft-950)', marginBottom: 20, fontWeight: 700 }}>Quick Navigation</h3>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 20 : 24, color: 'var(--kraft-950)', marginBottom: 20, fontWeight: 700 }}>Quick navigation</h3>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 12 }}>
               {tocItems.map((item, idx) => (
                 <button key={item.id} onClick={() => scrollToSection(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: 'var(--kraft-50)', border: '1px solid var(--kraft-100)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.3s ease', textAlign: 'left', fontFamily: "'Inter', sans-serif", fontSize: 15, color: 'var(--kraft-800)', fontWeight: 600 }}

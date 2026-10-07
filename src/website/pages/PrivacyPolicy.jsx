@@ -170,7 +170,7 @@ export default function PrivacyPolicy() {
               margin: '0 auto 24px'
             }}>
               <Shield size={14} />
-              Your Data, Our Responsibility
+              Your data, our responsibility
             </div>
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
@@ -223,7 +223,7 @@ export default function PrivacyPolicy() {
               marginBottom: 20,
               fontWeight: 700
             }}>
-              Quick Navigation
+              Quick navigation
             </h3>
             <div style={{
               display: 'grid',

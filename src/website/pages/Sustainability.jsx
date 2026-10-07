@@ -7,10 +7,10 @@ import { SITE_URL } from '../config/seoConfig';
 
 /* ── Green Print steps ── */
 const greenPrint = [
-  { icon: Cog, title: 'Manufacturing Excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/manufacturing_excellence.png' },
-  { icon: Droplets, title: 'Non-Toxic Printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.', image: '/images/generated/eco_inks.webp' },
-  { icon: Truck, title: 'Efficient Transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.', image: '/images/generated/step_efficient_transit_1775638398608.webp' },
-  { icon: Recycle, title: '100% Compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.', image: '/images/generated/step_compostable_1775638415138.webp' },
+  { icon: Cog, title: 'Manufacturing excellence', desc: 'State-of-the-art in-house facilities with rigorous quality control and precision engineering. Advanced machinery combined with skilled craftsmanship for consistent product excellence.', image: '/images/manufacturing_excellence.png' },
+  { icon: Droplets, title: 'Non-toxic printing', desc: 'Our presses run exclusively on soy and water-based inks that contain zero heavy metals or harmful VOCs.', image: '/images/generated/eco_inks.webp' },
+  { icon: Truck, title: 'Efficient transit', desc: 'Bags are packed in optimised kraft cartons, eliminating transit plastics completely while reducing volumetric weight.', image: '/images/generated/step_efficient_transit_1775638398608.webp' },
+  { icon: Recycle, title: '100% compostable', desc: 'Once the bag\'s lifespan concludes, it returns safely to the earth within 90 days without leaving microplastics.', image: '/images/generated/step_compostable_1775638415138.webp' },
 ];
 
 /* ── Laws & Benefits ── */
@@ -21,10 +21,10 @@ const legalLaws = [
 ];
 
 const paperBenefits = [
-  { title: '90 Day Biodegradation', desc: 'Breaks down naturally without leaving microplastics, returning nutrients to the soil.' },
-  { icon: Recycle, title: 'Infinite Recyclability', desc: 'Paper fibers can be recycled up to 7 times, making it a circular economy champion.' },
-  { title: 'Recycled & Circular', desc: 'Made from high-content recycled paper fibers, avoiding virgin tree harvesting and promoting circular waste loops.' },
-  { title: 'Tactile Brand Value', desc: 'Offers an organic, premium branding experience that immediately communicates your plastic-free commitment.' }
+  { title: '90-Day biodegradation', desc: 'Breaks down naturally without leaving microplastics, returning nutrients to the soil.' },
+  { icon: Recycle, title: 'Infinite recyclability', desc: 'Paper fibers can be recycled up to 7 times, making them a circular economy champion.' },
+  { title: 'Recycled & circular', desc: 'Made from high-content recycled paper fibers, avoiding virgin tree harvesting and promoting circular waste loops.' },
+  { title: 'Tactile brand value', desc: 'Offers an organic, premium branding experience that immediately communicates your plastic-free commitment.' }
 ];
 
 export default function Sustainability() {
@@ -80,7 +80,7 @@ export default function Sustainability() {
               borderColor: 'rgba(74, 222, 128, 0.2)',
               margin: isMobile || isTablet ? '0 auto 24px' : '0 0 24px'
             }}>
-              Our Green Commitment
+              Our green commitment
             </div>
             <h1 style={{
               fontFamily: "'Playfair Display', serif",
@@ -204,10 +204,10 @@ export default function Sustainability() {
               Switch to paper bags today
             </div>
             <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>
-              Why we are shifting to paper
+              Why are we shifting to paper?
             </h2>
             <p className="section-subtitle" style={{ margin: '0 auto', fontSize: isMobile ? '18px' : '20px', maxWidth: 800, color: 'var(--kraft-600)' }}>
-              Single-use plastic bags are devasting our planet. Switching to recycled paper bags is a direct and simple way to end the plastic waste crisis.
+              Single-use plastic bags are devastating our planet. Switching to recycled paper bags is a direct and simple way to end the plastic waste crisis.
             </p>
           </div>
 
@@ -328,8 +328,8 @@ export default function Sustainability() {
         <div className="nature-layer-wood" style={{ opacity: 0.06 }} />
         <div className="container" style={{ position: 'relative', zIndex: 1, maxWidth: '1440px' }}>
           <div style={{ textAlign: 'center', marginBottom: isMobile ? 64 : 100, padding: '0 var(--container-gutter)' }}>
-            <div className="section-label" style={{ color: 'var(--eco-400)' }}>Engineering Purity</div>
-            <h2 className="section-title" style={{ color: 'white', fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>The Zero-Waste Cycle</h2>
+            <div className="section-label" style={{ color: 'var(--eco-400)' }}>Engineering purity</div>
+            <h2 className="section-title" style={{ color: 'white', fontSize: isMobile ? '36px' : '56px', marginBottom: 24 }}>The zero-waste cycle</h2>
             <p className="section-subtitle" style={{ color: 'rgba(255,255,255,0.7)', margin: '0 auto', fontSize: isMobile ? '18px' : '22px' }}>
               Full lifecycle transparency. From recycled material to safe organic decomposition.
             </p>
@@ -364,7 +364,7 @@ export default function Sustainability() {
                       <div style={{ width: 44, height: 44, background: 'rgba(74, 222, 128, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                          <Icon size={22} color="var(--eco-400)" />
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--eco-400)', letterSpacing: '0.15em' }}>STEP 0{i + 1}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--eco-400)', letterSpacing: '0.15em' }}>Step 0{i + 1}</span>
                     </div>
                     <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12, color: 'white' }}>{title}</h3>
                     <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>{desc}</p>
@@ -393,8 +393,8 @@ export default function Sustainability() {
             textAlign: isMobile || isTablet ? 'center' : 'left' 
           }}>
             <div className="anim-fade-up">
-              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Legal Readiness</div>
-              <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 28 }}>The Path to <br/>Plastic-Free</h2>
+              <div className="section-label" style={{ margin: isMobile || isTablet ? '0 auto 12px' : '0 0 12px' }}>Legal readiness</div>
+              <h2 className="section-title" style={{ fontSize: isMobile ? '36px' : '56px', marginBottom: 28 }}>Plastic free path</h2>
               <p className="section-subtitle" style={{ marginBottom: 48, fontSize: '20px', margin: isMobile || isTablet ? '0 auto 48px' : '0 0 48px' }}>
                 Environmental regulations are evolving rapidly. We partner with brands to ensure 100% compliance with local and global mandates.
               </p>
@@ -460,7 +460,7 @@ export default function Sustainability() {
 
         <div className="container" style={{ position: 'relative', zIndex: 2, maxWidth: '1440px' }}>
           <div className="anim-fade-up">
-            <div className="eco-badge" style={{ marginBottom: 24, background: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'rgba(255,255,255,0.2)' }}>Sustainable Future</div>
+            <div className="eco-badge" style={{ marginBottom: 24, background: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'rgba(255,255,255,0.2)' }}>Sustainable future</div>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
               fontSize: 'clamp(36px, 6vw, 72px)',
@@ -469,8 +469,8 @@ export default function Sustainability() {
               fontWeight: 600,
               lineHeight: 1.1
             }}>
-              Ready to Upgrade to <br />
-              <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), #fbbf24)' }}>Sustainable Packaging?</span>
+              Ready to upgrade to <br />
+              <span className="text-gradient" style={{ backgroundImage: 'linear-gradient(to right, var(--eco-400), #fbbf24)' }}>sustainable packaging?</span>
             </h2>
             <Link to="/contact#contact-channels" style={{
               display: 'inline-flex',
@@ -498,7 +498,7 @@ export default function Sustainability() {
               e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
             }}
             >
-              Request a Custom Quote <ArrowRight size={isMobile ? 18 : 22} />
+              Request a custom quote <ArrowRight size={isMobile ? 18 : 22} />
             </Link>
           </div>
         </div>

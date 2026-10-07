@@ -112,24 +112,16 @@ const categories = [
 const whyCards = [
   {
     id: 1,
-    title: 'Custom Design',
-    label: 'Bespoke Branding & Printing',
+    title: 'Custom design',
+    label: 'Bespoke branding & printing',
     image: '/images/why_printing.webp',
     icon: Palette,
     accent: 'var(--eco-600)'
   },
-  // {
-  //   id: 2,
-  //   title: 'Lowest Price',
-  //   label: 'Guaranteed Factory Rates',
-  //   image: '/images/newGen/LOWESTPRICE.jpeg',
-  //   icon: Shield,
-  //   accent: '#22c55e'
-  // },
   {
     id: 2,
     title: 'Artisanal',
-    label: 'Craftsmanship Heritage',
+    label: 'Craftsmanship heritage',
     image: '/images/new/ARTISION.webp',
     icon: Star,
     accent: '#f59e0b'
@@ -137,7 +129,7 @@ const whyCards = [
   {
     id: 3,
     title: 'Vibrant',
-    label: 'Versatile Collections',
+    label: 'Versatile collections',
     image: '/images/new/V_BottomBag6.webp',
     icon: TrendingUp,
     accent: '#ec4899'
@@ -1158,9 +1150,9 @@ export default function Home() {
               /* Temporarily hidden: Luxury Bags
               { name: 'Luxury Retail Bags', cat: 'Luxury', desc: 'Premium finish for fashion boutiques and high-end gifting.', color: '#c09457', image: '/images/prod_luxury_premium.webp', badge: 'Affordable Rates' },
               */
-              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/HERO2.webp', badge: 'Wholesale Deal' },
-              { name: 'Eco-Pouches', cat: 'Ecokraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget Option' },
-              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/new/KraftRoll_New.webp', badge: 'Cheapest in India' },
+              { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/HERO2.webp', badge: 'Wholesale deal' },
+              { name: 'Eco-Pouches', cat: 'Ecokraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget option' },
+              { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/new/KraftRoll_New.webp', badge: 'Best rates in India' },
             ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"
                 style={{
