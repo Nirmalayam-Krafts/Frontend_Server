@@ -27,24 +27,6 @@ const paperBenefits = [
   { title: 'Tactile Brand Value', desc: 'Offers an organic, premium branding experience that immediately communicates your plastic-free commitment.' }
 ];
 
-/* ── Success Stories ── */
-const caseStudies = [
-  {
-    client: 'Boutique Bloom',
-    transformation: '100% Plastic to Paper Transition',
-    result: '15% increase in premium brand perception and 2 tons of plastic eliminated annually.',
-    features: ['Enhanced Customer Unboxing', 'Sustainable Premium Branding', 'Zero-Plastic Packaging'],
-    image: '/images/generated/colorful_bags_branded_v2.webp'
-  },
-  {
-    client: 'Urban Organics',
-    transformation: 'Eco-Friendly Fulfillment',
-    result: 'Reduced logistical carbon footprint by 22% through optimized kraft carton transit.',
-    features: ['Reduced Volumetric Weight', 'Biodegradable Fillers', 'Circular Supply Chain'],
-    image: '/images/new/ECO.webp'
-  }
-];
-
 export default function Sustainability() {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const isMobile = windowWidth < 768;
@@ -449,78 +431,6 @@ export default function Sustainability() {
                 <img src="/images/generated/laws_eco.webp" alt="Eco Laws" style={{ width: '100%', borderRadius: 'var(--radius-2xl)', boxShadow: 'var(--shadow-2xl)' }} />
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <div style={{ height: 40 }} />
-
-      {/* ── SECTION: SUCCESS STORIES ── */}
-      <section className="section-padding" style={{ 
-        background: 'var(--kraft-950)', 
-        color: 'white',
-        padding: isMobile ? '100px var(--container-gutter)' : '160px 0',
-        marginBottom: isMobile ? 40 : 60
-      }}>
-        <div className="container" style={{ maxWidth: '1440px' }}>
-          <div style={{ textAlign: 'center', marginBottom: isMobile ? 64 : 100, padding: '0 var(--container-gutter)' }}>
-            <div className="section-label" style={{ color: 'var(--eco-400)' }}>Proof of Concept</div>
-            <h2 className="section-title" style={{ color: 'white', fontSize: isMobile ? '40px' : '64px', marginBottom: 24 }}>Success Stories</h2>
-            <p className="section-subtitle" style={{ color: 'rgba(255,255,255,0.7)', margin: '0 auto', fontSize: isMobile ? '18px' : '22px' }}>
-              Real-world transformations where sustainability met commercial success.
-            </p>
-          </div>
-
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', 
-            gap: isMobile ? 48 : 40,
-            padding: isMobile ? '0' : '0 40px'
-          }}>
-            {caseStudies.map((item, idx) => (
-              <div key={idx} className="anim-fade-up" style={{ animationDelay: `${idx * 0.2}s` }}>
-                <div style={{ 
-                  borderRadius: 'var(--radius-3xl)', 
-                  overflow: 'hidden',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  transition: 'all 0.5s',
-                  height: '100%'
-                }}>
-                  <div style={{ height: isMobile ? 300 : 450, overflow: 'hidden', position: 'relative' }}>
-                    <img src={item.image} alt={item.client} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div style={{ position: 'absolute', top: 24, left: 24, padding: '8px 20px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', borderRadius: '100px', color: 'white', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em' }}>
-                      CLIENT: {item.client.toUpperCase()}
-                    </div>
-                  </div>
-                  <div style={{ padding: isMobile ? '32px' : '60px' }}>
-                    <h3 style={{ fontSize: isMobile ? 28 : 36, fontWeight: 700, color: 'white', marginBottom: 24, fontFamily: "'Playfair Display', serif" }}>{item.transformation}</h3>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }}>
-                      {item.features.map((feature, fidx) => (
-                        <div key={fidx} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{ width: 8, height: 8, background: 'var(--eco-400)', borderRadius: '50%' }} />
-                          <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div style={{ 
-                      padding: '32px', 
-                      background: 'rgba(74, 222, 128, 0.08)', 
-                      borderRadius: '24px', 
-                      borderLeft: '6px solid var(--eco-500)',
-                      boxShadow: 'inset 0 0 40px rgba(0,0,0,0.2)'
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--eco-400)', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.2em' }}>Key Result</div>
-                      <p style={{ fontSize: 18, color: 'white', fontWeight: 600, fontStyle: 'italic', lineHeight: 1.6 }}>
-                        "{item.result}"
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
