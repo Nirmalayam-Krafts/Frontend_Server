@@ -366,7 +366,7 @@ export default function Sustainability() {
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--eco-400)', letterSpacing: '0.15em' }}>Step 0{i + 1}</span>
                     </div>
-                    <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12, color: 'white' }}>{title}</h3>
+                    <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 22, fontWeight: 700, marginBottom: 12, color: 'white', letterSpacing: '-0.01em' }}>{title}</h3>
                     <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>{desc}</p>
                   </div>
                 </div>

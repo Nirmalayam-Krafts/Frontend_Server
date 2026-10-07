@@ -306,10 +306,11 @@ h6 {
 }
 
 .stat-value {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Inter', sans-serif;
   font-size: clamp(32px, 5vw, 48px);
   color: var(--eco-700);
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1;
   margin-bottom: 8px;
 }

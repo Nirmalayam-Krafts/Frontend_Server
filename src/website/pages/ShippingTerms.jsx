@@ -116,7 +116,7 @@ export default function ShippingTerms() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
               >
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, color: 'var(--eco-700)', marginBottom: 4 }}>{item.value}</div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 28, fontWeight: 700, color: 'var(--eco-700)', marginBottom: 4 }}>{item.value}</div>
                 <div style={{ fontSize: 13, color: 'var(--kraft-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.label}</div>
               </div>
             ))}

@@ -597,7 +597,8 @@ export default function Home() {
                   fontSize: isMobile ? '16px' : '20px',
                   fontWeight: 900,
                   color: '#1a1208',
-                  fontFamily: "'Playfair Display', serif"
+                  fontFamily: "'Inter', sans-serif",
+                  letterSpacing: '-0.02em'
                 }}>100% Plastic-free</span>
               </div>
             </motion.div>
