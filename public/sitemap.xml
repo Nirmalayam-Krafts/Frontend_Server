@@ -40,12 +40,6 @@
 
   <!-- Commercial Product Category Landers -->
   <url>
-    <loc>https://nirmalyamkrafts.com/products/custom-printed-paper-bags</loc>
-    <lastmod>2026-10-05</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.85</priority>
-  </url>
-  <url>
     <loc>https://nirmalyamkrafts.com/products/ecocraft</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>weekly</changefreq>
@@ -65,12 +59,6 @@
   </url>
   <url>
     <loc>https://nirmalyamkrafts.com/products/grocery-bags</loc>
-    <lastmod>2026-10-05</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nirmalyamkrafts.com/products/handle-bags</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

@@ -26,8 +26,14 @@ const CANONICAL_MAP = {
   ecokraft: 'ecocraft',
   fnb: 'food-bakery-bags',
   industrial: 'kraft-paper-rolls',
-  'flat-handle': 'handle-bags',
 };
+
+const HIDDEN_CATEGORIES = [
+  'luxury',
+  'custom-printed-paper-bags',
+  'handle-bags',
+  'flat-handle',
+];
 
 const categoryData = {
   ecocraft: {
@@ -101,41 +107,6 @@ const categoryData = {
     ]
   },
 
-  'custom-printed-paper-bags': {
-    id: 'custom-printed-paper-bags',
-    title: 'Custom Printed Paper Bags',
-    seoTitle: 'Custom Printed Paper Bags Manufacturer in Pune | Nirmalyam Krafts',
-    seoDesc: 'Bespoke custom printed paper bags for brands and businesses. Precision Pantone matching, high-definition logo printing, custom sizes, and multiple handle options at direct factory rates in Pune.',
-    keywords: 'custom printed paper bags, printed paper bags, branded paper bags, logo printed paper bags, custom paper bags Pune, printed kraft paper bags India',
-    image: '/images/why_printing.webp',
-    minOrder: '100 UNITS',
-    color: '#16a34a',
-    description: 'Bespoke branded packaging engineered to turn every customer purchase into a walking brand endorsement.',
-    longDescription: 'Nirmalyam Krafts specializes in custom printed paper bags tailored to your exact brand specifications. From high-definition multi-color graphics to precise Pantone color matching, we provide custom sizes, paper weights, and handle finishes at direct manufacturer pricing.',
-    bullets: [
-      { label: 'Pantone Accurate', icon: Award },
-      { label: 'Multi-Color Print', icon: Droplets },
-      { label: 'Custom Sizing', icon: Settings },
-      { label: 'Direct Factory Rate', icon: Zap }
-    ],
-    specs: [
-      { label: 'Material', value: 'Virgin & Recycled Brown / White Kraft', icon: Layers },
-      { label: 'Print Types', value: 'High-Precision Flexo / Offset', icon: Settings },
-      { label: 'Weight Range', value: '70 - 150 GSM', icon: Weight },
-      { label: 'Handles', value: 'Twisted Cord, Flat Fold, Ribbon', icon: Heart },
-      { label: 'Min Order', value: '100 units', icon: Package }
-    ],
-    gallery: [
-      { title: 'Vibrant Series', desc: 'Modern colorful branding', image: '/images/collection_ecocraft_new.webp' },
-      { title: 'Retail Excellence', desc: 'High-volume branded carry', image: '/images/newGen/BOTTOMvF.jpeg' },
-      { title: 'Artisanal Finish', desc: 'Natural brown kraft print', image: '/images/new/V_BottomBag6.webp' }
-    ],
-    faqs: [
-      { q: 'What is the lead time for custom printed paper bags?', a: 'Standard custom printed orders are manufactured and dispatched within 7–10 business days after digital artwork approval.' },
-      { q: 'Can you match exact brand Pantone colors?', a: 'Yes, our automated printing systems replicate Pantone color standards with minimal variance.' }
-    ]
-  },
-
   'shopping-bags': {
     id: 'shopping-bags',
     title: 'Custom Paper Shopping Bags',
@@ -202,40 +173,6 @@ const categoryData = {
     ],
     faqs: [
       { q: 'Can your grocery paper bags stand upright on their own?', a: 'Yes, our grocery bags feature square block bottoms that remain self-standing on checkout counters for swift packing.' }
-    ]
-  },
-
-  'handle-bags': {
-    id: 'handle-bags',
-    title: 'Paper Bags with Handles',
-    seoTitle: 'Paper Bags with Handles | Custom Handle Bags | Nirmalyam Krafts',
-    seoDesc: 'Versatile paper bags with comfortable, durable handles including twisted paper handles and flat fold handles. Engineered for retail, takeaway, and gifting applications.',
-    keywords: 'paper bags with handles, handle paper bags, kraft paper bags with handles, twisted handle paper bags, flat handle paper bags, custom handle paper bags Pune',
-    image: '/images/prod_flat_paper.webp',
-    minOrder: '100 UNITS',
-    color: '#145c38',
-    description: 'Ergonomic paper carry bags with strong bonded handles engineered for maximum customer comfort.',
-    longDescription: 'Our handle bags range includes twisted kraft cords and reinforced flat fold paper handles. Produced on automated German-engineered lines, handle patches are chemically and structurally bonded to ensure zero handle detachment even under peak loads.',
-    bullets: [
-      { label: 'Reinforced Bond', icon: ShieldCheck },
-      { label: 'Comfort Grip', icon: Heart },
-      { label: 'Zero Detachment', icon: Zap },
-      { label: 'Recyclable Handle', icon: Leaf }
-    ],
-    specs: [
-      { label: 'Material', value: 'Heavy Virgin Kraft Paper', icon: Layers },
-      { label: 'Handle Types', value: 'Twisted Paper Cord / Flat Fold Paper', icon: Settings },
-      { label: 'Load Test', value: 'Up to 12kg', icon: Scale },
-      { label: 'Base', value: 'Block-Bottomed Reinforcement', icon: Package },
-      { label: 'Min Order', value: '100 units', icon: Package }
-    ],
-    gallery: [
-      { title: 'Twisted Handle Bags', desc: 'Classic comfortable twisted cord', image: '/images/newGen/BOTTOMV.jpeg' },
-      { title: 'Flat Handle Bags', desc: 'Economical high-volume carry', image: '/images/prod_flat_paper.webp' },
-      { title: 'Printed Handle Bags', desc: 'Branded retail packaging', image: '/images/newGen/BOTTOMvF.jpeg' }
-    ],
-    faqs: [
-      { q: 'What is the difference between twisted handles and flat handles?', a: 'Twisted handles use coiled kraft paper cords for a classic upscale look, while flat handles use folded kraft strips that provide wide weight distribution at economical production cost.' }
     ]
   },
 
@@ -355,14 +292,14 @@ export default function ProductCategory() {
   const isMobile = windowWidth < 768;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-  // 1. Alias handling: seamless redirect to canonical SEO slug
-  if (CANONICAL_MAP[categoryId]) {
-    return <Navigate to={`/products/${CANONICAL_MAP[categoryId]}`} replace />;
+  // 1. Explicitly hidden collections redirect to /products
+  if (HIDDEN_CATEGORIES.includes(categoryId)) {
+    return <Navigate to="/products" replace />;
   }
 
-  // 2. Luxury collection hidden per explicit business instruction
-  if (categoryId === 'luxury') {
-    return <Navigate to="/products" replace />;
+  // 2. Alias handling: seamless redirect to canonical SEO slug
+  if (CANONICAL_MAP[categoryId]) {
+    return <Navigate to={`/products/${CANONICAL_MAP[categoryId]}`} replace />;
   }
 
   const data = categoryData[categoryId];

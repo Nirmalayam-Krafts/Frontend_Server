@@ -7,16 +7,6 @@ import { SITE_URL } from '../config/seoConfig';
 
 const categories = [
   {
-    id: 'custom-printed-paper-bags',
-    title: 'Custom Printed Paper Bags',
-    subtitle: 'Branded Retail & Promotional Bags',
-    description: 'Precision flexographic and offset printed paper bags with high-resolution custom logos, brand colors, and premium finishes. Perfect for retail fashion, corporate events, and brand identity.',
-    image: '/images/collection_printed_new.webp',
-    videoStill: '/images/collection_printed_new.webp',
-    color: '#0284c7',
-    features: ['High-Definition Logo Printing', 'Custom Sizes & Side Gussets', 'Eco-Friendly Water-Based Inks']
-  },
-  {
     id: 'food-bakery-bags',
     title: 'Food & Bakery Paper Bags',
     subtitle: 'Safe for Food, Kind to Earth',
@@ -35,16 +25,6 @@ const categories = [
     videoStill: '/images/generated/video_ecocraft.webp',
     color: '#16a34a',
     features: ['60 - 140 GSM Kraft', 'Square & V-Bottom Options', '100% Recyclable & Biodegradable']
-  },
-  {
-    id: 'handle-bags',
-    title: 'Handle Paper Bags',
-    subtitle: 'Twisted, Rope & Flat Handle Bags',
-    description: 'Sturdy shopping carry bags with ergonomically reinforced paper handles. Engineered for superior load-bearing capacity up to 15 kg for retail shopping and gifting.',
-    image: '/images/collection_ecocraft_new.webp',
-    videoStill: '/images/collection_ecocraft_new.webp',
-    color: '#145c38',
-    features: ['Twisted & Rope Handles', 'Reinforced Bottom Patch', 'Heavy Duty Load Bearing']
   },
   {
     id: 'kraft-paper-rolls',

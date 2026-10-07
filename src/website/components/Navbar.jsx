@@ -8,10 +8,8 @@ const navLinks = [
     label: 'Products',
     to: '/products',
     children: [
-      { label: 'Custom Printed Bags', to: '/products/custom-printed-paper-bags' },
       { label: 'Food & Bakery Bags', to: '/products/food-bakery-bags' },
       { label: 'EcoCraft Paper Bags', to: '/products/ecocraft' },
-      { label: 'Handle Paper Bags', to: '/products/handle-bags' },
       { label: 'Kraft Paper Rolls', to: '/products/kraft-paper-rolls' },
     ],
   },

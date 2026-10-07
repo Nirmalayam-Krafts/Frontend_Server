@@ -80,15 +80,6 @@ const testimonials = [
 /* ── Category cards ── */
 const categories = [
   {
-    title: 'Custom Printed Bags',
-    desc: 'Bespoke branded bags with high-precision flexographic logo printing for retail and promotional events.',
-    icon: Palette,
-    image: '/images/collection_printed_new.webp',
-    color: '#0284c7',
-    bg: '#f0f9ff',
-    to: '/products/custom-printed-paper-bags',
-  },
-  {
     title: 'Food & Bakery Bags',
     desc: 'Food-grade, grease-resistant kraft bags for cafes, cloud kitchens, bakeries, and takeaway packaging.',
     icon: Zap,
@@ -105,15 +96,6 @@ const categories = [
     color: '#16a34a',
     bg: '#f0fdf4',
     to: '/products/ecocraft',
-  },
-  {
-    title: 'Handle Paper Bags',
-    desc: 'High-strength rope, twisted, and flat handle kraft shopping bags with reinforced bottoms.',
-    icon: Package,
-    image: '/images/collection_ecocraft_new.webp',
-    color: '#145c38',
-    bg: '#f0fdf4',
-    to: '/products/handle-bags',
   },
   {
     title: 'Kraft Paper Rolls',
@@ -1184,7 +1166,6 @@ export default function Home() {
               */
               { name: 'Food & Bakery Bags', cat: 'F&B', desc: 'Oil-resistant kraft bags perfect for cloud kitchens and bakeries.', color: '#f59e0b', image: '/images/new/HERO2.webp', badge: 'Wholesale Deal' },
               { name: 'Eco-Pouches', cat: 'Ecokraft', desc: 'Modern stand-up pouches for snacks, nuts, and organic dry goods.', color: '#1a4a2e', image: '/images/newGen/BOTTOMvF.jpeg', badge: 'Budget Option' },
-              { name: 'Handle Bags', cat: 'Ecokraft', desc: 'Sturdy, economical solutions for retail and supermarket needs.', color: '#145c38', image: '/images/collection_ecocraft_new.webp', badge: 'From ₹2.50/pc' },
               { name: 'Industrial Kraft Rolls', cat: 'Industrial', desc: 'Bulk rolls designed for protection during shipping and industrial use.', color: '#4a3728', image: '/images/new/KraftRoll_New.webp', badge: 'Cheapest in India' },
             ].map(({ name, cat, desc, color, image, badge }, idx) => (
               <div key={name} className="product-card anim-reveal"

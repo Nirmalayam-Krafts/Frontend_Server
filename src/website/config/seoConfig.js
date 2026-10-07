@@ -49,8 +49,8 @@ export const ROUTE_SEO = {
   '/products': {
     title: 'Paper Bags & Sustainable Packaging Products | Nirmalyam Krafts',
     h1: 'B2B Paper Bags & Packaging Collections',
-    description: 'Explore our complete range of B2B paper bags: custom printed bags, food & bakery bags, eco-friendly kraft shopping bags, handle bags, square bottom bags, and kraft paper rolls manufactured in Pune, India.',
-    keywords: 'paper bags, kraft paper bags, custom paper bags, printed paper bags, eco friendly paper bags, paper shopping bags, food paper bags, grocery paper bags, handle paper bags, kraft paper rolls',
+    description: 'Explore our complete range of B2B paper bags: food & bakery bags, eco-friendly kraft shopping bags, square bottom bags, and kraft paper rolls manufactured in Pune, India.',
+    keywords: 'paper bags, kraft paper bags, eco friendly paper bags, paper shopping bags, food paper bags, grocery paper bags, square bottom bags, kraft paper rolls',
     canonical: `${SITE_URL}/products`,
     ogType: 'website',
   },
@@ -70,14 +70,6 @@ export const ROUTE_SEO = {
     canonical: `${SITE_URL}/products/food-bakery-bags`,
     ogType: 'product',
   },
-  '/products/custom-printed-paper-bags': {
-    title: 'Custom Printed Paper Bags Manufacturer in Pune | Nirmalyam Krafts',
-    h1: 'Custom Printed Paper Bags with Logo',
-    description: 'Bespoke custom printed paper bags for brands and businesses. Precision Pantone matching, high-definition flexo/offset printing, custom bag sizes, and multiple handle options at direct factory rates.',
-    keywords: 'custom printed paper bags, printed paper bags, branded paper bags, logo printed paper bags, custom paper bags Pune, printed kraft paper bags, branded retail bags India',
-    canonical: `${SITE_URL}/products/custom-printed-paper-bags`,
-    ogType: 'product',
-  },
   '/products/shopping-bags': {
     title: 'Custom Paper Shopping Bags Manufacturer | Nirmalyam Krafts',
     h1: 'Custom Paper Shopping Bags & Retail Carry Bags',
@@ -92,14 +84,6 @@ export const ROUTE_SEO = {
     description: 'Sturdy square-bottom kraft grocery paper bags for supermarkets, grocery stores, and departmental retail. High load capacity, tear resistance, and eco-friendly paper construction.',
     keywords: 'grocery paper bags, kraft grocery bags, paper grocery bags, grocery carry bags, paper bags for supermarkets, sustainable grocery bags Pune',
     canonical: `${SITE_URL}/products/grocery-bags`,
-    ogType: 'product',
-  },
-  '/products/handle-bags': {
-    title: 'Paper Bags with Handles | Custom Handle Bags | Nirmalyam Krafts',
-    h1: 'Paper Bags with Handles (Twisted & Flat)',
-    description: 'Versatile paper bags with comfortable, durable handles including twisted paper handles and flat fold handles. Engineered for retail, takeaway, and gifting applications.',
-    keywords: 'paper bags with handles, handle paper bags, kraft paper bags with handles, twisted handle paper bags, flat handle paper bags, custom handle paper bags Pune',
-    canonical: `${SITE_URL}/products/handle-bags`,
     ogType: 'product',
   },
   '/products/square-bottom-bags': {
