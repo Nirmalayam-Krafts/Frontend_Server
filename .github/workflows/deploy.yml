@@ -77,14 +77,45 @@ jobs:
       url: http://187.127.169.86
 
     steps:
-      - name: SSH → Pull image and rolling-update frontend
+      - name: SSH → Pull image and rolling-update frontend (attempt 1)
+        id: deploy_attempt_1
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
-          timeout: 2m
+          timeout: 5m
+          command_timeout: 20m
+          envs: FRONTEND_IMAGE
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+
+            if grep -q "^FRONTEND_IMAGE=" .env; then
+              sed -i "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${FRONTEND_IMAGE}|" .env
+            else
+              echo "FRONTEND_IMAGE=${FRONTEND_IMAGE}" >> .env
+            fi
+
+            docker compose -f docker-compose.production.yml pull frontend
+            docker compose -f docker-compose.production.yml up -d \
+              --no-deps --force-recreate frontend
+            docker image prune -f --filter "until=24h" || true
+            echo "✅ Frontend deployed."
+            docker compose -f docker-compose.production.yml ps frontend
+
+      - name: SSH → Pull image and rolling-update frontend (attempt 2)
+        if: steps.deploy_attempt_1.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          timeout: 5m
           command_timeout: 20m
           envs: FRONTEND_IMAGE
           script_stop: true
