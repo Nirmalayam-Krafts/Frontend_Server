@@ -16,7 +16,6 @@ const navLinks = [
   // { label: 'Design your product', to: '/design' },
   { label: 'About', to: '/about' },
   { label: 'Sustainable solutions', to: '/sustainability' },
-  { label: 'Get quote', to: '/quote' },
   { label: 'Contact', to: '/contact' },
 ];
 
